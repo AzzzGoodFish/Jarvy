@@ -1,0 +1,21 @@
+import type { Store } from "../../infra/storage/store.js";
+import type { ConfiguredModel } from "../../shared/models.js";
+import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
+import type { Model as ModelPort, PreparedModel } from "./contracts.js";
+
+export class Model implements ModelPort {
+  constructor(private readonly botId: string, private readonly store: Store, private readonly resolve: (model: ConfiguredModel, level: string) => string) {}
+  current(): PreparedModel {
+    const bot = this.store.getBot(this.botId)!;
+    if (!bot.connectionId || !bot.modelId) throw new RuntimeFault("model_required", "请先为 Bot 选择模型。", 422);
+    return { selection: { connectionId: bot.connectionId, modelId: bot.modelId, thinkingLevel: bot.thinkingLevel }, credentialRef: bot.connectionId };
+  }
+  async prepare(input: ModelSelection): Promise<PreparedModel> {
+    const selection = this.store.validateSelection(this.botId, { ...input })!;
+    const configured = this.store.getModelConnection(selection.connectionId)!.models.find(m => m.id === selection.modelId)!;
+    if (selection.thinkingLevel !== "auto") selection.thinkingLevel = this.resolve(configured, selection.thinkingLevel);
+    return { selection, credentialRef: selection.connectionId, changeId: this.store.runtime.beginModelChange(this.botId, selection) };
+  }
+  async commit(model: PreparedModel) { this.store.runtime.modelChanged(model.changeId!, this.botId, model.selection); }
+  failed(model: PreparedModel, error: unknown) { this.store.runtime.modelChangeFailed(model.changeId!, !(error instanceof RuntimeFault) || error.code === "model_switch_uncertain"); }
+}

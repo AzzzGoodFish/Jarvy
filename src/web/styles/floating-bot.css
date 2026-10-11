@@ -1,0 +1,21 @@
+/* Live 3D Bot floating over the chat (avatar/FloatingBot.tsx); it replaces the chat title bar. */
+.jv-floating-bot { position: absolute; top: 10px; right: 10px; z-index: 5; width: 88px; height: 88px; padding: 0; border: 0; border-radius: 24px;
+  background: transparent; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.jv-floating-bot:active { cursor: grabbing; }
+.jv-floating-bot > canvas { display: block; width: 100%; height: 100%; }
+.jv-floating-bot:not([data-live]) > canvas { position: absolute; inset: 0; opacity: 0; }
+.jv-floating-bot .jv-bot-avatar { width: 100%; height: 100%; }
+.jv-floating-bot:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
+/* Mobile: the sidebar toggle that lived in the title bar floats top-left. */
+.jv-floating-nav { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: 10px; background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .08); }
+/* At the top of the history nothing sits under the cat in its default spot. */
+.jarvy-transcript { padding-top: 100px; }
+@media (max-width: 620px) {
+  .jv-floating-bot { width: 60px; height: 60px; border-radius: 18px; }
+  .jarvy-transcript { padding-top: 76px; }
+}
+/* The Bot's DMs with other Bots (bot/BotDirects.tsx), top-left of its DM; on mobile beside the sidebar toggle. */
+.jv-floating-dms { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: 10px; background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .08); }
+@media (max-width: 620px) { .jv-floating-dms { left: 52px; } }

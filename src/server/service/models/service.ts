@@ -1,0 +1,83 @@
+import type { Store } from "../../infra/storage/store.js";
+import type { ModelConnection } from "../../shared/models.js";
+import { RuntimeFault } from "../../shared/runtime.js";
+import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
+import type { CredentialLogins } from "../../infra/pi/auth.js";
+import { providerCatalog } from "../../infra/pi/catalog.js";
+import { modelCatalog, builtinModelCatalog } from "../../infra/pi/model.js";
+import { ConnectionCredentials } from "../../infra/pi/credentials.js";
+import { thinkingOptions } from "../../infra/pi/thinking.js";
+import { autoconfigure } from "../../infra/pi/autoconfig.js";
+import { discoverModels } from "../../infra/models/discovery.js";
+
+/** Model settings and credential operations; HTTP never constructs SDK credentials. */
+export class ModelService {
+  constructor(private readonly store: Store, private readonly credentials: CredentialCoordinator,
+    private readonly logins: CredentialLogins, private readonly changed: (connectionId: string) => void) {}
+  private required(value: ModelConnection | null): ModelConnection {
+    if (!value) throw new RuntimeFault("connection_missing", "Connection not found", 404);
+    return value;
+  }
+  list() { return this.store.listModelConnections(); }
+  create(input: Record<string, unknown>) { return this.store.createModelConnection(input); }
+  update(id: string, input: Record<string, unknown>) {
+    const saved = this.required(this.store.updateModelConnection(id, input));
+    this.changed(id); return saved;
+  }
+  async delete(id: string) {
+    await this.logins.cancel(id);
+    if (!this.store.deleteModelConnection(id)) throw new RuntimeFault("connection_missing", "Connection not found", 404);
+  }
+  saveCredential(id: string, input: Record<string, unknown>) {
+    const saved = this.required(this.store.saveModelCredential(id, input));
+    this.changed(id); return saved;
+  }
+  saveModel(id: string, model: unknown, originalId?: string) {
+    const saved = this.required(this.store.saveConnectionModel(id, model, originalId));
+    this.changed(id); return saved;
+  }
+  deleteModel(id: string, modelId: string) { return this.required(this.store.deleteConnectionModel(id, modelId)); }
+  providers() { return providerCatalog(); }
+  builtinModels(provider: string) { return builtinModelCatalog(provider); }
+  async catalog(id: string) {
+    const connection = this.required(this.store.getModelConnection(id));
+    const credentials = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.userMemberId(), id, connection.providerName);
+    return modelCatalog(credentials, connection.providerName);
+  }
+  discover(input: Record<string, unknown>, signal: AbortSignal) {
+    if (typeof input.baseUrl !== "string") throw new RuntimeFault("discovery_url", "请填写 API URL。", 400);
+    let key = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
+    if (!key && typeof input.connectionId === "string") {
+      this.required(this.store.getModelConnection(input.connectionId));
+      const credential = this.store.credentials.read(this.store.userMemberId(), input.connectionId)?.value;
+      if (credential?.type === "api_key") key = credential.key ?? "";
+    }
+    if (!key) throw new RuntimeFault("discovery_key", "请填写 API Key。", 400);
+    return discoverModels({ api: String(input.api ?? "openai-completions"), baseUrl: input.baseUrl, key }, signal);
+  }
+  /** Suggests model fields from the local Pi catalog; the caller decides whether to save them. */
+  autoconfigure(input: Record<string, unknown>) {
+    const text = (value: unknown) => typeof value === "string" && value.trim() && value.length <= 200 ? value.trim() : null;
+    const modelId = text(input.modelId), api = text(input.api);
+    if (!modelId || !api) throw new RuntimeFault("autoconfig_input", "请填写模型 ID。", 400);
+    let choice: { provider: string; modelId: string } | undefined;
+    if (input.choice !== undefined) {
+      const raw = input.choice as Record<string, unknown> | null;
+      const provider = text(raw?.provider), chosen = text(raw?.modelId);
+      if (!provider || !chosen) throw new RuntimeFault("autoconfig_input", "配置来源无效。", 400);
+      choice = { provider, modelId: chosen };
+    }
+    return autoconfigure(modelId, api, choice);
+  }
+  options() {
+    return this.list().filter(connection => connection.models.length).map(connection => ({
+      id: connection.id, name: connection.displayName,
+      models: connection.models.map(model => ({ id: model.id, name: model.name, thinking: thinkingOptions(model), thinkingLevelMap: model.thinkingLevelMap })),
+    }));
+  }
+  loginStatus(id: string) { return this.logins.status(id); }
+  startLogin(id: string) { return this.logins.start(id); }
+  cancelLogin(id: string) { return this.logins.cancel(id); }
+  loginInput(id: string, input: Record<string, unknown>) { return this.logins.input(id, input); }
+  logout(id: string) { return this.logins.logout(id); }
+}

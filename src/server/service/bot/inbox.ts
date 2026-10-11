@@ -1,0 +1,52 @@
+import { join, dirname } from "node:path";
+import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
+import type { ChatFiles } from "../chat/files.js";
+import type { ChatService } from "../chat/service.js";
+import { encodeChatBatch, encodeNoticeBatch, type EnvelopeNotice } from "../chat/envelope.js";
+import type { BotNotice } from "../../infra/storage/interaction-repository.js";
+import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
+
+export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
+/** Converts already-committed Chat input into runtime input; no SDK dependencies. */
+export class BotInbox {
+  constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles) {}
+  /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. */
+  pending() { return this.repository.hasPending(this.botId) || this.hasNotices(); }
+  claim(selection: ModelSelection) { return this.repository.claim(this.botId, selection, this.hasNotices()); }
+  private hasNotices() { return this.chats.notices(this.botId).length > 0; }
+  reference(workspace: string) {
+    if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "模型切换尚未确认，请重新选择模型。");
+    return this.repository.ensureSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
+  }
+  /** XML for the claimed messages plus the tail (other deliveries not told yet, unread); `notices` are told once
+   * the batch is submitted. */
+  async prepare(batch: InputBatch): Promise<{ xml: string; notices: number[] } | null> {
+    // A run for notices alone; null when they were withdrawn since the claim.
+    if (!batch.inputs.length) { const pending = this.notices(); return pending && { xml: pending.xml, notices: pending.ids }; }
+    const inputs = await this.files.envelope(this.botId, batch.inputs.map(input => input.messageId));
+    for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "聊天访问权限已变化。");
+    const digest = this.chats.channels.digest(this.botId);
+    // Deliveries never steered into a run (A39, A41) are told with this batch.
+    const pending = this.envelope(this.chats.notices(this.botId));
+    return { xml: encodeChatBatch(this.botId, inputs, digest, pending.length ? pending : undefined), notices: pending.map(notice => notice.id) };
+  }
+  /** Inbox rows as the envelope shape; the steered and the batch tails share it. */
+  private envelope(notices: readonly BotNotice[]): EnvelopeNotice[] {
+    return notices.map(notice => {
+      const chat = { id: notice.chatId, type: notice.chatType as "dm" | "channel" | "thread", title: notice.chatTitle };
+      if (notice.kind === "note") return { kind: "note" as const, id: notice.id, chat, actor: notice.actor, version: Number(notice.detail), createdAt: notice.createdAt };
+      const text = notice.messageId ? this.chats.message(this.botId, notice.messageId)?.content.slice(0, 120) ?? "" : "";
+      return { kind: "reaction" as const, id: notice.id, chat, message: { id: notice.messageId ?? "", text }, actor: notice.actor, emoji: notice.detail, createdAt: notice.createdAt };
+    });
+  }
+  /** The batch went to the model: each delivery in its tail is told once. */
+  acknowledge(notices: readonly number[]) { if (notices.length) this.tell(notices); }
+  /** Notices the Bot has not been told (A39), as the XML that goes into a steered message or a batch tail. */
+  notices(): { xml: string; ids: number[] } | null {
+    const pending = this.chats.notices(this.botId);
+    if (!pending.length) return null;
+    return { xml: encodeNoticeBatch(this.botId, this.envelope(pending)), ids: pending.map(notice => notice.id) };
+  }
+  /** These notices reached the model. */
+  tell(ids: readonly number[]) { this.chats.tellNotices(this.botId, ids); }
+}

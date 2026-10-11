@@ -1,0 +1,67 @@
+/* Tailwind utilities for the shadcn components, without Tailwind's global Preflight: the app shell
+   (shell.css) keeps its own element defaults in a lower cascade layer. */
+@layer theme, base, shell, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "../";
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * .6);
+  --radius-md: calc(var(--radius) * .8);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --radius: .625rem;
+  --background: oklch(.995 .002 250);
+  --foreground: oklch(.2 .012 260);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --primary: oklch(.25 .02 255);
+  --primary-foreground: oklch(.99 0 0);
+  --secondary: oklch(.96 .004 250);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(.96 .004 250);
+  --muted-foreground: oklch(.53 .015 255);
+  --accent: oklch(.935 .007 250);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(.58 .23 27);
+  --border: oklch(.9 .008 250);
+  --input: oklch(.88 .008 250);
+  --ring: oklch(.64 .045 255);
+}
+.dark {
+  --background: oklch(.19 .012 260);
+  --foreground: oklch(.97 .004 250);
+  --card: oklch(.23 .012 260);
+  --card-foreground: var(--foreground);
+  --primary: oklch(.92 .006 250);
+  --primary-foreground: oklch(.2 .012 260);
+  --secondary: oklch(.28 .013 260);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(.28 .013 260);
+  --muted-foreground: oklch(.72 .016 250);
+  --accent: oklch(.34 .015 260);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(.72 .17 23);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(.67 .04 250);
+}

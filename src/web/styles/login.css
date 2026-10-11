@@ -1,0 +1,57 @@
+/* The login page: a centred card on a plain background, with its own light and dark colours. */
+.jv-login {
+  --login-base: var(--ui-bg-base);
+  --login-subtle: var(--ui-bg-elevated);
+  --login-text: var(--ui-text-primary);
+  --login-muted: var(--ui-text-secondary);
+  --login-line: var(--ui-border-default);
+  --login-danger: var(--ui-text-danger);
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: auto;
+  color: var(--login-text);
+  background: var(--login-base);
+}
+.jv-login-theme {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: var(--login-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.jv-login-theme:hover { color: var(--login-text); background: color-mix(in srgb, var(--login-text) 8%, transparent); }
+.jv-login-theme:focus-visible, .jv-login-visibility:focus-visible, .jv-login-submit:focus-visible { outline: 2px solid var(--login-text); outline-offset: 2px; }
+.jv-login-stage { display: flex; min-height: 100%; align-items: center; justify-content: center; padding: 36px 20px; }
+.jv-login-wrap { width: 360px; max-width: 100%; margin: auto; }
+.jv-login-brand { margin-bottom: 28px; text-align: center; }
+.jv-login-brand h1 { margin: 0; font-size: 27px; line-height: 34px; font-weight: 600; letter-spacing: -.6px; }
+.jv-login-brand p { margin: 7px 0 0; color: var(--login-muted); font-size: 13px; line-height: 20px; }
+.jv-login-form { padding: 24px; border-radius: 14px; background: color-mix(in srgb, var(--login-text) 9%, transparent); }
+.dark .jv-login-form { background: var(--login-subtle); }
+.jv-login-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 20px; }
+.jv-login-field label { color: var(--login-text); font-size: 12px; }
+.jv-login-field input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid var(--login-line); border-radius: 7px; outline: none; color: var(--login-text); background: var(--login-base); font: inherit; font-size: 14px; line-height: 20px; transition: border-color .15s, box-shadow .15s; }
+.jv-login-field input:focus { border-color: color-mix(in srgb, var(--login-text) 55%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--login-text) 10%, transparent); }
+.jv-login-field input[aria-invalid=true] { border-color: var(--login-danger); }
+.jv-login-field input:disabled { opacity: .6; }
+.jv-login-password { position: relative; min-width: 0; }
+.jv-login-password input { padding-right: 50px; }
+.jv-login-visibility { position: absolute; top: 4px; right: 4px; bottom: 4px; display: grid; place-items: center; width: 36px; padding: 0; border: 0; border-radius: 6px; color: var(--login-muted); background: transparent; cursor: pointer; }
+.jv-login-visibility:hover:not(:disabled) { color: var(--login-text); background: color-mix(in srgb, var(--login-text) 8%, transparent); }
+.jv-login-error { margin: -2px 0 18px; color: var(--login-danger); font-size: 12px; line-height: 19px; overflow-wrap: anywhere; }
+.jv-login-submit { width: 100%; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 7px; color: var(--login-base); background: var(--login-text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+.jv-login-submit:hover:not(:disabled) { opacity: .86; }
+.jv-login-submit:disabled { cursor: wait; opacity: .45; }
+@media (max-width: 620px) { .jv-login-stage { padding: 28px 20px; } .jv-login-form { padding: 22px; } .jv-login-field input, .jv-login-submit { min-height: 44px; } .jv-login-field input { font-size: 16px; line-height: 22px; } .jv-login-visibility { width: 44px; right: 0; top: 0; bottom: 0; } .jv-login-brand { margin-bottom: 24px; } }
+@media (max-width: 350px) { .jv-login-stage { padding: 24px 14px; } .jv-login-form { padding: 20px; } .jv-login-brand h1 { font-size: 25px; } }

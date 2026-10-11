@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+import { existsSync } from "node:fs";
+import { createInterface } from "node:readline/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createJarvyServer } from "./api/server.js";
+import { defaultDataDir, type Store } from "./infra/storage/store.js";
+import { Application } from "./application.js";
+import { logPath, removePidFile, runningServer, signalReady, startBackground, stopServer, writePidFile } from "./daemon.js";
+
+function option(args: string[], flag: string, fallback: string): string {
+  const index = args.indexOf(flag);
+  if (index === -1) return fallback;
+  if (!args[index + 1] || args[index + 1]!.startsWith("--")) throw new Error(`${flag} needs a value`);
+  return args[index + 1]!;
+}
+function secretPrompt(label: string): Promise<string> {
+  if (!process.stdin.isTTY || !process.stdin.setRawMode) throw new Error("Account setup requires an interactive terminal");
+  process.stdout.write(label);
+  return new Promise((resolve, reject) => {
+    let value = "";
+    const done = (result?: string, error?: Error) => {
+      process.stdin.off("data", onData);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdout.write("\n");
+      if (error) reject(error); else resolve(result ?? "");
+    };
+    const onData = (buffer: Buffer) => {
+      for (const char of buffer.toString("utf8")) {
+        if (char === "\r" || char === "\n") { done(value); return; }
+        if (char === "\u0003" || char === "\u0004") { done(undefined, new Error("Setup cancelled")); return; }
+        if (char === "\u007f" || char === "\b") { value = value.slice(0, -1); continue; }
+        if (char.charCodeAt(0) >= 32) value += char;
+      }
+    };
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on("data", onData);
+  });
+}
+async function initialize(store: Store): Promise<void> {
+  if (store.isInitialized()) throw new Error("Account already initialized; existing credentials will not be overwritten");
+  if (!process.stdin.isTTY) throw new Error("First run needs a terminal; run jarvy init interactively");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let username: string;
+  try { username = (await rl.question("Username: ")).trim(); }
+  finally { rl.close(); }
+  const password = await secretPrompt("Password (hidden): ");
+  const confirm = await secretPrompt("Confirm password (hidden): ");
+  if (password !== confirm) throw new Error("Passwords do not match");
+  store.initialize(username, password);
+  console.log(`Account ${username} initialized.`);
+}
+
+function bindWarning(host: string): string | null {
+  if (host === "0.0.0.0" || host === "::") return "WARNING: public bind over plain HTTP exposes passwords and API keys on untrusted networks. Use a trusted LAN or TLS reverse proxy.";
+  if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") return "WARNING: plain HTTP does not encrypt passwords or API keys. Use TLS for remote access.";
+  return null;
+}
+function listenOptions(args: string[]) {
+  const host = option(args, "--host", "127.0.0.1");
+  const port = Number(option(args, "--port", "8080"));
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Port must be between 1 and 65535");
+  return { host, port, url: `http://${host === "0.0.0.0" || host === "::" ? "localhost" : host}:${port}` };
+}
+/** `on`: account setup stays in the terminal, then the server runs detached until `off`. */
+async function startDetached(args: string[], dir: string): Promise<void> {
+  const { host } = listenOptions(args);
+  const running = runningServer(dir);
+  const offCommand = `jarvy off${dir === defaultDataDir() ? "" : ` --data-dir ${dir}`}`;
+  if (running) { console.log(`Jarvy is already running at ${running.url} (pid ${running.pid}). Stop it with: ${offCommand}`); return; }
+  const app = await Application.open(dir);
+  try { if (!app.store.isInitialized()) await initialize(app.store); } finally { await app.close(); }
+  const started = await startBackground(process.argv[1]!, args.slice(1), dir);
+  console.log(`Jarvy running in background at ${started.url} (pid ${started.pid}, listening on ${host})`);
+  console.log(`Log: ${logPath(dir)}\nStop with: ${offCommand}`);
+  const warning = bindWarning(host);
+  if (warning) console.warn(warning);
+}
+async function stopDetached(dir: string): Promise<void> {
+  const result = await stopServer(dir);
+  if (result === "not_running") console.log("Jarvy is not running.");
+  else if (result === "stopped") console.log("Jarvy stopped.");
+  else { console.error(`Jarvy is still shutting down; check ${logPath(dir)}`); process.exitCode = 1; }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const command = args[0] ?? "help";
+  if (command === "help" || args.includes("--help")) {
+    console.log([
+      "Usage: jarvy <command> [--data-dir <path>] [--host <host>] [--port <port>]",
+      "  on    start in the background (output in <data-dir>/jarvy.log)",
+      "  off   stop the background server",
+      "  run   run in the foreground; Ctrl+C stops",
+      "  init  set up the account",
+      "First start prompts for an account if uninitialized.",
+    ].join("\n"));
+    return;
+  }
+  if (!["init", "run", "on", "off"].includes(command)) throw new Error(`Unknown command: ${command}`);
+  const dir = option(args, "--data-dir", defaultDataDir());
+  if (command === "on") return startDetached(args, dir);
+  if (command === "off") return stopDetached(dir);
+  let closeHttp = () => {};
+  const app = await Application.open(dir, { onCompromised: () => { process.exitCode = 1; closeHttp(); } });
+  const store = app.store;
+  if (command === "init") { try { await initialize(store); } finally { await app.close(); } return; }
+  try {
+    if (!store.isInitialized()) await initialize(store);
+    const { host, port, url } = listenOptions(args);
+    const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../web");
+    if (!existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");
+    const server = createJarvyServer(app, webRoot);
+    closeHttp = () => { server.close(); server.closeAllConnections(); };
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, host, () => { server.off("error", reject); resolve(); });
+    });
+    app.start();
+    writePidFile(dir, url);
+    console.log(`Jarvy running at ${url} (listening on ${host}, pid ${process.pid})`);
+    console.log(`Data: ${store.path}`);
+    const warning = bindWarning(host);
+    if (warning) console.warn(warning);
+    signalReady(url);
+    let shuttingDown = false;
+    const shutdown = () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      server.close(); server.closeAllConnections();
+      void app.close().then(() => { removePidFile(dir); console.log("Jarvy stopped."); })
+        .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; });
+    };
+    process.once("SIGINT", shutdown); process.once("SIGTERM", shutdown);
+  } catch (error) { await app.close(); throw error; }
+}
+main().catch(error => { console.error(`Jarvy: ${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });

@@ -1,0 +1,79 @@
+/* Threads (A37 P2): reply action and reply count on channel rows, the thread pane / full view, thread lists.
+   Ported from the approved prototype (src/web/prototype/prototype.css, jp- -> jv-). */
+.ui-chat[hidden] { display: none !important; }
+.jv-row-actions { position: absolute; top: -10px; right: 12px; display: flex; padding: 2px; border-radius: 8px; background: var(--ui-bg-elevated, var(--ui-bg-base));
+  box-shadow: 0 0 0 .5px var(--ui-border-default), var(--ui-shadow-sm); opacity: 0; pointer-events: none; }
+.jv-row-actions .ui-iconbtn { width: 28px; height: 28px; }
+/* Shown on hover, for keyboard focus, and while the emoji picker is open (a mouse click alone doesn't pin them). */
+.jv-row:hover .jv-row-actions, .jv-row:has(:focus-visible, .jv-emoji-menu) .jv-row-actions,
+.ui-message-row:hover .jv-row-actions, .ui-message-row:has(:focus-visible, .jv-emoji-menu) .jv-row-actions { opacity: 1; pointer-events: auto; }
+/* Touch screens: tap a message to show its actions (the row takes focus), instead of icons over every row. */
+@media (hover: none) { .jv-row:focus-within .jv-row-actions, .ui-message-row:focus-within .jv-row-actions { opacity: 1; pointer-events: auto; } }
+.jv-row:focus, .ui-message-row:focus { outline: none; }
+.jv-message-actions { position: relative; display: flex; }
+.jv-thread-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; padding: 3px 8px 3px 6px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--ui-text-accent, var(--ui-text-primary)); }
+.jv-thread-link .jv-muted { font-weight: 400; font-size: 11px; }
+.jv-thread-link:hover { background: var(--ui-bg-base); box-shadow: 0 0 0 .5px var(--ui-border-default); }
+.jv-thread-link[data-done] { color: var(--ui-text-secondary); }
+.jv-echo { display: block; margin: 1px 0 2px; font-size: 11px; color: var(--ui-text-tertiary); text-align: left; }
+.jv-echo:hover { color: var(--ui-text-secondary); text-decoration: underline; }
+.jv-divider[data-tone=count] { color: var(--ui-text-tertiary); font-weight: 400; }
+.jv-divider[data-tone=count]::before, .jv-divider[data-tone=count]::after { background: var(--ui-border-default); }
+.jv-threads-button[aria-pressed=true] { background: var(--ui-fill-ghost-selected); }
+
+/* Pane and full view */
+.jv-resize { position: absolute; top: 0; bottom: 0; width: 8px; z-index: 6; cursor: col-resize; touch-action: none; }
+.jv-resize:hover { background: color-mix(in srgb, var(--ui-border-focus) 18%, transparent); }
+@media (max-width: 820px) { .jv-resize, .jv-desktop-only { display: none !important; } }
+.jv-pane-header { gap: 8px; padding: 0 10px 0 16px; border-bottom: .5px solid var(--ui-border-weak); }
+.jv-pane-header strong { flex: none; padding: 0; text-align: left; font-size: 14px; }
+.jv-pane-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.jv-pane-body { padding: 8px 6px 16px; }
+.jv-pane .ui-compose-wrap { padding: 0 12px 12px; }
+.jv-thread-wide { padding: 12px max(16px, calc((100% - 860px) / 2)) 16px; }
+.jv-thread-full .ui-compose-wrap { padding-left: max(16px, calc((100% - 860px) / 2)); padding-right: max(16px, calc((100% - 860px) / 2)); }
+.jv-crumb { display: flex; align-items: center; gap: 2px; padding: 4px 8px 4px 4px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+.jv-crumb:hover { background: var(--ui-fill-ghost-hover); }
+.jv-crumb .ui-icon { width: 14px; height: 14px; }
+.jv-follow { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; min-height: 26px; padding: 3px 9px; }
+.jv-follow .ui-icon { width: 13px; height: 13px; }
+.jv-follow[data-on] { background: var(--ui-fill-accent-subtle); }
+.jv-thread-meta { margin: 4px 6px 10px; padding: 10px 12px; border-radius: 12px; background: var(--ui-bg-subtle); box-shadow: inset 0 0 0 .5px var(--ui-border-weak); }
+.jv-thread-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.jv-thread-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 650; line-height: 22px; overflow-wrap: anywhere; }
+.jv-inline-edit { flex: 1; display: flex; gap: 6px; min-width: 0; }
+.jv-inline-edit input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border-radius: 8px; border: .5px solid var(--ui-border-default); background: var(--ui-bg-base); font-size: 14px; }
+.jv-status { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--ui-fill-success-subtle); color: var(--ui-text-success, var(--ui-text-primary)); }
+.jv-status[data-done] { background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
+.jv-status .ui-icon { width: 12px; height: 12px; }
+.jv-summary { margin-top: 8px; padding-top: 8px; border-top: .5px solid var(--ui-border-weak); font-size: 13px; }
+.jv-summary-head { display: flex; align-items: center; gap: 8px; }
+.jv-summary-head strong { font-size: 12px; color: var(--ui-text-secondary); }
+.jv-summary-head .jv-muted { font-size: 11px; }
+.jv-summary-body { padding: 2px 0 0 !important; font-size: 13px !important; line-height: 1.6 !important; }
+.jv-summary-empty { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--ui-text-secondary); }
+.jv-summary-empty .ui-icon, .jv-conclude .ui-icon { width: 13px; height: 13px; }
+.jv-conclude { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; }
+.jv-compose-extra { padding: 0 6px; }
+.jv-also { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--ui-text-secondary); }
+
+/* Lists */
+.jv-tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: .5px solid var(--ui-border-weak); }
+.jv-tabs button { padding: 3px 10px; border-radius: 999px; font-size: 12px; color: var(--ui-text-secondary); }
+.jv-tabs button[aria-selected=true] { background: var(--ui-fill-ghost-selected); color: var(--ui-text-primary); font-weight: 600; }
+.jv-thread-item { display: grid; gap: 4px; width: 100%; margin-bottom: 6px; padding: 9px 10px; border-radius: 10px; text-align: left; box-shadow: inset 0 0 0 .5px var(--ui-border-weak); }
+.jv-thread-item:hover { background: var(--ui-fill-ghost-hover); }
+.jv-thread-item[data-unread] { box-shadow: inset 0 0 0 1px var(--ui-border-strong); }
+.jv-thread-item-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.jv-thread-item-head strong { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-thread-item-root { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ui-text-secondary); }
+.jv-thread-item-root > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-thread-item-meta { font-size: 11px; }
+.jv-followed { padding: 16px max(16px, calc((100% - 860px) / 2)) 24px; }
+.jv-side-top { padding-left: 8px; margin-bottom: 10px; }
+.jv-side-top .ui-icon { width: 14px; height: 14px; flex: none; }
+/* A Bot's DMs with other Bots (bot/BotDirects.tsx): read-only for you. */
+.jv-thread-item-head .jv-muted { flex: none; font-size: 11px; }
+.jv-thread-item > .jv-thread-item-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-readonly { flex: none; margin: 0; padding: 10px 16px 14px; border-top: .5px solid var(--ui-border-weak); color: var(--ui-text-tertiary); font-size: 12px; text-align: center; }

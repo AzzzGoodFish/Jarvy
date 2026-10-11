@@ -1,0 +1,68 @@
+# Storage
+
+[Index](../index.md) · [Delivery](delivery.md) · [Runtime](runtime.md)
+
+## Data directory
+
+The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole root (A08). One process owns a data directory at a time (a lock held until shutdown finishes).
+
+```text
+<data-dir>/
+  jarvy.db                             business data and credentials (0600)
+  jarvy.pid, jarvy.log                 background server (jarvy on)
+  bots/<botId>/
+    history.db                         the Bot's History
+    workspace/                         Pi cwd; an ordinary folder
+      temp/
+    agent/pi/sessions/<timestamp>.jsonl   the Bot's one session file
+  attachments/<attachmentId>/<name>    readable copies of attachments, rebuilt from the database
+```
+
+| Data | Owner |
+| --- | --- |
+| identity, chats, members, messages, inbox, model connections, credentials, runs, session file references | SQLite (`jarvy.db`) |
+| model conversation, thinking, tool calls and results, compaction | Pi JSONL, written by the SDK |
+| the Bot's interaction messages | `history.db` ([memory](memory.md)) |
+| work files | the Bot's workspace |
+| uploaded attachments | SQLite BLOBs; files on disk are rebuildable copies |
+| current activity, context usage | the live runtime only; never restored from an old snapshot |
+
+The session file name is chosen once per Bot and stored with the Pi session ID; it is always reopened, never guessed and never created per chat.
+
+## Recovery
+
+| At restart | Handling |
+| --- | --- |
+| only unclaimed deliveries | wake the Bot and process normally |
+| claimed but not submitted to Pi | release the claim; nothing is lost |
+| submission started, end unknown | mark `unknown`; never replay tools with side effects automatically |
+| session file exists | open the registered path and check the session identity |
+| file never written | keep the same path; Pi 0.99.1 writes the file with the first user or assistant message |
+| file was written but is lost or corrupt | fail explicitly; never replace it with an empty history |
+
+Pending question cards are marked ignored at startup, since no tool call outlives the process.
+
+## Attachments
+
+Up to 10 MB each and 5 per message. Into a Bot: the BLOB is copied to a stable path on the tool host, checked for size, name, path and completeness, and listed in the XML. Out of a Bot: `messages.send` takes `{path, name}`; the server reads the file and saves it to the target chat. Images are never inlined; PDFs, audio and so on need tools that can read them.
+
+## Schema versions
+
+Migrations run at startup, in `infra/storage/migrations/`, and only move forward. Each keeps existing IDs and data. A downgrade means restoring a backup taken before the upgrade, with the matching build.
+
+| Version | Change |
+| --- | --- |
+| v7 | `messages.history_id` / `tool_call_id` (send source); `chat_members.can_read` |
+| v8 | `installation(device_id)`, created on the first ChatGPT login |
+| v9 | message IDs become `m<position>` (a global, never-reused sequence); references rewritten in the same transaction. Other IDs stay UUIDs (A32) |
+| v10 | `bots.color` (one of six, random) and `bots.mood`; uploaded avatar columns removed |
+| v11 | `messages.question` (JSON question card) |
+| v12 | `sections`, `chat_notes`, `chat_states` (read position, following, note seen), `message_mentions`; channel and thread columns on `chats`. Read positions start at each chat's latest message, so upgrading creates no unread backlog. Member names become unique |
+| v13 | `messages.echo_of` (channel copy of a thread reply) |
+| v14 | `chat_states.subscribed` |
+| v15 | `messages.reply_to`, `message_reactions`, `chat_states.pinned`, `bots.deleted_at` (soft delete) |
+| v16 | `inbox` replaces `bot_pending` and `bot_notices`; `chat_states.muted` |
+
+## Search
+
+Chat search works within the chats a member can read. Searching all of a Bot's History, compaction summaries, tool results and attachment contents is a goal, not built. When it is, the index stays a rebuildable projection that keeps source references, inherits the original data's access rules and excludes secrets; short Chinese words need tokenizer testing first.

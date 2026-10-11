@@ -1,0 +1,146 @@
+import type { Urgency } from "../../shared/delivery.js";
+import type { ActivityCursor } from "../../shared/activity.js";
+import { activityPage } from "./activity.js";
+import { dirname, join } from "node:path";
+import { rm } from "node:fs/promises";
+import type { Store } from "../../infra/storage/store.js";
+import type { Bot as BotRecord } from "../../shared/models.js";
+import type { BotStatus } from "./contracts.js";
+import { RuntimeFault, publicFault } from "../../shared/runtime.js";
+import type { ChatService } from "../chat/service.js";
+import type { ChatFiles } from "../chat/files.js";
+import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
+import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
+import { resolveThinking } from "../../infra/pi/thinking.js";
+import { Memory } from "./memory.js";
+import { Bot } from "./bot.js";
+import { Identity } from "./identity.js";
+import { Model } from "./model.js";
+import { Workspace } from "./workspace.js";
+import { BotState } from "./state.js";
+import { Tools } from "./tools.js";
+import { AgentRuntime } from "./agent-runtime.js";
+import { BotInbox } from "./inbox.js";
+import { botPrompt } from "./prompt.js";
+
+export interface BotDependencies {
+  store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
+  changed: (botId: string) => void; factory?: SessionFactory;
+}
+/** Service-level lifetime/lookup entry. Each Bot remains the complete business object. */
+export class BotService {
+  private readonly bots = new Map<string, Bot>();
+  private closed = false;
+  private started = false;
+  constructor(private readonly deps: BotDependencies) {}
+  get(id: string): Bot {
+    if (this.closed) throw new RuntimeFault("stopping", "服务正在停止。", 503);
+    const record = this.deps.store.getBot(id);
+    if (!record) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    let bot = this.bots.get(id);
+    if (bot) return bot;
+    const { store, chats, files, credentials } = this.deps;
+    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files), (setup, model, reference, activity) =>
+      (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
+        tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity }));
+    const workspace = new Workspace(record.workspacePath);
+    const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
+    bot = new Bot(id, {
+      identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
+      workspace, memory,
+      tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on) }), agentRuntime: runtime,
+      state: new BotState(() => this.deps.changed(id)),
+    }, { deliver: async message => {
+      const outgoing = await files.readOutgoing(record.workspacePath, message.attachments ?? [], message.signal);
+      message.signal?.throwIfAborted();
+      return chats.deliver(id, message.chatId, { content: message.content, attachmentIds: [], files: outgoing, source: message.source, clientMessageId: message.clientMessageId,
+        ...(message.question ? { question: message.question } : {}), ...(message.alsoToChannel ? { alsoToChannel: true } : {}),
+        ...(message.replyTo ? { replyTo: message.replyTo } : {}) });
+    } });
+    this.bots.set(id, bot);
+    return bot;
+  }
+  private details(record: BotRecord) {
+    const model = record.connectionId ? this.deps.store.getModelConnection(record.connectionId)?.models.find(model => model.id === record.modelId) : undefined;
+    return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null };
+  }
+  owns(id: string) { return this.deps.store.getBot(id) !== null; }
+  list() { return this.deps.store.listBots().map(record => this.details(record)); }
+  create(name?: string) { return this.details(this.deps.store.createBot(name)); }
+  describe(id: string) {
+    const record = this.deps.store.getBot(id);
+    if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    return this.details(record);
+  }
+  runs(id: string) { this.describe(id); return this.deps.store.runtime.runs(id); }
+  activity(id: string, before?: ActivityCursor, limit = 40) {
+    const bot = this.get(id);
+    const messages = this.deps.chats.sentActivity(this.deps.store.userMemberId(), id, before, limit + 1);
+    return activityPage(messages, bot.memory.timeline(before, limit + 1), limit);
+  }
+  activityMessage(id: string, messageId: string) {
+    this.describe(id);
+    const actor = this.deps.store.userMemberId();
+    const message = this.deps.chats.message(actor, messageId);
+    if (!message || message.sender.id !== id) throw new RuntimeFault("message_missing", "聊天记录不存在。", 404);
+    const chat = this.deps.chats.get(actor, message.chatId)!;
+    return { message, chat: { id: chat.id, title: chat.title } };
+  }
+  memory(id: string) { return this.get(id).memory; }
+  /** A delivery reached a Bot (A41); the Bot responds to its urgency. */
+  deliver(id: string, urgency: Urgency): void {
+    if (this.closed || !this.deps.store.getBot(id)) return;
+    const bot = this.get(id);
+    void bot.deliver(urgency).catch(error => {
+      const fault = publicFault(error);
+      bot.state.update({ ...bot.status(), error: { code: fault.code, message: fault.message } });
+      console.error("[bot] delivery failed", { botId: id, code: fault.code });
+    });
+  }
+  /** Picks up what is still waiting for a Bot (after a failure, a new model, or a restart), if anything. */
+  resume(id: string): void {
+    const waiting = this.deps.store.runtime.waitingBots(this.deps.store.userMemberId()).find(item => item.botId === id);
+    if (waiting) this.deliver(id, waiting.urgency);
+  }
+  retry(id: string): void { this.resume(id); }
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    for (const { botId, urgency } of this.deps.store.runtime.waitingBots(this.deps.store.userMemberId())) this.deliver(botId, urgency);
+  }
+  status(id: string): BotStatus & { botId: string; runId: string | null } {
+    if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    const bot = this.bots.get(id);
+    return { ...(bot?.status() ?? { status: "stop", activity: null, context: null, error: null }), botId: id, runId: bot?.agentRuntime.activeRunId ?? null };
+  }
+  async selectModel(id: string, input: Record<string, unknown>) {
+    const selection = this.deps.store.validateSelection(id, input);
+    if (!selection) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    await this.get(id).changeModel(selection);
+    this.resume(id);
+    return this.deps.store.getBot(id)!;
+  }
+  connectionChanged(connectionId: string) {
+    for (const bot of this.deps.store.listBots()) if (bot.connectionId === connectionId) this.resume(bot.id);
+  }
+  async chatDeleted(chatId: string): Promise<void> {
+    for (const bot of this.bots.values()) {
+      const runId = bot.agentRuntime.activeRunId;
+      if (runId && this.deps.store.runtime.inputs(runId).some(input => input.chatId === chatId)) await bot.abort();
+    }
+  }
+  /** Deletes a Bot: stop it, drop its data, keep its messages. `keepFiles` leaves the workspace (and
+   * the History database) on disk, since it may hold work worth keeping. */
+  async delete(id: string, keepFiles: boolean): Promise<void> {
+    const bot = this.get(id), workspacePath = bot.workspace.location().cwd;
+    await bot.stop();
+    this.bots.delete(id);
+    if (!this.deps.store.deleteBot(id)) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
+  }
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    await Promise.all([...this.bots.values()].map(bot => bot.stop()));
+  }
+}

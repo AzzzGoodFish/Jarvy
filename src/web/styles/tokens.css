@@ -1,0 +1,106 @@
+/* Jarvy's design tokens: colours, type, radii, shadows and motion. Light by default; the dark theme overrides
+ * colours only. `data-theme` on <html> is set by applyTheme() in ui.tsx. */
+:root {
+  --ui-duration-fast: 100ms;
+  --ui-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-fill-accent: oklch(.6 .19 255);
+  --ui-fill-danger: oklch(.62 .22 25);
+  --ui-fill-success: oklch(.7 .17 155);
+  --ui-fill-warning: oklch(.78 .16 70);
+  --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --ui-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ui-font-size: 13px;
+  --ui-line-height: 18px;
+  --ui-radius-2xl: 16px;
+  --ui-radius-base: 8px;
+  --ui-radius-lg: 10px;
+  --ui-radius-xl: 14px;
+  --ui-shadow-md: 0 10px 20px -3px var(--ui-shadow-popover-ambient), 0 4px 6px -4px var(--ui-shadow-popover-key), 0 0 0 1px var(--ui-shadow-ring);
+  --ui-shadow-sm: 0 1px 3px 0 var(--ui-shadow-control);
+
+  /* Light: cool neutral greys (hue ~255), matching the shadcn palette in shadcn.css. */
+  --ui-bg-base: oklch(.995 .002 250);
+  --ui-bg-elevated: oklch(1 0 0);
+  --ui-bg-scrim: oklch(.2 .012 260 / 45%);
+  --ui-bg-subtle: oklch(.975 .004 250);
+  --ui-border-accent: oklch(.72 .13 255);
+  --ui-border-danger: oklch(.7 .17 25);
+  --ui-border-default: oklch(.2 .012 260 / 14%);
+  --ui-border-focus: oklch(.64 .045 255);
+  --ui-border-strong: oklch(.2 .012 260 / 26%);
+  --ui-border-warning: oklch(.8 .14 75);
+  --ui-border-weak: oklch(.2 .012 260 / 9%);
+  --ui-fill-accent-subtle: oklch(.6 .19 255 / 10%);
+  --ui-fill-bubble-agent: oklch(.955 .005 250);
+  --ui-fill-bubble-user: oklch(.27 .02 255);
+  --ui-fill-control-checked: oklch(.27 .02 255);
+  --ui-fill-control-track: oklch(.2 .012 260 / 10%);
+  --ui-fill-ghost-hover: oklch(.45 .012 255 / 8%);
+  --ui-fill-ghost-selected: oklch(.45 .012 255 / 15%);
+  --ui-fill-primary: oklch(.25 .02 255);
+  --ui-fill-primary-hover: oklch(.34 .02 255);
+  --ui-fill-secondary: oklch(.45 .012 255 / 8%);
+  --ui-fill-secondary-hover: oklch(.45 .012 255 / 15%);
+  --ui-fill-secondary-solid: oklch(.96 .004 250);
+  --ui-fill-success-subtle: oklch(.68 .16 155 / 10%);
+  --ui-fill-warning-subtle: oklch(.78 .15 70 / 10%);
+  --ui-fill-warning-subtle-hover: oklch(.78 .15 70 / 17%);
+  --ui-shadow-control: oklch(.2 .02 260 / 12%);
+  --ui-shadow-popover-ambient: oklch(.2 .02 260 / 10%);
+  --ui-shadow-popover-key: oklch(.2 .02 260 / 10%);
+  --ui-shadow-ring: oklch(.2 .02 260 / 4%);
+  --ui-text-accent: oklch(.5 .17 255);
+  --ui-text-danger: oklch(.53 .2 27);
+  --ui-text-disabled: oklch(.2 .012 260 / 32%);
+  --ui-text-on-color: oklch(.99 0 0);
+  --ui-text-on-primary: oklch(.99 0 0);
+  --ui-text-primary: oklch(.2 .012 260);
+  --ui-text-secondary: oklch(.45 .015 255);
+  --ui-text-success: oklch(.52 .13 155);
+  --ui-text-tertiary: oklch(.6 .013 255);
+  --ui-text-warning: oklch(.56 .13 65);
+}
+
+:root[data-theme="dark"] {
+  /* Dark: charcoal greys; accents and status colours lightened for contrast. */
+  --ui-bg-base: #282c34;
+  --ui-bg-elevated: #383e49;
+  --ui-bg-scrim: #1c243055;
+  --ui-bg-subtle: #2d323b;
+  --ui-border-accent: oklch(.5 .15 255);
+  --ui-border-danger: oklch(.55 .19 25);
+  --ui-border-default: #d6deeb24;
+  --ui-border-focus: #a9bad0;
+  --ui-border-strong: #d6deeb4a;
+  --ui-border-warning: oklch(.62 .13 65);
+  --ui-border-weak: #d6deeb14;
+  --ui-fill-accent-subtle: oklch(.6 .19 255 / 18%);
+  --ui-fill-bubble-agent: #363b45;
+  --ui-fill-bubble-user: #495260;
+  --ui-fill-control-checked: #697688;
+  --ui-fill-control-track: #d6deeb18;
+  --ui-fill-ghost-hover: #d6deeb0c;
+  --ui-fill-ghost-selected: #d6deeb18;
+  --ui-fill-primary: #e4e9f0;
+  --ui-fill-primary-hover: #f5f7fa;
+  --ui-fill-secondary: #d6deeb0b;
+  --ui-fill-secondary-hover: #d6deeb14;
+  --ui-fill-secondary-solid: #30353f;
+  --ui-fill-success-subtle: oklch(.7 .17 155 / 18%);
+  --ui-fill-warning-subtle: oklch(.78 .16 70 / 18%);
+  --ui-fill-warning-subtle-hover: oklch(.78 .16 70 / 30%);
+  --ui-shadow-control: #00000020;
+  --ui-shadow-popover-ambient: #00000030;
+  --ui-shadow-popover-key: #00000024;
+  --ui-shadow-ring: #d6deeb08;
+  --ui-text-accent: oklch(.72 .14 255);
+  --ui-text-danger: oklch(.72 .17 23);
+  --ui-text-disabled: #848d9c;
+  --ui-text-on-color: #f5f7fa;
+  --ui-text-on-primary: #262d36;
+  --ui-text-primary: #e1e6ee;
+  --ui-text-secondary: #b9c3d1;
+  --ui-text-success: oklch(.78 .14 155);
+  --ui-text-tertiary: #9daab9;
+  --ui-text-warning: oklch(.82 .13 75);
+}

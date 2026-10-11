@@ -1,0 +1,6 @@
+/* Agentation inherits its fixed position from the Shadow DOM host. Keep it above Send. */
+agentation-toolbar.jarvy-dev-annotation { bottom: 108px; z-index: 100; }
+/* On narrow screens the floating toolbar would obscure model-form controls. */
+@media (max-width: 620px) {
+  body:has([data-slot="dialog-content"]) agentation-toolbar.jarvy-dev-annotation { z-index: 40; }
+}

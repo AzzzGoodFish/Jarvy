@@ -1,0 +1,200 @@
+/* Channels (A37): sidebar groups, channel header, notice bar, flat message rows, @ menu and dialogs.
+   Ported from the approved prototype (src/web/prototype/prototype.css, jp- -> jv-). */
+.jv-hash { color: var(--ui-text-tertiary); font-weight: 500; margin-right: 2px; }
+.jv-muted { color: var(--ui-text-secondary); }
+.jv-user-avatar { flex: none; }
+.jv-stack { display: inline-flex; align-items: center; }
+.jv-stack-item { display: inline-flex; margin-left: -4px; border-radius: 50%; }
+.jv-stack-item:first-child { margin-left: 0; }
+button.jv-stack-item:hover { transform: translateY(-1px); }
+
+/* Sidebar */
+.jv-side-section { margin-bottom: 14px; }
+.jv-side-section-head { display: flex; align-items: center; gap: 2px; height: 28px; }
+.jv-side-section-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; height: 26px; padding-right: 6px; border-radius: 6px; text-align: left; color: var(--ui-text-secondary); }
+.jv-side-section-toggle:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-side-chevron { display: grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--ui-text-tertiary); }
+.jv-side-chevron .ui-icon { width: 12px; height: 12px; }
+.jv-side-section-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 3px 4px; font-size: 13px; font-weight: 600; color: inherit; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.jv-side-section-edit { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 5px; color: var(--ui-text-tertiary); opacity: 0; }
+.jv-side-section-head:hover .jv-side-section-edit, .jv-side-section-edit:focus-visible { opacity: 1; }
+.jv-side-section-edit:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-side-section-edit .ui-icon { width: 13px; height: 13px; }
+.jv-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ui-text-primary); }
+.jv-side-row { display: flex; align-items: center; gap: 6px; width: 100%; height: 30px; padding: 0 8px 0 24px; border-radius: 7px; font-size: 14px; color: var(--ui-text-secondary); text-align: left; }
+.jv-side-row:hover { background: var(--ui-fill-ghost-hover); }
+.jv-side-row[data-active] { background: var(--ui-fill-ghost-selected); color: var(--ui-text-primary); }
+.jv-side-row[data-unread] { color: var(--ui-text-primary); font-weight: 600; }
+.jv-side-row .jv-hash { width: 14px; text-align: center; margin: 0; }
+.jv-side-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-side-empty { margin: 2px 0 0 28px; font-size: 12px; color: var(--ui-text-tertiary); }
+.jv-badge { flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--ui-fill-danger); color: #fff; font-size: 11px; line-height: 18px; font-weight: 600; text-align: center; }
+.jv-count { flex: none; font-size: 11px; color: var(--ui-text-secondary); font-weight: 500; }
+
+/* Channel header and notice */
+.jv-channel-header .ui-header-left { gap: 10px; min-width: 0; flex: 1; }
+.jv-channel-title { font-size: 15px; font-weight: 650; white-space: nowrap; }
+.jv-channel-topic { min-width: 0; font-size: 12px; color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-channel-transcript { padding-top: 8px; }
+.jv-notice { flex: none; margin: 10px 16px 0; padding: 8px 10px 8px 12px; border-radius: 12px; background: var(--ui-bg-subtle); box-shadow: inset 0 0 0 .5px var(--ui-border-weak); font-size: 13px; }
+.jv-notice[data-empty] { display: flex; align-items: center; gap: 8px; }
+.jv-notice[data-empty] > .ui-icon { width: 14px; height: 14px; color: var(--ui-text-tertiary); flex: none; }
+.jv-notice[data-empty] > span { flex: 1; }
+.jv-notice-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.jv-notice-head > .ui-icon { width: 14px; height: 14px; color: var(--ui-text-tertiary); }
+.jv-notice-toggle { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; text-align: left; }
+.jv-notice-toggle .ui-icon { width: 14px; height: 14px; color: var(--ui-text-tertiary); flex: none; }
+.jv-notice-first { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-text-secondary); }
+.jv-notice-meta { font-size: 11px; white-space: nowrap; }
+.jv-notice-body { max-height: 38vh; overflow: auto; margin-top: 4px; padding: 4px 4px 2px 20px !important; font-size: 13px !important; line-height: 1.6 !important; }
+.jv-notice-body :is(h1, h2, h3, h4) { margin: 10px 0 4px !important; font-size: 12px !important; font-weight: 650; color: var(--ui-text-secondary); }
+.jv-notice-body p { margin: 0 0 6px !important; }
+.jv-notice-input { display: block; width: 100%; min-height: 180px; margin: 8px 0; padding: 10px; border-radius: 8px; border: .5px solid var(--ui-border-default); background: var(--ui-bg-base); font-family: var(--ui-font-mono); font-size: 12px; line-height: 18px; resize: vertical; }
+.jv-notice-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Flat rows: the bubble Markdown rules apply through .ui-bubble.jv-flat (jarvy.css). */
+.ui-bubble.jv-flat { max-width: none; padding: 0; border-radius: 0; background: none; color: var(--ui-text-primary); font-size: 14px; line-height: 1.65; }
+.ui-bubble.jv-flat .ui-file-cards, .ui-bubble.jv-flat .ac-file-cards { margin-top: 6px; }
+.jv-row { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); padding: 6px 12px 6px 8px; border-radius: 8px; }
+.jv-row[data-folded] { padding-top: 1px; padding-bottom: 1px; }
+.jv-row:hover { background: var(--ui-fill-ghost-hover); }
+.jv-row[data-mention] { background: color-mix(in srgb, var(--ui-fill-warning-subtle) 70%, transparent); box-shadow: inset 2px 0 0 var(--ui-border-warning); }
+.jv-row-gutter { padding-top: 2px; }
+.jv-row-time { display: block; padding-top: 3px; font-size: 10px; color: var(--ui-text-tertiary); opacity: 0; }
+.jv-row:hover .jv-row-time { opacity: 1; }
+.jv-row-head { display: flex; align-items: baseline; gap: 6px; }
+.jv-row-head strong { font-size: 14px; font-weight: 650; }
+.jv-row-head time { font-size: 11px; color: var(--ui-text-tertiary); }
+.jv-role { padding: 0 5px; border-radius: 4px; background: var(--ui-fill-secondary); font-size: 10px; line-height: 16px; color: var(--ui-text-secondary); }
+.jv-row .ui-question { margin-top: 4px; }
+.jv-mention { padding: 0 2px; border-radius: 4px; background: var(--ui-fill-accent-subtle); color: var(--ui-text-accent, var(--ui-text-primary)); font-weight: 500; }
+.jv-mention[data-me] { background: var(--ui-fill-warning-subtle); color: var(--ui-text-primary); font-weight: 650; }
+.jv-divider { display: flex; align-items: center; gap: 8px; margin: 10px 8px; font-size: 11px; color: var(--ui-text-danger); font-weight: 600; }
+.jv-divider::before, .jv-divider::after { content: ""; flex: 1; height: .5px; background: var(--ui-border-danger); }
+
+/* @ menu */
+.jv-composer { position: relative; }
+.jv-mention-menu { position: absolute; bottom: calc(100% + 6px); left: 0; width: 260px; max-height: 300px; overflow: auto; z-index: 30; }
+.jv-mention-menu .ui-menu-item[data-active] { background: var(--ui-fill-ghost-selected); }
+.jv-mention-menu .ui-menu-item[data-outside] { opacity: .75; }
+.jv-mention-menu .ui-menu-note { padding: 6px 8px 2px; }
+
+/* Dialogs */
+.jv-select { display: block; width: 100%; min-height: 36px; padding: 7px 10px; border: .5px solid var(--ui-border-default); border-radius: var(--ui-radius-base); background: var(--ui-bg-base); color: var(--ui-text-primary); font-size: 14px; }
+.jv-members { margin-top: 18px; }
+.jv-members-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: var(--ui-text-secondary); }
+.jv-members-head .ui-button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font-size: 13px; }
+.jv-members-head .ui-icon { width: 14px; height: 14px; }
+.jv-member-option { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 6px; border-radius: 8px; font-size: 14px; text-align: left; }
+.jv-member-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-member-option .jv-muted { font-size: 12px; }
+.jv-member-remove { width: 26px; height: 26px; opacity: .55; }
+.jv-member-option:hover .jv-member-remove, .jv-member-remove:focus-visible { opacity: 1; }
+.jv-picker .ui-field { margin-top: 0; }
+.jv-picker-list { height: min(320px, 50vh); overflow: auto; margin: 4px -6px 0; scrollbar-width: thin; }
+.jv-picker-list .jv-member-option { cursor: pointer; }
+.jv-picker-list .jv-member-option:hover { background: var(--ui-fill-ghost-hover); }
+.jv-picker-list .jv-member-option[aria-selected=true] { background: var(--ui-fill-ghost-selected); }
+.jv-check { display: grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--ui-border-default); }
+.jv-member-option[aria-selected=true] .jv-check { background: var(--ui-fill-primary); color: var(--ui-text-on-primary); box-shadow: none; }
+.jv-check .ui-icon { width: 12px; height: 12px; }
+.jv-picker-empty { margin: 24px 0; text-align: center; font-size: 13px; color: var(--ui-text-tertiary); }
+.jv-form-error { margin: 10px 0 0; font-size: 13px; color: var(--ui-text-danger); }
+.jv-spacer { flex: 1; }
+.ui-button.jv-danger { color: var(--ui-text-danger); }
+
+@media (max-width: 620px) {
+  .jv-channel-topic, .jv-notice-meta { display: none; }
+  .jv-notice { margin: 8px 10px 0; }
+  .jv-notice-body { max-height: 26vh; }
+  .jv-row { grid-template-columns: 38px minmax(0, 1fr); padding-right: 6px; }
+}
+/* Scrolling back loads older messages (transcript/useTranscript.ts); this line marks where they arrive. */
+.jv-history-more { min-height: 28px; padding: 6px 0; text-align: center; font-size: 12px; color: var(--ui-text-tertiary); }
+/* 「回到最新」: sticks to the bottom of the transcript while you read older messages. */
+.jv-to-latest { position: sticky; bottom: 0; z-index: 4; display: flex; justify-content: center; height: 0; pointer-events: none; }
+.jv-to-latest > button { display: inline-flex; align-items: center; gap: 6px; height: 34px; min-width: 34px; justify-content: center; padding: 0 10px;
+  border-radius: 999px; transform: translateY(calc(-100% - 12px)); pointer-events: auto; font-size: 12px; font-weight: 500; color: var(--ui-text-primary);
+  background: color-mix(in srgb, var(--ui-bg-base) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 2px 8px rgb(0 0 0 / .12); }
+.jv-to-latest > button:hover { background: var(--ui-bg-base); }
+.jv-to-latest > button > span { padding-left: 2px; }
+.jv-to-latest .ui-icon { width: 16px; height: 16px; }
+/* Replies: the quote in a message, the quote bar in the composer, and the emoji menu. */
+.jv-reply-quote { display: flex; align-items: baseline; gap: 6px; max-width: 100%; margin: 0 0 4px; padding: 2px 0 2px 8px; border-left: 2px solid var(--ui-border-strong);
+  border-radius: 3px; text-align: left; font-size: 12px; color: var(--ui-text-secondary); }
+.jv-reply-quote:hover { color: var(--ui-text-primary); }
+.jv-reply-author { flex: none; font-weight: 600; }
+.jv-reply-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-user .jv-reply-quote { margin-left: auto; }
+.jv-compose-quote { display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding: 5px 8px; border-left: 2px solid var(--ui-border-strong);
+  border-radius: 4px; background: var(--ui-fill-ghost-hover); font-size: 12px; color: var(--ui-text-secondary); }
+.jv-compose-quote .jv-reply-text { flex: 1; }
+.jv-compose-quote button { flex: none; width: 20px; height: 20px; border-radius: 50%; line-height: 1; color: var(--ui-text-tertiary); }
+.jv-compose-quote button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+/* Marks under a message, and the picker on the hover toolbar. */
+.jv-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.ui-user .jv-reactions { justify-content: flex-end; }
+.jv-reaction { display: inline-flex; align-items: center; gap: 3px; height: 24px; padding: 0 8px; border-radius: 999px; font-size: 13px;
+  box-shadow: inset 0 0 0 .5px var(--ui-border-weak); background: var(--ui-bg-base); }
+.jv-reaction:hover { background: var(--ui-fill-ghost-hover); }
+.jv-reaction[data-mine] { box-shadow: inset 0 0 0 1px var(--ui-border-focus); background: color-mix(in srgb, var(--ui-border-focus) 12%, transparent); }
+.jv-reaction-count { font-size: 11px; color: var(--ui-text-secondary); }
+.jv-emoji-menu { position: absolute; top: 32px; right: 0; z-index: 20; width: 268px; padding: 8px; border-radius: 12px;
+  background: var(--ui-bg-elevated, var(--ui-bg-base)); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 8px 24px rgb(0 0 0 / .14); }
+.jv-emoji-quick { display: flex; gap: 2px; }
+.jv-emoji-quick button, .jv-emoji-grid button { width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; }
+.jv-emoji-quick button:hover, .jv-emoji-grid button:hover { background: var(--ui-fill-ghost-hover); }
+.jv-emoji-more { margin-top: 6px; border-top: .5px solid var(--ui-border-weak); padding-top: 6px; }
+.jv-emoji-more summary { padding: 2px 4px; font-size: 12px; color: var(--ui-text-secondary); cursor: pointer; }
+.jv-emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); max-height: 180px; overflow: auto; overscroll-behavior: contain; }
+/* Jumped-to message (a reply's quote): a brief highlight. */
+.jv-jump .ui-bubble, .jv-jump > .ui-bubble { animation: jv-jump 1.2s ease-out; }
+@keyframes jv-jump { from { background: color-mix(in srgb, var(--ui-border-focus) 22%, transparent); } to { background: transparent; } }
+/* The 「…」 menu on a sidebar row, and the dialogs it opens. */
+.jv-entry-menu { position: fixed; z-index: 40; min-width: 168px; }
+.jv-entry-menu .ui-menu-item[disabled] { opacity: .45; }
+.jv-menu-danger .ui-menu-copy, .jv-menu-danger .ui-icon { color: var(--ui-text-danger, #c0392b); }
+.jv-dialog-body { display: grid; gap: 10px; font-size: 13px; line-height: 20px; }
+.jv-dialog-list { margin: 0; padding-left: 18px; color: var(--ui-text-secondary); }
+.jv-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.jv-dialog { width: min(420px, calc(100vw - 32px)); }
+.jv-checkline { display: flex; align-items: flex-start; gap: 8px; }
+.jv-checkline input { margin-top: 2px; }
+/* A pinned row shows a pin instead of the channel hash. */
+.jv-side-wrap { position: relative; }
+.jv-side-pin { flex: none; width: 14px; height: 14px; margin: 0 2px 0 0; color: var(--ui-text-tertiary); }
+.jv-side-more { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
+  opacity: 0; color: var(--ui-text-secondary); }
+.jv-side-more .lucide, .jv-side-more svg { width: 15px; height: 15px; }
+.jv-side-wrap:hover .jv-side-more, .jv-side-wrap:focus-within .jv-side-more { opacity: 1; }
+.jv-side-more:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+@media (hover: none) { .jv-side-more { opacity: 1; } }
+.jv-dm-pin { width: 12px; height: 12px; color: var(--ui-text-tertiary); }
+.shadcn-chat-row:hover .jv-dm-pin, .shadcn-chat-row:focus-within .jv-dm-pin { visibility: hidden; }
+.jv-emoji-menu[data-up] { top: auto; bottom: 34px; }
+/* A DM message stacks its quote, bubble and marks; the user's side aligns right. */
+.jv-dm-stack { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: min(88%, 640px); }
+.ui-user .jv-dm-stack { align-items: flex-end; max-width: min(90%, 820px); }
+.jv-dm-stack > .ui-bubble { max-width: 100%; }
+/* The actions sit inline next to the bubble, on its free side. */
+.ui-message-row .jv-row-actions { position: static; align-self: flex-start; margin: 2px 6px 0; }
+.ui-message-row.ui-user .jv-row-actions { order: -1; }
+.ui-message-row.ui-user .jv-emoji-menu { right: auto; left: 0; }
+/* Narrow screens: the picker docks above the composer instead of hanging off a message edge. */
+@media (max-width: 640px) { .jv-emoji-menu, .jv-emoji-menu[data-up], .ui-message-row.ui-user .jv-emoji-menu { position: fixed; top: auto; right: 12px; bottom: 76px; left: 12px; width: auto; } }
+/* Queued deliveries you have not seen show as a hint line (A41): under a channel's name, or in place of a
+   DM's preview. */
+.jv-side-row:has(.jv-side-text) { height: auto; min-height: 42px; padding-top: 4px; padding-bottom: 4px; }
+.jv-side-text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+.jv-side-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.jv-digest { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; font-weight: 400; color: var(--ui-text-tertiary); }
+.shadcn-chat-row .jv-digest { font-size: inherit; line-height: inherit; color: inherit; }
+.jv-at-me { margin-right: 3px; color: var(--ui-text-danger, #e5484d); }
+.jv-hint-line { color: var(--ui-text-accent, var(--ui-text-secondary)); }
+.jv-side-muted { display: inline-flex; flex: none; color: var(--ui-text-tertiary); }
+.jv-side-muted .ui-icon { width: 12px; height: 12px; }
+/* Two-line rows: the 「…」 button sits on the title line, where the 免打扰 icon steps aside for it. */
+.jv-side-wrap:has(.jv-side-text) .jv-side-more { top: 6px; transform: none; }
+.jv-side-wrap:hover .jv-side-muted, .jv-side-wrap:focus-within .jv-side-muted { visibility: hidden; }
+@media (hover: none) { .jv-side-text .jv-side-line:first-child { padding-right: 22px; } .jv-side-wrap .jv-side-muted { visibility: visible; } }
