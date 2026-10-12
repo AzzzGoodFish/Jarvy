@@ -51,11 +51,11 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
   onError: (error: unknown) => void; onNotice: (text: string) => void;
 }) {
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null), [also, setAlso] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   // At the bottom, and not yet moved by the opening jump: a thread is read the same way as the main transcript.
   const body = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); setAlso(false); setReplyTo(null); settled.current = false; atBottom.current = true; }, [threadId]);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); setReplyTo(null); settled.current = false; atBottom.current = true; }, [threadId]);
   useEffect(() => {
     let alive = true;
     void Promise.all([api.chat(threadId), api.messages(threadId)]).then(async ([loaded, list]) => {
@@ -126,7 +126,8 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
     setTimeout(() => element.classList.remove("jv-jump"), 1200);
   };
   const actions = { onQuote: setReplyTo, onReact: react, onJump: jump, onError };
-  const send = async (content: string, attachmentIds: string[], key: string, alsoToChannel: boolean) => {
+  /** Replies stay in the thread; only the conclusion is also posted to the channel. */
+  const send = async (content: string, attachmentIds: string[], key: string, alsoToChannel = false) => {
     const quoted = replyTo && replyTo.chatId === threadId ? replyTo.id : undefined;
     await api.send(threadId, content, attachmentIds, key, alsoToChannel, quoted);
     setReplyTo(null);
@@ -173,7 +174,6 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
       initialText={messages.length === 0 && root && root.senderId !== me && rootSender && !rootSender.deleted ? `@${rootSender.name} ` : undefined}
       mention={{ bots, inside: liveMembers(members).filter(member => member.id !== me && !!channel?.memberIds.includes(member.id)),
         outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite }}
-      extra={<label className="jv-also"><input type="checkbox" checked={also} onChange={event => setAlso(event.target.checked)}/>同时发到 #{channelName}</label>}
-      onSend={async (content, ids, key) => { await send(content, ids, key, also); setAlso(false); }} onError={onError} onNotice={onNotice}/>
+      onSend={send} onError={onError} onNotice={onNotice}/>
   </Shell>;
 }

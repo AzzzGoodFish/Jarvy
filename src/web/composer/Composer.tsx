@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
 import { api, type Attachment, type Bot, type Member } from "../api";
 import { useMentionMenu } from "../channel/MentionMenu";
 import { Icon } from "../ui";
@@ -7,14 +7,12 @@ const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte
 
 /** Message input shared by the main chat and the thread pane: per-chat drafts and pending attachments, paste and
  * drag-drop upload, @ completion in channels and threads, retry-safe send keys, and growing with its content. */
-export function Composer({ chatId, id, placeholder, disabled = false, mention, initialText, extra, quote, onCancelQuote, formRef, scrollRef, onSend, onError, onNotice }: {
+export function Composer({ chatId, id, placeholder, disabled = false, mention, initialText, quote, onCancelQuote, formRef, scrollRef, onSend, onError, onNotice }: {
   chatId: string; id: string; placeholder: string; disabled?: boolean;
   /** Channel / thread: who can be @-mentioned; picking someone outside the channel invites them. */
   mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void };
   /** Used while this chat has no draft yet (a new thread pre-fills its root's sender once). */
   initialText?: string;
-  /** Shown under the input (e.g. 「同时发到频道」). */
-  extra?: ReactNode;
   /** A quoted message being answered; shown above the input with its own cancel. */
   quote?: { name: string; text: string } | null;
   onCancelQuote?: () => void;
@@ -119,7 +117,6 @@ export function Composer({ chatId, id, placeholder, disabled = false, mention, i
         onClick={() => { if (mention) menu.track(); }} onBlur={menu.close}/>
       <button type="submit" className="ui-round ui-send" aria-label="发送消息" disabled={sending || uploading || disabled || (!draft.trim() && !files.length)}><Icon name="arrow-up"/></button>
     </div>
-    {extra && <div className="jv-compose-extra">{extra}</div>}
     {dropping ? <p className="jarvy-compose-note" role="status">松开以添加附件</p> : uploading && <p className="jarvy-compose-note" role="status">正在上传附件…</p>}
   </form>;
 }

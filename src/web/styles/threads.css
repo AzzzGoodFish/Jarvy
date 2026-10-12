@@ -55,8 +55,6 @@
 .jv-summary-empty { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--ui-text-secondary); }
 .jv-summary-empty .ui-icon, .jv-conclude .ui-icon { width: 13px; height: 13px; }
 .jv-conclude { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; }
-.jv-compose-extra { padding: 0 6px; }
-.jv-also { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--ui-text-secondary); }
 
 /* Lists */
 .jv-tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: .5px solid var(--ui-border-weak); }
