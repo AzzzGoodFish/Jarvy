@@ -4,7 +4,7 @@ import { BotAvatar } from "../avatar/BotAvatar";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";
 import { Icon, IconButton, Markdown } from "../ui";
-import { linkMentions } from "./mentions";
+import { MessageText } from "./quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "./MessageActions";
 import { memberName } from "../members";
 
@@ -85,8 +85,8 @@ export function ChannelMessages({ messages, members, bots, me, divider, activeQu
   onQuote?: (message: ChatMessage) => void;
   /** Add or remove an emoji mark. */
   onReact?: (message: ChatMessage, emoji: string, on: boolean) => void;
-  /** Jump to the message a reply quotes. */
-  onJump?: (id: string) => void;
+  /** Jump to the message a reply quotes, or to a partial quote's source (null: gone) and its passage. */
+  onJump?: (id: string | null, passage?: string) => void;
   onError?: (error: unknown) => void;
 }) {
   const firstNew = messages.find(message => message.sequence > divider && message.senderId !== me)?.id;
@@ -102,7 +102,7 @@ export function ChannelMessages({ messages, members, bots, me, divider, activeQu
           {message.echoOf && <button type="button" className="jv-echo" onClick={() => onOpenThread?.(message.echoOf!.id)}>回复了线程「{message.echoOf.title}」</button>}
           {message.replyTo && <ReplyQuote message={message} members={members} onJump={id => onJump?.(id)}/>}
           {message.question ? <QuestionCard message={{ ...message, question: message.question }} keyboard={message.id === activeQuestion} onSettled={onSettled}/>
-            : <div className="ui-bubble jv-flat">{message.content && <Markdown text={linkMentions(message.content, members.filter(item => message.mentions.includes(item.id)), me)}/>}
+            : <div className="ui-bubble jv-flat">{message.content && <MessageText message={message} members={members} me={me} onJump={onJump}/>}
               {message.attachments.length > 0 && <FileCards files={message.attachments} onOpen={file => onPreview(message.attachments, file)}/>}</div>}
           {onReact && <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError ?? (() => {})}/>}
           {message.thread && message.thread.replies > 0 && <button type="button" className="jv-thread-link" data-done={message.thread.status === "done" || undefined}

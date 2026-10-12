@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { api, type ChatMessage } from "../api";
+import { jumpToPassage } from "../channel/quotes";
 
 const PAGE = 50;
 
@@ -111,20 +112,19 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   }, [hasOlder, messages, chatId, loading]);
 
   /** Loads a window ending at a message, then scrolls to it (a reply's quote). */
-  async function toMessage(id: string) {
+  /** Scrolls to a message (loading its page first if needed); a partial quote's passage is highlighted in it. */
+  async function toMessage(id: string, passage?: string) {
     const known = list.current;
-    if (known.some(message => message.id === id)) { jumpTo(id); return; }
+    if (known.some(message => message.id === id)) { jumpTo(id, passage); return; }
     const target = await api.message(id);
     const page = await api.olderMessages(target.chatId, target.sequence + 1, PAGE);
     if (open.current !== target.chatId) return;
     jump.current = true; setMessages([...page.messages, target]); setHasOlder(page.hasOlder);
-    requestAnimationFrame(() => jumpTo(id));
+    requestAnimationFrame(() => jumpTo(id, passage));
   }
-  function jumpTo(id: string) {
+  function jumpTo(id: string, passage?: string) {
     const el = scroller.current?.querySelector(`[data-message="${id}"]`);
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
-    el?.classList.add("jv-jump");
-    setTimeout(() => el?.classList.remove("jv-jump"), 1200);
+    if (el) jumpToPassage(el, passage);
   }
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
   const toLatest = () => { const el = scroller.current; el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); };

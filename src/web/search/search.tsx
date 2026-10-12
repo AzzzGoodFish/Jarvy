@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Chat, type ChatMessage, type Member, type SearchResult } from "../api";
 import { memberName } from "../members";
+import { quotedText } from "../channel/quotes";
 
 /** Searches as you type (250 ms after the last key); null while there is nothing to show yet. */
 export function useSearch(query: string, within: string | undefined, onError: (error: unknown) => void) {
@@ -47,6 +48,6 @@ export function MessageHit({ message, chat, chats, members, query, showPlace = t
     <span className="jv-hit-head"><strong>{memberName(members.find(member => member.id === message.senderId))}</strong>
       {showPlace && <span className="jv-hit-place">{placeOf(chat, chats, members)}</span>}
       <time dateTime={new Date(message.createdAt).toISOString()}>{when(message.createdAt)}</time></span>
-    <span className="jv-hit-text"><Snippet text={message.content} query={query}/></span>
+    <span className="jv-hit-text"><Snippet text={quotedText(message)} query={query}/></span>
   </button>;
 }

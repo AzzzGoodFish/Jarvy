@@ -61,7 +61,10 @@ export interface ChatMessage { id: string; chatId: string; sequence: number; sen
   /** Channel messages: the thread under it. */
   thread: ThreadInfo | null;
   /** A channel copy of a thread reply, or a thread's conclusion. */
-  echoOf: { id: string; title: string } | null; }
+  echoOf: { id: string; title: string } | null;
+  /** Partial quotes (A44), in the order of the [[q1]] … [[qN]] markers in content; messageId is null once the source is gone. */
+  quotes: MessageQuote[]; }
+export interface MessageQuote { messageId: string | null; senderId: string; text: string; }
 export class ApiError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
@@ -118,8 +121,8 @@ export const api = {
   /** Scrolling back: the newest `limit` messages, or the `limit` before a sequence. */
   latestMessages: (id: string, limit: number) => request<{ messages: ChatMessage[]; hasOlder: boolean }>(`/chats/${id}/messages?tail=${limit}`),
   olderMessages: (id: string, before: number, limit: number) => request<{ messages: ChatMessage[]; hasOlder: boolean }>(`/chats/${id}/messages?before=${before}&limit=${limit}`),
-  send: (id: string, content: string, attachmentIds: string[], clientMessageId: string, alsoToChannel = false, replyTo?: string) =>
-    request<ChatMessage>(`/chats/${id}/messages`, { method: "POST", body: body({ content, attachmentIds, clientMessageId, ...(alsoToChannel ? { alsoToChannel } : {}), ...(replyTo ? { replyTo } : {}) }) }),
+  send: (id: string, content: string, attachmentIds: string[], clientMessageId: string, alsoToChannel = false, replyTo?: string, quotes: { messageId: string; text: string }[] = []) =>
+    request<ChatMessage>(`/chats/${id}/messages`, { method: "POST", body: body({ content, attachmentIds, clientMessageId, ...(alsoToChannel ? { alsoToChannel } : {}), ...(replyTo ? { replyTo } : {}), ...(quotes.length ? { quotes } : {}) }) }),
   /** Emoji marks (A39) and pins. */
   react: (messageId: string, emoji: string, on: boolean) => request<ChatMessage>(`/messages/${messageId}/reaction`, { method: "PUT", body: body({ emoji, on }) }),
   pin: (id: string, pinned: boolean) => request<Chat>(`/chats/${id}/pin`, { method: "PUT", body: body({ pinned }) }),

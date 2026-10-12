@@ -18,14 +18,16 @@ export function useFind({ selected, chats, transcript, openChat, setPane, paneRe
   function openMessage(chat: Chat, id: string) {
     if (chat.type === "thread") {
       const channel = chats.find(item => item.id === chat.parentId);
-      if (channel && channel.id !== selected) openChat(channel);
+      // openChat also closes the phone's sidebar, even when the channel is already open.
+      if (channel) openChat(channel);
       setPane({ kind: "thread", id: chat.id, parentId: chat.parentId!, mode: "pane", focus: id });
       return;
     }
     // On a phone the search pane covers the chat; get it out of the way.
     if (paneRef.current?.kind === "search" && window.matchMedia("(max-width: 760px)").matches) setPane(null);
-    if (chat.id === selected) void transcript.toMessage(id);
-    else { openChat(chat); setPending({ chatId: chat.id, id }); }
+    const here = chat.id === selected;
+    openChat(chat);
+    if (here) void transcript.toMessage(id); else setPending({ chatId: chat.id, id });
   }
   function search(chat: Chat) { setPane({ kind: "search", chat }); setFocusKey(key => key + 1); }
   useEffect(() => {

@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Eye, EyeOff, File, Folder,
-  Expand, Image, Info, List, LogOut, MessageCircle, Moon, PanelLeft, Paperclip, Pencil, Megaphone, Trash2, Pin, Plus, Reply,
+  Expand, Image, Info, List, LogOut, MessageCircle, Moon, PanelLeft, Paperclip, Pencil, Megaphone, Trash2, Pin, Quote, Plus, Reply,
   Search, Settings, Shrink, SmilePlus, Sun, UserPlus, Users, X, type LucideIcon } from "lucide-react";
 
 export function applyTheme(mode: "light" | "dark"): void {
@@ -21,7 +21,7 @@ const ICONS: Record<string, LucideIcon> = {
   "arrow-up": ArrowUp, copy: Copy, check: Check, "cloud-download": Download, bell: Bell, "bell-slash": BellOff, image: Image,
   paperclip: Paperclip, "smiley-plus": SmilePlus, info: Info, people: Users, pencil: Pencil, file: File, folder: Folder,
   "layout-sidebar-left": PanelLeft, sun: Sun, moon: Moon, "arrows-expand": Expand, "arrows-contract": Shrink,
-  "arrow-u-up-right": Reply, "list-bullets": List, eye: Eye, "eye-slash": EyeOff, pin: Pin, megaphone: Megaphone, trash: Trash2, search: Search,
+  "arrow-u-up-right": Reply, "list-bullets": List, eye: Eye, "eye-slash": EyeOff, pin: Pin, megaphone: Megaphone, trash: Trash2, search: Search, quote: Quote,
 };
 export function Icon({ name }: { name: string }) {
   const Glyph = ICONS[name] ?? Info;
@@ -62,11 +62,12 @@ function CodeBlock({ children }: { children?: ReactNode }) {
 }
 // Chat text keeps single line breaks as typed (soft break -> <br>), like common chat apps.
 const MARKDOWN_PLUGINS = [remarkGfm, remarkBreaks];
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+export const Markdown = memo(function Markdown({ text, renderQuote }: { text: string; /** Partial quotes: "#quote-N" links (channel/quotes.tsx). */ renderQuote?: (index: number) => ReactNode }) {
   return <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} skipHtml components={{
     // channel/mentions.ts turns "@name" into "#mention" / "#mention-me" links; they render as highlights.
     a: ({ href, children }) => href === "#mention" || href === "#mention-me"
       ? <span className="jv-mention" data-me={href === "#mention-me" || undefined}>{children}</span>
+      : renderQuote && href?.startsWith("#quote-") ? renderQuote(Number(href.slice(7)))
       : <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
     img: ({ alt }) => <span>[图片：{alt || "外部图片已隐藏"}]</span>,
     pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
