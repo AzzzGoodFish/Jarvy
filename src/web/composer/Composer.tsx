@@ -114,7 +114,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
       <textarea ref={textarea} id={id} rows={1} maxLength={32000} value={draft} onPaste={paste} placeholder={placeholder} disabled={disabled} aria-label="输入消息"
         onChange={event => { setDraft(event.target.value); if (mention) menu.track(event.target.value); }}
         onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => { if (mention && menu.onKeyDown(event)) return; if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
-        onClick={() => { if (mention) menu.track(); }} onBlur={menu.close}/>
+        onClick={() => { if (mention) menu.track(); }} onBlur={mention ? menu.leaves : undefined}/>
       <button type="submit" className="ui-round ui-send" aria-label="发送消息" disabled={sending || uploading || disabled || (!draft.trim() && !files.length)}><Icon name="arrow-up"/></button>
     </div>
     {dropping ? <p className="jarvy-compose-note" role="status">松开以添加附件</p> : uploading && <p className="jarvy-compose-note" role="status">正在上传附件…</p>}
