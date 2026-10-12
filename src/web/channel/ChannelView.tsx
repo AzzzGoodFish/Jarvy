@@ -53,17 +53,17 @@ export function NoticeBar({ chat, onSave }: { chat: Chat; onSave: (text: string)
   });
   const save = async () => { if (!editing?.trim()) return; setSaving(true); try { await onSave(editing.trim()); setEditing(null); } finally { setSaving(false); } };
   if (editing !== null) return <div className="jv-notice" data-editing>
-    <div className="jv-notice-head"><Icon name="pin"/><strong>编辑公告</strong></div>
+    <div className="jv-notice-head"><Icon name="megaphone"/><strong>编辑公告</strong></div>
     <textarea className="jv-notice-input" value={editing} autoFocus aria-label="公告内容" onChange={event => setEditing(event.target.value)}/>
     <div className="jv-notice-actions"><button type="button" className="ui-button" onClick={() => setEditing(null)}>取消</button>
       <button type="button" className="ui-button ui-primary" disabled={saving || !editing.trim()} onClick={() => void save()}>保存</button></div>
   </div>;
-  if (!note) return <div className="jv-notice" data-empty><Icon name="pin"/><span className="jv-muted">暂无公告</span>
+  if (!note) return <div className="jv-notice" data-empty><Icon name="megaphone"/><span className="jv-muted">暂无公告</span>
     <IconButton icon="pencil" label="编辑公告" onClick={() => setEditing("")}/></div>;
   const first = note.text.split("\n").find(line => line.trim() && !line.startsWith("#"))?.replace(/[*`|>-]/g, "").trim() ?? "";
   return <div className="jv-notice" data-open={open || undefined}>
     <div className="jv-notice-head">
-      <button type="button" className="jv-notice-toggle" aria-expanded={open} onClick={toggle}><Icon name="pin"/><strong>公告</strong>
+      <button type="button" className="jv-notice-toggle" aria-expanded={open} onClick={toggle}><Icon name="megaphone"/><strong>公告</strong>
         {!open && <span className="jv-notice-first">{first}</span>}<Icon name={open ? "chevron-down" : "chevron-right"}/></button>
       <span className="jv-muted jv-notice-meta">{note.updatedBy.name} · {new Date(note.updatedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 第 {note.version} 版</span>
       <IconButton icon="pencil" label="编辑公告" onClick={() => setEditing(note.text)}/>

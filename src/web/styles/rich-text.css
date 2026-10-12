@@ -1,6 +1,6 @@
-/* Markdown inside messages: code figures with a copy button, lists, headings, links, quotes, tables, rules; and
- * the typing-dots animation. Line breaks come from remark-breaks, not white-space (pre-wrap rendered
- * react-markdown's inter-block "\n" nodes as blank lines). */
+/* Markdown inside messages: code figures with a copy button, lists, headings, links, quotes, tables, rules.
+ * Line breaks come from remark-breaks, not white-space (pre-wrap rendered react-markdown's inter-block "\n" nodes
+ * as blank lines). */
 
 /* Code figures anywhere (messages, Markdown previews). */
 .ui-code-figure {
@@ -48,5 +48,4 @@
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) table { display: block; max-width: 100%; overflow-x: auto; margin: 0 0 12px; border-collapse: collapse; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(td, th) { padding: 4px 8px; border-bottom: .5px solid color-mix(in srgb, currentColor 30%, transparent); text-align: left; }
 
-@keyframes ui-typing { 0%, 70%, 100% { opacity: .45; transform: none; } 35% { opacity: 1; transform: translateY(-2px); } }
 @media (max-width: 620px) { .ui-code-figure pre { font-size: 11.5px; } }

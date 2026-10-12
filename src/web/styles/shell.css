@@ -221,7 +221,4 @@ dialog[open] { animation: ui-rise .16s var(--ui-ease-out); }
   .ui-dialog-body { padding: 22px 20px; }
   .ui-dialog-actions .ui-button { min-height: 32px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-}
 }

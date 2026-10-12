@@ -44,6 +44,7 @@ button.jv-stack-item:hover { transform: translateY(-1px); }
 .jv-notice-head > .ui-icon { width: 14px; height: 14px; color: var(--ui-text-tertiary); }
 .jv-notice-toggle { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; text-align: left; }
 .jv-notice-toggle .ui-icon { width: 14px; height: 14px; color: var(--ui-text-tertiary); flex: none; }
+.jv-notice-toggle > strong { flex: none; white-space: nowrap; }
 .jv-notice-first { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-text-secondary); }
 .jv-notice-meta { font-size: 11px; white-space: nowrap; }
 .jv-notice-body { max-height: 38vh; overflow: auto; margin-top: 4px; padding: 4px 4px 2px 20px !important; font-size: 13px !important; line-height: 1.6 !important; }
