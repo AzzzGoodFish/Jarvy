@@ -113,10 +113,13 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
 
   /** Loads a window ending at a message, then scrolls to it (a reply's quote). */
   /** Scrolls to a message (loading its page first if needed); a partial quote's passage is highlighted in it. */
-  async function toMessage(id: string, passage?: string) {
+  /** Scrolls to a message of this chat, loading the page around it first; a message in another chat (a quote in a
+   * channel copy of a thread reply points into the thread) is left to the caller, who gets that chat's id. */
+  async function toMessage(id: string, passage?: string): Promise<string | undefined> {
     const known = list.current;
     if (known.some(message => message.id === id)) { jumpTo(id, passage); return; }
-    const target = await api.message(id);
+    const chatId = open.current, target = await api.message(id);
+    if (target.chatId !== chatId) return target.chatId;
     const page = await api.olderMessages(target.chatId, target.sequence + 1, PAGE);
     if (open.current !== target.chatId) return;
     jump.current = true; setMessages([...page.messages, target]); setHasOlder(page.hasOlder);

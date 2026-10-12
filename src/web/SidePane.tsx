@@ -39,7 +39,7 @@ export function SidePane({ pane, followedView, followed, chats, sections, member
         members={members} bots={bots} me={meId} tick={tick} onNav={onNav} onChanged={onThreadChanged}
         onClose={back} onToggleMode={() => onBackToChannel({ id: thread.id, parentId: thread.parentId! }, true)}
         onInvite={member => onInvite(thread.parentId!, member)} onPreview={onPreview} onError={onError} onNotice={onNotice}/>}/>}
-    {open && <ThreadPane key={`${open.id}:${open.focus ?? ""}`} threadId={open.id} mode={open.mode} showSummary={open.summary} focus={open.focus} onSearch={find.search}
+    {open && <ThreadPane key={`${open.id}:${open.focus?.id ?? ""}:${open.focus?.passage ?? ""}`} threadId={open.id} mode={open.mode} showSummary={open.summary} focus={open.focus} onSearch={find.search}
       channel={chats.find(chat => chat.id === open.parentId)} drafts={drafts} members={members} bots={bots} me={meId} tick={tick} onNav={onNav} onChanged={onThreadChanged}
       onClose={() => full ? onBackToChannel(open, false) : close()} onToggleMode={() => full ? onBackToChannel(open, true) : onPane({ ...open, mode: "full" })}
       onInvite={member => onInvite(open.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice}/>}

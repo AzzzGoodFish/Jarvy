@@ -3,7 +3,8 @@ import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Membe
 import { Composer } from "../composer/Composer";
 import { quoteMessage, type DraftStore } from "../composer/drafts";
 import { ChannelMessages } from "../channel/ChannelView";
-import { jumpToPassage, QuoteSelection } from "../channel/quotes";
+import { highlightPassage, jumpToPassage, QuoteSelection } from "../channel/quotes";
+import type { Focus } from "../pane";
 import { findMentions } from "../channel/mentions";
 import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
@@ -16,8 +17,9 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
   showSummary?: boolean;
-  /** Opened from a search result: land on this reply (highlighted) instead of the newest. */
-  focus?: string;
+  /** Opened from a search result or a quote tag: land on this reply instead of the newest, with the quoted passage
+   * highlighted, or the whole reply flashed. */
+  focus?: Focus;
   /** The header's search button and Ctrl+F inside the pane: search this thread. */
   onSearch?: (thread: Chat) => void; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
   /** Bumped when the server reports a change to this thread. */
@@ -33,7 +35,9 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const body = useRef<HTMLDivElement>(null), rows = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
   // 「回到最新」, as in the main transcript: shown while away from the bottom, counting others' replies since you left it.
   const [away, setAway] = useState(false), seen = useRef(0);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; }, [threadId]);
+  // The newest reply already laid out: a reload (reading the thread bumps `tick`) brings nothing new to scroll to.
+  const newest = useRef(0);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; }, [threadId]);
   useEffect(() => {
     let alive = true;
     void Promise.all([api.chat(threadId), api.messages(threadId)]).then(async ([loaded, list]) => {
@@ -50,19 +54,23 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     const el = body.current;
     if (!el || !chat) return;
     const toBottom = () => el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
-    const last = messages.at(-1);
+    const last = messages.at(-1), mine = last?.senderId === me && last.sequence > newest.current;
+    newest.current = Math.max(newest.current, last?.sequence ?? 0);
     if (!settled.current) {
       if (!messages.length && !root) return;
       settled.current = true;
-      const target = focus ? el.querySelector<HTMLElement>(`[data-message="${focus}"]`) : null;
+      const target = focus ? el.querySelector<HTMLElement>(`[data-message="${focus.id}"]`) : null;
       if (target) {
-        atBottom.current = false; target.scrollIntoView({ block: "center" }); target.classList.add("jv-jump");
-        setTimeout(() => target.classList.remove("jv-jump"), 1600); return;
+        atBottom.current = false; target.scrollIntoView({ block: "center" });
+        if (focus?.passage && highlightPassage(target, focus.passage)) return;
+        target.classList.add("jv-jump"); setTimeout(() => target.classList.remove("jv-jump"), 1600); return;
       }
       toBottom(); requestAnimationFrame(toBottom);
-    } else if (atBottom.current || last?.senderId === me) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    if (atBottom.current || last?.senderId === me) seen.current = last?.sequence ?? 0;
+    } else if (atBottom.current || mine) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    if (atBottom.current || mine) seen.current = last?.sequence ?? 0;
   }, [messages, root, chat]);
+  // The same reply asked for again while this pane is open (a quote tag pressed twice): land on it again.
+  useEffect(() => { if (settled.current && focus) jump(focus.id, focus.passage); }, [focus]);
   useEffect(() => {
     const el = body.current, inner = rows.current;
     if (!el || !inner) return;

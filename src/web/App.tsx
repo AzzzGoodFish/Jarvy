@@ -289,7 +289,9 @@ export function App() {
   /** The composer's quote bar: part of the quoted message's chat draft. */
   function setReplyFor(message: ChatMessage) { quoteMessage(drafts, message, members); }
   /** A reply's or a partial quote's source (A44): scrolls to it and highlights the passage; null means it is gone. */
-  const jumpTo = (id: string | null, passage?: string) => id ? void history.toMessage(id, passage).catch(() => setNotice("原消息已不在")) : setNotice("原消息已不在");
+  /** A quote tag (or a reply bar): its message here, or — in a channel copy of a thread reply — in that thread (A44). */
+  const jumpTo = (id: string | null, passage?: string) => id ? void history.toMessage(id, passage)
+    .then(async elsewhere => { if (elsewhere) find.openMessage(await api.chat(elsewhere), id, passage); }).catch(() => setNotice("原消息已不在")) : setNotice("原消息已不在");
   function threadChanged(thread: Chat) {
     setFollowed(previous => previous.map(item => item.id === thread.id ? { ...item, ...thread } : item));
     void api.followedThreads().then(result => setFollowed(result.threads)).catch(() => {});
