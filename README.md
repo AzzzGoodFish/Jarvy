@@ -64,11 +64,12 @@ Open `http://127.0.0.1:8080` and sign in. A first Bot, Jarvy, is waiting in your
 ## Install globally
 
 ```sh
-npm run build
-npm pack --pack-destination /tmp && npm install -g /tmp/jarvy-0.1.0.tgz
+npm install -g @goodfish/jarvy
 jarvy on                          # run in the background
 jarvy off                         # stop
 ```
+
+To install your own build instead: `npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-0.1.0.tgz`.
 
 | Command | What it does |
 | --- | --- |

@@ -62,11 +62,12 @@ node dist/server/cli.js run       # 前台运行，Ctrl+C 停止
 ## 全局安装
 
 ```sh
-npm run build
-npm pack --pack-destination /tmp && npm install -g /tmp/jarvy-0.1.0.tgz
+npm install -g @goodfish/jarvy
 jarvy on                          # 后台运行
 jarvy off                         # 停止
 ```
+
+想装自己构建的版本：`npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-0.1.0.tgz`。
 
 | 命令 | 作用 |
 | --- | --- |
