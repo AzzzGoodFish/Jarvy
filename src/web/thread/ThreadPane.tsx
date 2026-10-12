@@ -4,47 +4,17 @@ import { Composer } from "../composer/Composer";
 import { quoteMessage, type DraftStore } from "../composer/drafts";
 import { ChannelMessages } from "../channel/ChannelView";
 import { findMentions } from "../channel/mentions";
-import { Icon, IconButton, Markdown } from "../ui";
+import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
-
-const stamp = (time: number) => new Date(time).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-
-/** Title, status and summary: the thread's own small notice (A37). Anyone in the channel may edit them. */
-function ThreadMeta({ chat, channelName, onTitle, onStatus, onSummary, onConclude }: {
-  chat: Chat; channelName: string; onTitle: (title: string) => Promise<void>; onStatus: (status: "open" | "done") => Promise<void>;
-  onSummary: (text: string) => Promise<void>; onConclude: () => Promise<void>;
-}) {
-  const [title, setTitle] = useState<string | null>(null), [summary, setSummary] = useState<string | null>(null), [busy, setBusy] = useState(false);
-  useEffect(() => { setTitle(null); setSummary(null); }, [chat.id]);
-  const run = async (work: () => Promise<void>, done: () => void) => { setBusy(true); try { await work(); done(); } catch { /* reported by the caller */ } finally { setBusy(false); } };
-  const isDone = chat.status === "done", note = chat.note;
-  return <div className="jv-thread-meta">
-    <div className="jv-thread-title-row">
-      {title === null ? <><h2 className="jv-thread-title">{chat.title}</h2><IconButton icon="pencil" label="修改标题" onClick={() => setTitle(chat.title)}/></>
-        : <form className="jv-inline-edit" onSubmit={event => { event.preventDefault(); if (title.trim()) void run(() => onTitle(title.trim()), () => setTitle(null)); }}>
-          <input value={title} autoFocus maxLength={80} aria-label="线程标题" onChange={event => setTitle(event.target.value)} onKeyDown={event => { if (event.key === "Escape") setTitle(null); }}/>
-          <button type="submit" className="ui-button ui-primary" disabled={busy || !title.trim()}>保存</button></form>}
-      <button type="button" className="jv-status" data-done={isDone || undefined} disabled={busy} title="切换状态" onClick={() => void run(() => onStatus(isDone ? "open" : "done"), () => {})}>
-        {isDone ? <><Icon name="check"/>已完成</> : "进行中"}</button>
-    </div>
-    {summary !== null ? <div className="jv-summary" data-editing>
-      <textarea className="jv-notice-input" value={summary} autoFocus aria-label="摘要" onChange={event => setSummary(event.target.value)}/>
-      <div className="jv-notice-actions"><button type="button" className="ui-button" onClick={() => setSummary(null)}>取消</button>
-        <button type="button" className="ui-button ui-primary" disabled={busy || !summary.trim()} onClick={() => void run(() => onSummary(summary.trim()), () => setSummary(null))}>保存</button></div>
-    </div> : note ? <div className="jv-summary">
-      <div className="jv-summary-head"><strong>摘要</strong><span className="jv-muted">{note.updatedBy.name} · {stamp(note.updatedAt)} · 第 {note.version} 版</span>
-        <span className="jv-spacer"/><IconButton icon="pencil" label="编辑摘要" onClick={() => setSummary(note.text)}/></div>
-      <div className="jv-summary-body ui-bubble jv-flat"><Markdown text={note.text}/></div>
-      {!isDone && <button type="button" className="ui-button jv-conclude" disabled={busy} onClick={() => void run(onConclude, () => {})}><Icon name="check"/>完成并把摘要发到 #{channelName}</button>}
-    </div> : <button type="button" className="jv-summary-empty" onClick={() => setSummary("")}><Icon name="add"/>添加摘要</button>}
-  </div>;
-}
+import { ThreadMeta } from "./ThreadMeta";
 
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
-  threadId: string; mode: "pane" | "full" | "embed"; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
+export function ThreadPane({ threadId, mode, showSummary = false, channel, drafts, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+  threadId: string; mode: "pane" | "full" | "embed";
+  /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
+  showSummary?: boolean; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
   /** Bumped when the server reports a change to this thread. */
   tick: number;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
@@ -53,9 +23,12 @@ export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me,
 }) {
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null);
+  const list = useRef(messages); list.current = messages;
   // At the bottom, and not yet moved by the opening jump: a thread is read the same way as the main transcript.
-  const body = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; }, [threadId]);
+  const body = useRef<HTMLDivElement>(null), rows = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
+  // 「回到最新」, as in the main transcript: shown while away from the bottom, counting others' replies since you left it.
+  const [away, setAway] = useState(false), seen = useRef(0);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; }, [threadId]);
   useEffect(() => {
     let alive = true;
     void Promise.all([api.chat(threadId), api.messages(threadId)]).then(async ([loaded, list]) => {
@@ -72,15 +45,15 @@ export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me,
     const el = body.current;
     if (!el || !chat) return;
     const toBottom = () => el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    const last = messages.at(-1);
     if (!settled.current) {
       if (!messages.length && !root) return;
       settled.current = true; toBottom(); requestAnimationFrame(toBottom);
-      return;
-    }
-    if (atBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else if (atBottom.current || last?.senderId === me) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    if (atBottom.current || last?.senderId === me) seen.current = last?.sequence ?? 0;
   }, [messages, root, chat]);
   useEffect(() => {
-    const el = body.current, inner = el?.firstElementChild;
+    const el = body.current, inner = rows.current;
     if (!el || !inner) return;
     const grown = new ResizeObserver(() => {
       if (!settled.current || !atBottom.current) return;
@@ -88,7 +61,11 @@ export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me,
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
     });
     grown.observe(inner);
-    const track = () => { atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120; };
+    const track = () => {
+      atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      if (atBottom.current) seen.current = Math.max(seen.current, list.current.at(-1)?.sequence ?? 0);
+      setAway(!atBottom.current);
+    };
     track(); el.addEventListener("scroll", track, { passive: true });
     return () => { grown.disconnect(); el.removeEventListener("scroll", track); };
   }, [body.current, threadId, chat]);
@@ -135,6 +112,7 @@ export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me,
     setChat(loaded); setMessages(list.messages); onChanged(loaded);
   };
   const channelName = channel?.title ?? "频道", rootSender = members.find(member => member.id === root?.senderId);
+  const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
   const Shell = mode === "pane" ? "aside" : mode === "embed" ? "section" : "main";
   return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label="线程">
     <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
@@ -149,8 +127,7 @@ export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me,
       {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={mode === "pane" ? "展开" : "收起到侧栏"} onClick={onToggleMode}/>}
       {mode === "pane" && <IconButton icon="close" label="关闭线程" onClick={onClose}/>}
     </header>
-    <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>
-      {chat && <ThreadMeta chat={chat} channelName={channelName}
+    {chat && <div className={mode === "pane" ? "jv-thread-pin" : "jv-thread-pin jv-thread-pin-wide"}><ThreadMeta chat={chat} channelName={channelName} expanded={showSummary}
         onTitle={title => save(() => api.updateThread(threadId, { title }))} onStatus={status => save(() => api.updateThread(threadId, { status }))}
         onSummary={text => save(() => api.setNote(threadId, text))}
         onConclude={async () => {
@@ -159,12 +136,18 @@ export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me,
             await save(() => api.updateThread(threadId, { status: "done" }));
             onNotice(`已完成，摘要已发到 #${channelName}`);
           } catch (error) { onError(error); throw error; }
-        }}/>}
+        }}/></div>}
+    <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>
+      <div ref={rows}>
       {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
         onSettled={() => {}} onPreview={onPreview} onReact={react} onJump={jump} onError={onError}/>}
       <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? `${messages.length} 条回复` : "暂无回复"}</span></div>
       <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER}
         onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
+      </div>
+      {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label="回到最新回复"
+        onClick={() => body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" })}>
+        {unseen > 0 && <span>{unseen} 条新消息</span>}<Icon name="chevron-down"/></button></div>}
     </div>
     <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder="回复线程" scrollRef={body} disabled={!chat}
       initialText={messages.length === 0 && root && root.senderId !== me && rootSender && !rootSender.deleted ? `@${rootSender.name} ` : undefined}

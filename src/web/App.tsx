@@ -55,7 +55,7 @@ export function App() {
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
   /** Right-hand pane (A37 P2): a channel's thread list or info (with its member page), or one thread (expandable over the main area). */
-  const [pane, setPane] = useState<{ kind: "threads" } | { kind: "info"; page: InfoPage } | { kind: "botdms" } | { kind: "thread"; id: string; parentId: string; mode: "pane" | "full" } | null>(null);
+  const [pane, setPane] = useState<{ kind: "threads" } | { kind: "info"; page: InfoPage } | { kind: "botdms" } | { kind: "thread"; id: string; parentId: string; mode: "pane" | "full"; summary?: boolean } | null>(null);
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
   const [paneWidth, setPaneWidth] = useState(420);
@@ -216,7 +216,7 @@ export function App() {
   function openChat(chat: Chat) {
     // A channel row hinting at a thread (「X 更新了线程「…」的摘要」) opens that thread too, so the lead is not lost.
     const thread = hintThread(chat);
-    if (thread) setPane({ kind: "thread", id: thread, parentId: chat.id, mode: "pane" });
+    if (thread) setPane({ kind: "thread", id: thread, parentId: chat.id, mode: "pane", summary: chat.hint?.kind === "note" });
     else if (chat.id !== selectedRef.current) setPane(null);
     setFollowedView(false);
     setDividers(previous => ({ ...previous, [chat.id]: chat.readSequence }));
@@ -440,7 +440,7 @@ export function App() {
         </> : <div className="jarvy-empty-chat jarvy-first-chat">{bots.length ? <p>选择一个会话</p>
           : <button className="ui-button ui-primary" onClick={() => void createBot()} disabled={creating}><Icon name="person-add"/>新建 Bot</button>}</div>}
       </main>
-      {openThread && <ThreadPane key={openThread.id} threadId={openThread.id} mode={openThread.mode} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
+      {openThread && <ThreadPane key={openThread.id} threadId={openThread.id} mode={openThread.mode} showSummary={openThread.summary} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
         onClose={() => full ? toChannel(openThread, false) : setPane(null)} onToggleMode={() => full ? toChannel(openThread, true) : setPane({ ...openThread, mode: "full" })}
         onInvite={member => invite(openThread.parentId, member)} onPreview={(list, index) => setPreview({ files: list, index })}

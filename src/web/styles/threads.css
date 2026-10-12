@@ -86,3 +86,16 @@
 .jv-thread-item-head .jv-muted { flex: none; font-size: 11px; }
 .jv-thread-item > .jv-thread-item-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-readonly { flex: none; margin: 0; padding: 10px 16px 14px; border-top: .5px solid var(--ui-border-weak); color: var(--ui-text-tertiary); font-size: 12px; text-align: center; }
+
+/* The thread's title, status and summary stay pinned above the replies, like a channel's notice; the summary folds. */
+.jv-thread-pin { flex: none; padding: 8px 12px 4px; }
+.jv-thread-pin-wide { padding: 10px max(16px, calc((100% - 860px) / 2)) 4px; }
+.jv-thread-pin > .jv-thread-meta { margin: 0; }
+.jv-summary-toggle { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; text-align: left; }
+.jv-summary-toggle > strong { flex: none; white-space: nowrap; }
+.jv-summary-toggle > .ui-icon { width: 13px; height: 13px; flex: none; color: var(--ui-text-tertiary); }
+.jv-summary-first { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-text-secondary); }
+.jv-summary-meta { white-space: nowrap; }
+.jv-thread-meta[data-open] .jv-summary-body { max-height: 32vh; overflow: auto; }
+@media (max-width: 760px) { .jv-thread-meta[data-open] .jv-summary-body { max-height: 24vh; } .jv-summary-meta { display: none; } }
+.jv-thread-pin .jv-thread-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
