@@ -148,6 +148,7 @@
 
 /* Dialogs */
 .jv-select { display: block; width: 100%; min-height: 36px; padding: 7px 10px; border: .5px solid var(--ui-border-default); border-radius: var(--ui-radius-base); background: var(--ui-bg-base); color: var(--ui-text-primary); font-size: 14px; }
+.jv-section-select { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px; box-shadow: none; }
 .jv-members { margin-top: 18px; }
 .jv-members-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: var(--ui-text-secondary); }
 .jv-members-head .ui-button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font-size: 13px; }

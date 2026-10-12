@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { SectionSelect } from "./SectionSelect";
 import { api, type Bot, type BotStatus, type Chat, type Member, type Section } from "../api";
 import { Icon, IconButton } from "../ui";
 import { MemberList } from "./MemberList";
@@ -57,10 +58,7 @@ export function ChannelInfo({ channel, page, sections, members, bots, statuses, 
         <InfoField label="名称" value={channel.title} empty="新频道" maxLength={80} required onSave={name => update({ name })}/>
         <InfoField label="主题" value={channel.topic} empty="暂无主题" maxLength={200} onSave={topic => update({ topic })}/>
         <div className="jv-info-field"><div className="jv-info-label"><label htmlFor={sectionId}>分组</label></div>
-          <select id={sectionId} className="jv-select" value={channel.sectionId ?? ""} onChange={event => void update({ sectionId: event.target.value || null }).catch(() => {})}>
-            <option value="">无</option>
-            {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-          </select></div>
+          <SectionSelect id={sectionId} value={channel.sectionId} sections={sections} onChange={next => void update({ sectionId: next }).catch(() => {})}/></div>
         <nav className="jv-info-menu" aria-label="频道">
           <button type="button" className="ui-menu-item" onClick={() => onPage("members")}><Icon name="people"/><span className="ui-menu-copy">成员</span>
             <span className="jv-muted">{count}</span><Icon name="chevron-right"/></button>

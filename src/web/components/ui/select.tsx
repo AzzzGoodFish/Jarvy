@@ -11,8 +11,9 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
     {children}<SelectPrimitive.Icon asChild><ChevronDownIcon className="size-4 opacity-50"/></SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 }
-function SelectContent({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Content>) {
-  return <SelectPrimitive.Portal><SelectPrimitive.Content data-slot="select-content" position="popper" sideOffset={5} className={cn("z-[100] max-h-[min(300px,70dvh)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border bg-popover bg-background p-1 text-foreground shadow-md", className)} {...props}>
+/** `container`: where the menu is portalled; inside a modal <dialog> it must be the dialog, or the menu is inert. */
+function SelectContent({ className, children, container, ...props }: React.ComponentProps<typeof SelectPrimitive.Content> & { container?: HTMLElement | null }) {
+  return <SelectPrimitive.Portal container={container ?? undefined}><SelectPrimitive.Content data-slot="select-content" position="popper" sideOffset={5} className={cn("z-[100] max-h-[min(300px,70dvh)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border bg-popover bg-background p-1 text-foreground shadow-md", className)} {...props}>
     <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>
   </SelectPrimitive.Content></SelectPrimitive.Portal>
 }

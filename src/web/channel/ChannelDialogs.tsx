@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
+import { SectionSelect } from "./SectionSelect";
 import { api, type Bot, type Chat, type Member, type Section } from "../api";
 import { Icon, IconButton, Modal } from "../ui";
 import { MemberAvatar } from "./ChannelView";
@@ -76,10 +77,7 @@ export function NewChannelDialog({ sections, members, bots, me, onClose, onSaved
       <div className="ui-field"><label htmlFor={`${ids}-topic`}>主题</label>
         <input id={`${ids}-topic`} value={topic} maxLength={200} placeholder="可选" onChange={event => setTopic(event.target.value)}/></div>
       <div className="ui-field"><label htmlFor={`${ids}-section`}>分组</label>
-        <select id={`${ids}-section`} className="jv-select" value={sectionId ?? ""} onChange={event => setSectionId(event.target.value || null)}>
-          <option value="">无</option>
-          {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-        </select></div>
+        <SectionSelect id={`${ids}-section`} value={sectionId} sections={sections} onChange={setSectionId}/></div>
       <div className="jv-members">
         <div className="jv-members-head"><span>成员 · {current.length}</span>
           <button type="button" className="ui-button" onClick={() => setPicking(true)}><Icon name="person-add"/>添加成员</button></div>
