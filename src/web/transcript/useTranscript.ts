@@ -14,16 +14,21 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   const list = useRef(messages), open = useRef(chatId), request = useRef(0), busy = useRef(false), older = useRef(false);
   list.current = messages; open.current = chatId; older.current = hasOlder;
   // After the next render: keep this distance from the bottom (a page was prepended), or jump to the bottom (opened).
-  const anchor = useRef<number | null>(null), jump = useRef(false), lastId = useRef<string | undefined>(undefined), atBottom = useRef(true);
+  // settled stays false until the jump to the bottom has happened: until then nothing may load older pages (the
+  // top sentinel is inside the viewport while the list is still short) and 「at the bottom」 is not believed, because
+  // the transcript's height still grows as images and attachments arrive.
+  const anchor = useRef<number | null>(null), jump = useRef(false), lastId = useRef<string | undefined>(undefined), atBottom = useRef(true), settled = useRef(false);
   const top = useRef<HTMLDivElement>(null);
   // 「回到最新」: shown while you are away from the bottom; counts others' messages that arrived meanwhile.
   const [away, setAway] = useState(false), seen = useRef(0);
 
   useEffect(() => {
     setMessages([]); setHasOlder(false);
+    settled.current = false; atBottom.current = true;
     if (!ready || !chatId) return;
     let alive = true; const id = ++request.current;
     setLoading(true);
+    setAway(false); seen.current = 0;
     // Messages and the end of loading land in one render, so the jump to the bottom sees the rows.
     void api.latestMessages(chatId, PAGE).then(page => {
       if (!alive || id !== request.current) return;
@@ -63,20 +68,35 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
+    // A row can grow after it is on screen (an image or file card finishing its layout). If we were at the bottom,
+    // stay there instead of leaving a growing gap under the newest message.
+    const grown = new ResizeObserver(() => {
+      if (!settled.current || !atBottom.current) return;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return; // already there
+      el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    });
+    const innermost = el.firstElementChild;
+    if (innermost) grown.observe(innermost);
     const track = () => {
+      // While the opening jump is still ahead, the position says nothing: the transcript is short and about to move.
+      if (!settled.current) { atBottom.current = true; setAway(false); return; }
       atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
       setAway(!atBottom.current);
       if (atBottom.current) seen.current = list.current.at(-1)?.sequence ?? 0;
     };
     track(); el.addEventListener("scroll", track, { passive: true });
-    return () => el.removeEventListener("scroll", track);
+    return () => { grown.disconnect(); el.removeEventListener("scroll", track); };
   }, [scroller.current, chatId]);
   useLayoutEffect(() => {
     const el = scroller.current, last = messages.at(-1);
     if (!el) return;
     // The transcript scrolls smoothly by CSS; these two must be instant.
     if (anchor.current !== null) { el.scrollTo({ top: el.scrollHeight - anchor.current, behavior: "instant" }); anchor.current = null; }
-    else if (jump.current && messages.length) { el.scrollTo({ top: el.scrollHeight, behavior: "instant" }); jump.current = false; atBottom.current = true; }
+    else if (jump.current && messages.length) {
+      // Twice: the rows of this page, then whatever the images in them added by the time it lands.
+      const toBottom = () => el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+      toBottom(); requestAnimationFrame(toBottom); jump.current = false; settled.current = true; atBottom.current = true;
+    }
     else if (last && last.id !== lastId.current && (atBottom.current || last.senderId === me)) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     lastId.current = last?.id;
     if (atBottom.current) seen.current = last?.sequence ?? 0;
@@ -84,11 +104,11 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   // Near the top: load the page before. Re-armed after each page, so a short page keeps filling the view.
   useEffect(() => {
     const el = scroller.current, sentinel = top.current;
-    if (!el || !sentinel || !hasOlder) return;
-    const observer = new IntersectionObserver(entries => { if (entries[0]?.isIntersecting) void loadOlder(); }, { root: el, rootMargin: "400px 0px 0px 0px" });
+    if (!el || !sentinel || !hasOlder || !settled.current) return;
+    const observer = new IntersectionObserver(entries => { if (entries[0]?.isIntersecting && settled.current) void loadOlder(); }, { root: el, rootMargin: "400px 0px 0px 0px" });
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasOlder, messages, chatId]);
+  }, [hasOlder, messages, chatId, loading]);
 
   /** Loads a window ending at a message, then scrolls to it (a reply's quote). */
   async function toMessage(id: string) {
