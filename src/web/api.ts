@@ -19,7 +19,8 @@ export interface ModelConnection { id: string; providerName: string; displayName
 export interface Member { id: string; name: string; kind: "user" | "bot"; /** A deleted Bot: still shown as the author of old messages. */ deleted?: boolean; }
 /** A project grouping channels (A37). */
 export interface Section { id: string; name: string; position: number; createdAt: number; updatedAt: number; }
-export interface ChatHint { kind: "reaction" | "note"; chatType: string; actor: string; detail: string; createdAt: number; }
+/** `chatId` / `title`: where it happened — the chat itself, or for a channel row one of its threads. */
+export interface ChatHint { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actor: string; detail: string; createdAt: number; }
 export interface ChatNote { text: string; updatedBy: Member; updatedAt: number; version: number; }
 /** botId is the DM's Bot (null for channels); unread/mentions/readSequence are for you. */
 export interface Chat { id: string; type: "dm" | "channel" | "thread"; botId: string; title: string; createdAt: number; updatedAt: number; lastMessage: string | null;

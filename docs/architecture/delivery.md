@@ -79,7 +79,7 @@ Further rules:
 `User.deliver` publishes an SSE `inbox` event and the sidebar refreshes ([channels](channels.md#sidebar)):
 
 - **Red count**: pending interrupt messages delivered to you and not yet read (`Chat.alerts`). A red 「[有人@我]」 prefix shows while one of them @-mentions or replies to you (`Chat.atMe`).
-- **Hint line**: the newest queued delivery — 「Jarvy 对你的消息表达了 👍」, 「Mochi 更新了公告」 (`Chat.hint`). For a channel, its threads count too.
+- **Hint line**: the newest queued delivery — 「Jarvy 对你的消息表达了 👍」, 「Mochi 更新了公告」 (`Chat.hint`). For a channel, its threads count too: the hint names the thread (「Jarvy 更新了线程「…」的摘要」) and opening the row opens that thread beside the channel.
 - **Grey count**: other unread messages, including muted ones.
 - Reading a message marks its row told; opening a chat marks its other rows told.
 - The tab shows the red total as a favicon badge and a 「(N)」 title prefix (`web/tabBadge.ts`).

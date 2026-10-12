@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { api, ApiError, type Attachment, type BotStatus, type Bot, type Chat, type ChatMessage, type Member, type ModelConnection, type Section, type ThreadEntry } from "./api";
 import { BotInfo } from "./BotInfo";
-import { Sidebar } from "./sidebar/Sidebar";
+import { Sidebar, hintThread } from "./sidebar/Sidebar";
 import { ChannelHeader, ChannelMessages, NoticeBar } from "./channel/ChannelView";
 import { AddMembersDialog, NewChannelDialog, SectionDialog } from "./channel/ChannelDialogs";
 import { ChannelInfo, type InfoPage } from "./channel/ChannelInfo";
@@ -214,7 +214,10 @@ export function App() {
   function updateBot(updated: Bot) { setBots(previous => previous.map(item => item.id === updated.id ? updated : item)); refreshMembers(); }
   /** Opens a chat; its read position at this moment marks where "以下为新消息" goes. */
   function openChat(chat: Chat) {
-    if (chat.id !== selectedRef.current) setPane(null);
+    // A channel row hinting at a thread (「X 更新了线程「…」的摘要」) opens that thread too, so the lead is not lost.
+    const thread = hintThread(chat);
+    if (thread) setPane({ kind: "thread", id: thread, parentId: chat.id, mode: "pane" });
+    else if (chat.id !== selectedRef.current) setPane(null);
     setFollowedView(false);
     setDividers(previous => ({ ...previous, [chat.id]: chat.readSequence }));
     setSelected(chat.id); if (chat.botId) setFocusedBotId(chat.botId);

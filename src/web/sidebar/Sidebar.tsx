@@ -23,8 +23,14 @@ export function Badge({ chat }: { chat: Chat }) {
 export function hintText(chat: Chat): string | null {
   const hint = chat.hint;
   if (!hint || hint.createdAt < chat.updatedAt - 1000) return null;
-  if (hint.kind === "reaction") return `${hint.actor} 对你的消息表达了 ${hint.detail}`;
-  return `${hint.actor} 更新了${hint.chatType === "thread" ? "线程摘要" : "公告"}`;
+  // On a channel row, a thread's hint names the thread, and opening the row opens it (hintThread).
+  const thread = hint.chatType === "thread" && hint.chatId !== chat.id ? `线程「${hint.title.length > 16 ? `${hint.title.slice(0, 16)}…` : hint.title}」` : "";
+  if (hint.kind === "reaction") return `${hint.actor} 对你${thread ? `在${thread}中` : ""}的消息表达了 ${hint.detail}`;
+  return thread ? `${hint.actor} 更新了${thread}的摘要` : `${hint.actor} 更新了${hint.chatType === "thread" ? "线程摘要" : "公告"}`;
+}
+/** The thread a channel row's showing hint is about, so opening the row can open that thread with it. */
+export function hintThread(chat: Chat): string | null {
+  return chat.type === "channel" && hintText(chat) && chat.hint?.chatType === "thread" && chat.hint.chatId !== chat.id ? chat.hint.chatId : null;
 }
 /** A row's second line, as in Feishu: the newest thing — a hint, or the last message (channels add
  * who wrote it) — after a red 「[有人@我]」 while an @ or a reply to you is unread. */

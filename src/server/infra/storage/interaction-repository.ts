@@ -67,10 +67,10 @@ export class InteractionRepository {
   rowState(memberId: string, chatId: string): { alerts: number; atMe: boolean; hint: ChatHint | null } {
     const counts = this.db.prepare(`SELECT count(*) AS n,COALESCE(SUM(reason IN ('mention','reply')),0) AS at FROM inbox
       WHERE member_id=? AND chat_id=? AND kind='message' AND urgency='interrupt' AND state='pending'`).get(memberId, chatId) as { n: number; at: number };
-    const row = this.db.prepare(`SELECT i.kind,c.type AS chatType,i.actor_id AS actorId,i.detail,i.created_at AS createdAt FROM inbox i JOIN chats c ON c.id=i.chat_id
+    const row = this.db.prepare(`SELECT i.kind,i.chat_id AS chatId,c.type AS chatType,c.title,i.actor_id AS actorId,i.detail,i.created_at AS createdAt FROM inbox i JOIN chats c ON c.id=i.chat_id
       WHERE i.member_id=? AND i.kind<>'message' AND i.urgency='queue' AND i.state='pending' AND (i.chat_id=? OR c.parent_id=?) ORDER BY i.id DESC LIMIT 1`).get(memberId, chatId, chatId) as
-      { kind: "reaction" | "note"; chatType: string; actorId: string | null; detail: string | null; createdAt: number } | undefined;
-    const hint = row ? { kind: row.kind, chatType: row.chatType, actor: (row.actorId && this.chats.member(row.actorId)?.name) || "", detail: row.detail ?? "", createdAt: row.createdAt } : null;
+      { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actorId: string | null; detail: string | null; createdAt: number } | undefined;
+    const hint = row ? { kind: row.kind, chatId: row.chatId, chatType: row.chatType, title: row.title, actor: (row.actorId && this.chats.member(row.actorId)?.name) || "", detail: row.detail ?? "", createdAt: row.createdAt } : null;
     return { alerts: counts.n, atMe: counts.at > 0, hint };
   }
   /** A person opened a chat: its queued deliveries (and its threads', for a channel) count as seen. */

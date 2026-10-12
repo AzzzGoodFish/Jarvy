@@ -1,6 +1,7 @@
 export interface MemberIdentity { id: string; kind: "user" | "bot"; name: string; /** A deleted Bot (its old messages stay, v15). */ deleted?: boolean; }
 /** Channel notice / thread summary (A37): one current version, no edit history. */
-export interface ChatHint { kind: "reaction" | "note"; chatType: string; actor: string; detail: string; createdAt: number }
+/** `chatId` / `title`: where it happened — the chat itself, or for a channel row one of its threads. */
+export interface ChatHint { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actor: string; detail: string; createdAt: number }
 export interface ChatNote { text: string; updatedBy: MemberIdentity; updatedAt: number; version: number; }
 /** A project grouping channels (A37); organisation only, it grants no access. */
 export interface Section { id: string; name: string; position: number; createdAt: number; updatedAt: number; }
