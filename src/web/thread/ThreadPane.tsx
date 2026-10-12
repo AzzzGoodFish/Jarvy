@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Member } from "../api";
 import { Composer } from "../composer/Composer";
 import { ChannelMessages } from "../channel/ChannelView";
@@ -53,8 +53,9 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null), [also, setAlso] = useState(false);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
-  const body = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); setAlso(false); setReplyTo(null); }, [threadId]);
+  // At the bottom, and not yet moved by the opening jump: a thread is read the same way as the main transcript.
+  const body = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); setAlso(false); setReplyTo(null); settled.current = false; atBottom.current = true; }, [threadId]);
   useEffect(() => {
     let alive = true;
     void Promise.all([api.chat(threadId), api.messages(threadId)]).then(async ([loaded, list]) => {
@@ -65,7 +66,32 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
     }).catch(error => { if (alive) onError(error); });
     return () => { alive = false; };
   }, [threadId, tick]);
-  useEffect(() => { body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" }); }, [messages]);
+  // Opened (or re-opened) threads land at the newest reply, exactly; later arrivals scroll smoothly, and only when
+  // the reader is at the bottom. Rows that grow afterwards (images, file cards) keep the view pinned there.
+  useLayoutEffect(() => {
+    const el = body.current;
+    if (!el || !chat) return;
+    const toBottom = () => el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    if (!settled.current) {
+      if (!messages.length && !root) return;
+      settled.current = true; toBottom(); requestAnimationFrame(toBottom);
+      return;
+    }
+    if (atBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages, root, chat]);
+  useEffect(() => {
+    const el = body.current, inner = el?.firstElementChild;
+    if (!el || !inner) return;
+    const grown = new ResizeObserver(() => {
+      if (!settled.current || !atBottom.current) return;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    });
+    grown.observe(inner);
+    const track = () => { atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120; };
+    track(); el.addEventListener("scroll", track, { passive: true });
+    return () => { grown.disconnect(); el.removeEventListener("scroll", track); };
+  }, [body.current, threadId, chat]);
   // Visible replies count as read, as in the main view.
   useEffect(() => {
     const last = messages.at(-1);
