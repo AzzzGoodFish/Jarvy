@@ -23,12 +23,12 @@ export function threadTitle(content: string, names: readonly string[]): string {
 export class ThreadRepository {
   constructor(private readonly db: DatabaseSync, private readonly chats: ChatRepository) {}
 
-  /** The thread of a channel message, created on first use; whoever opens it follows it. */
+  /** The thread of a channel message, created on first use; whoever opens it and the root's author follow it. */
   open(actorId: string, rootMessageId: string, names: readonly string[]): string {
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      const root = this.db.prepare(`SELECT m.chat_id AS chatId,m.content,c.type,c.owner_id AS ownerId FROM messages m JOIN chats c ON c.id=m.chat_id
-        WHERE m.id=?`).get(rootMessageId) as { chatId: string; content: string; type: string; ownerId: string } | undefined;
+      const root = this.db.prepare(`SELECT m.chat_id AS chatId,m.content,m.sender_id AS senderId,c.type,c.owner_id AS ownerId FROM messages m JOIN chats c ON c.id=m.chat_id
+        WHERE m.id=?`).get(rootMessageId) as { chatId: string; content: string; senderId: string; type: string; ownerId: string } | undefined;
       if (!root || !this.chats.canAccess(actorId, root.chatId, true)) throw new ChatError(404, "Message not found");
       if (root.type !== "channel") throw new ChatError(400, "Threads start from channel messages");
       let id = (this.db.prepare("SELECT id FROM chats WHERE root_message_id=?").get(rootMessageId) as { id: string } | undefined)?.id;
@@ -38,6 +38,8 @@ export class ThreadRepository {
         this.db.prepare(`INSERT INTO chats(id,type,title,owner_id,created_at,updated_at,parent_id,root_message_id,status)
           VALUES(?,'thread',?,?,?,?,?,?,'open')`).run(id, threadTitle(previewQuotes(root.content, this.chats.quotes.of(rootMessageId)), names), root.ownerId, now, now, root.chatId, rootMessageId);
         this.follow(actorId, id);
+        // The root's author follows too, so replies to their message reach their followed threads (if still in the channel).
+        if (root.senderId !== actorId && this.chats.canAccess(root.senderId, root.chatId)) this.follow(root.senderId, id);
       }
       this.db.exec("COMMIT");
       return id;

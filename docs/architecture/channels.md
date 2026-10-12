@@ -36,7 +36,7 @@ Mention      member IDs resolved from 「@名字」 when the message is saved
 ## Unread, following, subscribing
 
 - A person's unread is `sequence > read_position` and not their own message; viewing moves the position.
-- Thread unread counts only for followers. Starting, replying in or being @-ed in a thread follows it automatically; following manually counts from that moment.
+- Thread unread counts only for followers. Starting, replying in or being @-ed in a thread follows it automatically, and so does being the author of its root message (while still in the channel); following manually counts from that moment.
 - **Subscribing** (`chat_states.subscribed`) delivers every new message of a channel or thread, from anyone, and each one interrupts. A channel subscription does not include its threads; subscribing to a thread also follows it. A Bot's subscriptions are listed in its Bot info, not in the member list.
 - **Channel copy** (`alsoToChannel`): a thread's conclusion, and a Bot's thread reply sent with `alsoToChannel`, is copied to the channel in the same transaction (`messages.echo_of`). People reply only in the thread. The copy goes only to channel subscribers that did not get the reply, and is not unread for the thread's followers.
 - **Replies** quote one message in the same chat and count as @-ing its author.

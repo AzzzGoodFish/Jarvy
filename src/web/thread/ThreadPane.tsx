@@ -143,7 +143,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       <span className="jv-spacer"/>
       {chat && onSearch && <IconButton icon="search" label="搜索线程消息（Ctrl+F）" onClick={() => onSearch(chat)}/>}
       {chat && <button type="button" className="ui-button jv-follow" data-on={chat.following || undefined} title={chat.following ? "新回复计入未读" : "新回复不计入未读"}
-        onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name={chat.following ? "bell" : "bell-slash"}/>{chat.following ? "已关注" : "关注"}</button>}
+        onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name="bell"/>{chat.following ? "已关注" : "关注"}</button>}
       {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={mode === "pane" ? "展开" : "收起到侧栏"} onClick={onToggleMode}/>}
       {mode === "pane" && <IconButton icon="close" label="关闭线程" onClick={onClose}/>}
     </header>
