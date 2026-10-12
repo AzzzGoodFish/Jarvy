@@ -19,7 +19,7 @@ Read [docs/index.md](docs/index.md) and the [engineering principles](docs/engine
 
 There are no unit tests. Verify with:
 
-1. `npm run build` — type checks, layer check and the production frontend build.
+1. `npm run build` — type checks, layer check, the production frontend build and the server bundle.
 2. A real run against an isolated data directory (`--data-dir`, a separate port), using a fake model endpoint for routine flows. Never test against a data directory someone uses.
 3. For UI changes, browser screenshots in light and dark themes and at 390 px width.
 4. For schema changes, also migrate a copy of an existing database (credentials removed, pending work cancelled) and check `PRAGMA integrity_check` and `PRAGMA foreign_key_check`.

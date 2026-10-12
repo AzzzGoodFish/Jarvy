@@ -86,7 +86,7 @@ npm run dev:web                   # Vite，127.0.0.1:5173，/api 代理到 8080
 
 `JARVY_WEB_HOST`、`JARVY_WEB_PORT`、`JARVY_API_PORT` 分别修改 Vite 的地址、端口和代理目标。开发页面带 Agentation 标注工具栏，生产构建不包含。
 
-`npm run build` 会对服务端和前端做类型检查、检查分层边界，并构建前端。技术栈：后端 TypeScript + Node（Hono、`node:sqlite`），前端 React + Vite + shadcn/ui。开发约定和验证方式见 [AGENTS.md](AGENTS.md)，架构见 [docs/index.md](docs/index.md)。
+`npm run build` 会对服务端和前端做类型检查、检查分层边界、构建前端，并把服务端打包压缩成一个文件。技术栈：后端 TypeScript + Node（Hono、`node:sqlite`），前端 React + Vite + shadcn/ui。开发约定和验证方式见 [AGENTS.md](AGENTS.md)，架构见 [docs/index.md](docs/index.md)。
 
 ## 安全
 

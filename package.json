@@ -27,7 +27,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run check:architecture && tsc -p tsconfig.json && tsc -p tsconfig.web.json && vite build",
+    "build": "npm run check:architecture && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json && vite build && node scripts/bundle-server.mjs",
     "dev:web": "vite",
     "start": "node dist/server/cli.js run",
     "check:architecture": "node scripts/check-boundaries.mjs",
@@ -53,6 +53,7 @@
     "agentation": "3.1.2",
     "class-variance-authority": "0.7.1",
     "cn": "0.4.0",
+    "esbuild": "^0.25.12",
     "lucide-react": "1.47.0",
     "radix-ui": "1.6.7",
     "react": "^19.0.0",
