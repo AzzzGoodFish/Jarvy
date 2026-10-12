@@ -102,15 +102,22 @@ export class ChatService {
   notices(botId: string) { return this.channels.notices(botId); }
   tellNotices(botId: string, ids: readonly number[]) { this.channels.tellNotices(botId, ids); }
   /** Marks a message with an emoji, or removes the actor's mark. Its author is told (A39), as
-   * routed and graded by `service/delivery` (A41). Returns the message as it is now. */
+   * routed and graded by `service/delivery` (A41). Returns the message as it is now.
+   * Called with `on` for a mark the actor already has, the mark is taken off instead (the caller says so in the result). */
+  /** Whether this member already has this emoji on this message (used by `messages.react` to report a toggle). */
+  reactionOn(actorId: string, messageId: string, emoji: unknown): boolean {
+    return this.repository.interactions.reactionOn(actorId, messageId, emojiValue(emoji));
+  }
   react(actorId: string, messageId: string, emoji: unknown, on: unknown): ChatMessage {
     if (typeof on !== "boolean") throw new ChatError(400, "Invalid reaction state");
     const marked = this.repository.message(actorId, messageId);
     if (!marked) throw new ChatError(404, "Message not found");
+    const value = emojiValue(emoji), toggled = this.repository.interactions.reactionOn(actorId, messageId, value);
+    const apply = on === toggled ? !on : on;
     // The author is told only while it can still read the chat (a deleted Bot cannot).
     const author = this.repository.canAccess(marked.sender.id, marked.chatId) ? marked.sender : undefined;
-    const deliveries = on ? plan("reaction", reactionTargets({ actorId, author })) : [];
-    const { chatId, added } = this.repository.interactions.react(actorId, messageId, emojiValue(emoji), on, deliveries);
+    const deliveries = apply ? plan("reaction", reactionTargets({ actorId, author })) : [];
+    const { chatId, added } = this.repository.interactions.react(actorId, messageId, value, apply, deliveries);
     this.notifySaved(chatId);
     if (added) this.dispatcher.dispatch(deliveries);
     return this.repository.message(actorId, messageId)!;

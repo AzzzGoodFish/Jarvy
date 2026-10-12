@@ -28,6 +28,10 @@ export class InteractionRepository {
   }
   /** Adds or removes the actor's mark (anyone who can write in the chat), writing the routed deliveries with a new
    * mark (A41). `added` is false when the mark was already there. Removing a mark withdraws what was not told yet. */
+  /** Whether this member already has this emoji on this message. */
+  reactionOn(actorId: string, messageId: string, emoji: string): boolean {
+    return !!this.db.prepare("SELECT 1 FROM message_reactions WHERE message_id=? AND member_id=? AND emoji=?").get(messageId, actorId, emoji);
+  }
   react(actorId: string, messageId: string, emoji: string, on: boolean, deliveries: readonly Delivery[]): { chatId: string; added: boolean } {
     return inTransaction(this.db, () => {
       const row = this.db.prepare("SELECT chat_id AS chatId FROM messages WHERE id=?").get(messageId) as { chatId: string } | undefined;

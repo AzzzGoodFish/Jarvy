@@ -59,8 +59,12 @@ export class Tools implements ToolsPort {
           case "sections.update": return this.tools.updateSection(args as Parameters<ChatTools["updateSection"]>[0]);
           case "messages.react": {
             const parsed = args as { messageId: string; emoji: string; on?: boolean };
-            const message = this.scope.chats.react(this.scope.botId, parsed.messageId, parsed.emoji, parsed.on !== false);
-            return { messageId: message.id, reactions: message.reactions.map(group => ({ emoji: group.emoji, count: group.memberIds.length })) };
+            const wanted = parsed.on !== false, had = this.scope.chats.reactionOn(this.scope.botId, parsed.messageId, parsed.emoji);
+            const message = this.scope.chats.react(this.scope.botId, parsed.messageId, parsed.emoji, wanted);
+            const applied = wanted === had ? !wanted : wanted;
+            return { messageId: message.id, emoji: parsed.emoji, [applied ? "marked" : "unmarked"]: true,
+              note: applied ? "已加上这个标记" : "你之前已有这个标记，本次改为取消它",
+              reactions: message.reactions.map(group => ({ emoji: group.emoji, count: group.memberIds.length })) };
           }
           case "messages.read": return this.tools.read(args as Parameters<ChatTools["read"]>[0], signal);
           case "messages.search": return this.tools.search(args as Parameters<ChatTools["search"]>[0]);

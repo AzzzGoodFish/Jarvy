@@ -43,7 +43,7 @@ export const definitions = {
       context: Type.Optional(Type.Integer({ minimum: 0, maximum: 50 })), unread: Type.Optional(Type.Boolean()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }, { additionalProperties: false }) },
   "messages.search": { description: "搜索消息正文。带 chatId 只搜这个聊天；不带则搜你能看到的所有聊天，结果带所在聊天。读取附件用 messages.read。",
     schema: Type.Object({ chatId: Type.Optional(Type.String()), query: Type.String({ minLength: 1, maxLength: 500 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }, { additionalProperties: false }) },
-  "messages.react": { description: "给一条消息加上或取消 Emoji 标记（人和 Bot 都能用）。on=false 表示取消。同一表情同一人只算一次。只通知消息的作者：对方正在运行时排进当前这一轮（不打断），空闲时会因此开始一轮。",
+  "messages.react": { description: "给一条消息加上或取消 Emoji 标记（人和 Bot 都能用）。on=false 表示取消。再给同一个表情时会自动改成取消（反之亦然），结果里 marked/unmarked 和 note 会说明这次到底是加上还是取消了；这个开关用来表达「收到」「在办」「办好」等状态。只通知消息的作者：对方正在运行时排进当前这一轮（不打断），空闲时会因此开始一轮。",
     schema: Type.Object({ messageId: MessageId, emoji: Type.String({ minLength: 1, maxLength: 32, description: "单个表情，例如 👍" }), on: Type.Optional(Type.Boolean()) }, { additionalProperties: false }) },
   "messages.ask": { description: "在获授权 Chat 中发出一张选择题卡片，并等待用户作答后返回：{status:\"answered\", selected:[{label,value}], custom} 或 {status:\"dismissed\"}（用户关闭了问题，不想回答）。用于需要用户做选择或确认的时刻（方案、偏好、是否继续有风险的操作）；开放式问题直接用 messages.send。options 1–6 个；multiple 允许多选；allowCustom 允许用户自己填写（custom）。等待期间如果用户直接发了新消息、取消本轮或停止 Bot，本次调用会被中断，新消息会在下一批到达。只有人能作答，没有人的聊天（如 Bot 之间的私聊）不能用。不要用它索取密码或密钥。",
     schema: Type.Object({ chatId: Type.String(), question: Type.String({ minLength: 1, maxLength: 500 }), detail: Type.Optional(Type.String({ minLength: 1, maxLength: 1000 })),

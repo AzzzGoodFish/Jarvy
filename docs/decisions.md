@@ -130,13 +130,6 @@ A blocking question card: 1–6 options, multiple choice, free text, dismiss. Th
 - Bots can DM any member by name, including other Bots. The owner reads Bot-to-Bot DMs but cannot write in them.
 - `messages.read` gains `around` and unread-only reading, and outputs names; `messages.search` can search every readable chat.
 
-## A39 Replies, reactions, pins, deleting Bots
-
-- A reply quotes a message in the same chat and **counts as @-ing its author**.
-- Reactions: eight quick emoji plus more, one per person per emoji. A reaction is delivered to the message's author as a queued notice: it wakes an idle Bot and is steered into a running turn, never interrupting. Each is told once; removing it first withdraws it.
-- Pins are per member and put a chat first in its group.
-- Deleting a Bot is a soft delete: it stops, its DMs, memberships, subscriptions, session and History go, its channel messages stay under 「名字（已删除）」, its name is free again, and its workspace is kept unless chosen otherwise.
-
 ## A40 Timeouts and compaction
 
 **Why:** at about 490k tokens a single request took longer than Pi's 300 s idle timeout, compaction (which reads the whole session) timed out too, and every turn failed. Pi's request timeout is set to 900 s (`httpIdleTimeoutMs`). Node's global undici dispatcher, which the Pi CLI configures but the SDK does not, also gets 900 s header and body timeouts (`infra/pi/http.ts`, mirroring Pi's `configureHttpDispatcher`; `undici` pinned to Pi's version). Compaction keeps Pi's defaults and follows the model's window. Compaction start, end and failures are logged. Risk: near a full window a single request may still exceed 900 s.
@@ -157,3 +150,12 @@ Further decisions:
 - Unread stays state (read positions), not an event.
 - **Person side** (in the style of Feishu): red count and preview for interrupts; a red 「[有人@我]」 prefix while an @ or reply is unread; queued events only as the hint line, cleared on opening the chat; channel rows on two lines; tab badge and 「(N)」 title counting interrupts only.
 - **Mute** is a per-recipient override: DMs and subscriptions in a muted chat (a thread follows its channel) are queued instead of interrupting; @ and replies still interrupt. It applies to Bots too; only people have a way to set it so far.
+
+## A42 Reactions toggle, and the tool says which way
+
+Marking a message with an emoji is a switch: asking for a mark the actor already has takes it off, and asking to take off a mark it does not have puts it on (from the UI's reaction row, `messages.react`, and `PUT /messages/:id/reaction`). The tool result says which happened — `marked` / `unmarked` plus a short note — so a Bot can tell "I marked this" from "that mark came off", which is what the state marks in the prompt (「收到」「在办」「办好」) depend on. A39 still holds: one mark per person per emoji, and a mark is queued to the message's author. Restarting or editing a message does not touch marks.
+
+- A reply quotes a message in the same chat and **counts as @-ing its author**.
+- Reactions: eight quick emoji plus more, one per person per emoji. A reaction is delivered to the message's author as a queued notice: it wakes an idle Bot and is steered into a running turn, never interrupting. Each is told once; removing it first withdraws it.
+- Pins are per member and put a chat first in its group.
+- Deleting a Bot is a soft delete: it stops, its DMs, memberships, subscriptions, session and History go, its channel messages stay under 「名字（已删除）」, its name is free again, and its workspace is kept unless chosen otherwise.
