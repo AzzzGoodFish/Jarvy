@@ -14,6 +14,12 @@ export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
     return chatView(found, member => chats.member(member));
   };
   routes.get("/members", c => c.json({ members: channels.everyone(c.get("actorId")) }));
+  // The search box: ?q=text[&in=chatId][&limit=N]. Chats come only without `in`; each message comes with its chat.
+  routes.get("/search", c => {
+    const within = c.req.query("in") || undefined, limit = Number(c.req.query("limit") ?? 50), view = (found: Parameters<typeof chatView>[0]) => chatView(found, member => chats.member(member));
+    const found = chats.find(c.get("actorId"), c.req.query("q") ?? "", { within, limit });
+    return c.json({ chats: found.chats.map(view), messages: found.messages.map(({ message, chat: place }) => ({ message: messageView(message), chat: view(place) })) });
+  });
   // Emoji marks (A39) and per-member pins.
   routes.put("/messages/:id/reaction", jsonBody, async c => {
     const input = await readJson(c);

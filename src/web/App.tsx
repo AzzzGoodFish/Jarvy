@@ -23,6 +23,9 @@ import { ModelPicker } from "./ModelPicker";
 import { applyTheme, Icon, IconButton } from "./ui";
 import { FloatingBot } from "./avatar/FloatingBot";
 import { FileViewer } from "./files/FileViewer";
+import type { Pane } from "./pane";
+import { SearchPane } from "./search/SearchPane";
+import { useFind } from "./search/useFind";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
 const DevAgentation = import.meta.env.DEV
@@ -54,8 +57,7 @@ export function App() {
   const [mobileNav, setMobileNav] = useState(false);
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
-  /** Right-hand pane (A37 P2): a channel's thread list or info (with its member page), or one thread (expandable over the main area). */
-  const [pane, setPane] = useState<{ kind: "threads" } | { kind: "info"; page: InfoPage } | { kind: "botdms" } | { kind: "thread"; id: string; parentId: string; mode: "pane" | "full"; summary?: boolean } | null>(null);
+  const [pane, setPane] = useState<Pane | null>(null);
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
   const [paneWidth, setPaneWidth] = useState(420);
@@ -84,6 +86,7 @@ export function App() {
   // Newest page first, older pages as you scroll up.
   const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, onError: handleError });
   const { messages, setMessages, loading: loadingMessages } = history;
+  const find = useFind({ selected, chats, transcript: history, openChat, setPane, paneRef, blocked: !!infoBotId || showSettings });
 
   const statusBotId = chats.find(chat => chat.id === selected)?.botId ?? focusedBotId ?? bots[0]?.id;
   async function readStatus(id: string) {
@@ -388,7 +391,7 @@ export function App() {
             <button role="menuitem" className="ui-menu-item" onClick={() => void createBot()}><Icon name="person-add"/><span className="ui-menu-copy">新建 Bot</span></button>
           </div>}
         </div></header>
-        <Sidebar chats={chats} sections={sections} bots={bots} working={working} asking={asking} selected={followedView ? null : selected} filter={filter} onFilterChange={setFilter}
+        <Sidebar chats={chats} sections={sections} bots={bots} members={members} onOpenMessage={find.openMessage} onOpenFound={openAnywhere} onError={handleError} working={working} asking={asking} selected={followedView ? null : selected} filter={filter} onFilterChange={setFilter}
           followed={followed} followedOpen={followedView && !full} onOpenFollowed={() => { setFollowedView(true); setPane(null); setMobileNav(false); }}
           onSelect={openChat} onOpenBot={bot => void openBot(bot.id)} onMenu={(target, at) => setEntryMenu({ target, at })}
           onEditSection={section => setDialog({ kind: "section", section })}/>
@@ -411,7 +414,8 @@ export function App() {
           {inChannel ? <ChannelHeader chat={current} members={liveMembers(members)} bots={bots} onNav={() => setMobileNav(true)}
             infoOpen={pane?.kind === "info" && pane.page === "main"} onInfo={() => toggleInfo("main")}
             membersOpen={pane?.kind === "info" && pane.page === "members"} onMembers={() => toggleInfo("members")}
-            threadsOpen={pane?.kind === "threads"} onThreads={() => setPane(pane?.kind === "threads" ? null : { kind: "threads" })}/>
+            threadsOpen={pane?.kind === "threads"} onThreads={() => setPane(pane?.kind === "threads" ? null : { kind: "threads" })}
+            searchOpen={pane?.kind === "search"} onSearch={() => pane?.kind === "search" ? setPane(null) : find.search(current)}/>
             : activeBot && <FloatingBot bot={activeBot} status={status} area={chatArea} avoid={composeWrap} onOpen={() => setInfoBotId(activeBot.id)}/>}
           {inChannel && <NoticeBar chat={current} onSave={async text => { try { chatSaved(await api.setNote(current.id, text)); } catch (error) { handleError(error); throw error; } }}/>}
           <div className={`ui-transcript jarvy-transcript${inChannel ? " jv-channel-transcript" : ""}`} ref={transcript} aria-label="聊天记录" role="log">
@@ -440,11 +444,13 @@ export function App() {
         </> : <div className="jarvy-empty-chat jarvy-first-chat">{bots.length ? <p>选择一个会话</p>
           : <button className="ui-button ui-primary" onClick={() => void createBot()} disabled={creating}><Icon name="person-add"/>新建 Bot</button>}</div>}
       </main>
-      {openThread && <ThreadPane key={openThread.id} threadId={openThread.id} mode={openThread.mode} showSummary={openThread.summary} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
+      {openThread && <ThreadPane key={`${openThread.id}:${openThread.focus ?? ""}`} threadId={openThread.id} mode={openThread.mode} showSummary={openThread.summary} focus={openThread.focus} onSearch={find.search} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
         onClose={() => full ? toChannel(openThread, false) : setPane(null)} onToggleMode={() => full ? toChannel(openThread, true) : setPane({ ...openThread, mode: "full" })}
         onInvite={member => invite(openThread.parentId, member)} onPreview={(list, index) => setPreview({ files: list, index })}
         onError={handleError} onNotice={setNotice}/>}
+      {pane?.kind === "search" && <SearchPane chat={pane.chat} chats={chats} members={members} focusKey={find.focusKey}
+        onOpenMessage={find.openMessage} onClose={() => setPane(null)} onError={handleError}/>}
       {pane?.kind === "threads" && paneChannel && <ThreadList channel={paneChannel} members={members} bots={bots} tick={tick}
         onOpen={id => setPane({ kind: "thread", id, parentId: paneChannel.id, mode: "pane" })} onClose={() => setPane(null)} onError={handleError}/>}
       {pane?.kind === "info" && paneChannel && <ChannelInfo channel={paneChannel} page={pane.page} sections={sections} members={liveMembers(members)} bots={bots}

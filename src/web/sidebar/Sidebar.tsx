@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Ellipsis, Pin, Search } from "lucide-react";
 import type { MenuTarget } from "./EntryMenu";
-import type { Bot, Chat, Section, ThreadEntry } from "../api";
+import type { Bot, Chat, Member, Section, ThreadEntry } from "../api";
+import { ResultGroup, SearchResults } from "../search/SearchResults";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { Button } from "../components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
@@ -46,8 +47,10 @@ function Digest({ chat, channel }: { chat: Chat; channel: boolean }) {
 /** Opens a row menu under its 「…」 button, right-aligned with it. */
 const below = (button: HTMLElement) => { const rect = button.getBoundingClientRect(); return { x: rect.right - 168, y: rect.bottom + 4 }; };
 
-export function Sidebar({ chats, sections, bots, working, asking, selected, filter, followed, followedOpen, onFilterChange, onSelect, onOpenBot, onOpenFollowed, onMenu, onEditSection }: {
-  chats: Chat[]; sections: Section[]; bots: Bot[];
+export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenFound, onError, working, asking, selected, filter, followed, followedOpen, onFilterChange, onSelect, onOpenBot, onOpenFollowed, onMenu, onEditSection }: {
+  chats: Chat[]; sections: Section[]; bots: Bot[]; members: Member[];
+  /** Search (when the box has text): a message found opens where it is; a channel or thread found opens beside its channel. */
+  onOpenMessage: (chat: Chat, messageId: string) => void; onOpenFound: (chat: Chat) => void; onError: (error: unknown) => void;
   /** Bots whose agent is running right now; their DM rows show the typing dots. */
   working: Set<string>;
   /** Bots waiting for an answer to a question (messages.ask); their DM rows show a question mark. */
@@ -68,14 +71,15 @@ export function Sidebar({ chats, sections, bots, working, asking, selected, filt
     return next;
   });
   const query = filter.toLocaleLowerCase();
-  const visible = chats.filter(chat => chat.type !== "thread" && `${chat.title} ${chat.topic} ${chat.lastMessage ?? ""} ${bots.find(bot => bot.id === chat.botId)?.name ?? ""}`
+  // Searching, chats match by name and topic; their messages are found by the server (SearchResults).
+  const visible = chats.filter(chat => chat.type !== "thread" && `${chat.title} ${chat.topic} ${bots.find(bot => bot.id === chat.botId)?.name ?? ""}`
     .toLocaleLowerCase().includes(query));
   const threadUnread = followed.reduce((sum, thread) => sum + thread.unread, 0), threadMentions = followed.reduce((sum, thread) => sum + thread.mentions, 0);
   // Pinned chats come first within their own group.
   const channels = visible.filter(chat => chat.type === "channel").sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.title.localeCompare(b.title, "zh-CN"));
   // A Bot's DM is its most recent one (older data may hold several); Bots without a DM come last.
   const dms = bots.map(bot => ({ bot, chat: chats.find(chat => chat.type === "dm" && chat.botId === bot.id) }))
-    .filter(({ bot, chat }) => `${bot.name} ${chat?.lastMessage ?? ""}`.toLocaleLowerCase().includes(query))
+    .filter(({ bot }) => bot.name.toLocaleLowerCase().includes(query))
     .sort((a, b) => Number(!!b.chat?.pinned) - Number(!!a.chat?.pinned) || (b.chat?.updatedAt ?? 0) - (a.chat?.updatedAt ?? 0));
   const channelRow = (chat: Chat) => <div className="jv-side-wrap" key={chat.id}
     onContextMenu={event => { event.preventDefault(); onMenu({ kind: "channel", chat }, { x: event.clientX, y: event.clientY }); }}>
@@ -90,6 +94,33 @@ export function Sidebar({ chats, sections, bots, working, asking, selected, filt
     </button>
     <button type="button" className="jv-side-more" aria-label={`${chat.title} 的更多操作`} onClick={event => onMenu({ kind: "channel", chat }, below(event.currentTarget))}><Ellipsis aria-hidden="true"/></button>
   </div>;
+  const dmRow = ({ bot, chat }: { bot: Bot; chat: Chat | undefined }) => {
+    const badge = asking.has(bot.id) ? "asking" : working.has(bot.id) ? "working" : undefined, active = !!chat && selected === chat.id;
+    return <div className="shadcn-chat-row relative" key={bot.id}
+      onContextMenu={event => { event.preventDefault(); onMenu({ kind: "dm", bot, chat }, { x: event.clientX, y: event.clientY }); }}>
+      <Button type="button" variant="ghost" data-active={active} aria-current={active ? "page" : undefined}
+        className="h-15 w-full justify-start gap-2.5 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
+        onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}>
+        <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge}/>
+        {badge && <span className="sr-only">{badge === "asking" ? "（等你回答）" : "（工作中）"}</span>}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className={`min-w-0 flex-1 truncate text-sm ${chat?.unread ? "font-semibold" : "font-medium"}`} title={bot.name}>{bot.name}</span>
+            {chat?.muted && <span className="jv-side-muted" aria-label="免打扰"><Icon name="bell-slash"/></span>}
+            {chat?.pinned && <Pin className="jv-dm-pin shrink-0" aria-label="已置顶"/>}
+            {chat && <time className="shadcn-chat-time shrink-0 text-[11px] font-normal text-muted-foreground" dateTime={new Date(chat.updatedAt).toISOString()}>
+              {new Date(chat.updatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+            </time>}
+          </span>
+          <span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{chat ? <Digest chat={chat} channel={false}/> : ""}</span>{chat && <Badge chat={chat}/>}</span>
+        </span>
+      </Button>
+      <Button type="button" variant="ghost" size="icon-xs" aria-label={`${bot.name} 的更多操作`}
+        className="shadcn-chat-more absolute top-4 right-2 opacity-0" onClick={event => onMenu({ kind: "dm", bot, chat }, below(event.currentTarget))}>
+        <Ellipsis aria-hidden="true"/>
+      </Button>
+    </div>;
+  };
   // The whole group name folds and unfolds the group, like Discord categories.
   const head = (key: string, label: string, closed: boolean, unread: boolean, section?: Section) => <div className="jv-side-section-head">
     <button type="button" className="jv-side-section-toggle" aria-expanded={!closed} onClick={() => toggle(key)}>
@@ -107,12 +138,17 @@ export function Sidebar({ chats, sections, bots, working, asking, selected, filt
     <div className="mx-3 mt-1 mb-2 shrink-0" role="search">
       <InputGroup className="h-9 bg-background">
         <InputGroupInput id="jarvy-search" type="search" value={filter} onChange={event => onFilterChange(event.target.value)}
-          placeholder="搜索会话" aria-label="搜索会话" className="text-sm"/>
+          placeholder="搜索会话和消息" aria-label="搜索会话和消息"
+          onKeyDown={event => { if (event.key === "Escape" && filter) { event.preventDefault(); onFilterChange(""); } }} className="text-sm"/>
         <InputGroupAddon align="inline-start"><Search aria-hidden="true"/></InputGroupAddon>
       </InputGroup>
     </div>
     <ScrollArea className="min-h-0 flex-1" type="auto">
-      <nav className="jv-side-nav px-3 pb-6" aria-label="频道与私信">
+      {query ? <nav className="jv-side-nav jv-side-search px-3 pb-6" aria-label="搜索结果">
+        <ResultGroup label="会话" items={[...channels.map(channelRow), ...dms.map(dmRow)]}/>
+        <SearchResults query={filter} shown={new Set(channels.map(chat => chat.id))} chats={chats} members={members}
+          onOpenChat={onOpenFound} onOpenMessage={onOpenMessage} onError={onError}/>
+      </nav> : <nav className="jv-side-nav px-3 pb-6" aria-label="频道与私信">
         {followed.length > 0 && <button type="button" className="jv-side-row jv-side-top" data-active={followedOpen || undefined} data-unread={threadUnread > 0 || undefined}
           aria-current={followedOpen ? "page" : undefined} onClick={onOpenFollowed}>
           <Icon name="chat-bubble"/><span className="jv-side-label">我关注的线程</span>
@@ -123,36 +159,10 @@ export function Sidebar({ chats, sections, bots, working, asking, selected, filt
           group("channels", "频道", channels.filter(chat => !chat.sectionId || !sections.some(section => section.id === chat.sectionId)))}
         <div className="jv-side-section">
           {head("dms", "私信", isClosed("dms"), dms.some(({ chat }) => !!chat?.unread))}
-          {!isClosed("dms") && <div className="space-y-1">{dms.map(({ bot, chat }) => {
-            const badge = asking.has(bot.id) ? "asking" : working.has(bot.id) ? "working" : undefined, active = !!chat && selected === chat.id;
-            return <div className="shadcn-chat-row relative" key={bot.id}
-              onContextMenu={event => { event.preventDefault(); onMenu({ kind: "dm", bot, chat }, { x: event.clientX, y: event.clientY }); }}>
-              <Button type="button" variant="ghost" data-active={active} aria-current={active ? "page" : undefined}
-                className="h-15 w-full justify-start gap-2.5 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
-                onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}>
-                <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge}/>
-                {badge && <span className="sr-only">{badge === "asking" ? "（等你回答）" : "（工作中）"}</span>}
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={`min-w-0 flex-1 truncate text-sm ${chat?.unread ? "font-semibold" : "font-medium"}`} title={bot.name}>{bot.name}</span>
-                    {chat?.muted && <span className="jv-side-muted" aria-label="免打扰"><Icon name="bell-slash"/></span>}
-                    {chat?.pinned && <Pin className="jv-dm-pin shrink-0" aria-label="已置顶"/>}
-                    {chat && <time className="shadcn-chat-time shrink-0 text-[11px] font-normal text-muted-foreground" dateTime={new Date(chat.updatedAt).toISOString()}>
-                      {new Date(chat.updatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
-                    </time>}
-                  </span>
-                  <span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{chat ? <Digest chat={chat} channel={false}/> : ""}</span>{chat && <Badge chat={chat}/>}</span>
-                </span>
-              </Button>
-              <Button type="button" variant="ghost" size="icon-xs" aria-label={`${bot.name} 的更多操作`}
-                className="shadcn-chat-more absolute top-4 right-2 opacity-0" onClick={event => onMenu({ kind: "dm", bot, chat }, below(event.currentTarget))}>
-                <Ellipsis aria-hidden="true"/>
-              </Button>
-            </div>;
-          })}</div>}
-          {!isClosed("dms") && dms.length === 0 && <p className="jv-side-empty">{filter ? "无匹配结果" : "暂无私信"}</p>}
+          {!isClosed("dms") && <div className="space-y-1">{dms.map(dmRow)}</div>}
+          {!isClosed("dms") && dms.length === 0 && <p className="jv-side-empty">暂无私信</p>}
         </div>
-      </nav>
+      </nav>}
     </ScrollArea>
   </>;
 }

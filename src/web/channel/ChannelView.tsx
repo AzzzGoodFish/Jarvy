@@ -19,9 +19,9 @@ export function MemberAvatar({ member, bots, size, working = false }: { member: 
 }
 
 /** Channel header: the name opens channel info, the members button (avatars and count) its member page. */
-export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, threadsOpen, onNav, onInfo, onMembers, onThreads }: {
-  chat: Chat; members: Member[]; bots: Bot[]; infoOpen: boolean; membersOpen: boolean; threadsOpen: boolean;
-  onNav: () => void; onInfo: () => void; onMembers: () => void; onThreads: () => void;
+export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, threadsOpen, searchOpen, onNav, onInfo, onMembers, onThreads, onSearch }: {
+  chat: Chat; members: Member[]; bots: Bot[]; infoOpen: boolean; membersOpen: boolean; threadsOpen: boolean; searchOpen: boolean;
+  onNav: () => void; onInfo: () => void; onMembers: () => void; onThreads: () => void; onSearch: () => void;
 }) {
   const inside = members.filter(member => chat.memberIds.includes(member.id));
   return <header className="ui-chat-header jv-channel-header">
@@ -37,6 +37,7 @@ export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, thre
           <MemberAvatar member={member} bots={bots} size={22}/></span>)}</span>
         <span className="jv-members-count">{inside.length}</span>
       </button>
+      <IconButton icon="search" label="搜索频道消息（Ctrl+F）" aria-pressed={searchOpen} className="jv-threads-button" onClick={onSearch}/>
       <IconButton icon="chat-bubble" label="线程" aria-pressed={threadsOpen} className="jv-threads-button" onClick={onThreads}/>
     </div>
   </header>;

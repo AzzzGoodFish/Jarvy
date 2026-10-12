@@ -51,6 +51,8 @@ export interface QuestionOption { label: string; value?: string; description?: s
 export interface Question { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean;
   state: "pending" | "answered" | "dismissed" | "ignored"; answer: { selected: number[]; custom: string | null } | null; settledAt: number | null; }
 export interface Reaction { emoji: string; memberIds: string[]; }
+/** What the search box found: chats only when searching everywhere. */
+export interface SearchResult { chats: Chat[]; messages: { message: ChatMessage; chat: Chat }[] }
 export interface ChatMessage { id: string; chatId: string; sequence: number; senderId: string; source: { historyId: number; toolCallId: string } | null; role: "user" | "assistant"; content: string; createdAt: number; attachments: Attachment[]; question: Question | null; mentions: string[];
   /** The message this one replies to (same chat), with the start of its text. */
   replyTo: { id: string; senderId: string; content: string } | null;
@@ -86,6 +88,8 @@ async function readChatMessages(id: string, from = 0): Promise<{ messages: ChatM
 const body = (value: unknown) => JSON.stringify(value);
 export const api = {
   me: () => request<{ username: string }>("/me"),
+  /** The search box: channels and threads by title / topic / notice, messages by text with their chat; `within` searches one chat (a channel with its threads). */
+  search: (query: string, within?: string) => request<SearchResult>(`/search?q=${encodeURIComponent(query)}${within ? `&in=${within}` : ""}&limit=60`),
   login: (username: string, password: string) => request<{ username: string }>("/login", { method: "POST", body: body({ username, password }) }),
   logout: () => request<{ ok: boolean }>("/logout", { method: "POST" }),
   bots: () => request<{ bots: Bot[] }>("/bots"),

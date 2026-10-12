@@ -265,3 +265,23 @@
 .jv-side-wrap:has(.jv-side-text) .jv-side-more { top: 6px; transform: none; }
 .jv-side-wrap:hover .jv-side-muted, .jv-side-wrap:focus-within .jv-side-muted { visibility: hidden; }
 @media (hover: none) { .jv-side-text .jv-side-line:first-child { padding-right: 22px; } .jv-side-wrap .jv-side-muted { visibility: visible; } }
+/* Search: the sidebar's results (chats by name, threads and channels, messages) and the in-chat search pane. */
+.jv-result-group { margin-top: 10px; }
+.jv-result-head { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; padding: 0 8px; font-size: 12px; font-weight: 600; color: var(--ui-text-secondary); }
+.jv-result-head > span { font-weight: 400; color: var(--ui-text-tertiary); }
+.jv-result-empty, .jv-result-count { margin: 4px 8px; font-size: 12px; color: var(--ui-text-tertiary); }
+.jv-result-more { display: inline-flex; align-items: center; gap: 4px; margin: 2px 8px 0; font-size: 12px; color: var(--ui-text-secondary); }
+.jv-result-more:hover { color: var(--ui-text-primary); }
+.jv-result-more .ui-icon { width: 12px; height: 12px; }
+.jv-hit-row { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 6px 8px; border-radius: 8px; text-align: left; }
+.jv-hit-row:hover { background: var(--ui-fill-ghost-hover); }
+.jv-hit-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 12px; }
+.jv-hit-head > strong { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ui-text-primary); }
+.jv-hit-place { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-text-tertiary); }
+.jv-hit-head > time { flex: none; margin-left: auto; font-size: 11px; color: var(--ui-text-tertiary); }
+.jv-hit-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12.5px; line-height: 1.5; color: var(--ui-text-secondary); overflow-wrap: anywhere; }
+mark.jv-hit { padding: 0 1px; border-radius: 3px; background: var(--ui-fill-accent-subtle); color: var(--ui-text-primary); }
+.jv-pane-search { flex: none; padding: 10px 12px 6px; }
+.jv-pane-search input { width: 100%; height: 34px; padding: 0 10px; border-radius: 8px; border: .5px solid var(--ui-border-default); background: var(--ui-bg-base); font-size: 13px; }
+.jv-pane-search input:focus { outline: 2px solid var(--ui-border-focus, var(--ui-border-strong)); outline-offset: -1px; }
+.jv-pane-body.jv-results { padding: 2px 6px 16px; }

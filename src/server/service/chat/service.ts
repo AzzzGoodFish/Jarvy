@@ -141,9 +141,19 @@ export class ChatService {
   }
   /** Exactly the unread messages of a chat, oldest first; the caller moves the read position. */
   unreadMessages(actorId: string, chatId: string, limit: number) { return this.repository.unreadMessages(actorId, chatId, limit); }
-  searchAll(actorId: string, query: string, limit = 30) {
+  searchAll(actorId: string, query: string, limit = 30, within?: string) {
     if (!query.trim() || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChatError(400, "Invalid search query or limit");
-    return this.repository.searchAll(actorId, query, limit);
+    if (within) this.repository.assertAccess(actorId, within);
+    return this.repository.searchAll(actorId, query.trim(), limit, within);
+  }
+  /** The search box: channels and threads by title, topic or notice / summary, and messages by text, with the chat
+   * each message is in. `within` searches one chat (a channel with its threads) and returns no chats. */
+  find(actorId: string, query: string, { within, limit = 50 }: { within?: string; limit?: number } = {}) {
+    const messages = this.searchAll(actorId, query, limit, within);
+    const chats = within ? [] : this.repository.searchChatIds(actorId, query.trim(), 30).map(id => this.repository.getChat(actorId, id)).filter(chat => chat !== null);
+    const where = new Map<string, ChatSnapshot | null>();
+    const chatOf = (id: string) => { if (!where.has(id)) where.set(id, this.repository.getChat(actorId, id)); return where.get(id); };
+    return { chats, messages: messages.flatMap(message => { const chat = chatOf(message.chatId); return chat ? [{ message, chat }] : []; }) };
   }
   /** The newest `limit` messages before a sequence (null: the newest of all), oldest first, for scrolling back. */
   readBefore(actorId: string, chatId: string, before: number | null, limit: number) {

@@ -156,12 +156,21 @@ export class ChatRepository {
       .all({ chat: chatId, member: memberId, limit }) as MessageRow[];
     return rows.map(row => this.messageFromRow(row));
   }
-  /** Search every chat the member can read: its DMs and channels and their threads (newest first). */
-  searchAll(actorId: string, query: string, limit: number): ChatMessage[] {
+  /** Search every chat the member can read: its DMs and channels and their threads (newest first). `within` keeps
+   * one chat, a channel with its threads. */
+  searchAll(actorId: string, query: string, limit: number, within?: string): ChatMessage[] {
+    const scope = within ? "AND (c.id=? OR c.parent_id=?)" : "";
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS.split(",").map(column => `m.${column}`).join(",")} FROM messages m JOIN chats c ON c.id=m.chat_id
       JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1
-      WHERE instr(lower(m.content),lower(?))>0 ORDER BY m.position DESC LIMIT ?`).all(actorId, query, limit) as MessageRow[];
+      WHERE instr(lower(m.content),lower(?))>0 ${scope} ORDER BY m.position DESC LIMIT ?`).all(actorId, query, ...(within ? [within, within] : []), limit) as MessageRow[];
     return rows.map(row => this.messageFromRow(row));
+  }
+  /** Channels and threads the member can read whose title, topic or notice / summary contains the query (newest first). */
+  searchChatIds(actorId: string, query: string, limit: number): string[] {
+    return (this.db.prepare(`SELECT c.id FROM chats c JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1
+      LEFT JOIN chat_notes n ON n.chat_id=c.id WHERE c.type<>'dm'
+      AND (instr(lower(c.title),lower(?))>0 OR instr(lower(c.topic),lower(?))>0 OR instr(lower(COALESCE(n.text,'')),lower(?))>0)
+      ORDER BY c.updated_at DESC LIMIT ?`).all(actorId, query, query, query, limit) as { id: string }[]).map(row => row.id);
   }
   messages(actorId: string, chatId: string, after = 0, limit = 1000): ChatMessage[] {
     this.assertAccess(actorId, chatId);

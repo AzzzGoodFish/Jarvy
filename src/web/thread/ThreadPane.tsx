@@ -11,10 +11,14 @@ import { ThreadMeta } from "./ThreadMeta";
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, showSummary = false, channel, drafts, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
-  showSummary?: boolean; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
+  showSummary?: boolean;
+  /** Opened from a search result: land on this reply (highlighted) instead of the newest. */
+  focus?: string;
+  /** The header's search button and Ctrl+F inside the pane: search this thread. */
+  onSearch?: (thread: Chat) => void; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
   /** Bumped when the server reports a change to this thread. */
   tick: number;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
@@ -48,7 +52,13 @@ export function ThreadPane({ threadId, mode, showSummary = false, channel, draft
     const last = messages.at(-1);
     if (!settled.current) {
       if (!messages.length && !root) return;
-      settled.current = true; toBottom(); requestAnimationFrame(toBottom);
+      settled.current = true;
+      const target = focus ? el.querySelector<HTMLElement>(`[data-message="${focus}"]`) : null;
+      if (target) {
+        atBottom.current = false; target.scrollIntoView({ block: "center" }); target.classList.add("jv-jump");
+        setTimeout(() => target.classList.remove("jv-jump"), 1600); return;
+      }
+      toBottom(); requestAnimationFrame(toBottom);
     } else if (atBottom.current || last?.senderId === me) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     if (atBottom.current || last?.senderId === me) seen.current = last?.sequence ?? 0;
   }, [messages, root, chat]);
@@ -114,7 +124,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, channel, draft
   const channelName = channel?.title ?? "频道", rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
   const Shell = mode === "pane" ? "aside" : mode === "embed" ? "section" : "main";
-  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label="线程">
+  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label="线程"
+    onKeyDown={event => { if (chat && onSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") { event.preventDefault(); onSearch(chat); } }}>
     <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
       {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label="打开会话列表" onClick={onNav}/>}
       {mode === "embed" && <IconButton icon="chevron-left" className="ui-mobile-only" label="返回线程列表" onClick={onClose}/>}
@@ -122,6 +133,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, channel, draft
         : mode === "embed" ? <button type="button" className="jv-crumb" title="在频道中查看" onClick={onToggleMode}><span className="jv-hash">#</span>{channelName}</button>
         : <><strong>线程</strong><span className="jv-muted jv-pane-sub">#{channelName}</span></>}
       <span className="jv-spacer"/>
+      {chat && onSearch && <IconButton icon="search" label="搜索线程消息（Ctrl+F）" onClick={() => onSearch(chat)}/>}
       {chat && <button type="button" className="ui-button jv-follow" data-on={chat.following || undefined} title={chat.following ? "新回复计入未读" : "新回复不计入未读"}
         onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name={chat.following ? "bell" : "bell-slash"}/>{chat.following ? "已关注" : "关注"}</button>}
       {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={mode === "pane" ? "展开" : "收起到侧栏"} onClick={onToggleMode}/>}
