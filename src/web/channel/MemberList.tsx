@@ -6,12 +6,12 @@ import { MemberAvatar } from "./ChannelView";
 
 const ACTIVITY: Record<string, string> = { reasoning: "思考中", texting: "处理中", tool_calling: "执行工具", asking: "等你回答" };
 
-/** What a Bot is doing, in the words the sidebar and Bot info use. */
+/** What a Bot is doing: its activity while running (as in the sidebar), else 空闲 or 未运行. */
 function botState(bot: Bot | undefined, status: BotStatus | undefined): { label: string; tone?: "busy" | "error" } {
   if (!bot?.connectionId) return { label: "未设置模型" };
   if (status?.error) return { label: "运行出错", tone: "error" };
   if (status?.status === "running") return { label: ACTIVITY[status.activity ?? ""] ?? "运行中", tone: "busy" };
-  return { label: status?.status === "idle" ? "空闲" : "已停止" };
+  return { label: status?.status === "idle" ? "空闲" : "未运行" };
 }
 
 /** The 成员 page of channel info: people, then Bots with what each is doing. Adding opens the member picker;

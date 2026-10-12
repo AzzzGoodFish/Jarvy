@@ -50,8 +50,8 @@ export function ChannelInfo({ channel, page, sections, members, bots, statuses, 
     {page === "members" ? <MemberList channel={channel} members={members} bots={bots} statuses={statuses} me={me} onAdd={onAdd} onBot={onBot} onChanged={onChanged} onError={onError}/>
       : <div className="ui-pane-body jv-pane-body jv-info">
         <div className="jv-info-actions">
-          <button type="button" aria-pressed={channel.pinned} onClick={onPin}><Icon name="pin"/>{channel.pinned ? "已置顶" : "置顶"}</button>
-          <button type="button" aria-pressed={channel.muted} onClick={onMute}><Icon name={channel.muted ? "bell-slash" : "bell"}/>{channel.muted ? "已免打扰" : "免打扰"}</button>
+          <button type="button" aria-pressed={channel.pinned} onClick={onPin}><Icon name="pin"/>置顶</button>
+          <button type="button" aria-pressed={channel.muted} onClick={onMute}><Icon name={channel.muted ? "bell-slash" : "bell"}/>免打扰</button>
           <button type="button" onClick={onAdd}><Icon name="person-add"/>添加成员</button>
         </div>
         <InfoField label="名称" value={channel.title} empty="新频道" maxLength={80} required onSave={name => update({ name })}/>
