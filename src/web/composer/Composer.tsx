@@ -1,35 +1,32 @@
 import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
-import { api, type Attachment, type Bot, type Member } from "../api";
+import { api, type Bot, type Member } from "../api";
 import { useMentionMenu } from "../channel/MentionMenu";
+import { useDraft, type DraftStore } from "./drafts";
 import { Icon } from "../ui";
 
 const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
 
-/** Message input shared by the main chat and the thread pane: per-chat drafts and pending attachments, paste and
- * drag-drop upload, @ completion in channels and threads, retry-safe send keys, and growing with its content. */
-export function Composer({ chatId, id, placeholder, disabled = false, mention, initialText, quote, onCancelQuote, formRef, scrollRef, onSend, onError, onNotice }: {
-  chatId: string; id: string; placeholder: string; disabled?: boolean;
+/** Message input shared by the main chat and the thread pane: per-chat drafts (text, pending attachments, quote; kept
+ * in the account's DraftStore), paste and drag-drop upload, @ completion in channels and threads, retry-safe send keys,
+ * and growing with its content. */
+export function Composer({ chatId, id, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, onSend, onError, onNotice }: {
+  chatId: string; id: string; drafts: DraftStore; placeholder: string; disabled?: boolean;
   /** Channel / thread: who can be @-mentioned; picking someone outside the channel invites them. */
   mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void };
   /** Used while this chat has no draft yet (a new thread pre-fills its root's sender once). */
   initialText?: string;
-  /** A quoted message being answered; shown above the input with its own cancel. */
-  quote?: { name: string; text: string } | null;
-  onCancelQuote?: () => void;
   formRef?: RefObject<HTMLFormElement | null>;
   /** The transcript above: its scroll position is kept while the input resizes. */
   scrollRef?: RefObject<HTMLElement | null>;
-  /** Saves the message; throwing keeps the draft and the send key for a retry. */
-  onSend: (content: string, attachmentIds: string[], key: string) => Promise<void>;
+  /** Saves the message (`replyTo`: the quoted message); throwing keeps the draft and the send key for a retry. */
+  onSend: (content: string, attachmentIds: string[], key: string, replyTo?: string) => Promise<void>;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
 }) {
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState<Record<string, Attachment[]>>({});
-  const [sending, setSending] = useState(false), [uploading, setUploading] = useState(false), [dropping, setDropping] = useState(false);
-  const intents = useRef(new Map<string, { signature: string; key: string }>());
+  const saved = useDraft(drafts, chatId), sending = saved.sending;
+  const [uploading, setUploading] = useState(false), [dropping, setDropping] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const draft = drafts[chatId] ?? initialText ?? "", files = pending[chatId] ?? [];
-  const setDraft = (value: string) => setDrafts(previous => ({ ...previous, [chatId]: value }));
+  const draft = saved.text ?? initialText ?? "", files = saved.files, quote = saved.quote;
+  const setDraft = (value: string) => drafts.update(chatId, { text: value });
   const menu = useMentionMenu({ textarea, value: draft, setValue: setDraft, inside: mention?.inside ?? [], outside: mention?.outside ?? [], bots: mention?.bots ?? [],
     onInvite: member => mention?.onInvite(member) });
 
@@ -43,14 +40,14 @@ export function Composer({ chatId, id, placeholder, disabled = false, mention, i
     try {
       for (const file of list) {
         const uploaded = await api.uploadAttachment(target, file);
-        setPending(previous => ({ ...previous, [target]: [...(previous[target] ?? []), uploaded] }));
+        drafts.update(target, current => ({ files: [...current.files, uploaded] }));
       }
     } catch (error) { onError(error); }
     finally { setUploading(false); }
   }
   async function remove(fileId: string) {
     const target = chatId;
-    try { await api.removeAttachment(fileId); setPending(previous => ({ ...previous, [target]: (previous[target] ?? []).filter(file => file.id !== fileId) })); }
+    try { await api.removeAttachment(fileId); drafts.update(target, current => ({ files: current.files.filter(file => file.id !== fileId) })); }
     catch (error) { onError(error); }
   }
   /** Pasted screenshots arrive as "image.png"; give them a distinguishable name. Text paste is untouched. */
@@ -72,21 +69,24 @@ export function Composer({ chatId, id, placeholder, disabled = false, mention, i
     event.preventDefault(); setDropping(false);
     if (!disabled) void attach([...event.dataTransfer.files]);
   }
+  /** Sending is tracked per chat: another chat can send meanwhile, and coming back cannot send the same draft twice.
+   * The key is saved with the draft, so a retry (even after a reload) reuses it and the server keeps one message. */
   async function send(event?: FormEvent) {
     event?.preventDefault();
-    const target = chatId, content = draft.trim(), attachments = files;
-    if ((!content && !attachments.length) || sending || uploading || disabled) return;
-    setSending(true);
+    const target = chatId, current = drafts.get(target), content = (current.text ?? initialText ?? "").trim(), attachments = current.files, quoted = current.quote;
+    if ((!content && !attachments.length) || current.sending || uploading || disabled) return;
+    const signature = JSON.stringify([content, attachments.map(file => file.id), quoted?.id ?? null]);
+    const key = current.signature === signature && current.key ? current.key : newKey();
+    drafts.update(target, { key, signature, sending: true });
     try {
-      const signature = JSON.stringify([content, attachments.map(file => file.id)]), prior = intents.current.get(target);
-      const intent = prior?.signature === signature ? prior : { signature, key: newKey() };
-      intents.current.set(target, intent);
-      await onSend(content, attachments.map(file => file.id), intent.key);
-      intents.current.delete(target);
-      setDrafts(previous => (previous[target] ?? initialText ?? "").trim() === content ? { ...previous, [target]: "" } : previous);
-      setPending(previous => ({ ...previous, [target]: (previous[target] ?? []).filter(file => !attachments.some(sent => sent.id === file.id)) }));
+      await onSend(content, attachments.map(file => file.id), key, quoted?.id);
+      drafts.update(target, after => ({
+        text: (after.text ?? initialText ?? "").trim() === content ? "" : after.text,
+        files: after.files.filter(file => !attachments.some(sent => sent.id === file.id)),
+        quote: after.quote?.id === quoted?.id ? null : after.quote, key: null, signature: null,
+      }));
     } catch (error) { onError(error); }
-    finally { setSending(false); }
+    finally { drafts.update(target, { sending: false }); }
   }
   // Grow with the content (CSS max-height caps it, then it scrolls). Measuring via "auto" briefly enlarges the
   // transcript and clamps its scroll position; restore it so the bottom anchor is not lost on every keystroke.
@@ -106,7 +106,7 @@ export function Composer({ chatId, id, placeholder, disabled = false, mention, i
     {files.length > 0 && <div className="jarvy-pending-files">{files.map(file => <span className="jarvy-file-chip" key={file.id}><Icon name="paperclip"/><span title={file.name}>{file.name}</span>
       <button type="button" aria-label={`移除附件：${file.name}`} onClick={() => void remove(file.id)}>×</button></span>)}</div>}
     {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">回复</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || "(附件)"}</span>
-      <button type="button" aria-label="取消回复" onClick={() => onCancelQuote?.()}>×</button></div>}
+      <button type="button" aria-label="取消回复" onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
     <div className="ui-composer jv-composer">
       {mention && menu.menu}
       <label className="jarvy-attach-trigger" title="上传附件"><Icon name="add"/><input type="file" multiple aria-label="上传附件" disabled={sending || uploading || disabled || files.length >= 5}
