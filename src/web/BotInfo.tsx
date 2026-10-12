@@ -13,7 +13,7 @@ import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 
 type Note = { kind: "error" | "ok"; text: string } | null;
-const STATUS_LABEL = { running: "运行中", idle: "空闲", stop: "已停止" } as const;
+const STATUS_LABEL = { running: "运行中", idle: "空闲", stop: "未运行" } as const;
 
 export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onClose, onOpenChat, onOpenSubscription }: {
   onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onClose: () => void;
