@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Attachment, Bot, Chat, ChatMessage, Member, Section } from "../api";
+import type { Attachment, Bot, Chat, ChatMessage, Member } from "../api";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";
@@ -18,26 +18,26 @@ export function MemberAvatar({ member, bots, size, working = false }: { member: 
   return <span className="ui-user-avatar jv-user-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}>{(member?.name ?? "?").slice(0, 2).toUpperCase()}</span>;
 }
 
-export function ChannelHeader({ chat, sections, members, bots, working, threadsOpen, onNav, onBot, onSettings, onAddMembers, onThreads }: {
-  chat: Chat; sections: Section[]; members: Member[]; bots: Bot[]; working: Set<string>; threadsOpen: boolean;
-  onNav: () => void; onBot: (id: string) => void; onSettings: () => void; onAddMembers: () => void; onThreads: () => void;
+/** Channel header: the name opens channel info, the members button (avatars and count) its member page. */
+export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, threadsOpen, onNav, onInfo, onMembers, onThreads }: {
+  chat: Chat; members: Member[]; bots: Bot[]; infoOpen: boolean; membersOpen: boolean; threadsOpen: boolean;
+  onNav: () => void; onInfo: () => void; onMembers: () => void; onThreads: () => void;
 }) {
-  const section = sections.find(item => item.id === chat.sectionId);
+  const inside = members.filter(member => chat.memberIds.includes(member.id));
   return <header className="ui-chat-header jv-channel-header">
     <div className="ui-header-left">
       <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label="打开会话列表" onClick={onNav}/>
-      <strong className="jv-channel-title"><span className="jv-hash">#</span>{chat.title}</strong>
-      <span className="jv-channel-topic">{[section?.name, chat.topic].filter(Boolean).join(" · ")}</span>
+      <button type="button" className="jv-channel-title" aria-label={`频道信息：${chat.title}`} aria-pressed={infoOpen} onClick={onInfo}>
+        <span className="jv-hash">#</span>{chat.title}<Icon name="chevron-down"/></button>
+      {chat.topic && <span className="jv-channel-topic">{chat.topic}</span>}
     </div>
     <div className="ui-header-actions">
-      <span className="jv-stack" aria-label="频道成员">{members.filter(member => chat.memberIds.includes(member.id)).map(member =>
-        member.kind === "bot"
-          ? <button key={member.id} type="button" className="jv-stack-item" title={member.name} aria-label={`查看 ${member.name}`} onClick={() => onBot(member.id)}>
-            <MemberAvatar member={member} bots={bots} size={22} working={working.has(member.id)}/></button>
-          : <span key={member.id} className="jv-stack-item" title={member.name}><MemberAvatar member={member} bots={bots} size={22}/></span>)}</span>
+      <button type="button" className="jv-members-button" aria-label={`成员 ${inside.length}`} aria-pressed={membersOpen} title="成员" onClick={onMembers}>
+        <span className="jv-stack">{inside.slice(0, 3).map(member => <span key={member.id} className="jv-stack-item">
+          <MemberAvatar member={member} bots={bots} size={22}/></span>)}</span>
+        <span className="jv-members-count">{inside.length}</span>
+      </button>
       <IconButton icon="chat-bubble" label="线程" aria-pressed={threadsOpen} className="jv-threads-button" onClick={onThreads}/>
-      <IconButton icon="person-add" label="添加成员" onClick={onAddMembers}/>
-      <IconButton icon="gear" label="频道设置" onClick={onSettings}/>
     </div>
   </header>;
 }
