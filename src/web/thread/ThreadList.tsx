@@ -44,8 +44,9 @@ export function ThreadList({ channel, members, bots, tick, onOpen, onClose, onEr
 }
 
 /** 「我关注的线程」 (A37 P2): threads you started, replied in, were @-mentioned in or followed by hand, newest reply first,
- * beside the selected thread. The list keeps its order while you read: opening a thread does not move it, a thread you
- * unfollow stays until you leave the page, and the 未读 tab keeps the one you are reading. Phones show one column. */
+ * beside the selected thread. The list keeps its order while you read and a thread you unfollow stays until you leave the
+ * page; the 未读 tab lists only what is still unread, so reading one takes it out while the pane keeps showing it.
+ * Phones show one column. */
 export function FollowedThreads({ threads, chats, members, bots, onNav, renderThread }: {
   threads: ThreadEntry[]; chats: Chat[]; members: Member[]; bots: Bot[]; onNav: () => void;
   renderThread: (thread: ThreadEntry, back: () => void) => ReactNode;
@@ -55,7 +56,7 @@ export function FollowedThreads({ threads, chats, members, bots, onNav, renderTh
     ...threads, ...previous.filter(old => !threads.some(thread => thread.id === old.id)).map(old => ({ ...old, following: false, unread: 0, alerts: 0 })),
   ]), [threads]);
   const latest = (thread: ThreadEntry) => thread.lastReplyAt ?? thread.createdAt;
-  const list = [...shown].sort((a, b) => latest(b) - latest(a)).filter(thread => tab === "all" || thread.unread > 0 || thread.id === selected);
+  const list = [...shown].sort((a, b) => latest(b) - latest(a)).filter(thread => tab === "all" || thread.unread > 0);
   const unread = shown.filter(thread => thread.unread > 0).length, current = shown.find(thread => thread.id === selected);
   return <main className="ui-chat jv-followed-page" aria-label="我关注的线程" data-open={current ? "" : undefined}>
     <section className="jv-followed-list" aria-label="线程列表">
