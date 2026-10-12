@@ -8,6 +8,7 @@ import { migrateThreads } from "./thread-schema.js";
 import { migrateSubscriptions } from "./subscription-schema.js";
 import { migrateInteractions } from "./interaction-schema.js";
 import { migrateInbox } from "./inbox-schema.js";
+import { migrateQuotes } from "./quote-schema.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { migratePrototype } from "./prototype-schema.js";
@@ -15,9 +16,9 @@ import { migrateRuntime } from "./runtime-schema.js";
 
 export function migrateDatabase(db: DatabaseSync): void {
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
-  if (version > 16) throw new Error(`Unsupported database version: ${version}`);
+  if (version > 17) throw new Error(`Unsupported database version: ${version}`);
   migratePrototype(db);
-  if (version >= 5) { migrateRuntime(db); migrateComposition(db); migrateInstallation(db); migrateMessageIds(db); migrateAppearance(db); migrateQuestions(db); migrateChannels(db); migrateThreads(db); migrateSubscriptions(db); migrateInteractions(db); migrateInbox(db); return; }
+  if (version >= 5) { migrateRuntime(db); migrateComposition(db); migrateInstallation(db); migrateMessageIds(db); migrateAppearance(db); migrateQuestions(db); migrateChannels(db); migrateThreads(db); migrateSubscriptions(db); migrateInteractions(db); migrateInbox(db); migrateQuotes(db); return; }
   // Rebuild the old chat tables rather than dual-writing role/bot_id alongside
   // sender identity and membership. Old messages are history, never re-enqueued.
   db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
@@ -85,4 +86,5 @@ export function migrateDatabase(db: DatabaseSync): void {
   migrateSubscriptions(db);
   migrateInteractions(db);
   migrateInbox(db);
+  migrateQuotes(db);
 }

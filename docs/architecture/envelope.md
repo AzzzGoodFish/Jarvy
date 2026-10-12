@@ -38,11 +38,22 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `member` | each author (and each replied-to author) once: `id`, `name`, `kind` |
 | `message` | `id`, `chat`, `from`, `at` always; document order is arrival order |
 | `reply_to` | the replied-to message and its author, with the start of its text |
-| `text` | the message text, escaped; omitted for attachment-only messages |
+| `text` | the message text, escaped; omitted for attachment-only messages. Partial quotes are expanded in place (below) |
 | `file` | one per attachment: an absolute, readable path on the tool host and the name; never base64 |
 | `updates` | new versions of notices (channels) and summaries (threads) since last told — where, version, editor, time; no content. The Bot reads them with `chats.info` |
 | `notices` | reactions to the Bot's messages, quoting the marked message, with a fixed note |
 | `unread` | the Bot's unread counts; chats not defined above carry `title` and `type` |
+
+## Partial quotes
+
+A message stores its quotes as structure and marks each with `[[qN]]` (A44). Wherever a Bot reads a message — batches, `messages.read`, `messages.search`, a thread's root in `chats.info` — each mark becomes a quote block on its own lines:
+
+```
+> Mochi（m123）：被引用的那段话
+我同意这一段。
+```
+
+The source ID is left out when that message is gone; a passage over 200 characters keeps its first 120 and last 60 around 「……」. Previews (`reply_to`, marked messages in `notices`, thread roots in `threads.list`) show a quote as 「passage」 instead. A message without quotes keeps any `[[qN]]`-like text as it is.
 
 ## `<notice_batch>`
 

@@ -1,3 +1,4 @@
+import type { MessageQuote } from "./quotes.js";
 export interface MemberIdentity { id: string; kind: "user" | "bot"; name: string; /** A deleted Bot (its old messages stay, v15). */ deleted?: boolean; }
 /** Channel notice / thread summary (A37): one current version, no edit history. */
 /** `chatId` / `title`: where it happened — the chat itself, or for a channel row one of its threads. */
@@ -54,13 +55,19 @@ export interface ChatMessage {
   replyTo: { id: string; senderId: string; content: string } | null;
   /** Emoji marks, in the order each emoji was first used. */
   reactions: { emoji: string; memberIds: string[] }[];
+  /** Partial quotes, the Nth marked `[[qN]]` in the content (A44). */
+  quotes: MessageQuote[];
 }
 export interface MessageDraft { content: string; attachmentIds: string[]; clientMessageId?: string; /** Reply to this message (same chat). */ replyTo?: string; }
+/** A partial quote as a sender asks for it: the source message and the passage (A44). */
+export interface QuoteDraft { messageId: string; text: string; }
 export class ChatError extends Error {
   constructor(readonly status: 400 | 403 | 404 | 409, message: string) { super(message); }
 }
 
 export interface DeliveryMessage extends MessageDraft {
+  /** Checked partial quotes (A44), the Nth marked `[[qN]]`. */
+  quotes?: readonly MessageQuote[];
   /** New files and their message are committed together. */
   files?: readonly OutgoingFile[];
   /** Runtime-bound provenance, never a caller-selected HTTP field. */

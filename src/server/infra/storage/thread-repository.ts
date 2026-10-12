@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { ChatError, type ThreadInfo } from "../../shared/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
+import { previewQuotes } from "../../shared/quotes.js";
 
 /** Default thread title: the root's first line without its leading @mentions or Markdown marks (A37). */
 export function threadTitle(content: string, names: readonly string[]): string {
@@ -35,7 +36,7 @@ export class ThreadRepository {
         id = randomUUID();
         const now = Date.now();
         this.db.prepare(`INSERT INTO chats(id,type,title,owner_id,created_at,updated_at,parent_id,root_message_id,status)
-          VALUES(?,'thread',?,?,?,?,?,?,'open')`).run(id, threadTitle(root.content, names), root.ownerId, now, now, root.chatId, rootMessageId);
+          VALUES(?,'thread',?,?,?,?,?,?,'open')`).run(id, threadTitle(previewQuotes(root.content, this.chats.quotes.of(rootMessageId)), names), root.ownerId, now, now, root.chatId, rootMessageId);
         this.follow(actorId, id);
       }
       this.db.exec("COMMIT");

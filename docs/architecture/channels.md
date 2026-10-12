@@ -40,6 +40,7 @@ Mention      member IDs resolved from 「@名字」 when the message is saved
 - **Subscribing** (`chat_states.subscribed`) delivers every new message of a channel or thread, from anyone, and each one interrupts. A channel subscription does not include its threads; subscribing to a thread also follows it. A Bot's subscriptions are listed in its Bot info, not in the member list.
 - **Channel copy** (`alsoToChannel`): a thread's conclusion, and a Bot's thread reply sent with `alsoToChannel`, is copied to the channel in the same transaction (`messages.echo_of`). People reply only in the thread. The copy goes only to channel subscribers that did not get the reply, and is not unread for the thread's followers.
 - **Replies** quote one message in the same chat and count as @-ing its author.
+- **Partial quotes** (A44): up to 10 passages per message, each from a message in the same chat (in a thread, also its root) that the sender can read, and part of that message's text ignoring whitespace and Markdown markup. Stored as structure (`message_quotes`), marked `[[qN]]` in the content; a channel copy keeps them. Sidebar previews and thread titles show a quote as 「passage」. Quoting does not notify the quoted author.
 - **Reactions**: 👍 👎 ✅ ❌ 😄 😂 😵‍💫 🤔 and more; one per person per emoji, clicking again removes it; writing access is required.
 - **Pins** and **mute** are per member.
 
@@ -51,7 +52,7 @@ A Bot can DM anyone in its owner's space with `messages.send {to: name}`, includ
 
 - Sections: create, rename, reorder, delete. Channels: create, rename, topic, members. `PUT /chats/:id/note`, `POST /chats/:id/read {sequence}`, `GET /chats/:id`, `GET /messages/:id`.
 - Threads: `POST /messages/:id/thread` (get or create), `PATCH /chats/:id {title, status}`, `PUT /chats/:id/follow`, `GET /chats/:id/threads`, `GET /threads` (followed).
-- Messages: `GET /chats/:id/messages?tail=N`, `?before=<seq>&limit=N` (N ≤ 200, with `hasOlder`), `?after=`; sending takes `alsoToChannel` and `replyTo`; `PUT /messages/:id/reaction {emoji, on}`.
+- Messages: `GET /chats/:id/messages?tail=N`, `?before=<seq>&limit=N` (N ≤ 200, with `hasOlder`), `?after=`; sending takes `alsoToChannel`, `replyTo` and `quotes: [{ messageId, text }]` (partial quotes, checked as in A44; messages return `quotes: [{ messageId | null, senderId, text }]`, the Nth marked `[[qN]]` in the content); `PUT /messages/:id/reaction {emoji, on}`.
 - Per member: `PUT /chats/:id/pin {pinned}`, `PUT /chats/:id/mute {muted}`.
 - Bots: `GET /members/:id/dms`, `GET /members/:id/subscriptions`, `DELETE /bots/:id` (`?files=delete` also removes the workspace). Members carry `deleted`.
 - SSE: chat changes (a thread change also notifies its channel), `sections` when groups change, `inbox` when something is delivered to you.

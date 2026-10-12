@@ -13,6 +13,7 @@ export class ChatMessages implements Messages {
     if (message.question) payload.push(message.question);
     if (message.alsoToChannel) payload.push("alsoToChannel");
     if (message.replyTo) payload.push({ replyTo: message.replyTo });
+    if (message.quotes?.length) payload.push({ quotes: message.quotes });
     const hash = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
     return this.repository.append(sender.id, this.id, message, hash, message.files, deliveries, mentions);
   }
