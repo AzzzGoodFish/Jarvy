@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Member } from "../api";
 import { Composer } from "../composer/Composer";
+import { quoteMessage, type DraftStore } from "../composer/drafts";
 import { ChannelMessages } from "../channel/ChannelView";
 import { findMentions } from "../channel/mentions";
 import { Icon, IconButton, Markdown } from "../ui";
-import { liveMembers, memberName } from "../members";
+import { liveMembers } from "../members";
 
 const stamp = (time: number) => new Date(time).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -42,8 +43,8 @@ function ThreadMeta({ chat, channelName, onTitle, onStatus, onSummary, onConclud
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
-  threadId: string; mode: "pane" | "full" | "embed"; channel: Chat | undefined; members: Member[]; bots: Bot[]; me: string;
+export function ThreadPane({ threadId, mode, channel, drafts, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+  threadId: string; mode: "pane" | "full" | "embed"; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
   /** Bumped when the server reports a change to this thread. */
   tick: number;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
@@ -52,10 +53,9 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
 }) {
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null);
-  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   // At the bottom, and not yet moved by the opening jump: a thread is read the same way as the main transcript.
   const body = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); setReplyTo(null); settled.current = false; atBottom.current = true; }, [threadId]);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; }, [threadId]);
   useEffect(() => {
     let alive = true;
     void Promise.all([api.chat(threadId), api.messages(threadId)]).then(async ([loaded, list]) => {
@@ -125,12 +125,10 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
     element.scrollIntoView({ block: "center" }); element.classList.add("jv-jump");
     setTimeout(() => element.classList.remove("jv-jump"), 1200);
   };
-  const actions = { onQuote: setReplyTo, onReact: react, onJump: jump, onError };
+  const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onJump: jump, onError };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
-  const send = async (content: string, attachmentIds: string[], key: string, alsoToChannel = false) => {
-    const quoted = replyTo && replyTo.chatId === threadId ? replyTo.id : undefined;
-    await api.send(threadId, content, attachmentIds, key, alsoToChannel, quoted);
-    setReplyTo(null);
+  const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, alsoToChannel = false) => {
+    await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo);
     const outside = channel ? findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name) : [];
     if (outside.length) onNotice(`${[...new Set(outside)].join("、")} 不在频道中，未收到通知`);
     const [loaded, list] = await Promise.all([api.chat(threadId), api.messages(threadId)]);
@@ -157,7 +155,7 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
         onSummary={text => save(() => api.setNote(threadId, text))}
         onConclude={async () => {
           try {
-            await send(`结论：\n\n${chat.note?.text ?? ""}`, [], Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""), true);
+            await send(`结论：\n\n${chat.note?.text ?? ""}`, [], Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""), undefined, true);
             await save(() => api.updateThread(threadId, { status: "done" }));
             onNotice(`已完成，摘要已发到 #${channelName}`);
           } catch (error) { onError(error); throw error; }
@@ -168,9 +166,7 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
       <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER}
         onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
     </div>
-    <Composer chatId={threadId} id="jarvy-thread-composer" placeholder="回复线程" scrollRef={body} disabled={!chat}
-      quote={replyTo ? { name: memberName(members.find(member => member.id === replyTo.senderId)), text: replyTo.content.replace(/\s+/g, " ").slice(0, 160) } : null}
-      onCancelQuote={() => setReplyTo(null)}
+    <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder="回复线程" scrollRef={body} disabled={!chat}
       initialText={messages.length === 0 && root && root.senderId !== me && rootSender && !rootSender.deleted ? `@${rootSender.name} ` : undefined}
       mention={{ bots, inside: liveMembers(members).filter(member => member.id !== me && !!channel?.memberIds.includes(member.id)),
         outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite }}

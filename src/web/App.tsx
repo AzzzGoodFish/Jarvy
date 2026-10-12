@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { api, ApiError, type Attachment, type BotStatus, type Bot, type Chat, type ChatMessage, type Member, type ModelConnection, type Section, type ThreadEntry } from "./api";
 import { BotInfo } from "./BotInfo";
 import { Sidebar } from "./sidebar/Sidebar";
@@ -7,13 +7,14 @@ import { AddMembersDialog, NewChannelDialog, SectionDialog } from "./channel/Cha
 import { ChannelInfo, type InfoPage } from "./channel/ChannelInfo";
 import { findMentions } from "./channel/mentions";
 import { Composer } from "./composer/Composer";
+import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
 import { ThreadPane } from "./thread/ThreadPane";
 import { FollowedThreads, ThreadList } from "./thread/ThreadList";
 import { BotDirects, useBotDirects } from "./bot/BotDirects";
 import { DmMessages } from "./dm/DmMessages";
 import { EntryMenu, type MenuTarget } from "./sidebar/EntryMenu";
 import { useTabBadge } from "./tabBadge";
-import { liveMembers, memberName } from "./members";
+import { liveMembers } from "./members";
 import { ConfirmDialog, DeleteBotDialog } from "./dm/DeleteDialog";
 import { useTranscript } from "./transcript/useTranscript";
 import { Login } from "./Login";
@@ -66,7 +67,6 @@ export function App() {
   const chatArea = useRef<HTMLElement>(null), composeWrap = useRef<HTMLFormElement>(null);
   const [preview, setPreview] = useState<{ files: Attachment[]; index: number } | null>(null);
   /** The message being replied to, per chat: switching chats keeps a draft reply with its chat. */
-  const [replyTo, setReplyTo] = useState<{ chatId: string; message: ChatMessage } | null>(null);
   /** The sidebar's 「…」 menu target, and where a right-click opened it. */
   const [entryMenu, setEntryMenu] = useState<{ target: MenuTarget; at: { x: number; y: number } } | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "chat"; chat: Chat } | { kind: "bot"; bot: Bot } | null>(null);
@@ -76,6 +76,10 @@ export function App() {
   const chatRequest = useRef(0);
   const chatListRef = useRef(chats); chatListRef.current = chats;
   const paneRef = useRef(pane); paneRef.current = pane;
+  /** This account's drafts: each account has its own store and storage key. */
+  const drafts = useMemo(() => new DraftStore(draftKey(username)), [username]);
+  // Text waits 300 ms before it is saved; leaving the page saves it at once.
+  useEffect(() => { const save = () => drafts.save(); window.addEventListener("pagehide", save); return () => window.removeEventListener("pagehide", save); }, [drafts]);
   const meId = members.find(member => member.kind === "user" && member.name === username)?.id ?? "";
   // Newest page first, older pages as you scroll up.
   const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, onError: handleError });
@@ -272,10 +276,9 @@ export function App() {
       setNotice(`${bot.name} 已删除`);
     } catch (error) { handleError(error); }
   }
-  async function sendMain(content: string, attachmentIds: string[], key: string) {
-    const id = selected!, reply = replyTo?.chatId === id ? replyTo.message.id : undefined;
-    await api.send(id, content, attachmentIds, key, false, reply);
-    setReplyTo(null);
+  async function sendMain(content: string, attachmentIds: string[], key: string, replyTo?: string) {
+    const id = selected!;
+    await api.send(id, content, attachmentIds, key, false, replyTo);
     const chat = chatListRef.current.find(item => item.id === id), outside = chat?.type === "channel"
       ? findMentions(content, liveMembers(members)).filter(hit => !chat.memberIds.includes(hit.member.id)).map(hit => hit.member.name) : [];
     if (outside.length) setNotice(`${[...new Set(outside)].join("、")} 不在频道中，未收到通知`);
@@ -309,8 +312,8 @@ export function App() {
       setMessages(previous => previous.map(item => item.id === updated.id ? { ...item, reactions: updated.reactions } : item));
     } catch (error) { handleError(error); }
   }
-  /** The composer's quote bar for the open chat. */
-  function setReplyFor(message: ChatMessage) { setReplyTo({ chatId: message.chatId, message }); }
+  /** The composer's quote bar: part of the quoted message's chat draft. */
+  function setReplyFor(message: ChatMessage) { quoteMessage(drafts, message, members); }
   function threadChanged(thread: Chat) {
     setFollowed(previous => previous.map(item => item.id === thread.id ? { ...item, ...thread } : item));
     void api.followedThreads().then(result => setFollowed(result.threads)).catch(() => {});
@@ -323,6 +326,7 @@ export function App() {
   }
   async function logOut() {
     try {
+      await drafts.clear(id => api.removeAttachment(id));
       await api.logout(); setPhase("login"); setAccountMenu(false); setShowSettings(false);
       statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed([]);
       setUsername(""); setSelected(null); setChats([]); setBots([]); setConnections([]); setMessages([]);
@@ -355,9 +359,6 @@ export function App() {
   if (phase === "loading") return <div className="jarvy-loading">正在连接 Jarvy…</div>;
   if (phase === "login") return <Login onLogin={name => void loadData(name).catch(handleError)}/>;
   const current = chats.find(chat => chat.id === selected);
-  const quote = current && replyTo?.chatId === current.id
-    ? { name: memberName(members.find(member => member.id === replyTo.message.senderId)), text: replyTo.message.content.replace(/\s+/g, " ").slice(0, 160) }
-    : null;
   const activeBot = bots.find(bot => bot.id === (current?.botId ?? focusedBotId)) ?? bots[0];
   const activeBotReady = !!activeBot?.connectionId;
   // A channel takes messages whether or not its Bots have models; a DM needs its Bot's model first.
@@ -393,7 +394,7 @@ export function App() {
         </button></footer>
       </aside>
       {followedView && !full && <FollowedThreads threads={followed} chats={chats} members={members} bots={bots} onNav={() => setMobileNav(true)}
-        renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)}
+        renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)} drafts={drafts}
           members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
           onClose={back} onToggleMode={() => toChannel({ id: thread.id, parentId: thread.parentId! }, true)}
           onInvite={member => invite(thread.parentId!, member)} onPreview={(list, index) => setPreview({ files: list, index })}
@@ -428,8 +429,7 @@ export function App() {
             {history.away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={history.toLatest} aria-label="回到最新消息">
               {history.unseen > 0 && <span>{history.unseen} 条新消息</span>}<Icon name="chevron-down"/></button></div>}
           </div>
-          <Composer chatId={current.id} id="jarvy-composer" formRef={composeWrap} scrollRef={transcript} disabled={!composeReady}
-            quote={quote} onCancelQuote={() => setReplyTo(null)}
+          <Composer chatId={current.id} id="jarvy-composer" drafts={drafts} formRef={composeWrap} scrollRef={transcript} disabled={!composeReady}
             placeholder={inChannel ? `发消息到 #${current.title}` : activeBot?.connectionId ? `发消息给 ${botName}…` : "先选择模型，再发送消息"}
             mention={inChannel ? { bots, inside: liveMembers(members).filter(member => member.id !== meId && current.memberIds.includes(member.id)),
               outside: liveMembers(members).filter(member => !current.memberIds.includes(member.id)), onInvite: member => invite(current.id, member) } : undefined}
@@ -437,7 +437,7 @@ export function App() {
         </> : <div className="jarvy-empty-chat jarvy-first-chat">{bots.length ? <p>选择一个会话</p>
           : <button className="ui-button ui-primary" onClick={() => void createBot()} disabled={creating}><Icon name="person-add"/>新建 Bot</button>}</div>}
       </main>
-      {openThread && <ThreadPane key={openThread.id} threadId={openThread.id} mode={openThread.mode} channel={chats.find(chat => chat.id === openThread.parentId)}
+      {openThread && <ThreadPane key={openThread.id} threadId={openThread.id} mode={openThread.mode} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
         onClose={() => full ? toChannel(openThread, false) : setPane(null)} onToggleMode={() => full ? toChannel(openThread, true) : setPane({ ...openThread, mode: "full" })}
         onInvite={member => invite(openThread.parentId, member)} onPreview={(list, index) => setPreview({ files: list, index })}
