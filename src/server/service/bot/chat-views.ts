@@ -1,8 +1,11 @@
 import type { Chat, ChatMessage } from "../../shared/chat.js";
+import { expandQuotes } from "../../shared/quotes.js";
 import type { ChatService } from "../chat/service.js";
 import type { ThreadEntry } from "../chat/threads.js";
 
 const iso = (time: number) => new Date(time).toISOString();
+/** Quotes are expanded wherever a Bot reads a message (A44). */
+const name = (chats: ChatService) => (memberId: string) => chats.member(memberId)?.name ?? memberId;
 
 /** What a Bot sees of its chats through the chat gateway (A37): compact rows and a detail view. Threads appear
  * when the Bot follows them. */
@@ -25,7 +28,7 @@ export function chatDetail(chats: ChatService, botId: string, chat: Chat) {
   const root = chat.type === "thread" && chat.rootMessageId ? chats.message(botId, chat.rootMessageId) : null;
   return { id: chat.id, type: chat.type, title: chat.title, ...(section ? { section } : {}), ...(chat.topic ? { topic: chat.topic } : {}),
     ...(chat.type === "thread" ? { parent: chat.parentId, status: chat.status, following: chat.following,
-      root: root ? { id: root.id, from: root.sender.name, content: root.content, at: iso(root.createdAt) } : null } : {}),
+      root: root ? { id: root.id, from: root.sender.name, content: expandQuotes(root.content, root.quotes, name(chats)), at: iso(root.createdAt) } : null } : {}),
     members,
     notice: chat.note ? { text: chat.note.text, version: chat.note.version, by: chat.note.updatedBy.name, at: iso(chat.note.updatedAt) } : null,
     unread: chat.unread, readSequence: chat.readSequence, ...(chat.type !== "dm" ? { subscribed: chat.subscribed } : {}) };
@@ -43,7 +46,7 @@ export function messageRow(chats: ChatService, botId: string, message: ChatMessa
   const question = message.question;
   return { id: message.id, seq: message.sequence,
     ...(chat ? { chat: { id: chat.id, type: chat.type, title: chat.title } } : {}),
-    from: message.sender.name, at: iso(message.createdAt), text: message.content,
+    from: message.sender.name, at: iso(message.createdAt), text: expandQuotes(message.content, message.quotes, name(chats)),
     ...(attachments.length ? { attachments } : {}),
     ...(message.mentions.length ? { mentions: message.mentions.map(id => chats.member(id)?.name ?? id) } : {}),
     ...(message.thread ? { thread: { id: message.thread.id, title: message.thread.title, status: message.thread.status, replies: message.thread.replies } } : {}),

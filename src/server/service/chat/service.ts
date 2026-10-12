@@ -11,6 +11,7 @@ import { ChatChannels } from "./channels.js";
 import { ChatThreads } from "./threads.js";
 import { Dispatcher, plan, type DeliveryHandlers } from "../delivery/delivery.js";
 import { reactionTargets } from "../delivery/routes.js";
+import { quoteDrafts, resolveQuotes } from "./quotes.js";
 
 function titleValue(value: unknown): string {
   if (value === undefined) return "新对话";
@@ -183,7 +184,8 @@ export class ChatService {
   }
   async send(actorId: string, chatId: string, input: Record<string, unknown>): Promise<ChatMessage> {
     if (input.alsoToChannel !== undefined && typeof input.alsoToChannel !== "boolean") throw new ChatError(400, "Invalid alsoToChannel");
-    return this.deliver(actorId, chatId, { ...messageDraft(input), alsoToChannel: input.alsoToChannel === true });
+    const draft = messageDraft(input), quotes = resolveQuotes(this.repository, actorId, chatId, draft.content, quoteDrafts(input.quotes) ?? []);
+    return this.deliver(actorId, chatId, { ...draft, alsoToChannel: input.alsoToChannel === true, ...(quotes.length ? { quotes } : {}) });
   }
   async deliver(actorId: string, chatId: string, message: DeliveryMessage): Promise<ChatMessage> {
     const files = message.files ?? [];
@@ -195,7 +197,7 @@ export class ChatService {
     const draft = messageDraft({ content: message.content, attachmentIds: message.attachmentIds, clientMessageId: message.clientMessageId, replyTo: message.replyTo }, files.length > 0);
     const question = message.question ? questionSpec(message.question as unknown as Record<string, unknown>) : undefined;
     return this.instance(actorId, chatId).deliver(actorId, { ...draft, files: message.files, source: message.source, ...(question ? { question } : {}),
-      ...(message.alsoToChannel ? { alsoToChannel: true } : {}) });
+      ...(message.alsoToChannel ? { alsoToChannel: true } : {}), ...(message.quotes?.length ? { quotes: message.quotes } : {}) });
   }
   message(actorId: string, id: string) { return this.repository.message(actorId, id); }
   search(actorId: string, chatId: string, query: string, limit = 30) {

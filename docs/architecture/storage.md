@@ -62,6 +62,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v14 | `chat_states.subscribed` |
 | v15 | `messages.reply_to`, `message_reactions`, `chat_states.pinned`, `bots.deleted_at` (soft delete) |
 | v16 | `inbox` replaces `bot_pending` and `bot_notices`; `chat_states.muted` |
+| v17 | `message_quotes`: a message's partial quotes by mark position — source message (cleared when it goes), its sender, the quoted text (A44) |
 
 ## Search
 

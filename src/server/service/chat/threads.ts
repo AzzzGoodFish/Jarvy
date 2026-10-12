@@ -1,4 +1,5 @@
 import { ChatError, type Chat, type ThreadInfo } from "../../shared/chat.js";
+import { previewQuotes } from "../../shared/quotes.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** A thread with what its list entry needs: replies and the root message it hangs off. */
@@ -23,7 +24,7 @@ export class ChatThreads {
     const chat = this.repository.getChat(actorId, threadId);
     if (!chat || chat.type !== "thread") throw new ChatError(404, "Thread not found");
     const root = chat.rootMessageId ? this.repository.message(actorId, chat.rootMessageId) : null;
-    return { chat, info: this.store.info(chat.rootMessageId!)!, root: root ? { senderId: root.sender.id, content: root.content } : null };
+    return { chat, info: this.store.info(chat.rootMessageId!)!, root: root ? { senderId: root.sender.id, content: previewQuotes(root.content, root.quotes) } : null };
   }
   list(actorId: string, channelId: string): ThreadEntry[] { return this.store.list(actorId, channelId).map(id => this.entry(actorId, id)); }
   followed(actorId: string): ThreadEntry[] { return this.store.followed(actorId).map(id => this.entry(actorId, id)); }

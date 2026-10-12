@@ -1,4 +1,5 @@
 import { join, dirname } from "node:path";
+import { previewQuotes } from "../../shared/quotes.js";
 import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { ChatService } from "../chat/service.js";
@@ -35,7 +36,8 @@ export class BotInbox {
     return notices.map(notice => {
       const chat = { id: notice.chatId, type: notice.chatType as "dm" | "channel" | "thread", title: notice.chatTitle };
       if (notice.kind === "note") return { kind: "note" as const, id: notice.id, chat, actor: notice.actor, version: Number(notice.detail), createdAt: notice.createdAt };
-      const text = notice.messageId ? this.chats.message(this.botId, notice.messageId)?.content.slice(0, 120) ?? "" : "";
+      const marked = notice.messageId ? this.chats.message(this.botId, notice.messageId) : null;
+      const text = marked ? previewQuotes(marked.content, marked.quotes).slice(0, 120) : "";
       return { kind: "reaction" as const, id: notice.id, chat, message: { id: notice.messageId ?? "", text }, actor: notice.actor, emoji: notice.detail, createdAt: notice.createdAt };
     });
   }

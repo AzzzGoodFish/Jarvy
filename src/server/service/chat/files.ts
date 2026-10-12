@@ -1,4 +1,5 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
+import { expandQuotes } from "../../shared/quotes.js";
 import { AttachmentFiles } from "../../infra/files/attachments.js";
 import type { EnvelopeMessage } from "./envelope.js";
 import type { ChatService } from "./service.js";
@@ -18,7 +19,7 @@ export class ChatFiles {
       const section = chat.sectionId ? this.chats.channels.sections(botId).find(item => item.id === chat.sectionId)?.name : undefined;
       output.push({ id, chat: { id: chat.id, type: chat.type, title: chat.title, ...(section ? { section } : {}),
         ...(chat.parentId ? { parent: chat.parentId } : {}), ...(chat.rootMessageId ? { root: chat.rootMessageId } : {}), ...(chat.status ? { status: chat.status } : {}) }, sender: message.sender,
-        content: message.content, createdAt: message.createdAt, attachments: await this.paths(botId, message, signal), ...this.reply(message) });
+        content: expandQuotes(message.content, message.quotes, memberId => this.chats.member(memberId)?.name ?? memberId), createdAt: message.createdAt, attachments: await this.paths(botId, message, signal), ...this.reply(message) });
     }
     return output;
   }
