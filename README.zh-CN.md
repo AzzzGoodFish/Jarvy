@@ -67,7 +67,7 @@ jarvy on                          # 后台运行
 jarvy off                         # 停止
 ```
 
-想装自己构建的版本：`npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-0.1.0.tgz`。
+想装自己构建的版本：`npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-*.tgz`。
 
 | 命令 | 作用 |
 | --- | --- |

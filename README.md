@@ -69,7 +69,7 @@ jarvy on                          # run in the background
 jarvy off                         # stop
 ```
 
-To install your own build instead: `npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-0.1.0.tgz`.
+To install your own build instead: `npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-*.tgz`.
 
 | Command | What it does |
 | --- | --- |
