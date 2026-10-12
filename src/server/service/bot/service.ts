@@ -22,6 +22,7 @@ import { Tools } from "./tools.js";
 import { AgentRuntime } from "./agent-runtime.js";
 import { BotInbox } from "./inbox.js";
 import { botPrompt } from "./prompt.js";
+import type { RosterEntry } from "./roster.js";
 
 export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
@@ -48,7 +49,7 @@ export class BotService {
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
       workspace, memory,
-      tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on) }), agentRuntime: runtime,
+      tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster() }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
       const outgoing = await files.readOutgoing(record.workspacePath, message.attachments ?? [], message.signal);
@@ -107,6 +108,17 @@ export class BotService {
     if (this.started) return;
     this.started = true;
     for (const { botId, urgency } of this.deps.store.runtime.waitingBots(this.deps.store.userMemberId())) this.deliver(botId, urgency);
+  }
+  /** Every Bot's run state, for `bots.list` (A43). A Bot not loaded in this process is stopped. */
+  roster(): RosterEntry[] {
+    const { store } = this.deps;
+    return store.listBots().map(record => {
+      const bot = this.bots.get(record.id), runId = bot?.agentRuntime.activeRunId ?? null;
+      const status = bot?.status() ?? { status: "stop", activity: null, context: null, error: null };
+      return { id: record.id, name: record.name, status,
+        runChatIds: status.status === "running" && runId ? store.runtime.inputs(runId).map(input => input.chatId) : [],
+        errorCode: store.runtime.latestErrorCode(record.id) };
+    });
   }
   status(id: string): BotStatus & { botId: string; runId: string | null } {
     if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);

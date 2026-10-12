@@ -80,6 +80,11 @@ export class RuntimeRepository {
   runs(botId: string): BotRun[] {
     return (this.db.prepare(`SELECT ${RUN_COLUMNS} FROM bot_runs WHERE bot_id=? ORDER BY created_at DESC,rowid DESC LIMIT 50`).all(botId) as RunRow[]).map(row => this.fromRow(row));
   }
+  /** The error code of the Bot's latest run; null when that run did not fail. */
+  latestErrorCode(botId: string): string | null {
+    const row = this.db.prepare("SELECT error_code AS errorCode FROM bot_runs WHERE bot_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1").get(botId) as { errorCode: string | null } | undefined;
+    return row?.errorCode ?? null;
+  }
   private fromRow({ selectionJson, ...row }: RunRow): BotRun { return { ...row, selection: JSON.parse(selectionJson) as ModelSelection }; }
   inputs(runId: string): { chatId: string; messageId: string }[] {
     return this.db.prepare("SELECT chat_id AS chatId,message_id AS messageId FROM bot_run_inputs WHERE run_id=? ORDER BY position").all(runId) as { chatId: string; messageId: string }[];

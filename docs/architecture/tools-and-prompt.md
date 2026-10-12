@@ -28,6 +28,7 @@ There is no fourth action and no flattened top-level schema. The server validate
 | Tool | Purpose |
 | --- | --- |
 | `members.list` | everyone in the owner's space, with descriptions |
+| `bots.list` | every Bot's name and run state: `stop / idle / running`, while running the activity and the chats of the current run (chats the caller cannot read are only counted), and the latest run's error code (A43) |
 | `chats.list` | chats with type, group, topic, unread and mention counts, notice version; followed threads |
 | `chats.info` | members, full notice or summary, unread and read position; thread title, status and root |
 | `chats.create` / `chats.addMembers` | create a channel (the Bot joins it), add members to a channel the Bot is in |

@@ -10,13 +10,14 @@ import { readHistory, type HistoryReadInput } from "./history-read.js";
 import { chatDetail, chatRows } from "./chat-views.js";
 import { ChatTools } from "./chat-tools.js";
 import { definitions, type ToolName } from "./tool-schemas.js";
+import { botRows, type RosterEntry } from "./roster.js";
 
 const Gateway = Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("describe"), Type.Literal("call")]),
   tool: Type.Optional(Type.String()), args: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }, { additionalProperties: false });
 export class Tools implements ToolsPort {
   private send?: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>;
   private readonly tools: ChatTools;
-  constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; asking?: (waiting: boolean) => void }) {
+  constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; asking?: (waiting: boolean) => void; roster: () => RosterEntry[] }) {
     this.tools = new ChatTools(scope);
   }
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>) { this.send = send; }
@@ -48,6 +49,7 @@ export class Tools implements ToolsPort {
           case "chats.info":
             return chatDetail(this.scope.chats, this.scope.botId, this.tools.chat((args as { chatId: string }).chatId));
           case "members.list": return this.tools.membersList();
+          case "bots.list": return botRows(this.scope.chats, this.scope.botId, this.scope.roster());
           case "chats.create": return this.tools.create(args as Parameters<ChatTools["create"]>[0]);
           case "chats.update": return this.tools.update(args as Parameters<ChatTools["update"]>[0]);
           case "chats.addMembers": return this.tools.addMembers(args as Parameters<ChatTools["addMembers"]>[0]);
