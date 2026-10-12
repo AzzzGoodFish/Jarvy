@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEven
 import { api, type Bot, type Member } from "../api";
 import { useMentionMenu } from "../channel/MentionMenu";
 import { useDraft, type DraftStore } from "./drafts";
+import { QuoteTags } from "../channel/quotes";
 import { Icon } from "../ui";
 
 const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
@@ -18,8 +19,9 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   formRef?: RefObject<HTMLFormElement | null>;
   /** The transcript above: its scroll position is kept while the input resizes. */
   scrollRef?: RefObject<HTMLElement | null>;
-  /** Saves the message (`replyTo`: the quoted message); throwing keeps the draft and the send key for a retry. */
-  onSend: (content: string, attachmentIds: string[], key: string, replyTo?: string) => Promise<void>;
+  /** Saves the message (`replyTo`: the quoted message; `quotes`: the passages its [[qN]] markers stand for); throwing
+   * keeps the draft and the send key for a retry. */
+  onSend: (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) => Promise<void>;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
 }) {
   const saved = useDraft(drafts, chatId), sending = saved.sending;
@@ -73,15 +75,18 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
    * The key is saved with the draft, so a retry (even after a reload) reuses it and the server keeps one message. */
   async function send(event?: FormEvent) {
     event?.preventDefault();
-    const target = chatId, current = drafts.get(target), content = (current.text ?? initialText ?? "").trim(), attachments = current.files, quoted = current.quote;
+    const target = chatId, current = drafts.get(target), text = (current.text ?? initialText ?? "").trim(), attachments = current.files, quoted = current.quote;
+    const passages = current.passages, markers = passages.map((_, index) => `[[q${index + 1}]]`).join("\n");
+    const content = [markers, text].filter(Boolean).join("\n\n");
     if ((!content && !attachments.length) || current.sending || uploading || disabled) return;
-    const signature = JSON.stringify([content, attachments.map(file => file.id), quoted?.id ?? null]);
+    const signature = JSON.stringify([content, attachments.map(file => file.id), quoted?.id ?? null, passages]);
     const key = current.signature === signature && current.key ? current.key : newKey();
     drafts.update(target, { key, signature, sending: true });
     try {
-      await onSend(content, attachments.map(file => file.id), key, quoted?.id);
+      await onSend(content, attachments.map(file => file.id), key, quoted?.id, passages.map(({ messageId, text: passage }) => ({ messageId, text: passage })));
       drafts.update(target, after => ({
-        text: (after.text ?? initialText ?? "").trim() === content ? "" : after.text,
+        text: (after.text ?? initialText ?? "").trim() === text ? "" : after.text,
+        passages: after.passages.filter(passage => !passages.includes(passage)),
         files: after.files.filter(file => !attachments.some(sent => sent.id === file.id)),
         quote: after.quote?.id === quoted?.id ? null : after.quote, key: null, signature: null,
       }));
@@ -107,6 +112,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
       <button type="button" aria-label={`移除附件：${file.name}`} onClick={() => void remove(file.id)}>×</button></span>)}</div>}
     {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">回复</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || "(附件)"}</span>
       <button type="button" aria-label="取消回复" onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
+    <QuoteTags quotes={saved.passages} onRemove={index => drafts.update(chatId, draft => ({ passages: draft.passages.filter((_, at) => at !== index) }))}/>
     <div className="ui-composer jv-composer">
       {mention && menu.menu}
       <label className="jarvy-attach-trigger" title="上传附件"><Icon name="add"/><input type="file" multiple aria-label="上传附件" disabled={sending || uploading || disabled || files.length >= 5}
@@ -115,7 +121,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
         onChange={event => { setDraft(event.target.value); if (mention) menu.track(event.target.value); }}
         onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => { if (mention && menu.onKeyDown(event)) return; if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
         onClick={() => { if (mention) menu.track(); }} onBlur={mention ? menu.leaves : undefined}/>
-      <button type="submit" className="ui-round ui-send" aria-label="发送消息" disabled={sending || uploading || disabled || (!draft.trim() && !files.length)}><Icon name="arrow-up"/></button>
+      <button type="submit" className="ui-round ui-send" aria-label="发送消息" disabled={sending || uploading || disabled || (!draft.trim() && !files.length && !saved.passages.length)}><Icon name="arrow-up"/></button>
     </div>
     {dropping ? <p className="jarvy-compose-note" role="status">松开以添加附件</p> : uploading && <p className="jarvy-compose-note" role="status">正在上传附件…</p>}
   </form>;

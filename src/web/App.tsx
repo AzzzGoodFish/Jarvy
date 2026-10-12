@@ -8,6 +8,7 @@ import { ChannelInfo, type InfoPage } from "./channel/ChannelInfo";
 import { findMentions } from "./channel/mentions";
 import { Composer } from "./composer/Composer";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
+import { QuoteSelection } from "./channel/quotes";
 import { ThreadPane } from "./thread/ThreadPane";
 import { FollowedThreads, ThreadList } from "./thread/ThreadList";
 import { BotDirects, useBotDirects } from "./bot/BotDirects";
@@ -282,9 +283,9 @@ export function App() {
       setNotice(`${bot.name} 已删除`);
     } catch (error) { handleError(error); }
   }
-  async function sendMain(content: string, attachmentIds: string[], key: string, replyTo?: string) {
+  async function sendMain(content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) {
     const id = selected!;
-    await api.send(id, content, attachmentIds, key, false, replyTo);
+    await api.send(id, content, attachmentIds, key, false, replyTo, quotes);
     const chat = chatListRef.current.find(item => item.id === id), outside = chat?.type === "channel"
       ? findMentions(content, liveMembers(members)).filter(hit => !chat.memberIds.includes(hit.member.id)).map(hit => hit.member.name) : [];
     if (outside.length) setNotice(`${[...new Set(outside)].join("、")} 不在频道中，未收到通知`);
@@ -320,6 +321,8 @@ export function App() {
   }
   /** The composer's quote bar: part of the quoted message's chat draft. */
   function setReplyFor(message: ChatMessage) { quoteMessage(drafts, message, members); }
+  /** A reply's or a partial quote's source (A44): scrolls to it and highlights the passage; null means it is gone. */
+  const jumpTo = (id: string | null, passage?: string) => id ? void history.toMessage(id, passage).catch(() => setNotice("原消息已不在")) : setNotice("原消息已不在");
   function threadChanged(thread: Chat) {
     setFollowed(previous => previous.map(item => item.id === thread.id ? { ...item, ...thread } : item));
     void api.followedThreads().then(result => setFollowed(result.threads)).catch(() => {});
@@ -428,10 +431,10 @@ export function App() {
               {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={dividers[current.id] ?? current.readSequence} activeQuestion={activeQuestion}
                 onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={(list, index) => setPreview({ files: list, index })}
                 onReply={message => void replyInThread(message)} onOpenThread={id => setPane({ kind: "thread", id, parentId: current.id, mode: "pane" })}
-                onQuote={setReplyFor} onReact={(message, emoji, on) => void react(message, emoji, on)} onJump={id => void history.toMessage(id)} onError={handleError}/>
+                onQuote={setReplyFor} onReact={(message, emoji, on) => void react(message, emoji, on)} onJump={jumpTo} onError={handleError}/>
               : <DmMessages messages={messages} members={members} colors={botColors} me={meId} activeQuestion={activeQuestion} bot={activeBot}
                 onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={(list, index) => setPreview({ files: list, index })}
-                onQuote={setReplyFor} onReact={(message, emoji, on) => void react(message, emoji, on)} onJump={id => void history.toMessage(id)} onError={handleError}/>}
+                onQuote={setReplyFor} onReact={(message, emoji, on) => void react(message, emoji, on)} onJump={jumpTo} onError={handleError}/>}
             </>}
             {history.away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={history.toLatest} aria-label="回到最新消息">
               {history.unseen > 0 && <span>{history.unseen} 条新消息</span>}<Icon name="chevron-down"/></button></div>}
@@ -443,6 +446,7 @@ export function App() {
             onSend={sendMain} onError={handleError} onNotice={setNotice}/>
         </> : <div className="jarvy-empty-chat jarvy-first-chat">{bots.length ? <p>选择一个会话</p>
           : <button className="ui-button ui-primary" onClick={() => void createBot()} disabled={creating}><Icon name="person-add"/>新建 Bot</button>}</div>}
+        {current && <QuoteSelection container={transcript} drafts={drafts} chatId={current.id} source={id => messages.find(message => message.id === id)} members={members} onNotice={setNotice}/>}
       </main>
       {openThread && <ThreadPane key={`${openThread.id}:${openThread.focus ?? ""}`} threadId={openThread.id} mode={openThread.mode} showSummary={openThread.summary} focus={openThread.focus} onSearch={find.search} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}

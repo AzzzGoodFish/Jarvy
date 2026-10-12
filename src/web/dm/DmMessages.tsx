@@ -2,8 +2,7 @@ import type { Attachment, Bot, ChatMessage, Member } from "../api";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";
-import { Markdown } from "../ui";
-import { linkMentions } from "../channel/mentions";
+import { MessageText } from "../channel/quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "../channel/MessageActions";
 
 /** DM messages keep the bubble layout (A37) and gain replies and emoji marks like channels. */
@@ -12,7 +11,7 @@ export function DmMessages({ messages, members, colors, me, activeQuestion, onSe
   me: string; activeQuestion?: string; bot: Bot | undefined;
   onSettled: (message: ChatMessage) => void; onPreview: (files: Attachment[], index: number) => void;
   onQuote?: (message: ChatMessage) => void; onReact: (message: ChatMessage, emoji: string, on: boolean) => void;
-  onJump: (id: string) => void; onError: (error: unknown) => void;
+  onJump: (id: string | null, passage?: string) => void; onError: (error: unknown) => void;
 }) {
   // tabIndex lets a tap focus the row, which is what shows its actions on touch screens.
   return <>{messages.map(message => <div className={`ui-message-row ${message.role === "user" ? "ui-user" : ""}`} data-message={message.id} key={message.id} tabIndex={-1}>
@@ -20,7 +19,7 @@ export function DmMessages({ messages, members, colors, me, activeQuestion, onSe
     <div className="jv-dm-stack">
       {message.replyTo && <ReplyQuote message={message} members={members} onJump={onJump}/>}
       {message.question ? <QuestionCard message={{ ...message, question: message.question }} keyboard={message.id === activeQuestion} onSettled={onSettled}/>
-        : <div className="ui-bubble">{message.content && <Markdown text={linkMentions(message.content, members.filter(item => message.mentions.includes(item.id)), me)}/>}
+        : <div className="ui-bubble">{message.content && <MessageText message={message} members={members} me={me} onJump={onJump}/>}
           {message.attachments.length > 0 && <FileCards files={message.attachments} onOpen={index => onPreview(message.attachments, index)}/>}</div>}
       <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError}/>
     </div>

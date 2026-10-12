@@ -3,6 +3,7 @@ import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Membe
 import { Composer } from "../composer/Composer";
 import { quoteMessage, type DraftStore } from "../composer/drafts";
 import { ChannelMessages } from "../channel/ChannelView";
+import { jumpToPassage, QuoteSelection } from "../channel/quotes";
 import { findMentions } from "../channel/mentions";
 import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
@@ -106,16 +107,15 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       setMessages(previous => previous.map(apply)); setRoot(previous => previous && apply(previous));
     } catch (error) { onError(error); }
   };
-  const jump = (id: string) => {
-    const element = body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`);
-    if (!element) { onNotice("原消息不在这个线程里"); return; }
-    element.scrollIntoView({ block: "center" }); element.classList.add("jv-jump");
-    setTimeout(() => element.classList.remove("jv-jump"), 1200);
+  const jump = (id: string | null, passage?: string) => {
+    const element = id && body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`);
+    if (!element) { onNotice(id ? "原消息不在这个线程里" : "原消息已不在"); return; }
+    jumpToPassage(element, passage);
   };
   const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onJump: jump, onError };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
-  const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, alsoToChannel = false) => {
-    await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo);
+  const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes: { messageId: string; text: string }[] = [], alsoToChannel = false) => {
+    await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
     const outside = channel ? findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name) : [];
     if (outside.length) onNotice(`${[...new Set(outside)].join("、")} 不在频道中，未收到通知`);
     const [loaded, list] = await Promise.all([api.chat(threadId), api.messages(threadId)]);
@@ -144,7 +144,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
         onSummary={text => save(() => api.setNote(threadId, text))}
         onConclude={async () => {
           try {
-            await send(`结论：\n\n${chat.note?.text ?? ""}`, [], Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""), undefined, true);
+            await send(`结论：\n\n${chat.note?.text ?? ""}`, [], Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""), undefined, [], true);
             await save(() => api.updateThread(threadId, { status: "done" }));
             onNotice(`已完成，摘要已发到 #${channelName}`);
           } catch (error) { onError(error); throw error; }
@@ -166,5 +166,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       mention={{ bots, inside: liveMembers(members).filter(member => member.id !== me && !!channel?.memberIds.includes(member.id)),
         outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite }}
       onSend={send} onError={onError} onNotice={onNotice}/>
+    {/* Passages go into this thread's draft; the root can be quoted too (A44). */}
+    <QuoteSelection container={body} drafts={drafts} chatId={threadId} members={members} onNotice={onNotice}
+      source={id => id === root?.id ? root : messages.find(message => message.id === id)}/>
   </Shell>;
 }
