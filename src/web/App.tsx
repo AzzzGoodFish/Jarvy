@@ -3,7 +3,8 @@ import { api, ApiError, type Attachment, type BotStatus, type Bot, type Chat, ty
 import { BotInfo } from "./BotInfo";
 import { Sidebar } from "./sidebar/Sidebar";
 import { ChannelHeader, ChannelMessages, NoticeBar } from "./channel/ChannelView";
-import { ChannelDialog, SectionDialog } from "./channel/ChannelDialogs";
+import { AddMembersDialog, NewChannelDialog, SectionDialog } from "./channel/ChannelDialogs";
+import { ChannelInfo, type InfoPage } from "./channel/ChannelInfo";
 import { findMentions } from "./channel/mentions";
 import { Composer } from "./composer/Composer";
 import { ThreadPane } from "./thread/ThreadPane";
@@ -39,7 +40,7 @@ export function App() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [dialog, setDialog] = useState<{ kind: "channel"; chat?: Chat; picking?: boolean } | { kind: "section"; section?: Section } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: "channel" } | { kind: "members"; chat: Chat } | { kind: "section"; section?: Section } | null>(null);
   /** Read position when each chat was opened: the "以下为新消息" line stays there while you read. */
   const [dividers, setDividers] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<string | null>(null);
@@ -52,8 +53,8 @@ export function App() {
   const [mobileNav, setMobileNav] = useState(false);
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
-  /** Right-hand pane (A37 P2): a channel's thread list, or one thread (expandable over the main area). */
-  const [pane, setPane] = useState<{ kind: "threads" } | { kind: "botdms" } | { kind: "thread"; id: string; parentId: string; mode: "pane" | "full" } | null>(null);
+  /** Right-hand pane (A37 P2): a channel's thread list or info (with its member page), or one thread (expandable over the main area). */
+  const [pane, setPane] = useState<{ kind: "threads" } | { kind: "info"; page: InfoPage } | { kind: "botdms" } | { kind: "thread"; id: string; parentId: string; mode: "pane" | "full" } | null>(null);
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
   const [paneWidth, setPaneWidth] = useState(420);
@@ -87,7 +88,7 @@ export function App() {
     if (statusVersions.current.get(id) === version) setStatuses(previous => ({ ...previous, [id]: status }));
   }
   useEffect(() => { if (phase === "ready" && statusBotId) void readStatus(statusBotId).catch(handleError); }, [phase, statusBotId]);
-  // A channel header shows which of its Bots are working.
+  // A channel's member list shows what each of its Bots is doing.
   const channelBots = chats.find(chat => chat.id === selected && chat.type === "channel")?.memberIds.filter(id => bots.some(bot => bot.id === id)).join(",") ?? "";
   useEffect(() => { if (phase === "ready" && channelBots) for (const id of channelBots.split(",")) void readStatus(id).catch(handleError); }, [phase, channelBots]);
 
@@ -215,6 +216,8 @@ export function App() {
     setSelected(chat.id); if (chat.botId) setFocusedBotId(chat.botId);
     setMobileNav(false); setAccountMenu(false); setCreateMenu(false);
   }
+  /** The header's name and members button open channel info at its main or member page; again closes it. */
+  const toggleInfo = (page: InfoPage) => setPane(pane?.kind === "info" && pane.page === page ? null : { kind: "info", page });
   function chatSaved(chat: Chat) {
     setChats(previous => previous.some(item => item.id === chat.id) ? previous.map(item => item.id === chat.id ? chat : item) : [chat, ...previous]);
   }
@@ -401,9 +404,10 @@ export function App() {
           onClick={() => setPane(pane?.kind === "botdms" ? null : { kind: "botdms" })}/>}
         <span className="sr-only" role="status" aria-label="Bot 状态">{inChannel ? "" : activity}</span>
         {current ? <>
-          {inChannel ? <ChannelHeader chat={current} sections={sections} members={members} bots={bots} working={working} onNav={() => setMobileNav(true)}
-            threadsOpen={pane?.kind === "threads"} onThreads={() => setPane(pane?.kind === "threads" ? null : { kind: "threads" })}
-            onBot={id => setInfoBotId(id)} onSettings={() => setDialog({ kind: "channel", chat: current })} onAddMembers={() => setDialog({ kind: "channel", chat: current, picking: true })}/>
+          {inChannel ? <ChannelHeader chat={current} members={liveMembers(members)} bots={bots} onNav={() => setMobileNav(true)}
+            infoOpen={pane?.kind === "info" && pane.page === "main"} onInfo={() => toggleInfo("main")}
+            membersOpen={pane?.kind === "info" && pane.page === "members"} onMembers={() => toggleInfo("members")}
+            threadsOpen={pane?.kind === "threads"} onThreads={() => setPane(pane?.kind === "threads" ? null : { kind: "threads" })}/>
             : activeBot && <FloatingBot bot={activeBot} status={status} area={chatArea} avoid={composeWrap} onOpen={() => setInfoBotId(activeBot.id)}/>}
           {inChannel && <NoticeBar chat={current} onSave={async text => { try { chatSaved(await api.setNote(current.id, text)); } catch (error) { handleError(error); throw error; } }}/>}
           <div className={`ui-transcript jarvy-transcript${inChannel ? " jv-channel-transcript" : ""}`} ref={transcript} aria-label="聊天记录" role="log">
@@ -440,6 +444,11 @@ export function App() {
         onError={handleError} onNotice={setNotice}/>}
       {pane?.kind === "threads" && paneChannel && <ThreadList channel={paneChannel} members={members} bots={bots} tick={tick}
         onOpen={id => setPane({ kind: "thread", id, parentId: paneChannel.id, mode: "pane" })} onClose={() => setPane(null)} onError={handleError}/>}
+      {pane?.kind === "info" && paneChannel && <ChannelInfo channel={paneChannel} page={pane.page} sections={sections} members={liveMembers(members)} bots={bots}
+        statuses={statuses} me={meId} onPage={page => setPane({ kind: "info", page })} onPin={() => void pinChat(paneChannel, !paneChannel.pinned)}
+        onMute={() => void muteChat(paneChannel, !paneChannel.muted)} onAdd={() => setDialog({ kind: "members", chat: paneChannel })}
+        onBot={id => setInfoBotId(id)} onDelete={() => setConfirm({ kind: "chat", chat: paneChannel })} onChanged={chatSaved}
+        onClose={() => setPane(null)} onError={handleError}/>}
       {pane?.kind === "botdms" && activeBot && !inChannel && <BotDirects bot={activeBot} chats={botDirects} members={members} bots={bots} me={meId} tick={tick}
         onClose={() => setPane(null)} onPreview={(list, index) => setPreview({ files: list, index })} onError={handleError}/>}
       {pane && !full && <div className="jv-resize" style={{ right: paneWidth - 4 }} onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label="拖动调整侧栏宽度"/>}
@@ -453,15 +462,15 @@ export function App() {
     </div>
     {mobileNav && <div className="ui-nav-scrim" onClick={() => setMobileNav(false)} role="presentation"/>}
     {showSettings && <SettingsDialog connections={connections} onChanged={refreshConnections} onClose={() => setShowSettings(false)}/>}
-    {dialog?.kind === "channel" && <ChannelDialog chat={dialog.chat} picking={dialog.picking} sections={sections} members={liveMembers(members)} bots={bots} me={meId}
-      onClose={() => setDialog(null)} onChanged={chatSaved}
-      onSaved={chat => { chatSaved(chat); setDialog(null); if (!dialog.chat) openChat(chat); }}
-      onDeleted={id => { setDialog(null); setChats(previous => previous.filter(chat => chat.id !== id)); if (selectedRef.current === id) setSelected(null); }}/>}
+    {dialog?.kind === "channel" && <NewChannelDialog sections={sections} members={liveMembers(members)} bots={bots} me={meId}
+      onClose={() => setDialog(null)} onSaved={chat => { chatSaved(chat); setDialog(null); openChat(chat); }}/>}
+    {dialog?.kind === "members" && <AddMembersDialog chat={chats.find(chat => chat.id === dialog.chat.id) ?? dialog.chat} members={liveMembers(members)} bots={bots}
+      onClose={() => setDialog(null)} onChanged={chatSaved}/>}
     {dialog?.kind === "section" && <SectionDialog section={dialog.section} onClose={() => setDialog(null)}
       onSaved={section => { setSections(previous => previous.some(item => item.id === section.id) ? previous.map(item => item.id === section.id ? section : item) : [...previous, section]); setDialog(null); }}
       onDeleted={id => { setDialog(null); setSections(previous => previous.filter(item => item.id !== id)); void refreshChats().catch(handleError); }}/>}
     {entryMenu && <EntryMenu target={entryMenu.target} x={entryMenu.at.x} y={entryMenu.at.y} onClose={() => setEntryMenu(null)}
-      onOpenBot={bot => setInfoBotId(bot.id)} onSettings={chat => chat.type === "channel" ? setDialog({ kind: "channel", chat, picking: false }) : undefined}
+      onOpenBot={bot => setInfoBotId(bot.id)} onSettings={chat => { if (chat.type !== "channel") return; openChat(chat); setPane({ kind: "info", page: "main" }); }}
       onPin={pinChat} onMute={muteChat} onDeleteChat={chat => setConfirm({ kind: "chat", chat })} onDeleteBot={bot => setConfirm({ kind: "bot", bot })}/>}
     {confirm?.kind === "chat" && <ConfirmDialog title={`删除频道 #${confirm.chat.title}`} confirm="删除" onClose={() => setConfirm(null)}
       body="频道里的消息、线程和附件都会删除。" onConfirm={async () => { await removeChannel(confirm.chat); setConfirm(null); }}/>}
