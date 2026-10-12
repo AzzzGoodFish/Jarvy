@@ -38,12 +38,13 @@ export function expandQuotes(content: string, quotes: readonly MessageQuote[], n
     return `${offset > 0 && whole[offset - 1] !== "\n" ? "\n" : ""}${block}${end < whole.length && whole[end] !== "\n" ? "\n" : ""}`;
   });
 }
-/** Text as compared when checking that a quote is part of its source: rendered link and image text instead of the
- * Markdown around it, without line markers (lists, quotes, headings, fences), emphasis marks, other quotes' marks or
- * whitespace. */
+/** Text as compared when checking that a quote is part of its source. A quote is what a person selected in the rendered
+ * message, so the source drops what rendering does not show: images, link targets, line markers (lists, quotes,
+ * headings, fences), rules and table separator rows, emphasis and code marks, other quotes' marks, and whitespace. */
 export function quoteComparable(text: string): string {
   return text.replace(MARK, "")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/<(https?:\/\/[^>\s]+)>/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/<(https?:\/\/[^>\s]+)>/g, "$1")
+    .replace(/^[ \t|:*_=-]*$/gm, (line: string) => /[-*_=]{3}/.test(line) ? "" : line)
     .replace(/^[ \t]*(?:>[ \t>]*|#{1,6}[ \t]+|(?:[-*+]|\d+[.)])[ \t]+|```.*|~~~.*)/gm, "")
     .replace(/\\([\\`*_{}[\]()#+\-.!|~>])/g, "$1")
     .replace(/[*_~`|]/g, "").replace(/\s+/g, "");
