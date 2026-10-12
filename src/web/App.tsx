@@ -1,31 +1,22 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { api, ApiError, type Attachment, type BotStatus, type Bot, type Chat, type ChatMessage, type Member, type ModelConnection, type Section, type ThreadEntry } from "./api";
-import { BotInfo } from "./BotInfo";
-import { Sidebar, hintThread } from "./sidebar/Sidebar";
-import { ChannelHeader, ChannelMessages, NoticeBar } from "./channel/ChannelView";
-import { AddMembersDialog, NewChannelDialog, SectionDialog } from "./channel/ChannelDialogs";
-import { ChannelInfo, type InfoPage } from "./channel/ChannelInfo";
+import { AppDialogs, type Confirm, type Dialog, type Menu } from "./AppDialogs";
+import { AppSidebar } from "./AppSidebar";
+import { ChatMain } from "./ChatMain";
+import { SidePane } from "./SidePane";
+import { SettingsDialog } from "./Settings";
+import { hintThread } from "./sidebar/Sidebar";
 import { findMentions } from "./channel/mentions";
-import { Composer } from "./composer/Composer";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
-import { QuoteSelection } from "./channel/quotes";
-import { ThreadPane } from "./thread/ThreadPane";
-import { FollowedThreads, ThreadList } from "./thread/ThreadList";
-import { BotDirects, useBotDirects } from "./bot/BotDirects";
-import { DmMessages } from "./dm/DmMessages";
-import { EntryMenu, type MenuTarget } from "./sidebar/EntryMenu";
+import { useBotDirects } from "./bot/BotDirects";
 import { useTabBadge } from "./tabBadge";
 import { liveMembers } from "./members";
-import { ConfirmDialog, DeleteBotDialog } from "./dm/DeleteDialog";
 import { useTranscript } from "./transcript/useTranscript";
+import { useMarkRead } from "./transcript/useMarkRead";
 import { Login } from "./Login";
-import { SettingsDialog } from "./Settings";
-import { ModelPicker } from "./ModelPicker";
-import { applyTheme, Icon, IconButton } from "./ui";
-import { FloatingBot } from "./avatar/FloatingBot";
-import { FileViewer } from "./files/FileViewer";
+import { applyTheme } from "./ui";
+import type { InfoPage } from "./channel/ChannelInfo";
 import type { Pane } from "./pane";
-import { SearchPane } from "./search/SearchPane";
 import { useFind } from "./search/useFind";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
@@ -45,7 +36,7 @@ export function App() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [dialog, setDialog] = useState<{ kind: "channel" } | { kind: "members"; chat: Chat } | { kind: "section"; section?: Section } | null>(null);
+  const [dialog, setDialog] = useState<Dialog>(null);
   /** Read position when each chat was opened: the "以下为新消息" line stays there while you read. */
   const [dividers, setDividers] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<string | null>(null);
@@ -71,11 +62,9 @@ export function App() {
   const [preview, setPreview] = useState<{ files: Attachment[]; index: number } | null>(null);
   /** The message being replied to, per chat: switching chats keeps a draft reply with its chat. */
   /** The sidebar's 「…」 menu target, and where a right-click opened it. */
-  const [entryMenu, setEntryMenu] = useState<{ target: MenuTarget; at: { x: number; y: number } } | null>(null);
-  const [confirm, setConfirm] = useState<{ kind: "chat"; chat: Chat } | { kind: "bot"; bot: Bot } | null>(null);
+  const [entryMenu, setEntryMenu] = useState<Menu>(null);
+  const [confirm, setConfirm] = useState<Confirm>(null);
   const selectedRef = useRef(selected); selectedRef.current = selected;
-  const accountRef = useRef<HTMLDivElement>(null);
-  const createRef = useRef<HTMLDivElement>(null);
   const chatRequest = useRef(0);
   const chatListRef = useRef(chats); chatListRef.current = chats;
   const paneRef = useRef(pane); paneRef.current = pane;
@@ -86,7 +75,7 @@ export function App() {
   const meId = members.find(member => member.kind === "user" && member.name === username)?.id ?? "";
   // Newest page first, older pages as you scroll up.
   const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, onError: handleError });
-  const { messages, setMessages, loading: loadingMessages } = history;
+  const { messages, setMessages } = history;
   const find = useFind({ selected, chats, transcript: history, openChat, setPane, paneRef, blocked: !!infoBotId || showSettings });
 
   const statusBotId = chats.find(chat => chat.id === selected)?.botId ?? focusedBotId ?? bots[0]?.id;
@@ -151,30 +140,8 @@ export function App() {
     source.onerror = () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); };
     return () => { alive = false; source.close(); history.cancel(); chatRequest.current++; };
   }, [phase]);
-  // What is on screen counts as read (A37): move the read position to the last loaded message while visible.
-  useEffect(() => {
-    const id = selected, last = messages.at(-1);
-    if (phase !== "ready" || !id || !last || last.chatId !== id) return;
-    const mark = () => {
-      const open = chatListRef.current.find(chat => chat.id === id);
-      // Reading also counts as having seen the chat's hints (A41): marks on your messages, new notice versions.
-      if (document.visibilityState !== "visible" || ((open?.readSequence ?? 0) >= last.sequence && !open?.hint && !open?.alerts)) return;
-      setChats(previous => previous.map(chat => chat.id === id ? { ...chat, readSequence: Math.max(chat.readSequence, last.sequence), unread: 0, mentions: 0, alerts: 0, atMe: false, hint: null } : chat));
-      void api.markRead(id, last.sequence).catch(handleError);
-    };
-    mark(); document.addEventListener("visibilitychange", mark);
-    return () => document.removeEventListener("visibilitychange", mark);
-  }, [messages, selected, phase, chats.find(chat => chat.id === selected)?.readSequence, chats.find(chat => chat.id === selected)?.alerts, chats.find(chat => chat.id === selected)?.hint]);
+  useMarkRead({ ready: phase === "ready", selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
   useTabBadge(phase === "ready" ? chats.reduce((sum, chat) => sum + chat.alerts, 0) : 0);
-  useEffect(() => {
-    if (!accountMenu && !createMenu) return;
-    const close = (event: PointerEvent) => {
-      if (accountMenu && !accountRef.current?.contains(event.target as Node)) setAccountMenu(false);
-      if (createMenu && !createRef.current?.contains(event.target as Node)) setCreateMenu(false);
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, [accountMenu, createMenu]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 4800);
@@ -364,7 +331,6 @@ export function App() {
   }, [hasTranscript]);
   const viewing = chats.find(chat => chat.id === selected), inChannel = viewing?.type === "channel";
   const botDirects = useBotDirects(phase === "ready" ? chats.find(chat => chat.id === selected && chat.type === "dm")?.botId : undefined, tick);
-  const botColors = new Map(bots.map(bot => [bot.id, { color: bot.color, mood: bot.mood }]));
   if (phase === "loading") return <div className="jarvy-loading">正在连接 Jarvy…</div>;
   if (phase === "login") return <Login onLogin={name => void loadData(name).catch(handleError)}/>;
   const current = chats.find(chat => chat.id === selected);
@@ -385,112 +351,45 @@ export function App() {
   const asking = new Set(Object.values(statuses).filter(item => item.activity === "asking").map(item => item.botId));
   return <>
     <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full ? "" : undefined} style={{ ["--ui-pane" as string]: `${paneWidth}px` }}>
-      <aside className="ui-sidebar" aria-label="会话列表">
-        <header className="ui-sidebar-header"><div className="jarvy-sidebar-create" ref={createRef}>
-          <IconButton icon="add" label="打开新建菜单" aria-expanded={createMenu} aria-haspopup="menu" disabled={creating} onClick={() => { setCreateMenu(!createMenu); setAccountMenu(false); }}/>
-          {createMenu && <div className="ui-popover jarvy-create-menu" role="menu" aria-label="新建菜单">
-            <button role="menuitem" className="ui-menu-item" onClick={() => { setDialog({ kind: "channel" }); setCreateMenu(false); }}><Icon name="list-bullets"/><span className="ui-menu-copy">新建频道</span></button>
-            <button role="menuitem" className="ui-menu-item" onClick={() => { setDialog({ kind: "section" }); setCreateMenu(false); }}><Icon name="folder"/><span className="ui-menu-copy">新建频道分组</span></button>
-            <button role="menuitem" className="ui-menu-item" onClick={() => void createBot()}><Icon name="person-add"/><span className="ui-menu-copy">新建 Bot</span></button>
-          </div>}
-        </div></header>
-        <Sidebar chats={chats} sections={sections} bots={bots} members={members} onOpenMessage={find.openMessage} onOpenFound={openAnywhere} onError={handleError} working={working} asking={asking} selected={followedView ? null : selected} filter={filter} onFilterChange={setFilter}
-          followed={followed} followedOpen={followedView && !full} onOpenFollowed={() => { setFollowedView(true); setPane(null); setMobileNav(false); }}
-          onSelect={openChat} onOpenBot={bot => void openBot(bot.id)} onMenu={(target, at) => setEntryMenu({ target, at })}
-          onEditSection={section => setDialog({ kind: "section", section })}/>
-        <footer className="ui-sidebar-footer"><button type="button" className="ui-footer-entry" aria-label={`用户菜单，${username}`} aria-expanded={accountMenu} onClick={() => { setAccountMenu(!accountMenu); setCreateMenu(false); }}>
-          <span className="ui-user-avatar">{username.slice(0, 2).toUpperCase()}</span><span>{username}</span><Icon name="chevron-down"/>
-        </button></footer>
-      </aside>
-      {followedView && !full && <FollowedThreads threads={followed} chats={chats} members={members} bots={bots} onNav={() => setMobileNav(true)}
-        renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)} drafts={drafts}
-          members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
-          onClose={back} onToggleMode={() => toChannel({ id: thread.id, parentId: thread.parentId! }, true)}
-          onInvite={member => invite(thread.parentId!, member)} onPreview={(list, index) => setPreview({ files: list, index })}
-          onError={handleError} onNotice={setNotice}/>}/>}
-      <main className="ui-chat" aria-label="对话区域" ref={chatArea} hidden={full || followedView}>
-        {!inChannel && <IconButton icon="layout-sidebar-left" className="ui-mobile-only jv-floating-nav" label="打开会话列表" onClick={() => setMobileNav(true)}/>}
-        {!inChannel && botDirects.length > 0 && <IconButton icon="people" className="jv-floating-dms" label={`${botName} 的 Bot 私聊`} aria-pressed={pane?.kind === "botdms"}
-          onClick={() => setPane(pane?.kind === "botdms" ? null : { kind: "botdms" })}/>}
-        <span className="sr-only" role="status" aria-label="Bot 状态">{inChannel ? "" : activity}</span>
-        {current ? <>
-          {inChannel ? <ChannelHeader chat={current} members={liveMembers(members)} bots={bots} onNav={() => setMobileNav(true)}
-            infoOpen={pane?.kind === "info" && pane.page === "main"} onInfo={() => toggleInfo("main")}
-            membersOpen={pane?.kind === "info" && pane.page === "members"} onMembers={() => toggleInfo("members")}
-            threadsOpen={pane?.kind === "threads"} onThreads={() => setPane(pane?.kind === "threads" ? null : { kind: "threads" })}
-            searchOpen={pane?.kind === "search"} onSearch={() => pane?.kind === "search" ? setPane(null) : find.search(current)}/>
-            : activeBot && <FloatingBot bot={activeBot} status={status} area={chatArea} avoid={composeWrap} onOpen={() => setInfoBotId(activeBot.id)}/>}
-          {inChannel && <NoticeBar chat={current} onSave={async text => { try { chatSaved(await api.setNote(current.id, text)); } catch (error) { handleError(error); throw error; } }}/>}
-          <div className={`ui-transcript jarvy-transcript${inChannel ? " jv-channel-transcript" : ""}`} ref={transcript} aria-label="聊天记录" role="log">
-            {!inChannel && !activeBot?.connectionId && activeBot && <div className="jarvy-model-onboarding"><ModelPicker bot={activeBot} connections={connections} onSaved={updateBot} onManage={() => setShowSettings(true)}/></div>}
-            {loadingMessages ? <p className="jarvy-empty-text">正在读取会话…</p> : messages.length === 0
-              ? inChannel ? <div className="jarvy-empty-chat"><p>暂无消息</p></div>
-              : activeBot?.connectionId ? <div className="jarvy-empty-chat"><h2>与 {botName} 开始对话</h2></div> : null : <>
-              {history.hasOlder && <div ref={history.top} className="jv-history-more" aria-live="polite">{history.loadingOlder ? "正在加载更早的消息…" : ""}</div>}
-              <p className="jarvy-date-stamp">{new Date(messages[0]!.createdAt).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })}</p>
-              {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={dividers[current.id] ?? current.readSequence} activeQuestion={activeQuestion}
-                onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={(list, index) => setPreview({ files: list, index })}
-                onReply={message => void replyInThread(message)} onOpenThread={id => setPane({ kind: "thread", id, parentId: current.id, mode: "pane" })}
-                onQuote={setReplyFor} onReact={(message, emoji, on) => void react(message, emoji, on)} onJump={jumpTo} onError={handleError}/>
-              : <DmMessages messages={messages} members={members} colors={botColors} me={meId} activeQuestion={activeQuestion} bot={activeBot}
-                onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={(list, index) => setPreview({ files: list, index })}
-                onQuote={setReplyFor} onReact={(message, emoji, on) => void react(message, emoji, on)} onJump={jumpTo} onError={handleError}/>}
-            </>}
-            {history.away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={history.toLatest} aria-label="回到最新消息">
-              {history.unseen > 0 && <span>{history.unseen} 条新消息</span>}<Icon name="chevron-down"/></button></div>}
-          </div>
-          <Composer chatId={current.id} id="jarvy-composer" drafts={drafts} formRef={composeWrap} scrollRef={transcript} disabled={!composeReady}
-            placeholder={inChannel ? `发消息到 #${current.title}` : activeBot?.connectionId ? `发消息给 ${botName}…` : "先选择模型，再发送消息"}
-            mention={inChannel ? { bots, inside: liveMembers(members).filter(member => member.id !== meId && current.memberIds.includes(member.id)),
-              outside: liveMembers(members).filter(member => !current.memberIds.includes(member.id)), onInvite: member => invite(current.id, member) } : undefined}
-            onSend={sendMain} onError={handleError} onNotice={setNotice}/>
-        </> : <div className="jarvy-empty-chat jarvy-first-chat">{bots.length ? <p>选择一个会话</p>
-          : <button className="ui-button ui-primary" onClick={() => void createBot()} disabled={creating}><Icon name="person-add"/>新建 Bot</button>}</div>}
-        {current && <QuoteSelection container={transcript} drafts={drafts} chatId={current.id} source={id => messages.find(message => message.id === id)} members={members} onNotice={setNotice}/>}
-      </main>
-      {openThread && <ThreadPane key={`${openThread.id}:${openThread.focus ?? ""}`} threadId={openThread.id} mode={openThread.mode} showSummary={openThread.summary} focus={openThread.focus} onSearch={find.search} channel={chats.find(chat => chat.id === openThread.parentId)} drafts={drafts}
-        members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
-        onClose={() => full ? toChannel(openThread, false) : setPane(null)} onToggleMode={() => full ? toChannel(openThread, true) : setPane({ ...openThread, mode: "full" })}
-        onInvite={member => invite(openThread.parentId, member)} onPreview={(list, index) => setPreview({ files: list, index })}
-        onError={handleError} onNotice={setNotice}/>}
-      {pane?.kind === "search" && <SearchPane chat={pane.chat} chats={chats} members={members} focusKey={find.focusKey}
-        onOpenMessage={find.openMessage} onClose={() => setPane(null)} onError={handleError}/>}
-      {pane?.kind === "threads" && paneChannel && <ThreadList channel={paneChannel} members={members} bots={bots} tick={tick}
-        onOpen={id => setPane({ kind: "thread", id, parentId: paneChannel.id, mode: "pane" })} onClose={() => setPane(null)} onError={handleError}/>}
-      {pane?.kind === "info" && paneChannel && <ChannelInfo channel={paneChannel} page={pane.page} sections={sections} members={liveMembers(members)} bots={bots}
-        statuses={statuses} me={meId} onPage={page => setPane({ kind: "info", page })} onPin={() => void pinChat(paneChannel, !paneChannel.pinned)}
-        onMute={() => void muteChat(paneChannel, !paneChannel.muted)} onAdd={() => setDialog({ kind: "members", chat: paneChannel })}
-        onBot={id => setInfoBotId(id)} onDelete={() => setConfirm({ kind: "chat", chat: paneChannel })} onChanged={chatSaved}
-        onClose={() => setPane(null)} onError={handleError}/>}
-      {pane?.kind === "botdms" && activeBot && !inChannel && <BotDirects bot={activeBot} chats={botDirects} members={members} bots={bots} me={meId} tick={tick}
-        onClose={() => setPane(null)} onPreview={(list, index) => setPreview({ files: list, index })} onError={handleError}/>}
-      {pane && !full && <div className="jv-resize" style={{ right: paneWidth - 4 }} onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label="拖动调整侧栏宽度"/>}
-      {accountMenu && <div ref={accountRef} className="ui-popover jarvy-account-menu" role="menu" aria-label="账户菜单">
-        <div className="ui-menu-note ui-small">{username}</div>
-        <button role="menuitem" className="ui-menu-item" onClick={() => { setAccountMenu(false); setShowSettings(true); }}><Icon name="gear"/><span className="ui-menu-copy">设置</span></button>
-        <button role="menuitem" className="ui-menu-item" onClick={() => { applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark"); setAccountMenu(false); }}><Icon name="moon"/><span className="ui-menu-copy">切换主题</span></button>
-        <hr className="ui-menu-divider"/>
-        <button role="menuitem" className="ui-menu-item" onClick={() => void logOut()}><Icon name="arrow-bracket-to-left"/><span className="ui-menu-copy">退出登录</span></button>
-      </div>}
+      <AppSidebar username={username} chats={chats} sections={sections} bots={bots} members={members} followed={followed} followedOpen={followedView && !full}
+        working={working} asking={asking} selected={followedView ? null : selected} filter={filter} creating={creating} createMenu={createMenu} accountMenu={accountMenu}
+        onFilterChange={setFilter}
+        onOpenFollowed={() => { setFollowedView(true); setPane(null); setMobileNav(false); }} onOpenChat={openChat} onOpenBot={bot => void openBot(bot.id)}
+        onOpenMenu={(target, at) => setEntryMenu({ target, at })} onEditSection={section => setDialog({ kind: "section", section })}
+        onCreate={what => { if (what === "bot") return void createBot(); setDialog({ kind: what }); setCreateMenu(false); }}
+        onFind={find.openMessage} onOpenFound={openAnywhere} onError={handleError}
+        onToggleCreate={open => { setCreateMenu(open); setAccountMenu(false); }} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}
+        onSettings={() => { setAccountMenu(false); setShowSettings(true); }}
+        onToggleTheme={() => { applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark"); setAccountMenu(false); }}
+        onLogOut={() => void logOut()}/>
+      <ChatMain chat={current} inChannel={inChannel} bots={bots} members={members} meId={meId} drafts={drafts} composeReady={composeReady} botName={botName}
+        activeBot={activeBot} status={status} connections={connections} activity={activity} history={history} divider={dividers[current?.id ?? ""] ?? current?.readSequence ?? 0} activeQuestion={activeQuestion}
+        pane={pane} onPane={setPane} onToggleInfo={toggleInfo} find={find} onNav={() => setMobileNav(true)} onBot={id => setInfoBotId(id)} hasBotDirects={botDirects.length > 0}
+        onInvite={invite} onQuote={setReplyFor} onReply={message => void replyInThread(message)} onReact={(message, emoji, on) => void react(message, emoji, on)}
+        onJump={jumpTo} onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))}
+        onPreview={(files, index) => setPreview({ files, index })} onSend={sendMain} notice={setNotice}
+        onSaveNote={async text => { try { chatSaved(await api.setNote(current!.id, text)); } catch (error) { handleError(error); throw error; } }}
+        createBot={() => void createBot()} creating={creating} updateBot={updateBot} onManageModels={() => setShowSettings(true)} error={handleError}
+        chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView}
+        onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
+      <SidePane pane={pane} followedView={followedView} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
+        meId={meId} drafts={drafts} tick={tick} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
+        onPane={setPane} onNav={() => setMobileNav(true)} onBackToChannel={toChannel} onAddMembers={chat => setDialog({ kind: "members", chat })} onOpenBot={setInfoBotId}
+        onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
+        onChannelSaved={chatSaved} onThreadChanged={threadChanged} onInvite={invite} onPreview={(files, index) => setPreview({ files, index })}
+        onNotice={setNotice} onError={handleError} paneWidth={paneWidth} onResize={startResize}/>
     </div>
     {mobileNav && <div className="ui-nav-scrim" onClick={() => setMobileNav(false)} role="presentation"/>}
     {showSettings && <SettingsDialog connections={connections} onChanged={refreshConnections} onClose={() => setShowSettings(false)}/>}
-    {dialog?.kind === "channel" && <NewChannelDialog sections={sections} members={liveMembers(members)} bots={bots} me={meId}
-      onClose={() => setDialog(null)} onSaved={chat => { chatSaved(chat); setDialog(null); openChat(chat); }}/>}
-    {dialog?.kind === "members" && <AddMembersDialog chat={chats.find(chat => chat.id === dialog.chat.id) ?? dialog.chat} members={liveMembers(members)} bots={bots}
-      onClose={() => setDialog(null)} onChanged={chatSaved}/>}
-    {dialog?.kind === "section" && <SectionDialog section={dialog.section} onClose={() => setDialog(null)}
-      onSaved={section => { setSections(previous => previous.some(item => item.id === section.id) ? previous.map(item => item.id === section.id ? section : item) : [...previous, section]); setDialog(null); }}
-      onDeleted={id => { setDialog(null); setSections(previous => previous.filter(item => item.id !== id)); void refreshChats().catch(handleError); }}/>}
-    {entryMenu && <EntryMenu target={entryMenu.target} x={entryMenu.at.x} y={entryMenu.at.y} onClose={() => setEntryMenu(null)}
-      onOpenBot={bot => setInfoBotId(bot.id)} onSettings={chat => { if (chat.type !== "channel") return; openChat(chat); setPane({ kind: "info", page: "main" }); }}
-      onPin={pinChat} onMute={muteChat} onDeleteChat={chat => setConfirm({ kind: "chat", chat })} onDeleteBot={bot => setConfirm({ kind: "bot", bot })}/>}
-    {confirm?.kind === "chat" && <ConfirmDialog title={`删除频道 #${confirm.chat.title}`} confirm="删除" onClose={() => setConfirm(null)}
-      body="频道里的消息、线程和附件都会删除。" onConfirm={async () => { await removeChannel(confirm.chat); setConfirm(null); }}/>}
-    {confirm?.kind === "bot" && <DeleteBotDialog bot={confirm.bot} chats={chats.filter(chat => chat.type === "dm" && chat.botId === confirm.bot.id).length}
-      onClose={() => setConfirm(null)} onConfirm={async deleteFiles => { await deleteBot(confirm.bot, deleteFiles); setConfirm(null); }}/>}
-    {infoBot && <BotInfo key={infoBot.id} bot={infoBot} status={statuses[infoBot.id]} connections={connections} chats={chats} onSaved={updateBot} onOpenChat={id => { setSelected(id); setInfoBotId(null); setMobileNav(false); }} onOpenSubscription={openAnywhere} onManageModels={() => { setInfoBotId(null); setShowSettings(true); }} onClose={() => setInfoBotId(null)}/>}
-    {preview && <FileViewer files={preview.files} initialIndex={preview.index} onClose={() => setPreview(null)}/>}
+    <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
+      sections={sections} members={members} connections={connections} meId={meId}
+      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setShowSettings}
+      onChannelInfo={chat => { openChat(chat); setPane({ kind: "info", page: "main" }); }}
+      onOpenChatId={id => { setSelected(id); setMobileNav(false); }}
+      chatSaved={chatSaved} openChat={openChat}
+      onSectionSaved={section => { setSections(previous => previous.some(item => item.id === section.id) ? previous.map(item => item.id === section.id ? section : item) : [...previous, section]); setDialog(null); }}
+      onSectionDeleted={id => { setDialog(null); setSections(previous => previous.filter(item => item.id !== id)); void refreshChats().catch(handleError); }}
+      updateBot={updateBot} openAnywhere={openAnywhere} removeChannel={removeChannel} deleteBot={deleteBot} pinChat={pinChat} muteChat={muteChat}/>
     {notice && <div className="ui-toast" role="status">{notice}</div>}
     {DevAgentation && <Suspense fallback={null}><DevAgentation appName="Jarvy" className="jarvy-dev-annotation" enableKeyboardShortcuts={false}/></Suspense>}
   </>;
