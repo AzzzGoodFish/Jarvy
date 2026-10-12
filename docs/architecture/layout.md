@@ -36,7 +36,7 @@ src/
     daemon.ts                jarvy on / off: background start, pid file, stop
 ```
 
-`tsconfig.json` and `tsconfig.web.json` type-check the server and the frontend; `vite.config.ts` builds the frontend into `dist/web/`, and `scripts/bundle-server.mjs` bundles the server with esbuild into one minified `dist/server/cli.js` (npm dependencies stay external, no source maps). The CLI finds the frontend at `../web` next to itself.
+`tsconfig.json` and `tsconfig.web.json` type-check the server and the frontend; `vite.config.ts` builds the frontend into `dist/web/`, and `scripts/bundle-server.mjs` bundles the server with esbuild into one `dist/server/cli.js` (npm dependencies stay external). The CLI finds the frontend at `../web` next to itself.
 
 ## Import rules
 

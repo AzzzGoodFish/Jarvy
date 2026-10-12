@@ -11,6 +11,14 @@
     "self-hosted",
     "local-first"
   ],
+  "homepage": "https://github.com/AzzzGoodFish/Jarvy#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AzzzGoodFish/Jarvy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AzzzGoodFish/Jarvy/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "engines": {

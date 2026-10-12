@@ -1,4 +1,4 @@
-// Bundles the server into one minified dist/server/cli.js (no source maps). npm dependencies stay external.
+// Bundles the server into one dist/server/cli.js (readable, so stack traces in bug reports make sense). npm dependencies stay external.
 import { rmSync } from "node:fs";
 import { build } from "esbuild";
 
@@ -11,7 +11,5 @@ await build({
   format: "esm",
   target: "node22",
   packages: "external",
-  minify: true,
-  legalComments: "none",
   logLevel: "warning",
 });
