@@ -39,10 +39,11 @@ function ThreadMeta({ chat, channelName, onTitle, onStatus, onSummary, onConclud
   </div>;
 }
 
-/** One thread, in the right-hand pane or over the main area (mobile: full screen). It loads its own messages and
- * has its own composer; a new thread pre-fills an @ to the root's sender once. */
+/** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
+ * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
+ * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
 export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
-  threadId: string; mode: "pane" | "full"; channel: Chat | undefined; members: Member[]; bots: Bot[]; me: string;
+  threadId: string; mode: "pane" | "full" | "embed"; channel: Chat | undefined; members: Member[]; bots: Bot[]; me: string;
   /** Bumped when the server reports a change to this thread. */
   tick: number;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
@@ -72,8 +73,9 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
     const mark = () => {
       if (document.visibilityState !== "visible" || chat.readSequence >= last.sequence) return;
       const next = { ...chat, readSequence: last.sequence, unread: 0, mentions: 0, alerts: 0, atMe: false, hint: null };
-      setChat(next); onChanged(next);
-      void api.markRead(chat.id, last.sequence).catch(onError);
+      // Tell the parent only after the server has it, or a list refresh can bring the old count back.
+      setChat(next);
+      void api.markRead(chat.id, last.sequence).then(() => onChanged(next)).catch(onError);
     };
     mark(); document.addEventListener("visibilitychange", mark);
     return () => document.removeEventListener("visibilitychange", mark);
@@ -108,16 +110,18 @@ export function ThreadPane({ threadId, mode, channel, members, bots, me, tick, o
     setChat(loaded); setMessages(list.messages); onChanged(loaded);
   };
   const channelName = channel?.title ?? "频道", rootSender = members.find(member => member.id === root?.senderId);
-  const Shell = mode === "pane" ? "aside" : "main";
-  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : "ui-chat jv-thread-full"} aria-label="线程">
+  const Shell = mode === "pane" ? "aside" : mode === "embed" ? "section" : "main";
+  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label="线程">
     <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
       {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label="打开会话列表" onClick={onNav}/>}
+      {mode === "embed" && <IconButton icon="chevron-left" className="ui-mobile-only" label="返回线程列表" onClick={onClose}/>}
       {mode === "full" ? <button type="button" className="jv-crumb" onClick={onClose}><Icon name="chevron-left"/><span className="jv-hash">#</span>{channelName}</button>
+        : mode === "embed" ? <button type="button" className="jv-crumb" title="在频道中查看" onClick={onToggleMode}><span className="jv-hash">#</span>{channelName}</button>
         : <><strong>线程</strong><span className="jv-muted jv-pane-sub">#{channelName}</span></>}
       <span className="jv-spacer"/>
       {chat && <button type="button" className="ui-button jv-follow" data-on={chat.following || undefined} title={chat.following ? "新回复计入未读" : "新回复不计入未读"}
         onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name={chat.following ? "bell" : "bell-slash"}/>{chat.following ? "已关注" : "关注"}</button>}
-      <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={mode === "pane" ? "展开" : "收起到侧栏"} onClick={onToggleMode}/>
+      {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={mode === "pane" ? "展开" : "收起到侧栏"} onClick={onToggleMode}/>}
       {mode === "pane" && <IconButton icon="close" label="关闭线程" onClick={onClose}/>}
     </header>
     <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>

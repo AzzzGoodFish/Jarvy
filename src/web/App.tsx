@@ -390,7 +390,11 @@ export function App() {
         </button></footer>
       </aside>
       {followedView && !full && <FollowedThreads threads={followed} chats={chats} members={members} bots={bots} onNav={() => setMobileNav(true)}
-        onOpen={thread => setPane({ kind: "thread", id: thread.id, parentId: thread.parentId!, mode: "full" })}/>}
+        renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)}
+          members={members} bots={bots} me={meId} tick={tick} onNav={() => setMobileNav(true)} onChanged={threadChanged}
+          onClose={back} onToggleMode={() => toChannel({ id: thread.id, parentId: thread.parentId! }, true)}
+          onInvite={member => invite(thread.parentId!, member)} onPreview={(list, index) => setPreview({ files: list, index })}
+          onError={handleError} onNotice={setNotice}/>}/>}
       <main className="ui-chat" aria-label="对话区域" ref={chatArea} hidden={full || followedView}>
         {!inChannel && <IconButton icon="layout-sidebar-left" className="ui-mobile-only jv-floating-nav" label="打开会话列表" onClick={() => setMobileNav(true)}/>}
         {!inChannel && botDirects.length > 0 && <IconButton icon="people" className="jv-floating-dms" label={`${botName} 的 Bot 私聊`} aria-pressed={pane?.kind === "botdms"}

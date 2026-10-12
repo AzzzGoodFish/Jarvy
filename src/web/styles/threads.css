@@ -70,7 +70,18 @@
 .jv-thread-item-root { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ui-text-secondary); }
 .jv-thread-item-root > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-thread-item-meta { font-size: 11px; }
-.jv-followed { padding: 16px max(16px, calc((100% - 860px) / 2)) 24px; }
+/* 「我关注的线程」 (thread/ThreadList.tsx): the list beside the selected thread; phones show one of the two. */
+.jv-followed-page { flex-direction: row; }
+.jv-followed-list { display: flex; flex: none; flex-direction: column; width: 360px; min-height: 0; border-right: 1px solid var(--ui-border-weak); }
+.jv-followed-items { flex: 1; min-height: 0; padding: 10px 10px 16px; overflow: auto; scrollbar-width: thin; }
+.jv-thread-item[aria-current] { background: var(--ui-fill-ghost-selected); box-shadow: inset 0 0 0 1px var(--ui-border-strong); }
+.jv-followed-empty { display: grid; flex: 1; place-items: center; color: var(--ui-text-tertiary); font-size: 13px; }
+.jv-thread-embed { flex: 1; }
+@media (max-width: 1100px) { .jv-followed-list { width: 300px; } }
+@media (max-width: 820px) {
+  .jv-followed-list { width: 100%; border-right: 0; }
+  .jv-followed-page[data-open] .jv-followed-list, .jv-followed-page:not([data-open]) .jv-followed-empty { display: none; }
+}
 .jv-side-top { padding-left: 8px; margin-bottom: 10px; }
 .jv-side-top .ui-icon { width: 14px; height: 14px; flex: none; }
 /* A Bot's DMs with other Bots (bot/BotDirects.tsx): read-only for you. */
