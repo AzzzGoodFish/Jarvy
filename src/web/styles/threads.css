@@ -99,3 +99,8 @@
 .jv-thread-meta[data-open] .jv-summary-body { max-height: 32vh; overflow: auto; }
 @media (max-width: 760px) { .jv-thread-meta[data-open] .jv-summary-body { max-height: 24vh; } .jv-summary-meta { display: none; } }
 .jv-thread-pin .jv-thread-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Sort menu in a thread list's header. */
+.jv-thread-sort { width: auto; height: 28px; gap: 5px; padding: 0 8px; border: 0; border-radius: var(--ui-radius-base); background: transparent; color: var(--ui-text-secondary); font-size: 12px; box-shadow: none; flex: none; }
+.jv-thread-sort:hover, .jv-thread-sort[data-state=open] { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-thread-sort > svg { width: 13px; height: 13px; }
+.jv-thread-sort > svg:last-child { width: 12px; height: 12px; }
