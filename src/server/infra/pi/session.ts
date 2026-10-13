@@ -14,12 +14,16 @@ import { installModel } from "./model.js";
 import { configureHttp } from "./http.js";
 import { Type, type TSchema } from "typebox";
 import type { ToolDefinition } from "../../shared/tools.js";
+import type { LiveEvent } from "../../shared/live.js";
+import { LiveTranslator } from "./live.js";
 
 export interface SessionOptions {
   store: Store; bot: Bot; selection: ModelSelection; reference: SessionRef;
   credentials: CredentialCoordinator; tools: readonly ToolDefinition[]; systemPrompt: () => string;
   onHistory?: (message: HistoryDraft) => void | Promise<void>;
   activity: (phase: BotPhase) => void;
+  /** The turn as it happens, step by step (A47). */
+  live?: (event: LiveEvent) => void;
 }
 /** The longest we wait for one provider request (Pi's default is five minutes). */
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
@@ -54,6 +58,7 @@ export class PiSession implements BotSession {
   private abortFailure?: unknown;
   private result: PromptResult = { outcome: "completed" };
   private signature = "";
+  private readonly translator = new LiveTranslator();
   private constructor(private readonly options: SessionOptions, private readonly models: ModelRuntime, private readonly credentials: CurrentCredentials) {}
   get context(): ContextUsage | undefined {
     const usage = this.session.getContextUsage();
@@ -156,6 +161,7 @@ export class PiSession implements BotSession {
       { botId: this.options.bot.id, reason: event.reason, aborted: event.aborted, tokensBefore: event.result?.tokensBefore,
         tokensAfter: event.result?.estimatedTokensAfter, error: event.errorMessage });
     if (event.type === "message_end" && event.message.role === "assistant") this.result = this.classify(event.message);
+    if (this.options.live) for (const live of this.translator.translate(event)) this.options.live(live);
     this.maybeAbort();
   }
   /** The last assistant message decides the prompt (a later retry success replaces an earlier error).
@@ -185,17 +191,22 @@ export class PiSession implements BotSession {
   async prompt(xml: string): Promise<PromptResult> {
     this.promptActive = true; this.started = false; this.settled = false; this.wantsAbort = false; this.abortFailure = undefined; this.result = { outcome: "completed" };
     const settled = new Promise<void>(resolve => { this.settledResolve = resolve; });
+    this.options.live?.({ type: "start" });
+    let outcome: PromptResult["outcome"] = "failed";
     try {
-      await this.session.prompt(xml, { expandPromptTemplates: false });
-    } finally {
-      await this.session.waitForIdle();
-      if (this.started && !this.settled) await settled;
-      this.promptActive = false;
-      await this.abortTask;
-      this.options.store.runtime.recordSession(this.options.bot.id, this.sessionId, existsSync(this.sessionFile));
-    }
-    if (this.abortFailure) throw this.abortFailure;
-    return this.result;
+      try {
+        await this.session.prompt(xml, { expandPromptTemplates: false });
+      } finally {
+        await this.session.waitForIdle();
+        if (this.started && !this.settled) await settled;
+        this.promptActive = false;
+        await this.abortTask;
+        this.options.store.runtime.recordSession(this.options.bot.id, this.sessionId, existsSync(this.sessionFile));
+      }
+      if (this.abortFailure) throw this.abortFailure;
+      outcome = this.result.outcome;
+      return this.result;
+    } finally { this.options.live?.({ type: "end", outcome }); }
   }
   async configure(selection: ModelSelection): Promise<string> {
     const connection = this.options.store.getModelConnection(selection.connectionId), configured = connection?.models.find(item => item.id === selection.modelId);

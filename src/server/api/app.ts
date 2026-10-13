@@ -10,6 +10,7 @@ import { chatRoutes, attachmentRoutes } from "./routes/chats.js";
 import { modelRoutes } from "./routes/models.js";
 import { eventRoutes } from "./routes/events.js";
 import { channelRoutes } from "./routes/channels.js";
+import { liveRoutes } from "./routes/live.js";
 
 export function createHttpApp(services: ApiServices, webRoot: string) {
   const app = new Hono<ApiEnv>();
@@ -25,6 +26,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   api.route("/attachments", attachmentRoutes(services.chats));
   api.route("/", modelRoutes(services.models));
   api.route("/", eventRoutes(services));
+  api.route("/", liveRoutes(services));
   api.all("*", () => { throw new HTTPException(404, { message: "API route not found" }); });
   app.route("/api", api);
 

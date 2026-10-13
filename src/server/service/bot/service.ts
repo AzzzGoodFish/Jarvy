@@ -23,6 +23,8 @@ import { AgentRuntime } from "./agent-runtime.js";
 import { BotInbox } from "./inbox.js";
 import { botPrompt } from "./prompt.js";
 import type { RosterEntry } from "./roster.js";
+import { LiveTurns } from "./live.js";
+import type { LiveChat } from "../../shared/live.js";
 
 export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
@@ -31,6 +33,7 @@ export interface BotDependencies {
 /** Service-level lifetime/lookup entry. Each Bot remains the complete business object. */
 export class BotService {
   private readonly bots = new Map<string, Bot>();
+  private readonly lives = new Map<string, LiveTurns>();
   private closed = false;
   private started = false;
   constructor(private readonly deps: BotDependencies) {}
@@ -40,10 +43,10 @@ export class BotService {
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     let bot = this.bots.get(id);
     if (bot) return bot;
-    const { store, chats, files, credentials } = this.deps;
+    const { store, chats, files, credentials } = this.deps, live = this.live(id);
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
-        tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity }));
+        tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event) }));
     const workspace = new Workspace(record.workspacePath);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
@@ -66,6 +69,20 @@ export class BotService {
     return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null };
   }
   owns(id: string) { return this.deps.store.getBot(id) !== null; }
+  /** The turn a Bot is running, live (A47); kept for a Bot whether or not it has started. */
+  live(id: string): LiveTurns {
+    if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    let live = this.lives.get(id);
+    if (!live) { live = new LiveTurns(chatId => this.liveChat(id, chatId)); this.lives.set(id, live); }
+    return live;
+  }
+  /** A chat as the Bot sees it, for the live turn: a DM is named after the other member. */
+  private liveChat(botId: string, chatId: string): LiveChat | null {
+    const chat = this.deps.chats.get(botId, chatId);
+    if (!chat) return null;
+    const other = chat.type === "dm" ? chat.memberIds.find(member => member !== botId) : undefined;
+    return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
+  }
   list() { return this.deps.store.listBots().map(record => this.details(record)); }
   create(name: string) { return this.details(this.deps.store.createBot(name)); }
   describe(id: string) {
@@ -147,6 +164,7 @@ export class BotService {
     const bot = this.get(id), workspacePath = bot.workspace.location().cwd;
     await bot.stop();
     this.bots.delete(id);
+    this.lives.get(id)?.close(); this.lives.delete(id);
     if (!this.deps.store.deleteBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
   }
@@ -154,5 +172,6 @@ export class BotService {
     if (this.closed) return;
     this.closed = true;
     await Promise.all([...this.bots.values()].map(bot => bot.stop()));
+    for (const live of this.lives.values()) live.close();
   }
 }
