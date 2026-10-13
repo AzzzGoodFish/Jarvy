@@ -11,6 +11,7 @@ export class Memory {
   append(message: HistoryDraft): number { return this.history().append(message); }
   list(before?: number, limit = 50) { return this.history().page(before, limit); }
   timeline(before: ActivityCursor | undefined, limit: number) { return this.history().timeline(before, limit); }
+  usage(since: number) { return this.history().usage(since); }
   read(id: number) {
     const record = this.history().read(id);
     return record ? { record, links: this.history().links(record) } : null;

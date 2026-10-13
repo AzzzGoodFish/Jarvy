@@ -1,7 +1,7 @@
 import type { Urgency } from "../../shared/delivery.js";
 import type { ActivityCursor } from "../../shared/activity.js";
 import type { ToolDefinition } from "../../shared/tools.js";
-import type { HistoryDraft, HistoryPage, HistoryRecord, HistoryLink, HistoryReadMode, HistoryReadResult, HistorySummary } from "../../shared/history.js";
+import type { HistoryDraft, HistoryPage, HistoryRecord, HistoryLink, HistoryReadMode, HistoryReadResult, HistorySummary, ModelUsage } from "../../shared/history.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 import type { QuestionSpec } from "../../shared/chat.js";
 
@@ -46,6 +46,8 @@ export interface Memory {
   append(record: HistoryDraft): number | Promise<number>;
   list(before?: number, limit?: number): HistoryPage;
   timeline(before: ActivityCursor | undefined, limit: number): HistorySummary[];
+  /** Token use and cost per model since a time (A46). */
+  usage(since: number): ModelUsage[];
   read(id: number): { record: HistoryRecord; links: HistoryLink[] } | null;
   readMany(ids: readonly number[], mode: HistoryReadMode): HistoryReadResult;
   close(): void | Promise<void>;

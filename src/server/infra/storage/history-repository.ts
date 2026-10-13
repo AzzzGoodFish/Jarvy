@@ -2,7 +2,7 @@ import type { ActivityCursor } from "../../shared/activity.js";
 import { DatabaseSync } from "node:sqlite";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { type HistoryDraft, type HistoryLink, type HistoryPage, type HistoryRecord, type HistorySummary, type HistoryReadDetail } from "../../shared/history.js";
+import { type HistoryDraft, type HistoryLink, type HistoryPage, type HistoryRecord, type HistorySummary, type HistoryReadDetail, type ModelUsage } from "../../shared/history.js";
 
 type Row = Omit<HistoryRecord, "model" | "usage" | "message" | "extra"> & { model: string | null; usage: string | null; message: string; extra: string };
 const json = (value: unknown) => value == null ? null : JSON.stringify(value);
@@ -65,6 +65,16 @@ export class HistoryRepository {
       const row = query.get(id) as Pick<Row, "id" | "timestamp" | "role" | "model" | "message"> | undefined;
       return row ? { ...row, model: row.model === null ? null : JSON.parse(row.model), message: JSON.parse(row.message) } : null;
     });
+  }
+  /** Model calls since a time, per provider and model: every assistant record with usage is one call. */
+  usage(since: number): ModelUsage[] {
+    const rows = this.db.prepare(`SELECT json_extract(model,'$.provider') AS provider,json_extract(model,'$.id') AS model,count(*) AS calls,
+      COALESCE(SUM(json_extract(usage,'$.input_tokens')),0) AS input,COALESCE(SUM(json_extract(usage,'$.output_tokens')),0) AS output,
+      COALESCE(SUM(json_extract(usage,'$.cache_read_tokens')),0) AS cacheRead,COALESCE(SUM(json_extract(usage,'$.cache_write_tokens')),0) AS cacheWrite,
+      COALESCE(SUM(json_extract(usage,'$.cost.total')),0) AS cost,COALESCE(MAX(json_extract(usage,'$.cost.total')),0)>0 AS priced
+      FROM history WHERE role='assistant' AND usage IS NOT NULL AND model IS NOT NULL AND timestamp>=?
+      GROUP BY 1,2 ORDER BY cost DESC,calls DESC`).all(since) as unknown as (Omit<ModelUsage, "cost"> & { cost: number; priced: number })[];
+    return rows.map(({ priced, cost, ...row }) => ({ ...row, cost: priced ? cost : null }));
   }
   private decodeSummary(row: SummaryRow): HistorySummary {
     return { ...row, model: row.model === null ? null : JSON.parse(row.model), preview: row.preview.replace(/\s+/g, " ").trim() };

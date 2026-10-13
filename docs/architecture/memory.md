@@ -35,6 +35,10 @@ Pi awaits listeners in registration order, so the entry is appended before Jarvy
 
 Memory opens the database on first use; `Bot.stop` stops execution and capture before closing it. Viewing History never starts an agent. Pi's JSONL is still what Pi resumes from; the two files are not one transaction.
 
+### Usage
+
+The Bot info page 用量 sums token use and cost per provider and model from History (A46): every assistant row with `usage` is one call, and its input, output, cache read and cache write tokens and `cost.total` are added up. `GET /api/bots/:id/usage?since=<ms>` returns `{ since, models: [{ provider, model, calls, input, output, cacheRead, cacheWrite, cost }] }`, most expensive first; `cost` is null when no call of that model had a price. The page offers 今天 / 7 天 / 30 天 counted from midnight in the browser's time zone. It is computed on each request; on the largest History so far (94 MB, about 6,000 rows) 30 days take about 11 ms, so there is no summary table.
+
 ### Not covered
 
 Only system, user, assistant and tool-result messages after History was introduced are recorded. Old JSONL is not imported. Compaction, branch and custom entries, and the final forced system prompt of each turn, are not in History. Codemode's inner tool calls are not recorded separately. History is not an audit log of HTTP requests.

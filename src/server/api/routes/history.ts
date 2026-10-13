@@ -21,6 +21,13 @@ export function historyRoutes(bots: ApiServices["bots"]) {
     if (!detail) throw new HTTPException(404, { message: "History 记录不存在。" });
     return c.json(detail);
   });
+  // Token use and cost per model since `since` (ms); the client picks the start of its own local day (A46).
+  routes.get("/:id/usage", c => {
+    const raw = c.req.query("since") ?? "";
+    const since = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(since)) throw new HTTPException(400, { message: "Invalid start time" });
+    return c.json({ since, models: bots.memory(c.req.param("id")).usage(since) });
+  });
   routes.all("/:id/history", () => { throw new HTTPException(405, { message: "History 仅支持查看。" }); });
   routes.all("/:id/history/:recordId{[0-9]+}", () => { throw new HTTPException(405, { message: "History 仅支持查看。" }); });
   return routes;

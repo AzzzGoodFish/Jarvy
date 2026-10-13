@@ -26,6 +26,12 @@ export interface HistorySummary {
 }
 export interface HistoryPage { items: HistorySummary[]; nextBefore: number | null; }
 export interface HistoryLink { id: number; tool_call_id: string; role: HistoryRole; }
+/** One model's usage over a period, summed from the Bot's History. `cost` is null when no call of that model was
+ * priced (its configured price is zero or missing), so an unpriced model never reads as free. */
+export interface ModelUsage {
+  provider: string; model: string; calls: number;
+  input: number; output: number; cacheRead: number; cacheWrite: number; cost: number | null;
+}
 
 
 /** Agent-facing reads omit billing and adapter diagnostics; message content remains complete. */

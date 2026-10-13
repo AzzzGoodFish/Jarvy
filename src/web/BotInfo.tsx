@@ -1,7 +1,8 @@
 import { BotActivity } from "./activity/BotActivity";
+import { BotUsage } from "./usage/BotUsage";
 import "./styles/history.css";
 import { useEffect, useState, type FormEvent } from "react";
-import { CheckIcon, ChevronRightIcon, CopyIcon, HashIcon, HistoryIcon, MessagesSquareIcon } from "lucide-react";
+import { ChartColumnIcon, CheckIcon, ChevronRightIcon, CopyIcon, HashIcon, HistoryIcon, MessagesSquareIcon } from "lucide-react";
 import { api, type Bot, type BotStatus, type Chat, type ModelConnection } from "./api";
 import { BotAvatar } from "./avatar/BotAvatar";
 import { BOT_COLORS, colorHex, type BotColor } from "./avatar/palette";
@@ -18,7 +19,7 @@ const STATUS_LABEL = { running: "运行中", idle: "空闲", stop: "未运行" }
 export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onClose, onOpenChat, onOpenSubscription }: {
   onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onClose: () => void;
 }) {
-  const [section, setSection] = useState<"info" | "activity">("info");
+  const [section, setSection] = useState<"info" | "activity" | "usage">("info");
   const [name, setName] = useState(bot.name);
   const [description, setDescription] = useState(bot.description);
   const [systemPrompt, setSystemPrompt] = useState(bot.systemPrompt);
@@ -57,7 +58,8 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
   const note = (value: Note) => value && <p className={value.kind === "error" ? "jv-note-error" : "jv-note-ok"} role={value.kind === "error" ? "alert" : "status"}>{value.text}</p>;
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className={`jv-bot-info jv-ui ${section === "activity" ? "jv-bot-activity-shell" : ""}`} aria-describedby={undefined}>
-      {section === "activity" ? <BotActivity botId={bot.id} botName={bot.name} onBack={() => setSection("info")} onOpenChat={onOpenChat}/> : <>
+      {section === "activity" ? <BotActivity botId={bot.id} botName={bot.name} onBack={() => setSection("info")} onOpenChat={onOpenChat}/>
+        : section === "usage" ? <BotUsage botId={bot.id} botName={bot.name} onBack={() => setSection("info")}/> : <>
       <DialogHeader className="jv-dialog-header"><DialogTitle>Bot 信息</DialogTitle></DialogHeader>
       <div className="jv-bot-scroll">
         <section className="jv-bot-hero">
@@ -110,6 +112,11 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
             <button type="button" className="jv-list-row" onClick={() => setSection("activity")}>
               <span className="jv-row-icon"><HistoryIcon/></span>
               <span className="jv-row-text"><strong>活动历史</strong><span>聊天发言与 History 时间线</span></span>
+              <ChevronRightIcon className="jv-row-chevron"/>
+            </button>
+            <button type="button" className="jv-list-row" onClick={() => setSection("usage")}>
+              <span className="jv-row-icon"><ChartColumnIcon/></span>
+              <span className="jv-row-text"><strong>用量</strong><span>按模型统计 token 和费用</span></span>
               <ChevronRightIcon className="jv-row-chevron"/>
             </button>
           </div>

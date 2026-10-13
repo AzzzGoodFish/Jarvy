@@ -189,3 +189,13 @@ Jarvy is for people in any language. The interface comes in Chinese and English,
 - **Server messages**: errors and notices meant for people carry a stable `code`; the interface shows its own text for known codes and the server's English message otherwise.
 - **Toward the model, English**: the system prompt, tool descriptions and schemas, envelope notes and tool results are written in English. The prompt tells a Bot to answer in the language of the person it is talking to (in a chat with several people, the language the chat is held in). What people write — Bot personas, notices, summaries, messages — is never translated.
 - **Migration**: in batches, each merged to main as soon as it is done, so other work never waits on a long-lived branch. New interface code uses `t()` from the first batch on.
+
+## A46 Bot usage
+
+Bot info gains 用量: token use and cost per model for one Bot, for today, 7 days or 30 days.
+
+- No new capture: Pi's per-call `usage` (tokens and cost from the model's configured price) is already in History, and the page sums it on request. On the largest History so far a 30-day sum takes about 11 ms, well under the 200 ms at which a summary table would be worth a schema change.
+- One row per provider and model: calls, input, output, cache read, cache write, cost; a total below when there is more than one model.
+- A model none of whose calls had a price shows 「未配置价格」, never $0; the total's cost leaves such models out and says so.
+- Days start at midnight in the browser's time zone; the client sends the start time.
+- Per Bot only; a total across Bots is not covered.

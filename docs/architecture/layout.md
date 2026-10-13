@@ -8,7 +8,7 @@ Frontend → API → Service (business objects such as Chat and Bot) → Infra. 
 src/
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
-    activity/ avatar/ files/ question/ bot/ styles/ theme/ components/ui/
+    activity/ usage/ avatar/ files/ question/ bot/ styles/ theme/ components/ui/
   server/
     api/
       app.ts                 Hono app and route registration

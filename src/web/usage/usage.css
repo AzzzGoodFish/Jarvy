@@ -1,0 +1,34 @@
+.jv-usage { display:flex; flex-direction:column; flex:1; min-height:0; color:var(--jv-text); }
+.jv-usage-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 16px 0 4px; border-bottom:1px solid var(--jv-line); }
+.jv-usage-toolbar .jv-tabs { border-bottom:0; }
+.jv-usage-scroll { flex:1; min-height:0; overflow:auto; padding:16px 20px 24px; }
+.jv-usage-table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+.jv-usage-table :is(th, td) { padding:9px 8px; border-bottom:1px solid var(--jv-line); text-align:right; white-space:nowrap; }
+.jv-usage-table thead th { font-size:11px; font-weight:500; color:var(--jv-muted); }
+.jv-usage-table :is(thead th, tbody th, tfoot th):first-child { text-align:left; padding-left:0; }
+.jv-usage-table :is(td, th):last-child { padding-right:0; }
+.jv-usage-table tbody th { font-weight:400; }
+.jv-usage-model { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.jv-usage-model strong { font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+.jv-usage-model span { font-size:11px; color:var(--jv-dim); }
+.jv-usage-table td { font-family:var(--ui-font-mono); font-size:11.5px; }
+.jv-usage-table tfoot :is(th, td) { border-bottom:0; font-weight:600; }
+.jv-usage-unpriced { font-family:inherit !important; color:var(--jv-muted); }
+.jv-usage-note { margin:12px 0 0; font-size:11px; color:var(--jv-dim); }
+.jv-usage-state { padding:28px 4px; color:var(--jv-muted); font-size:12px; }
+.jv-usage-state p { margin:0 0 12px; }
+.jv-usage-state [role=alert] { color:var(--jv-danger); }
+.jv-usage-empty { text-align:center; padding:64px 16px; }
+
+/* Narrow screens: each model is a card with labelled figures. */
+@media (max-width: 560px) {
+  .jv-usage-scroll { padding:12px 14px 20px; }
+  .jv-usage-table thead { display:none; }
+  .jv-usage-table, .jv-usage-table :is(tbody, tfoot, tr) { display:block; }
+  .jv-usage-table tr { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px 12px; padding:12px 0; border-bottom:1px solid var(--jv-line); }
+  .jv-usage-table tfoot tr { border-bottom:0; }
+  .jv-usage-table :is(th, td) { padding:0; border:0; text-align:left; }
+  .jv-usage-table :is(tbody, tfoot) th { grid-column:1 / -1; }
+  .jv-usage-table td { display:flex; flex-direction:column; gap:2px; }
+  .jv-usage-table td::before { content:attr(data-label); font-family:var(--ui-font-sans); font-size:10.5px; font-weight:400; color:var(--jv-muted); }
+}
