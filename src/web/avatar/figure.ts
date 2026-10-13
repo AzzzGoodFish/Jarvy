@@ -2,8 +2,10 @@ import type * as Three from "three";
 import type { BotMood } from "./palette";
 
 type THREE = typeof Three;
-/** What the body does (from Bot status); mood only changes the eyes. */
-export type FigureMotion = "sleep" | "idle" | "think" | "work" | "busy" | "static";
+/** What the body does (from Bot status); mood only changes the eyes. The NPC prototype adds actions by fact: read (holds
+ * a page), turn (faces you to talk), ask (head tilted, watching you), yawn (compacting), stretch (a turn ended), groom
+ * (licks a paw when idle long). */
+export type FigureMotion = "sleep" | "idle" | "think" | "work" | "busy" | "static" | "read" | "turn" | "ask" | "yawn" | "stretch" | "groom";
 /** lookX/lookY: where the pointer is, −1..1 (positive = right / below), or 0 when unknown.
  * fast: tool calls tap quicker than text. reduced: prefers-reduced-motion, keeps only poses, blinks and gaze. */
 export interface FigureInput { motion: FigureMotion; mood: BotMood; lookX: number; lookY: number; fast?: boolean; reduced?: boolean; }
@@ -56,6 +58,9 @@ export class CatFigure {
   private readonly body: Three.MeshStandardMaterial;
   private readonly parts: { group: Three.Group; pill: Three.Mesh; arc: Three.Group; spiral: Three.Mesh }[];
   private readonly paws: Three.Mesh[];
+  private readonly paper: Three.Mesh;
+  private readonly mouth: Three.Mesh;
+  private motion: FigureMotion = "static"; private motionAt = 0;
   private readonly disposables: { dispose(): void }[] = [];
   private shown: BotMood = "normal";
   private yaw = REST_YAW; private pitch = 0; private lookX = 0; private lookY = 0;
@@ -98,6 +103,11 @@ export class CatFigure {
       const paw = new THREE.Mesh(pawGeometry, this.body); paw.castShadow = true; paw.receiveShadow = true;
       paw.scale.set(0.17, 0.1, 0.15); paw.position.set(x, -0.66, 0.22); this.root.add(paw); return paw;
     });
+    // A page held while reading, and a mouth that only shows in a yawn.
+    this.paper = new THREE.Mesh(keep(new THREE.BoxGeometry(0.62, 0.44, 0.012)), keep(new THREE.MeshStandardMaterial({ color: 0xf6f3ea, roughness: 0.9 })));
+    this.paper.position.set(0, -0.36, 0.62); this.paper.rotation.x = -0.55; this.paper.castShadow = true; this.paper.visible = false; this.root.add(this.paper);
+    this.mouth = new THREE.Mesh(keep(new THREE.CircleGeometry(0.07, 20)), ink);
+    this.mouth.position.set(EYE_BIAS, -0.2, 0.364); this.mouth.visible = false; this.head.add(this.mouth);
     this.root.rotation.y = REST_YAW;
     this.show("normal");
   }
@@ -123,23 +133,32 @@ export class CatFigure {
   /** One animation step, based on the study's frame loop plus sleep / think / busy / shake. */
   frame(now: number, input: FigureInput) {
     const t = (now - this.start) / 1000, m = input.motion, still = !!input.reduced;
+    if (m !== this.motion) { this.motion = m; this.motionAt = now; }
+    const since = (now - this.motionAt) / 1000;
+    // Yawn: open and close over 1.8 s, every 3.2 s. Stretch: up and back over 1.8 s, every 3.6 s (a turn's end shows one).
+    const yawn = m === "yawn" ? Math.sin(Math.PI * Math.min(1, (since % 3.2) / 1.8)) : 0;
+    const stretch = m === "stretch" ? Math.sin(Math.PI * Math.min(1, (since % 3.6) / 1.8)) : 0;
     const sleep = m === "sleep", follow = m === "idle" && this.shown !== "dizzy";
     const dizzy = !sleep && this.shown === "dizzy", sad = this.shown === "sad", angry = this.shown === "angry";
     const wave = (speed: number, amount: number) => still ? 0 : Math.sin(t * speed) * amount;
     // Thinking is head-down like working, only slower (looking up read as frozen).
     const down = m === "work" || m === "think";
-    const targetYaw = REST_YAW + (follow ? input.lookX * 0.18 : 0) + (m === "busy" ? wave(9, 0.12) : 0) + (dizzy ? wave(2.1, 0.1) : 0);
-    const targetPitch = (down ? 0.14 : follow ? input.lookY * 0.08 : 0) + (sleep ? 0.16 : 0) + (sad ? 0.1 : 0) + (angry ? 0.06 : 0);
-    const targetRoll = (dizzy ? wave(3.2, 0.07) : 0) + (m === "think" ? wave(1.3, 0.025) : 0) + (m === "busy" ? wave(9, 0.05) : 0);
+    const facing = m === "turn" ? 0.05 : m === "ask" ? 0.14 : m === "read" ? REST_YAW * 0.6 : REST_YAW;
+    const targetYaw = facing + (follow ? input.lookX * 0.18 : 0) + (m === "busy" ? wave(9, 0.12) : 0) + (dizzy ? wave(2.1, 0.1) : 0);
+    const targetPitch = (down ? 0.14 : follow ? input.lookY * 0.08 : 0) + (sleep ? 0.16 : 0) + (sad ? 0.1 : 0) + (angry ? 0.06 : 0)
+      + (m === "read" ? 0.24 + wave(0.7, 0.02) : 0) + (m === "groom" ? 0.1 : 0) - 0.2 * yawn - 0.14 * stretch;
+    const targetRoll = (dizzy ? wave(3.2, 0.07) : 0) + (m === "think" ? wave(1.3, 0.025) : 0) + (m === "busy" ? wave(9, 0.05) : 0)
+      + (m === "ask" ? 0.24 + wave(1.1, 0.03) : 0) + (m === "groom" ? -0.14 : 0) + (m === "turn" ? wave(2.4, 0.03) : 0);
     this.yaw += (targetYaw - this.yaw) * 0.07; this.pitch += (targetPitch - this.pitch) * 0.1;
     this.root.rotation.y = this.yaw; this.head.rotation.x = this.pitch;
     this.head.rotation.z += (targetRoll - this.head.rotation.z) * 0.2;
     // Work taps fast (tools faster than text); thinking taps slowly and lightly, eyes drifting across the "desk".
     const tap = still ? 0 : m === "work" ? Math.sin(t * (input.fast ? 20 : 14)) : m === "think" ? Math.sin(t * 4.5) * 0.45 : 0;
     const left = Math.max(0, tap), right = Math.max(0, -tap);
+    // Reading, the eyes run along the lines; talking or asking, they meet yours.
     const lookX = dizzy ? 0 : follow ? input.lookX * 0.6 : m === "work" ? (still ? 0 : left > right ? -0.6 : 0.6)
-      : m === "think" ? wave(0.9, 0.5) : m === "busy" ? wave(9, 0.5) : 0;
-    const lookY = dizzy ? 0 : follow ? -input.lookY * 0.7 : down ? -1 : sleep ? -0.3 : 0;
+      : m === "think" ? wave(0.9, 0.5) : m === "busy" ? wave(9, 0.5) : m === "read" ? (still ? 0 : ((since * 0.8) % 1) * 1.2 - 0.6) : 0;
+    const lookY = dizzy ? 0 : follow ? -input.lookY * 0.7 : down || m === "read" ? -1 : sleep ? -0.3 : 0;
     this.lookX += (lookX - this.lookX) * 0.2; this.lookY += (lookY - this.lookY) * 0.15;
     const lead = Math.max(-0.2, Math.min(0.2, (targetYaw - this.yaw) * EYE_LEAD));
     this.eyes.position.x = EYE_BIAS + lead + this.lookX * 0.06;
@@ -157,16 +176,28 @@ export class CatFigure {
       eye.pill.visible = sleep || this.shown === "normal" || sad || angry;
       eye.arc.visible = !sleep && this.shown === "happy"; eye.spiral.visible = !sleep && this.shown === "dizzy";
     }
-    const squeeze = sleep ? 0.1 : progress >= 0 && progress <= 1 ? 1 - 0.92 * Math.sin(Math.PI * progress) : 1, tilt = sleep ? 0 : sad ? 0.32 : angry ? -0.38 : 0;
+    // Yawning, stretching and grooming, the eyes close.
+    const closed = Math.max(yawn, stretch * 0.9, m === "groom" ? 0.9 : 0);
+    const squeeze = (sleep ? 0.1 : progress >= 0 && progress <= 1 ? 1 - 0.92 * Math.sin(Math.PI * progress) : 1) * (1 - 0.88 * closed), tilt = sleep ? 0 : sad ? 0.32 : angry ? -0.38 : 0;
     this.parts.forEach((eye, i) => {
       eye.group.scale.y = squeeze * (angry && !sleep ? 0.78 : 1);
       eye.group.rotation.z += ((i ? tilt : -tilt) - eye.group.rotation.z) * 0.15; if (!still) eye.spiral.rotation.z += 0.14;
     });
     this.paws.forEach((paw, i) => {
-      const press = i ? right : left;
-      paw.position.y = -0.66 - 0.06 * press; paw.scale.set(0.17 * (1 + 0.25 * press), 0.1 * (1 - 0.3 * press), 0.15 * (1 + 0.25 * press));
+      const press = i ? right : left, side = i ? 1 : -1;
+      // Where each paw goes: holding the page, raised high, one paw at the face (licking) or gesturing while talking.
+      const target = m === "read" ? [side * 0.3, -0.44 + wave(0.7, 0.01), 0.6]
+        : m === "stretch" ? [side * (0.42 + 0.2 * stretch), -0.66 + 0.62 * stretch, 0.22 - 0.1 * stretch]
+        : m === "groom" && i ? [0.2, -0.2 + wave(7, 0.035), 0.5]
+        : m === "turn" && i ? [0.4, -0.52 + wave(3, 0.05), 0.32]
+        : [side * 0.42, -0.66 - 0.06 * press, 0.22];
+      paw.position.x += (target[0]! - paw.position.x) * 0.2; paw.position.y += (target[1]! - paw.position.y) * 0.2; paw.position.z += (target[2]! - paw.position.z) * 0.2;
+      paw.scale.set(0.17 * (1 + 0.25 * press), 0.1 * (1 - 0.3 * press), 0.15 * (1 + 0.25 * press));
     });
-    this.head.position.y = (m === "static" ? 0 : sleep ? wave(1.2, 0.02) - 0.02 : wave(2, 0.01)) - 0.03 * (left + right);
+    this.paper.visible = m === "read";
+    this.mouth.visible = yawn > 0.05; this.mouth.scale.set(0.8 + 0.3 * yawn, 0.2 + 1.3 * yawn, 1);
+    this.root.scale.y = 1 + 0.05 * stretch;
+    this.head.position.y = (m === "static" ? 0 : sleep ? wave(1.2, 0.02) - 0.02 : wave(2, 0.01)) - 0.03 * (left + right) + 0.04 * yawn + 0.06 * stretch;
     const shaking = (now - this.shakeAt) / 600;
     this.root.position.x = !still && shaking >= 0 && shaking < 1 ? Math.sin(shaking * Math.PI * 6) * 0.06 * (1 - shaking) : 0;
   }

@@ -3,9 +3,14 @@ import type { Bot, BotStatus } from "../api";
 import { BotAvatar } from "./BotAvatar";
 import type { FigureInput, FigureMotion } from "./figure";
 import { BOT_COLORS, type BotColor, type BotMood } from "./palette";
+import { NpcLayer } from "./npc/NpcLayer";
+import { useNpcDemo } from "./npc/useNpcDemo";
 import "../styles/floating-bot.css";
 
 const KEY = "jarvy-floating-bot", MARGIN = 10, DRAG = 4;
+/** The NPC prototype is on only with `?npc=demo` in the address; it then drives the cat instead of the Bot's status, and
+ * once the last turn's 「done」 line has faded a click brings it back instead of opening Bot info. */
+const NPC_DEMO = new URLSearchParams(location.search).get("npc") === "demo";
 type Spot = { x: number; y: number };
 
 /** Bot status → body motion (A33). Mood is separate and only changes the eyes. */
@@ -38,8 +43,9 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
   const input = useRef<FigureInput>({ motion: "sleep", mood: "normal", lookX: 0, lookY: 0 });
   const figure = useRef<{ setColor(hex: number): void; shake(now: number): void } | null>(null);
   const [live, setLive] = useState(false);
-  const { motion, fast } = motionOf(status);
-  input.current.motion = motion; input.current.fast = fast; input.current.mood = bot.mood as BotMood;
+  const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), layout = useRef<(() => void) | null>(null);
+  const { motion, fast } = NPC_DEMO ? demo : motionOf(status);
+  input.current.motion = motion; input.current.fast = fast; input.current.mood = NPC_DEMO ? demo.mood : bot.mood as BotMood;
 
   function bounds() {
     const box = area.current!.getBoundingClientRect(), size = button.current!.offsetWidth;
@@ -51,6 +57,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
     if (!button.current || !area.current) return;
     const b = bounds(), el = button.current;
     el.style.left = `${b.minX + spot.current.x * (b.maxX - b.minX)}px`; el.style.top = `${b.minY + spot.current.y * (b.maxY - b.minY)}px`;
+    layout.current?.();
   }
   useLayoutEffect(() => {
     place();
@@ -62,6 +69,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
   useEffect(() => { figure.current?.setColor((BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex); }, [bot.color]);
   const failure = status?.error ? `${status.runId ?? ""}:${status.error}` : null;
   useEffect(() => { if (failure) figure.current?.shake(performance.now()); }, [failure]);
+  useEffect(() => { if (demo.shake) figure.current?.shake(performance.now()); }, [demo.shake]);
 
   useEffect(() => {
     const point = (event: PointerEvent) => { if (event.pointerType === "mouse" || event.type === "pointerdown") look.current = { x: event.clientX, y: event.clientY }; };
@@ -116,7 +124,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
     // The renderer lives as long as the component; colour, mood and status flow in through refs.
   }, []);
 
-  return <button ref={button} type="button" className="jv-floating-bot" data-live={live || undefined} title={bot.name} aria-label={`查看 ${bot.name} 的 Bot 信息`}
+  return <><button ref={button} type="button" className="jv-floating-bot" data-live={live || undefined} title={bot.name} aria-label={`查看 ${bot.name} 的 Bot 信息`}
     onPointerDown={event => {
       if (event.button !== 0) return;
       const el = event.currentTarget; el.setPointerCapture(event.pointerId);
@@ -137,9 +145,10 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
       if (d.moved) localStorage.setItem(KEY, JSON.stringify(spot.current));
     }}
     onPointerCancel={() => { drag.current = null; }}
-    onClick={() => { if (moved.current) { moved.current = false; return; } onOpen(); }}
+    onClick={() => { if (moved.current) { moved.current = false; return; } if (NPC_DEMO && demo.canRecap) demo.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>
     {!live && <BotAvatar color={bot.color} mood={bot.mood} size={88}/>}
-  </button>;
+  </button>
+  {NPC_DEMO && <NpcLayer demo={demo} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout}/>}</>;
 }

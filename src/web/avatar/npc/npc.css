@@ -1,0 +1,101 @@
+/* NPC prototype (avatar/npc/, `?npc=demo`): the dialogue beside the DM's cat in its four looks, its live panel, the toolbar. */
+.jv-npc { position: absolute; z-index: 6; width: max-content; max-width: min(300px, calc(100% - 24px)); padding: 10px 12px; overflow: visible;
+  border: 2px solid var(--ui-border-strong); border-radius: 12px; background: var(--ui-bg-elevated); color: var(--ui-text-primary);
+  box-shadow: var(--ui-shadow-md); font-size: 13px; line-height: 1.55; opacity: 1;
+  transition: left var(--ui-duration-fast) var(--ui-ease-out), top var(--ui-duration-fast) var(--ui-ease-out), opacity .5s ease; }
+.jv-npc[hidden] { display: none; }
+.jv-npc[data-fading] { opacity: 0; }
+.jv-npc::before, .jv-npc::after { content: none; position: absolute; }
+.jv-npc-line { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+div.jv-npc-line { cursor: default; }
+
+/* Speech — a message sent with the chat tool: solid frame, the speaker's name on it, a tail pointing at the cat. */
+.jv-npc[data-look=speech]::before { content: ""; width: 10px; height: 10px; background: var(--ui-bg-elevated); border: 2px solid var(--ui-border-strong); }
+.jv-npc[data-look=speech][data-side=left]::before { right: -7px; top: calc(var(--npc-tail, 24px) - 7px); border-left: 0; border-bottom: 0; transform: rotate(45deg); }
+.jv-npc[data-look=speech][data-side=right]::before { left: -7px; top: calc(var(--npc-tail, 24px) - 7px); border-right: 0; border-top: 0; transform: rotate(45deg); }
+.jv-npc[data-look=speech][data-side=below]::before { top: -7px; left: calc(var(--npc-tail, 24px) - 7px); border-right: 0; border-bottom: 0; transform: rotate(45deg); }
+.jv-npc[data-look=speech][data-side=above]::before { bottom: -7px; left: calc(var(--npc-tail, 24px) - 7px); border-left: 0; border-top: 0; transform: rotate(45deg); }
+.jv-npc-name { position: absolute; top: -11px; left: 12px; padding: 0 6px; border-radius: 6px; background: var(--ui-bg-elevated); color: var(--ui-text-secondary);
+  font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; }
+.jv-npc-name em { margin-left: 6px; font-style: normal; font-weight: 500; color: var(--ui-text-accent); }
+.jv-npc-speech { color: var(--ui-text-primary); }
+
+/* Thought — a round bubble trailing little circles towards the cat; faint italics, one sentence at a time. */
+.jv-npc[data-look=thought] { border-width: 1.5px; border-color: var(--ui-border-default); border-radius: 20px; box-shadow: var(--ui-shadow-sm); }
+.jv-npc[data-look=thought]::before, .jv-npc[data-look=thought]::after { content: ""; border: 1.5px solid var(--ui-border-default); border-radius: 50%; background: var(--ui-bg-elevated); }
+.jv-npc[data-look=thought]::before { width: 10px; height: 10px; }
+.jv-npc[data-look=thought]::after { width: 6px; height: 6px; }
+.jv-npc[data-look=thought][data-side=left]::before { right: -15px; top: calc(var(--npc-tail, 24px) - 4px); }
+.jv-npc[data-look=thought][data-side=left]::after { right: -24px; top: calc(var(--npc-tail, 24px) + 6px); }
+.jv-npc[data-look=thought][data-side=right]::before { left: -15px; top: calc(var(--npc-tail, 24px) - 4px); }
+.jv-npc[data-look=thought][data-side=right]::after { left: -24px; top: calc(var(--npc-tail, 24px) + 6px); }
+.jv-npc[data-look=thought][data-side=below]::before { top: -15px; left: calc(var(--npc-tail, 24px) - 5px); }
+.jv-npc[data-look=thought][data-side=below]::after { top: -24px; left: calc(var(--npc-tail, 24px) + 4px); }
+.jv-npc[data-look=thought][data-side=above]::before { bottom: -15px; left: calc(var(--npc-tail, 24px) - 5px); }
+.jv-npc[data-look=thought][data-side=above]::after { bottom: -24px; left: calc(var(--npc-tail, 24px) + 4px); }
+.jv-npc-thought { display: block; color: var(--ui-text-tertiary); font-style: italic; animation: jv-npc-subtitle .3s var(--ui-ease-out); }
+@keyframes jv-npc-subtitle { from { opacity: 0; transform: translateY(4px); } }
+
+/* Murmur — the model's own text, which nobody else sees: no frame, smaller, in brackets. */
+.jv-npc[data-look=mutter] { padding: 3px 8px; border: 0; border-radius: 8px; box-shadow: none; font-size: 12px;
+  background: color-mix(in srgb, var(--ui-bg-base) 78%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.jv-npc-murmur { color: var(--ui-text-secondary); }
+
+/* Action — a tool at work or the end of the turn: a short pill with the tool's icon. */
+.jv-npc[data-look=action] { padding: 5px 12px 5px 10px; border-width: 1px; border-color: var(--ui-border-weak); border-radius: 999px; box-shadow: var(--ui-shadow-sm); font-size: 12.5px; }
+.jv-npc-action { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-text-secondary); }
+.jv-npc-action > svg { width: 14px; height: 14px; flex: none; color: var(--ui-text-tertiary); }
+.jv-npc-action[data-state=failed], .jv-npc-action[data-state=failed] > svg { color: var(--ui-text-danger); font-weight: 600; }
+.jv-npc-action[data-state=ok] > svg { color: var(--ui-text-success); }
+
+.jv-npc-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -2px; background: currentColor; animation: jv-npc-blink 1s steps(1) infinite; }
+.jv-npc-dots::after { content: "…"; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; animation: jv-npc-dots 1.2s steps(4) infinite; }
+@keyframes jv-npc-blink { 50% { opacity: 0; } }
+@keyframes jv-npc-dots { from { width: 0; } to { width: 1.2em; } }
+.jv-npc-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.jv-npc-options button { padding: 4px 10px; border: 1px solid var(--ui-border-default); border-radius: 999px; background: var(--ui-bg-subtle); color: var(--ui-text-primary); font-size: 12px; }
+.jv-npc-options button:hover { background: var(--ui-fill-ghost-hover); border-color: var(--ui-border-strong); }
+
+/* The panel: every step of the turn, live. */
+.jv-npc[data-open] { width: 360px; max-width: calc(100% - 16px); padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.jv-npc-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.jv-npc-panel header { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--ui-border-weak); }
+.jv-npc-panel header span { font-size: 12px; color: var(--ui-text-tertiary); font-variant-numeric: tabular-nums; margin-right: auto; }
+.jv-npc-panel header button, .jv-npc-icon { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; color: var(--ui-text-secondary); }
+.jv-npc-panel header button:hover, .jv-npc-icon:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-npc-panel svg, .jv-npc-toolbar svg { width: 14px; height: 14px; }
+.jv-npc-panel ol { list-style: none; margin: 0; padding: 4px 0; overflow: auto; min-height: 0; }
+.jv-npc-panel li > button { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 48px 12px; align-items: center; gap: 8px; width: 100%; padding: 7px 12px;
+  border: 0; background: none; color: var(--ui-text-primary); font: inherit; font-size: 12.5px; text-align: left; }
+.jv-npc-panel li > button:enabled:hover { background: var(--ui-fill-ghost-hover); }
+.jv-npc-kind { color: var(--ui-text-tertiary); }
+.jv-npc-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-npc-state { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ui-text-secondary); }
+.jv-npc-state svg { width: 12px; height: 12px; }
+li[data-state=running] .jv-npc-state { color: var(--ui-text-accent); }
+li[data-state=running] .jv-npc-state svg { animation: jv-npc-spin 1s linear infinite; }
+li[data-state=ok] .jv-npc-state { color: var(--ui-text-success); }
+li[data-state=failed] .jv-npc-state, li[data-state=failed] .jv-npc-title { color: var(--ui-text-danger); }
+@keyframes jv-npc-spin { to { transform: rotate(360deg); } }
+.jv-npc-time { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ui-text-tertiary); text-align: right; white-space: nowrap; }
+.jv-npc-chevron { width: 12px !important; height: 12px !important; color: var(--ui-text-tertiary); transition: transform var(--ui-duration-fast); }
+.jv-npc-panel li > button[aria-expanded=true] .jv-npc-chevron { transform: rotate(90deg); }
+.jv-npc-panel pre { margin: 0 12px 8px 36px; padding: 8px 10px; border-radius: 8px; background: var(--ui-bg-subtle); color: var(--ui-text-secondary);
+  font: 11.5px/1.5 var(--ui-font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.jv-npc-panel pre:is([data-kind=think], [data-kind=mutter], [data-kind=say], [data-kind=ask]) { font-family: var(--ui-font-sans); font-size: 12px; }
+.jv-npc-panel pre[data-kind=think] { font-style: italic; }
+
+/* The prototype toolbar, top centre; the animation buttons open under it. */
+.jv-npc-toolbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 2px 4px; border-radius: 16px; background: color-mix(in srgb, var(--ui-bg-base) 86%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .08); font-size: 11px; color: var(--ui-text-tertiary); }
+.jv-npc-toolbar-row { display: flex; align-items: center; gap: 2px; padding-left: 6px; white-space: nowrap; }
+.jv-npc-toolbar-row > span { margin-right: 4px; }
+.jv-npc-mood, .jv-npc-toggle { width: auto; height: 26px; gap: 4px; padding: 0 8px; border: 0; border-radius: 999px; background: none; color: var(--ui-text-secondary); font-size: 12px; box-shadow: none; }
+.jv-npc-toggle { display: inline-flex; align-items: center; }
+.jv-npc-mood:hover, .jv-npc-mood[data-state=open], .jv-npc-toggle:hover, .jv-npc-toggle[aria-expanded=true] { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-npc-poses { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: min(520px, 92vw); padding: 2px 4px 6px; }
+.jv-npc-poses button { padding: 3px 9px; border: 1px solid var(--ui-border-weak); border-radius: 999px; background: var(--ui-bg-base); color: var(--ui-text-secondary); font-size: 12px; }
+.jv-npc-poses button:hover { border-color: var(--ui-border-strong); color: var(--ui-text-primary); }
+.jv-npc-poses button[aria-pressed=true] { border-color: transparent; background: var(--ui-fill-primary); color: var(--ui-text-on-primary); }
+@media (prefers-reduced-motion: reduce) { .jv-npc-caret, .jv-npc-dots::after, .jv-npc-thought, li[data-state=running] .jv-npc-state svg { animation: none; } }
