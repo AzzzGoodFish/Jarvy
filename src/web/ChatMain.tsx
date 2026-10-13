@@ -65,7 +65,7 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
           {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={divider} activeQuestion={activeQuestion}
             onSettled={onSettled} onPreview={onPreview} onReply={onReply} onOpenThread={onOpenThread}
             onQuote={onQuote} onReact={onReact} onJump={onJump} onError={error}/>
-          : <DmMessages messages={messages} members={members} colors={botColors(bots)} me={meId} activeQuestion={activeQuestion} bot={activeBot}
+          : <DmMessages messages={messages} members={members} me={meId} activeQuestion={activeQuestion} bot={activeBot}
             onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onJump={onJump} onError={error}/>}
         </>}
         {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={toLatest} aria-label={t("chat.toLatest")}>
@@ -81,5 +81,3 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
     {chat && <QuoteSelection container={transcript} drafts={drafts} chatId={chat.id} source={id => messages.find(message => message.id === id)} members={members} onNotice={notice}/>}
   </main>;
 }
-
-const botColors = (bots: Bot[]) => new Map(bots.map(bot => [bot.id, { color: bot.color, mood: bot.mood }]));

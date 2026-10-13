@@ -76,9 +76,8 @@ function chinese(file) {
 }
 
 const PENDING = new Set([
-  'BotInfo.tsx', 'BotModelControls.tsx', 'HistoryDetail.tsx', 'ModelPicker.tsx', 'activity/ActivityDetail.tsx', 'activity/ActivityTimeline.tsx',
-  'activity/BotActivity.tsx', 'api.ts', 'avatar/BotAvatar.tsx', 'avatar/FloatingBot.tsx', 'avatar/palette.ts', 'bot/BotDirects.tsx',
-  'dm/DeleteDialog.tsx',
+  'HistoryDetail.tsx', 'activity/ActivityDetail.tsx', 'activity/ActivityTimeline.tsx', 'activity/BotActivity.tsx', 'api.ts', 'avatar/BotAvatar.tsx',
+  'avatar/FloatingBot.tsx', 'avatar/palette.ts',
 ]);
 const seen = new Set();
 for (const file of files(web)) {

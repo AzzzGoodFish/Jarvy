@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Member } from "../api";
+import { formatDate, t } from "../i18n";
+import { memberName } from "../members";
 import { IconButton } from "../ui";
 import { ChannelMessages, MemberAvatar } from "../channel/ChannelView";
 
-const when = (time: number) => new Date(time).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const when = (time: number) => formatDate(time, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const plain = (text: string) => text.replace(/[*`~#>]/g, "").replace(/\s+/g, " ").trim();
 
 /** The Bot's DMs with other Bots; reloaded on every chat change (`tick`). */
@@ -34,23 +36,23 @@ export function BotDirects({ bot, chats, members, bots, me, tick, onClose, onPre
   }, [open, tick]);
   const other = (chat: Chat) => members.find(member => member.id !== bot.id && chat.memberIds.includes(member.id));
   const current = chats.find(chat => chat.id === open);
-  return <aside className="ui-pane jv-pane" aria-label={`${bot.name} 的 Bot 私聊`}>
+  return <aside className="ui-pane jv-pane" aria-label={t("chat.botDms", { name: bot.name })}>
     <header className="ui-pane-header jv-pane-header">
-      {current && <IconButton icon="chevron-left" label="返回列表" onClick={() => setOpen(null)}/>}
-      <strong>{current ? `${bot.name} 与 ${other(current)?.name ?? "未知成员"}` : `${bot.name} 的 Bot 私聊`}</strong>
-      <span className="jv-spacer"/><IconButton icon="close" label="关闭" onClick={onClose}/>
+      {current && <IconButton icon="chevron-left" label={t("directs.back")} onClick={() => setOpen(null)}/>}
+      <strong>{current ? t("directs.between", { name: bot.name, other: memberName(other(current)) }) : t("chat.botDms", { name: bot.name })}</strong>
+      <span className="jv-spacer"/><IconButton icon="close" label={t("common.close")} onClick={onClose}/>
     </header>
     {current ? <>
       <div className="ui-pane-body jv-pane-body">
-        {messages === null ? <p className="jv-picker-empty">正在读取…</p> : messages.length === 0 ? <p className="jv-picker-empty">暂无消息</p>
+        {messages === null ? <p className="jv-picker-empty">{t("threads.loading")}</p> : messages.length === 0 ? <p className="jv-picker-empty">{t("chat.empty")}</p>
           : <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER} onSettled={() => {}} onPreview={onPreview}/>}
       </div>
-      <p className="jv-readonly">只读</p>
+      <p className="jv-readonly">{t("directs.readOnly")}</p>
     </> : <div className="ui-pane-body jv-pane-body">
-      {chats.length === 0 ? <p className="jv-picker-empty">暂无私聊</p> : chats.map(chat => {
+      {chats.length === 0 ? <p className="jv-picker-empty">{t("sidebar.noDms")}</p> : chats.map(chat => {
         const peer = other(chat);
         return <button key={chat.id} type="button" className="jv-thread-item" onClick={() => setOpen(chat.id)}>
-          <span className="jv-thread-item-head"><MemberAvatar member={peer} bots={bots} size={20}/><strong>{peer?.name ?? "未知成员"}</strong>
+          <span className="jv-thread-item-head"><MemberAvatar member={peer} bots={bots} size={20}/><strong>{memberName(peer)}</strong>
             <span className="jv-muted">{when(chat.updatedAt)}</span></span>
           {chat.lastMessage && <span className="jv-muted jv-thread-item-meta">{plain(chat.lastMessage)}</span>}
         </button>;

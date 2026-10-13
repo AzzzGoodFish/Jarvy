@@ -6,8 +6,8 @@ import { MessageText } from "../channel/quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "../channel/MessageActions";
 
 /** DM messages keep the bubble layout (A37) and gain replies and emoji marks like channels. */
-export function DmMessages({ messages, members, colors, me, activeQuestion, onSettled, onPreview, onQuote, onReact, onJump, onError, bot }: {
-  messages: ChatMessage[]; members: Member[]; /** The Bot's colours, by id, for avatars. */ colors: Map<string, { color: string; mood: string }>;
+export function DmMessages({ messages, members, me, activeQuestion, onSettled, onPreview, onQuote, onReact, onJump, onError, bot }: {
+  messages: ChatMessage[]; members: Member[];
   me: string; activeQuestion?: string; bot: Bot | undefined;
   onSettled: (message: ChatMessage) => void; onPreview: (files: Attachment[], index: number) => void;
   onQuote?: (message: ChatMessage) => void; onReact: (message: ChatMessage, emoji: string, on: boolean) => void;
