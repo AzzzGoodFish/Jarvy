@@ -45,6 +45,8 @@ export function t(key: Key, vars?: Record<string, string | number>) {
   const value = text(key, vars?.count);
   return vars ? value.replace(/\{(\w+)\}/g, (match, name: string) => name in vars ? String(vars[name]) : match) : value;
 }
+/** A number written the current language's way (`notation: "compact"` gives 12K / 1.2万). */
+export const formatNumber = (value: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat(TAGS[current], options).format(value);
 /** Like t(), when some values are elements (a <strong> inside a sentence). */
 export function rich(key: Key, vars: Record<string, ReactNode>) {
   return text(key, vars.count).split(/\{(\w+)\}/).map((part, index) => <Fragment key={index}>{index % 2 ? vars[part] ?? `{${part}}` : part}</Fragment>);
