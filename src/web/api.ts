@@ -23,7 +23,7 @@ export interface Section { id: string; name: string; position: number; createdAt
 export interface ChatHint { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actor: string; detail: string; createdAt: number; }
 export interface ChatNote { text: string; updatedBy: Member; updatedAt: number; version: number; }
 /** botId is the DM's Bot (null for channels); unread/mentions/readSequence are for you. */
-export interface Chat { id: string; type: "dm" | "channel" | "thread"; botId: string; title: string; createdAt: number; updatedAt: number; lastMessage: string | null;
+export interface Chat { id: string; type: "dm" | "channel" | "thread"; botId: string; title: string; createdAt: number; updatedAt: number; lastMessage: Pick<ChatMessage, "content" | "quotes"> | null;
   memberIds: string[]; sectionId: string | null; topic: string; parentId: string | null; rootMessageId: string | null; status: "open" | "done" | null;
   note: ChatNote | null; readSequence: number; unread: number; mentions: number;
   /** Delivered to you with an interrupt and not read (DMs, @, replies): the red count (A41). */
@@ -43,7 +43,7 @@ export interface Chat { id: string; type: "dm" | "channel" | "thread"; botId: st
   /** You pinned it to the top of its sidebar group. */
   pinned: boolean; }
 /** A thread as listed (channel thread list, 「我关注的线程」). */
-export interface ThreadEntry extends Chat { replies: number; lastReplyAt: number | null; root: { senderId: string; content: string } | null; }
+export interface ThreadEntry extends Chat { replies: number; lastReplyAt: number | null; root: { senderId: string; content: string; quotes: MessageQuote[] } | null; }
 export interface ThreadInfo { id: string; title: string; status: "open" | "done"; replies: number; lastReplyAt: number | null; }
 export interface Attachment { id: string; name: string; mimeType: string; size: number; }
 export interface QuestionOption { label: string; value?: string; description?: string; style?: "default" | "primary" | "danger"; }
@@ -55,7 +55,7 @@ export interface Reaction { emoji: string; memberIds: string[]; }
 export interface SearchResult { chats: Chat[]; messages: { message: ChatMessage; chat: Chat }[] }
 export interface ChatMessage { id: string; chatId: string; sequence: number; senderId: string; source: { historyId: number; toolCallId: string } | null; role: "user" | "assistant"; content: string; createdAt: number; attachments: Attachment[]; question: Question | null; mentions: string[];
   /** The message this one replies to (same chat), with the start of its text. */
-  replyTo: { id: string; senderId: string; content: string } | null;
+  replyTo: { id: string; senderId: string; content: string; quotes: MessageQuote[] } | null;
   /** Emoji marks, grouped, in the order each emoji was first used. */
   reactions: Reaction[];
   /** Channel messages: the thread under it. */

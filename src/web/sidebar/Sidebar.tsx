@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { formatClock, t } from "../i18n";
+import { previewText } from "../channel/quotes";
 import { Icon } from "../ui";
 
 const COLLAPSED_KEY = "jarvy-collapsed-sections";
@@ -39,7 +40,8 @@ export function hintThread(chat: Chat): string | null {
  * who wrote it) — after a red 「[有人@我]」 while an @ or a reply to you is unread. */
 function Digest({ chat, channel }: { chat: Chat; channel: boolean }) {
   const hint = hintText(chat);
-  const text = hint ?? (chat.lastMessage ? (channel && chat.lastSender ? t("sidebar.said", { name: chat.lastSender, text: chat.lastMessage }) : chat.lastMessage) : channel ? chat.topic : "");
+  const last = chat.lastMessage && previewText(chat.lastMessage);
+  const text = hint ?? (last ? (channel && chat.lastSender ? t("sidebar.said", { name: chat.lastSender, text: last }) : last) : channel ? chat.topic : "");
   return <span className="jv-digest">{chat.atMe && <span className="jv-at-me">{t("sidebar.atMe")}</span>}<span className={hint ? "jv-hint-line" : undefined}>{text}</span></span>;
 }
 

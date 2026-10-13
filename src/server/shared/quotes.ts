@@ -17,13 +17,22 @@ export function clipQuote(text: string): string {
   const chars = [...text];
   return chars.length > 200 ? `${chars.slice(0, 120).join("")}……${chars.slice(-60).join("")}` : text;
 }
-/** One-line previews (sidebar rows, reply and mark snippets, thread titles): each quote as 「passage」. */
+/** One-line text that is stored or that a Bot reads (thread and DM titles, reply and mark snippets): each quote as
+ * "passage". The interface gets the content and its quotes and words the quotes itself (A45). */
 export function previewQuotes(content: string, quotes: readonly MessageQuote[]): string {
   if (!quotes.length) return content;
   return content.replace(MARK, (mark, n: string) => {
     const quote = quotes[Number(n) - 1];
-    return quote ? `「${clipQuote(quote.text).replace(/\s+/g, " ").trim()}」` : mark;
+    return quote ? `"${clipQuote(quote.text).replace(/\s+/g, " ").trim()}"` : mark;
   });
+}
+/** The start of a message's raw content, never ending inside a `[[qN]]` mark: an excerpt that still carries its quotes. */
+export function clipMarked(content: string, length: number): string {
+  return content.length <= length ? content : content.slice(0, length).replace(/\[(?:\[(?:q\d*\]?)?)?$/, "");
+}
+/** A reply target as a Bot reads it: its first 200 characters, an attachment-only message as (附件). */
+export function replyExcerpt(reply: { content: string; quotes: readonly MessageQuote[] }): string {
+  return reply.content ? previewQuotes(reply.content, reply.quotes).slice(0, 200) : "(附件)";
 }
 /** What a Bot reads (A44): each mark becomes a quote block `> Name (m123): passage` on its own lines, without the ID
  * when the source is gone. */

@@ -1,4 +1,5 @@
 import type { Chat, ChatMessage, MemberIdentity } from "../../shared/chat.js";
+import { clipMarked } from "../../shared/quotes.js";
 import type { ThreadEntry } from "../../service/chat/threads.js";
 
 // The existing DM HTTP contract keeps botId/role as presentation fields. They
@@ -12,7 +13,7 @@ export function chatView(chat: Chat, member: (id: string) => MemberIdentity | nu
 }
 export function threadView(entry: ThreadEntry, member: (id: string) => MemberIdentity | null) {
   return { ...chatView(entry.chat, member), replies: entry.info.replies, lastReplyAt: entry.info.lastReplyAt,
-    root: entry.root ? { senderId: entry.root.senderId, content: entry.root.content.slice(0, 300) } : null };
+    root: entry.root ? { senderId: entry.root.senderId, content: clipMarked(entry.root.content, 300), quotes: entry.root.quotes } : null };
 }
 export function messageView(message: ChatMessage) {
   return { id: message.id, chatId: message.chatId, sequence: message.sequence, senderId: message.sender.id,

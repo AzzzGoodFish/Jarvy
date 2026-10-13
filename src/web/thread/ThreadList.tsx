@@ -1,12 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type Bot, type Chat, type Member, type ThreadEntry } from "../api";
 import { formatDate, t } from "../i18n";
+import { previewText } from "../channel/quotes";
 import { IconButton } from "../ui";
 import { MemberAvatar } from "../channel/ChannelView";
 import { sortThreads, ThreadSortSelect, useThreadSort } from "./sort";
 
-/** List previews show plain text: Markdown marks dropped, first lines only. */
-const plain = (text: string) => text.replace(/[*`~#>]/g, "").replace(/\s+/g, " ").trim();
 const when = (time: number) => formatDate(time, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** A channel's threads (A37): open / done / all, in the order picked in the header (newest activity by default). */
@@ -39,7 +38,7 @@ export function ThreadList({ channel, members, bots, tick, onOpen, onClose, onEr
             <span className="jv-thread-item-head"><strong>{thread.title}</strong>
               {thread.alerts > 0 ? <span className="jv-badge">{thread.alerts}</span> : thread.unread > 0 && <span className="jv-count">{thread.unread}</span>}
               <span className="jv-status" data-done={thread.status === "done" || undefined}>{t(thread.status === "done" ? "channel.threadDone" : "threads.open")}</span></span>
-            {thread.root && <span className="jv-thread-item-root"><MemberAvatar member={sender} bots={bots} size={16}/><span>{plain(thread.root.content)}</span></span>}
+            {thread.root && <span className="jv-thread-item-root"><MemberAvatar member={sender} bots={bots} size={16}/><span>{previewText(thread.root)}</span></span>}
             <span className="jv-muted jv-thread-item-meta">{t("channel.replies", { count: thread.replies })}{thread.lastReplyAt ? ` · ${when(thread.lastReplyAt)}` : ""}{thread.following ? ` · ${t("threads.following")}` : ""}</span>
           </button>;
         })}
@@ -82,7 +81,7 @@ export function FollowedThreads({ threads, chats, members, bots, onNav, renderTh
             <span className="jv-thread-item-head"><strong>{thread.title}</strong>
               {thread.alerts > 0 ? <span className="jv-badge">{thread.alerts}</span> : thread.unread > 0 && <span className="jv-count">{thread.unread}</span>}
               <span className="jv-status" data-done={thread.status === "done" || undefined}>{t(thread.status === "done" ? "channel.threadDone" : "threads.open")}</span></span>
-            {thread.root && <span className="jv-thread-item-root"><MemberAvatar member={sender} bots={bots} size={16}/><span>{plain(thread.root.content)}</span></span>}
+            {thread.root && <span className="jv-thread-item-root"><MemberAvatar member={sender} bots={bots} size={16}/><span>{previewText(thread.root)}</span></span>}
             <span className="jv-muted jv-thread-item-meta">#{channel?.title ?? ""} · {t("channel.replies", { count: thread.replies })}{thread.lastReplyAt ? ` · ${when(thread.lastReplyAt)}` : ""}{thread.following ? "" : ` · ${t("threads.notFollowing")}`}</span>
           </button>;
         })}

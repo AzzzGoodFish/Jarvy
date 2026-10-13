@@ -1,5 +1,5 @@
 import type { Chat, ChatMessage } from "../../shared/chat.js";
-import { expandQuotes } from "../../shared/quotes.js";
+import { expandQuotes, previewQuotes, replyExcerpt } from "../../shared/quotes.js";
 import type { ChatService } from "../chat/service.js";
 import type { ThreadEntry } from "../chat/threads.js";
 
@@ -37,7 +37,7 @@ export function chatDetail(chats: ChatService, botId: string, chat: Chat) {
 export function threadRow(chats: ChatService, entry: ThreadEntry) {
   return { id: entry.chat.id, title: entry.chat.title, status: entry.chat.status, replies: entry.info.replies,
     ...(entry.info.lastReplyAt ? { lastReplyAt: iso(entry.info.lastReplyAt) } : {}),
-    root: entry.root ? { id: entry.chat.rootMessageId, from: chats.member(entry.root.senderId)?.name ?? entry.root.senderId, preview: entry.root.content.slice(0, 200) } : null,
+    root: entry.root ? { id: entry.chat.rootMessageId, from: chats.member(entry.root.senderId)?.name ?? entry.root.senderId, preview: previewQuotes(entry.root.content, entry.root.quotes).slice(0, 200) } : null,
     following: entry.chat.following, subscribed: entry.chat.subscribed, unread: entry.chat.unread };
 }
 /** A message as a Bot reads it: names instead of member IDs, the thread folded to title / status / replies, and
@@ -51,7 +51,7 @@ export function messageRow(chats: ChatService, botId: string, message: ChatMessa
     ...(message.mentions.length ? { mentions: message.mentions.map(id => chats.member(id)?.name ?? id) } : {}),
     ...(message.thread ? { thread: { id: message.thread.id, title: message.thread.title, status: message.thread.status, replies: message.thread.replies } } : {}),
     ...(message.echoOf ? { fromThread: message.echoOf } : {}),
-    ...(message.replyTo ? { replyTo: { id: message.replyTo.id, from: chats.member(message.replyTo.senderId)?.name ?? message.replyTo.senderId, text: message.replyTo.content } } : {}),
+    ...(message.replyTo ? { replyTo: { id: message.replyTo.id, from: chats.member(message.replyTo.senderId)?.name ?? message.replyTo.senderId, text: replyExcerpt(message.replyTo) } } : {}),
     ...(message.reactions.length ? { reactions: message.reactions.map(group => ({ emoji: group.emoji,
       by: group.memberIds.map(id => chats.member(id)?.name ?? id) })) } : {}),
     ...(question ? { question: { options: question.options.map(option => option.label), state: question.state,

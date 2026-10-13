@@ -14,7 +14,7 @@ import { reactionTargets } from "../delivery/routes.js";
 import { quoteDrafts, resolveQuotes } from "./quotes.js";
 
 function titleValue(value: unknown): string {
-  if (value === undefined) return "新对话";
+  if (value === undefined) return "";
   if (typeof value !== "string" || !value.trim() || value.length > 100 || value.includes("\0")) throw new ChatError(400, "Invalid Chat title");
   return value.trim();
 }
@@ -79,7 +79,7 @@ export class ChatService {
     const owner = this.repository.channels.ownerOf(actorId), directory = this.repository.channels.directory(owner);
     const actor = directory.find(member => member.id === actorId), target = directory.find(member => member.id === targetId);
     if (!actor || !target) throw new ChatError(404, "Member not found");
-    const chat = this.repository.openDirect(actorId, targetId, owner, `${actor.name}、${target.name}`);
+    const chat = this.repository.openDirect(actorId, targetId, owner, `${actor.name} · ${target.name}`);
     this.notifySaved(chat.id);
     return chat;
   }

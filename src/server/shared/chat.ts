@@ -9,7 +9,7 @@ export interface ChatNote { text: string; updatedBy: MemberIdentity; updatedAt: 
 export interface Section { id: string; name: string; position: number; createdAt: number; updatedAt: number; }
 export interface Chat {
   id: string; type: "dm" | "channel" | "thread"; title: string; ownerId: string;
-  memberIds: string[]; createdAt: number; updatedAt: number; lastMessage: string | null;
+  memberIds: string[]; createdAt: number; updatedAt: number; lastMessage: { content: string; quotes: MessageQuote[] } | null;
   sectionId: string | null; topic: string; parentId: string | null; rootMessageId: string | null; status: "open" | "done" | null;
   note: ChatNote | null;
   /** For the asking member: read position, unread count, and unread messages that @ them (all unread in a DM). */
@@ -53,7 +53,7 @@ export interface ChatMessage {
   /** Channel copy of a thread reply ("同时发到频道") or a thread's conclusion: that thread. */
   echoOf: { id: string; title: string } | null;
   /** The message this one replies to (same chat), with the start of its text; null when that message is gone. */
-  replyTo: { id: string; senderId: string; content: string } | null;
+  replyTo: { id: string; senderId: string; content: string; quotes: MessageQuote[] } | null;
   /** Emoji marks, in the order each emoji was first used. */
   reactions: { emoji: string; memberIds: string[] }[];
   /** Partial quotes, the Nth marked `[[qN]]` in the content (A44). */

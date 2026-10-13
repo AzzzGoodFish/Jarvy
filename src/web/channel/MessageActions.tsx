@@ -3,6 +3,7 @@ import type { ChatMessage, Member } from "../api";
 import { IconButton } from "../ui";
 import { memberName } from "../members";
 import { t } from "../i18n";
+import { previewText } from "./quotes";
 
 /** The first level of the emoji menu: approval, rejection, right, wrong, then a few moods. */
 export const QUICK_EMOJI = ["👍", "👎", "✅", "❌", "😄", "😂", "😵‍💫", "🤔"] as const;
@@ -17,10 +18,10 @@ export const MORE_EMOJI = [
 /** The quote above a reply: who and what it answers, clicking it jumps to that message. */
 export function ReplyQuote({ message, members, onJump }: { message: ChatMessage; members: Member[]; onJump: (id: string) => void }) {
   if (!message.replyTo) return null;
-  const author = members.find(member => member.id === message.replyTo!.senderId), text = message.replyTo.content.replace(/\s+/g, " ").trim();
+  const author = members.find(member => member.id === message.replyTo!.senderId);
   return <button type="button" className="jv-reply-quote" onClick={() => onJump(message.replyTo!.id)}>
     <span className="jv-reply-author">{memberName(author)}</span>
-    <span className="jv-reply-text">{text || t("common.attachment")}</span>
+    <span className="jv-reply-text">{previewText(message.replyTo)}</span>
   </button>;
 }
 

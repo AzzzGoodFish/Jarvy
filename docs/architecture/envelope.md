@@ -53,7 +53,7 @@ A message stores its quotes as structure and marks each with `[[qN]]` (A44). Whe
 I agree with this part.
 ```
 
-The source ID is left out when that message is gone; a passage over 200 characters keeps its first 120 and last 60 around 「……」. Previews (`reply_to`, marked messages in `notices`, thread roots in `threads.list`) show a quote as 「passage」 instead. A message without quotes keeps any `[[qN]]`-like text as it is.
+The source ID is left out when that message is gone; a passage over 200 characters keeps its first 120 and last 60 around 「……」. Previews (`reply_to`, marked messages in `notices`, thread roots in `threads.list`) show a quote as "passage" instead. A message without quotes keeps any `[[qN]]`-like text as it is.
 
 ## `<notice_batch>`
 

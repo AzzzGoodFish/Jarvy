@@ -15,6 +15,12 @@ export function quotedText(message: Pick<ChatMessage, "content" | "quotes">): st
   return message.content.replace(MARKER, (marker, n: string) => { const quote = message.quotes[Number(n) - 1]; return quote ? t("quote.inline", { text: quote.text }) : marker; });
 }
 
+/** One line of a message for a list (sidebar rows, reply quotes, thread roots): quotes worded, Markdown marks dropped,
+ * and content "" — attachments only — as 「(附件)」 (A45: the server sends content and quotes, not a preview). */
+export function previewText(part: Pick<ChatMessage, "content" | "quotes">): string {
+  return quotedText(part).replace(/[*`~#>]/g, "").replace(/\s+/g, " ").trim() || t("common.attachment");
+}
+
 /** A message's text: Markdown with @mentions, and each quote marker as a tag that jumps to its source. */
 export function MessageText({ message, members, me, onJump }: {
   message: ChatMessage; members: Member[]; me: string; onJump?: (id: string | null, passage: string) => void;

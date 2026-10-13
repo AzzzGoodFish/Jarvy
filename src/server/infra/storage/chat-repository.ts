@@ -10,12 +10,12 @@ import { ChannelRepository } from "./channel-repository.js";
 import { ThreadRepository } from "./thread-repository.js";
 import { InteractionRepository } from "./interaction-repository.js";
 import { QuoteRepository } from "./quote-repository.js";
-import { previewQuotes } from "../../shared/quotes.js";
+import { clipMarked, previewQuotes } from "../../shared/quotes.js";
 type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; };
 const MESSAGE_COLUMNS = "id,chat_id AS chatId,sequence,sender_id AS senderId,content,created_at AS createdAt,history_id AS historyId,tool_call_id AS toolCallId,question,echo_of AS echoOf,reply_to AS replyTo";
 const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_at AS createdAt,c.updated_at AS updatedAt,
   c.section_id AS sectionId,c.topic,c.parent_id AS parentId,c.root_message_id AS rootMessageId,c.status,
-  (SELECT CASE WHEN content='' THEN '(附件)' ELSE content END FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessage,
+  (SELECT content FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessage,
   (SELECT id FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessageId,
   (SELECT COALESCE(a.username,b.name) FROM messages m LEFT JOIN account a ON a.member_id=m.sender_id LEFT JOIN bots b ON b.id=m.sender_id
     WHERE m.chat_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS lastSender`;
@@ -76,11 +76,11 @@ export class ChatRepository {
   }
   getChat(actorId: string, id: string): Chat | null {
     if (!this.canAccess(actorId, id)) return null;
-    const found = this.db.prepare(`SELECT ${CHAT_COLUMNS} FROM chats c WHERE c.id=?`).get(id) as (Omit<Chat, "memberIds" | "note" | "unread" | "mentions" | "readSequence" | "following" | "subscribed" | "pinned" | "alerts" | "hint" | "atMe" | "muted"> & { lastMessageId: string | null }) | undefined;
+    const found = this.db.prepare(`SELECT ${CHAT_COLUMNS} FROM chats c WHERE c.id=?`).get(id) as (Omit<Chat, "memberIds" | "note" | "unread" | "mentions" | "readSequence" | "following" | "subscribed" | "pinned" | "alerts" | "hint" | "atMe" | "muted" | "lastMessage"> & { lastMessage: string | null; lastMessageId: string | null }) | undefined;
     if (!found) return null;
-    // The sidebar preview shows a quote as 「passage」 (A44).
-    const { lastMessageId, ...row } = found;
-    if (row.lastMessage && lastMessageId) row.lastMessage = previewQuotes(row.lastMessage, this.quotes.of(lastMessageId));
+    // The sidebar words the preview, quotes and attachment-only messages included (A44, A45): content "" is attachments only.
+    const { lastMessageId, lastMessage: content, ...rest } = found;
+    const row = { ...rest, lastMessage: content !== null && lastMessageId ? { content: clipMarked(content, 300), quotes: this.quotes.of(lastMessageId) } : null };
     const members = this.db.prepare("SELECT member_id AS id FROM chat_members WHERE chat_id=? ORDER BY member_id").all(row.parentId ?? id) as { id: string }[];
     const state = this.db.prepare("SELECT following,subscribed,pinned,muted FROM chat_states WHERE chat_id=? AND member_id=?").get(id, actorId) as { following: number; subscribed: number; pinned: number; muted: number } | undefined;
     return { ...row, memberIds: members.map(item => item.id), note: this.note(id), ...this.unread(actorId, id), ...this.interactions.rowState(actorId, id),
@@ -218,10 +218,10 @@ export class ChatRepository {
       echoOf: row.echoOf === null ? null : { id: row.echoOf, title: (this.db.prepare("SELECT title FROM chats WHERE id=?").get(row.echoOf) as { title: string }).title },
       replyTo: row.replyTo === null ? null : this.quote(row.replyTo), reactions: this.interactions.reactions(row.id), quotes: this.quotes.of(row.id) };
   }
-  /** What a reply shows of the message it answers: who wrote it and the start of its text. */
+  /** What a reply shows of the message it answers: who wrote it and the start of its content, with its quotes ("" is attachments only). */
   private quote(id: string): ChatMessage["replyTo"] {
     const row = this.db.prepare("SELECT id,sender_id AS senderId,content FROM messages WHERE id=?").get(id) as { id: string; senderId: string; content: string } | undefined;
-    return row ? { id: row.id, senderId: row.senderId, content: row.content ? previewQuotes(row.content, this.quotes.of(row.id)).slice(0, 200) : "(附件)" } : null;
+    return row ? { id: row.id, senderId: row.senderId, content: clipMarked(row.content, 200), quotes: this.quotes.of(row.id) } : null;
   }
   append(actorId: string, chatId: string, draft: DeliveryMessage, requestHash: string, files: readonly OutgoingFile[] = [],
     deliveries: { message: readonly Delivery[]; echo: readonly Delivery[] } = { message: [], echo: [] }, mentions: readonly string[] = []): { message: ChatMessage; duplicate: boolean; echo?: ChatMessage } {
@@ -280,8 +280,10 @@ export class ChatRepository {
             historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question: null, echoOf: chatId, replyTo: null });
         }
       }
-      const title = draft.content ? previewQuotes(draft.content, draft.quotes ?? []).slice(0, 46).replace(/\s+/g, " ") : "(附件)";
-      this.db.prepare("UPDATE chats SET title=CASE WHEN title='新对话' AND ?=1 THEN ? ELSE title END,updated_at=? WHERE id=?")
+      // The first message names an untitled DM (v18: untitled is ""): its text, or the file it carries.
+      const file = this.db.prepare("SELECT name FROM attachments WHERE message_id=? ORDER BY created_at,rowid LIMIT 1").get(id) as { name: string } | undefined;
+      const title = draft.content ? previewQuotes(draft.content, draft.quotes ?? []).slice(0, 46).replace(/\s+/g, " ") : file?.name.slice(0, 46) ?? "";
+      this.db.prepare("UPDATE chats SET title=CASE WHEN title='' AND ?=1 THEN ? ELSE title END,updated_at=? WHERE id=?")
         .run(sequence, title, createdAt, chatId);
       const message = this.messageFromRow({ id, chatId, sequence, senderId: actorId, content: draft.content, createdAt, historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question, echoOf: null, replyTo: draft.replyTo ?? null });
       this.db.exec("COMMIT");

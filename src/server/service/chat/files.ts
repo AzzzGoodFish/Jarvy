@@ -1,5 +1,5 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
-import { expandQuotes } from "../../shared/quotes.js";
+import { expandQuotes, replyExcerpt } from "../../shared/quotes.js";
 import { AttachmentFiles } from "../../infra/files/attachments.js";
 import type { EnvelopeMessage } from "./envelope.js";
 import type { ChatService } from "./service.js";
@@ -26,7 +26,7 @@ export class ChatFiles {
   /** The quoted message as the envelope shows it: who wrote it and its first 200 characters. */
   private reply(message: ChatMessage): Pick<EnvelopeMessage, "replyTo"> {
     const sender = message.replyTo ? this.chats.member(message.replyTo.senderId) : null;
-    return message.replyTo && sender ? { replyTo: { id: message.replyTo.id, sender, text: message.replyTo.content } } : {};
+    return message.replyTo && sender ? { replyTo: { id: message.replyTo.id, sender, text: replyExcerpt(message.replyTo) } } : {};
   }
   async paths(actorId: string, message: ChatMessage, signal?: AbortSignal) {
     const paths: { path: string; name: string }[] = [];

@@ -10,7 +10,7 @@
 - An @ is whatever the text says: writing 「@名字」 mentions that member. Names of people and Bots are unique (case-insensitive) and contain no 「@」.
 - Unread: one read position per member per chat, shared by people and Bots. Messages already delivered to a Bot do not count as its unread; it reads the rest with `messages.read`.
 - New notice and summary versions are delivered as queued notes: a Bot is told where and which version, and reads the content with `chats.info`.
-- People and Bots can edit notices. Threads have a title (default: the root message's first line without leading @ and Markdown), a status (open / done) and a summary; finishing a thread can post the summary to the channel as a conclusion.
+- People and Bots can edit notices. Threads have a title (default: the root message's first line without leading @ and Markdown, or its first file's name), a status (open / done) and a summary; finishing a thread can post the summary to the channel as a conclusion.
 - Bots can create channels, rename them, set topic and group, add members, and create and edit groups. Removing members and deleting channels or groups is for people only.
 - Between any two members there is one DM.
 
@@ -40,7 +40,7 @@ Mention      member IDs resolved from 「@名字」 when the message is saved
 - **Subscribing** (`chat_states.subscribed`) delivers every new message of a channel or thread, from anyone, and each one interrupts. A channel subscription does not include its threads; subscribing to a thread also follows it. A Bot's subscriptions are listed in its Bot info, not in the member list.
 - **Channel copy** (`alsoToChannel`): a thread's conclusion, and a Bot's thread reply sent with `alsoToChannel`, is copied to the channel in the same transaction (`messages.echo_of`). People reply only in the thread. The copy goes only to channel subscribers that did not get the reply, and is not unread for the thread's followers.
 - **Replies** quote one message in the same chat and count as @-ing its author.
-- **Partial quotes** (A44): up to 10 passages per message, each from a message in the same chat (in a thread, also its root) that the sender can read, and part of that message's text ignoring whitespace and Markdown markup. Stored as structure (`message_quotes`), marked `[[qN]]` in the content; a channel copy keeps them. Sidebar previews and thread titles show a quote as 「passage」. Quoting does not notify the quoted author.
+- **Partial quotes** (A44): up to 10 passages per message, each from a message in the same chat (in a thread, also its root) that the sender can read, and part of that message's text ignoring whitespace and Markdown markup. Stored as structure (`message_quotes`), marked `[[qN]]` in the content; a channel copy keeps them. Stored titles (a thread's, a DM's) write a quote as "passage"; previews in the API (a chat's `lastMessage`, a reply's `replyTo`, a thread's `root`) carry the content and its quotes, and the interface words them. Quoting does not notify the quoted author.
 - **Reactions**: 👍 👎 ✅ ❌ 😄 😂 😵‍💫 🤔 and more; one per person per emoji, clicking again removes it; writing access is required.
 - **Pins** and **mute** are per member.
 

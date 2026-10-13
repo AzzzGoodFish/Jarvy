@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Member } from "../api";
 import { formatDate, t } from "../i18n";
+import { previewText } from "../channel/quotes";
 import { memberName } from "../members";
 import { IconButton } from "../ui";
 import { ChannelMessages, MemberAvatar } from "../channel/ChannelView";
 
 const when = (time: number) => formatDate(time, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-const plain = (text: string) => text.replace(/[*`~#>]/g, "").replace(/\s+/g, " ").trim();
 
 /** The Bot's DMs with other Bots; reloaded on every chat change (`tick`). */
 export function useBotDirects(botId: string | undefined, tick: number) {
@@ -54,7 +54,7 @@ export function BotDirects({ bot, chats, members, bots, me, tick, onClose, onPre
         return <button key={chat.id} type="button" className="jv-thread-item" onClick={() => setOpen(chat.id)}>
           <span className="jv-thread-item-head"><MemberAvatar member={peer} bots={bots} size={20}/><strong>{memberName(peer)}</strong>
             <span className="jv-muted">{when(chat.updatedAt)}</span></span>
-          {chat.lastMessage && <span className="jv-muted jv-thread-item-meta">{plain(chat.lastMessage)}</span>}
+          {chat.lastMessage && <span className="jv-muted jv-thread-item-meta">{previewText(chat.lastMessage)}</span>}
         </button>;
       })}
     </div>}

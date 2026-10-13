@@ -4,8 +4,9 @@ import { ChatError, type ThreadInfo } from "../../shared/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 import { previewQuotes } from "../../shared/quotes.js";
 
-/** Default thread title: the root's first line without its leading @mentions or Markdown marks (A37). */
-export function threadTitle(content: string, names: readonly string[]): string {
+/** Default thread title: the root's first line without its leading @mentions or Markdown marks (A37); for a root
+ * with no text, its first file's name (A45: stored titles carry no interface words). */
+export function threadTitle(content: string, names: readonly string[], file = ""): string {
   const line = (content.split("\n").map(item => item.trim()).find(Boolean) ?? "").replace(/[*`~]/g, "").replace(/^[#>\s-]+/, "");
   const sorted = [...names].sort((a, b) => b.length - a.length);
   let rest = line;
@@ -15,7 +16,7 @@ export function threadTitle(content: string, names: readonly string[]): string {
     if (!name) break;
     rest = rest.slice(name.length + 1);
   }
-  return (rest.trim() || line || "(附件)").slice(0, 60);
+  return (rest.trim() || line || file).slice(0, 60);
 }
 
 /** Threads (A37 P2): a thread is its own Chat under a channel message. Reading and writing follow the channel;
@@ -35,8 +36,9 @@ export class ThreadRepository {
       if (!id) {
         id = randomUUID();
         const now = Date.now();
+        const firstFile = (this.db.prepare("SELECT name FROM attachments WHERE message_id=? ORDER BY created_at,rowid LIMIT 1").get(rootMessageId) as { name: string } | undefined)?.name;
         this.db.prepare(`INSERT INTO chats(id,type,title,owner_id,created_at,updated_at,parent_id,root_message_id,status)
-          VALUES(?,'thread',?,?,?,?,?,?,'open')`).run(id, threadTitle(previewQuotes(root.content, this.chats.quotes.of(rootMessageId)), names), root.ownerId, now, now, root.chatId, rootMessageId);
+          VALUES(?,'thread',?,?,?,?,?,?,'open')`).run(id, threadTitle(previewQuotes(root.content, this.chats.quotes.of(rootMessageId)), names, firstFile), root.ownerId, now, now, root.chatId, rootMessageId);
         this.follow(actorId, id);
         // The root's author follows too, so replies to their message reach their followed threads (if still in the channel).
         if (root.senderId !== actorId && this.chats.canAccess(root.senderId, root.chatId)) this.follow(root.senderId, id);
