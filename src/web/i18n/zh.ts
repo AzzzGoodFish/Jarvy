@@ -694,4 +694,9 @@ export const zh: Shape = {
   "error.discoveryUnreachable": "无法连接 {host}，请检查 API URL。",
 
   "picker.loadFailed": "Provider 列表读取失败",
+
+  "activity.toolCall": "调用 {name}",
+  "activity.toolResult": "{name} · 执行结果",
+  "activity.toolFailed": "{name} · 执行出错",
+  "activity.images": { one: "{count} 张图片", other: "{count} 张图片" },
 };

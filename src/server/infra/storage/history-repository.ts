@@ -2,21 +2,20 @@ import type { ActivityCursor } from "../../shared/activity.js";
 import { DatabaseSync } from "node:sqlite";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { type HistoryDraft, type HistoryLink, type HistoryPage, type HistoryRecord, type HistorySummary, type HistoryReadDetail, type ModelUsage } from "../../shared/history.js";
+import { type HistoryDraft, type HistoryLink, type HistoryPage, type HistoryRecord, type HistorySummary, type HistoryTool, type HistoryReadDetail, type ModelUsage } from "../../shared/history.js";
 
 type Row = Omit<HistoryRecord, "model" | "usage" | "message" | "extra"> & { model: string | null; usage: string | null; message: string; extra: string };
 const json = (value: unknown) => value == null ? null : JSON.stringify(value);
 const CALL = "EXISTS (SELECT 1 FROM json_each(history.message, '$.content') b WHERE json_extract(b.value, '$.type')=? AND json_extract(b.value, '$.tool_call_id')=?)";
 
-const SUMMARY = `SELECT id,timestamp,role,model, COALESCE((SELECT substr(group_concat(
-      CASE json_extract(b.value,'$.type')
-        WHEN 'text' THEN substr(json_extract(b.value,'$.text'),1,160)
-        WHEN 'reasoning' THEN substr(json_extract(b.value,'$.text'),1,160)
-        WHEN 'tool_call' THEN '调用 ' || json_extract(b.value,'$.name')
-        WHEN 'tool_result' THEN json_extract(b.value,'$.name') || CASE WHEN json_extract(b.value,'$.is_error') THEN ' · 执行出错' ELSE ' · 执行结果' END
-        WHEN 'image' THEN '图片' END, ' '),1,160)
-      FROM json_each(history.message,'$.content') b), '') AS preview FROM history`;
-type SummaryRow = Omit<HistorySummary, "model"> & { model: string | null };
+// A summary is structure, not words (A45): the text and reasoning start, the tool steps, the image count.
+const BLOCKS = "FROM json_each(history.message,'$.content') b WHERE json_extract(b.value,'$.type')";
+const SUMMARY = `SELECT id,timestamp,role,model,
+    COALESCE((SELECT substr(group_concat(substr(json_extract(b.value,'$.text'),1,160),' '),1,160) ${BLOCKS} IN ('text','reasoning')),'') AS preview,
+    (SELECT json_group_array(json_object('kind',CASE json_extract(b.value,'$.type') WHEN 'tool_call' THEN 'call' ELSE 'result' END,
+      'name',json_extract(b.value,'$.name'),'error',json_extract(b.value,'$.is_error'))) ${BLOCKS} IN ('tool_call','tool_result')) AS tools,
+    (SELECT count(*) ${BLOCKS}='image') AS images FROM history`;
+type SummaryRow = Omit<HistorySummary, "model" | "tools"> & { model: string | null; tools: string };
 
 /** One Bot, one database, one table. No SDK types or adapter-specific SQL. */
 export class HistoryRepository {
@@ -77,7 +76,9 @@ export class HistoryRepository {
     return rows.map(({ priced, cost, ...row }) => ({ ...row, cost: priced ? cost : null }));
   }
   private decodeSummary(row: SummaryRow): HistorySummary {
-    return { ...row, model: row.model === null ? null : JSON.parse(row.model), preview: row.preview.replace(/\s+/g, " ").trim() };
+    const tools = (JSON.parse(row.tools) as { kind: HistoryTool["kind"]; name: string; error: number | null }[])
+      .map(({ kind, name, error }) => error ? { kind, name, error: true as const } : { kind, name });
+    return { ...row, model: row.model === null ? null : JSON.parse(row.model), preview: row.preview.replace(/\s+/g, " ").trim(), tools };
   }
   read(id: number): HistoryRecord | null {
     const row = this.db.prepare("SELECT * FROM history WHERE id=?").get(id) as Row | undefined;

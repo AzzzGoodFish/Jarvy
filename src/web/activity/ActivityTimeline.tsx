@@ -1,11 +1,16 @@
 import { Fragment } from "react";
 import { ArrowUpRightIcon, MessageSquareIcon, PaperclipIcon } from "lucide-react";
 import type { ActivityItem, Selection } from "./api";
+import type { HistorySummary } from "../history-api";
 import { historyTime } from "../HistoryDetail";
 import { formatDate, t, type Key } from "../i18n";
 
 const ROLES: Record<string, Key> = { system: "activity.roleSystem", user: "activity.roleUser", assistant: "activity.roleAssistant", tool: "history.toolResult" };
 const day = (timestamp: number) => formatDate(timestamp, { year: "numeric", month: "long", day: "numeric" });
+/** A History record's line: its text, then its tool steps and images, worded here (A45). */
+const historyLine = (record: HistorySummary) => [record.preview,
+  ...record.tools.map(tool => t(tool.kind === "call" ? "activity.toolCall" : tool.error ? "activity.toolFailed" : "activity.toolResult", { name: tool.name })),
+  record.images ? t("activity.images", { count: record.images }) : ""].filter(Boolean).join(" ");
 const clock = (timestamp: number) => formatDate(timestamp, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
 export function ActivityTimeline({ items, onSelect }: { items: ActivityItem[]; onSelect: (selection: Selection) => void }) {
@@ -29,7 +34,7 @@ export function ActivityTimeline({ items, onSelect }: { items: ActivityItem[]; o
           </article> : <article className="jv-activity-card jv-activity-history" aria-label={t("activity.historyRecord", { id: item.record.id })}>
             <button type="button" className="jv-activity-card-main" onClick={() => onSelect({ kind: "history", id: item.record.id })} aria-label={t("activity.viewHistory", { id: item.record.id, role: item.record.role })}>
               <span className="jv-activity-card-head"><strong>{ROLES[item.record.role] ? t(ROLES[item.record.role]!) : item.record.role}</strong><span>#{item.record.id}</span></span>
-              <span className="jv-activity-preview">{item.record.preview || t("activity.emptyMessage")}</span>
+              <span className="jv-activity-preview">{historyLine(item.record) || t("activity.emptyMessage")}</span>
             </button>
           </article>}
         </li>

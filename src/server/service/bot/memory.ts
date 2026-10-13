@@ -1,6 +1,13 @@
 import type { ActivityCursor } from "../../shared/activity.js";
-import type { HistoryDraft, HistoryReadMode, HistoryReadResult } from "../../shared/history.js";
+import type { HistoryDraft, HistoryReadMode, HistoryReadResult, HistoryReadSummary, HistorySummary } from "../../shared/history.js";
 import { HistoryRepository } from "../../infra/storage/history-repository.js";
+
+/** What history.read shows of a summary: one line, its text, then its tool steps and images (the prompt batch words it). */
+function summaryLine({ tools, images, ...summary }: HistorySummary): HistoryReadSummary {
+  const steps = tools.map(tool => tool.kind === "call" ? `调用 ${tool.name}` : `${tool.name} · ${tool.error ? "执行出错" : "执行结果"}`);
+  const line = [summary.preview, ...steps, ...Array.from({ length: images }, () => "图片")].filter(Boolean).join(" ");
+  return { ...summary, preview: line.slice(0, 160).replace(/\s+/g, " ").trim() };
+}
 
 /** Bot-owned memory entry point; this first slice stores and reads History. */
 export class Memory {
@@ -17,7 +24,7 @@ export class Memory {
     return record ? { record, links: this.history().links(record) } : null;
   }
   readMany(ids: readonly number[], mode: HistoryReadMode): HistoryReadResult {
-    const found = mode === "summary" ? this.history().summaries(ids) : this.history().details(ids);
+    const found = mode === "summary" ? this.history().summaries(ids).map(item => item && summaryLine(item)) : this.history().details(ids);
     const result: HistoryReadResult = { mode, records: [], missingIds: [] };
     found.forEach((record, index) => {
       if (record) result.records.push(record);

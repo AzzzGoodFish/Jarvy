@@ -21,9 +21,12 @@ export interface HistoryDraft {
   extra: { [adapter: string]: JsonValue };
 }
 export interface HistoryRecord extends HistoryDraft { id: number; }
+/** A History record in a list (A45: structure, worded by the reader): the start of its text and reasoning, its tool
+ * steps in order (a call, or a result that may have failed) and how many images it holds. */
 export interface HistorySummary {
-  id: number; timestamp: number; role: HistoryRole; model: HistoryDraft["model"]; preview: string;
+  id: number; timestamp: number; role: HistoryRole; model: HistoryDraft["model"]; preview: string; tools: HistoryTool[]; images: number;
 }
+export interface HistoryTool { kind: "call" | "result"; name: string; error?: true; }
 export interface HistoryPage { items: HistorySummary[]; nextBefore: number | null; }
 export interface HistoryLink { id: number; tool_call_id: string; role: HistoryRole; }
 /** One model's usage over a period, summed from the Bot's History. `cost` is null when no call of that model was
@@ -37,8 +40,10 @@ export interface ModelUsage {
 /** Agent-facing reads omit billing and adapter diagnostics; message content remains complete. */
 export type HistoryReadMode = "summary" | "detail";
 export type HistoryReadDetail = Pick<HistoryRecord, "id" | "timestamp" | "role" | "model" | "message">;
+/** A summary as history.read gives it: one line of text (see Memory). */
+export type HistoryReadSummary = Pick<HistorySummary, "id" | "timestamp" | "role" | "model" | "preview">;
 export interface HistoryReadResult {
   mode: HistoryReadMode;
-  records: (HistorySummary | HistoryReadDetail)[];
+  records: (HistoryReadSummary | HistoryReadDetail)[];
   missingIds: number[];
 }

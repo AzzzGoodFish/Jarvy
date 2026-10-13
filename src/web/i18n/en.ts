@@ -695,4 +695,9 @@ export const en = {
   "error.discoveryUnreachable": "Couldn't reach {host}. Check the API URL.",
 
   "picker.loadFailed": "Couldn't load the providers",
+
+  "activity.toolCall": "Called {name}",
+  "activity.toolResult": "{name} · result",
+  "activity.toolFailed": "{name} · failed",
+  "activity.images": { one: "{count} image", other: "{count} images" },
 } as const;
