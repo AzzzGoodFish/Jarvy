@@ -1,7 +1,6 @@
 // Interface languages (A45): the English reference and every other dictionary must cover the same keys with the same
-// placeholders, no translation may be empty, and no component may carry its own Chinese text. Files not migrated yet
-// are listed in PENDING; a file there that is already clean is an error too, so the list can only shrink. The server
-// names failures with codes and the web words them (web/errors.ts): the two lists must match.
+// placeholders, no translation may be empty, and no component may carry its own Chinese text. The server names
+// failures with codes and the web words them (web/errors.ts): the two lists must match.
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import ts from 'typescript';
@@ -76,20 +75,14 @@ function chinese(file) {
   return found;
 }
 
-const PENDING = new Set([
-  'avatar/BotAvatar.tsx', 'avatar/FloatingBot.tsx', 'avatar/palette.ts',
-]);
-const seen = new Set();
 for (const file of files(web)) {
   const name = relative(web, file);
   // In i18n/ only the module and the key types are code; the rest are dictionaries. And the vendored shadcn copies
   // are translated where they are used, not wholesale.
   if (name.startsWith('i18n/') && name !== 'i18n/index.tsx' && name !== 'i18n/keys.ts' || name.startsWith('components/')) continue;
   const lines = chinese(file);
-  if (PENDING.has(name)) { seen.add(name); if (!lines.length) failures.push(`${name}: no Chinese left — drop it from PENDING`); continue; }
-  for (const line of lines) failures.push(`${name}:${line}: Chinese text — use t() (${name} is not in PENDING)`);
+  for (const line of lines) failures.push(`${name}:${line}: Chinese text — use t()`);
 }
-for (const name of PENDING) if (!seen.has(name)) failures.push(`PENDING lists ${name}, which is not a file in src/web`);
 
 /** Failure codes (A45): the server's coded throws against the table in web/errors.ts. */
 const CODE_ARGUMENT = { RuntimeFault: 0, ChatError: 2, ValidationError: 1, ConflictError: 1 };

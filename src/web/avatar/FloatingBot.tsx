@@ -5,6 +5,7 @@ import type { FigureInput, FigureMotion } from "./figure";
 import { BOT_COLORS, type BotColor, type BotMood } from "./palette";
 import { NpcLayer } from "./npc/NpcLayer";
 import { useNpcDemo } from "./npc/useNpcDemo";
+import { t } from "../i18n";
 import "../styles/floating-bot.css";
 
 const KEY = "jarvy-floating-bot", MARGIN = 10, DRAG = 4;
@@ -124,7 +125,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
     // The renderer lives as long as the component; colour, mood and status flow in through refs.
   }, []);
 
-  return <><button ref={button} type="button" className="jv-floating-bot" data-live={live || undefined} title={bot.name} aria-label={`查看 ${bot.name} 的 Bot 信息`}
+  return <><button ref={button} type="button" className="jv-floating-bot" data-live={live || undefined} title={bot.name} aria-label={t("avatar.openInfo", { name: bot.name })}
     onPointerDown={event => {
       if (event.button !== 0) return;
       const el = event.currentTarget; el.setPointerCapture(event.pointerId);

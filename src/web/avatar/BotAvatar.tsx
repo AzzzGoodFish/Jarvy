@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { colorHex, type BotColor, type BotMood } from "./palette";
 import { snapshot } from "./snapshot";
+import { t } from "../i18n";
 import "../styles/avatar.css";
 
 /** Still figure of a Bot in its colour and current mood. Until the image is ready (or if WebGL is
@@ -14,7 +15,7 @@ export function BotAvatar({ color, mood = "normal", size = 36, badge }: { color:
   }, [color, mood, size]);
   return <span className="jv-bot-avatar" style={{ "--jv-avatar-size": `${size}px`, "--jv-avatar-color": colorHex(color) } as CSSProperties} aria-hidden="true">
     {image ? <img src={image} alt=""/> : <span className="jv-bot-avatar-tile"/>}
-    {badge === "working" && <span className="jv-typing" title="工作中"><i/><i/><i/></span>}
-    {badge === "asking" && <span className="jv-typing jv-asking" title="等你回答">?</span>}
+    {badge === "working" && <span className="jv-typing" title={t("avatar.working")}><i/><i/><i/></span>}
+    {badge === "asking" && <span className="jv-typing jv-asking" title={t("activity.asking")}>?</span>}
   </span>;
 }

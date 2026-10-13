@@ -764,4 +764,13 @@ export const zh: Shape = {
   "npc.demo.no": "先不用",
   "npc.demo.replyYes": "好了：线程面板现在打开就停在最新回复，不会再跳；文档里的截图也换成了新的。构建通过。",
   "npc.demo.replyNo": "好了：线程面板现在打开就停在最新回复，不会再跳。构建通过，截图先没动。",
+
+  "color.gray": "灰",
+  "color.blue": "蓝",
+  "color.green": "绿",
+  "color.amber": "琥珀",
+  "color.rose": "粉",
+  "color.violet": "紫",
+  "avatar.working": "工作中",
+  "avatar.openInfo": "查看 {name} 的 Bot 信息",
 };

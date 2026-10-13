@@ -765,4 +765,13 @@ export const en = {
   "npc.demo.no": "Not now",
   "npc.demo.replyYes": "Done: the thread pane now opens at the newest reply without jumping, and the screenshots in the docs are new. The build passes.",
   "npc.demo.replyNo": "Done: the thread pane now opens at the newest reply without jumping. The build passes; I left the screenshots as they are.",
+
+  "color.gray": "Gray",
+  "color.blue": "Blue",
+  "color.green": "Green",
+  "color.amber": "Amber",
+  "color.rose": "Pink",
+  "color.violet": "Purple",
+  "avatar.working": "Working",
+  "avatar.openInfo": "Open {name}'s Bot info",
 } as const;

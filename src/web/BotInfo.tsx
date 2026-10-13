@@ -71,7 +71,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
             <span>{bot.description || t("bot.noDescription")}</span>
             <div className="jv-bot-colors" role="radiogroup" aria-label={t("bot.color")}>
               {(Object.keys(BOT_COLORS) as BotColor[]).map(color => <button key={color} type="button" role="radio" aria-checked={bot.color === color}
-                aria-label={BOT_COLORS[color].label} title={BOT_COLORS[color].label} disabled={busy} style={{ background: colorHex(color) }} onClick={() => void changeColor(color)}/>)}
+                aria-label={t(BOT_COLORS[color].label)} title={t(BOT_COLORS[color].label)} disabled={busy} style={{ background: colorHex(color) }} onClick={() => void changeColor(color)}/>)}
             </div>
             {note(colorNote)}
           </div>
