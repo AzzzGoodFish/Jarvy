@@ -1,5 +1,6 @@
 // Interface languages (A45): the English reference and every other dictionary must cover the same keys with the same
-// placeholders, no translation may be empty, and no component may carry its own Chinese text. The server names
+// placeholders, no translation may be empty, and no component may carry its own Chinese text. A dictionary is a folder
+// of parts put together in its index.ts: every language has the same parts, and a key lives in one part only. The server names
 // failures with codes and the web words them (web/errors.ts): the two lists must match.
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
@@ -9,50 +10,54 @@ const web = resolve('src/web'), i18n = resolve(web, 'i18n');
 const failures = [];
 const read = file => readFileSync(file, 'utf8');
 
-/** The reference and the other dictionaries, as key → source text. */
+/** A dictionary folder's parts (all but index.ts), as key → source text and where it is. */
 function dictionary(name) {
-  const file = resolve(i18n, `${name}.ts`);
-  const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+  const dir = resolve(i18n, name), parts = readdirSync(dir).filter(file => file.endsWith('.ts') && file !== 'index.ts').sort();
   const entries = new Map();
-  const walk = node => {
-    if (ts.isObjectLiteralExpression(node)) for (const property of node.properties) {
-      if (!ts.isPropertyAssignment(property) || !ts.isStringLiteral(property.name)) continue;
-      const value = property.initializer;
-      const literal = ts.isStringLiteral(value) ? value.text : null;
-      const plural = ts.isObjectLiteralExpression(value) ? Object.fromEntries(value.properties.filter(item => ts.isPropertyAssignment(item) && ts.isIdentifier(item.name)).map(item => [item.name.text, ts.isStringLiteral(item.initializer) ? item.initializer.text : null])) : null;
-      const start = value.getStart(source);
-      entries.set(property.name.text, { literal, plural, line: source.getLineAndCharacterOfPosition(start).line + 1 });
-    }
-    ts.forEachChild(node, walk);
-  };
-  walk(source);
-  return { file, entries };
+  for (const part of parts) {
+    const file = resolve(dir, part);
+    const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+    const walk = node => {
+      if (ts.isObjectLiteralExpression(node)) for (const property of node.properties) {
+        if (!ts.isPropertyAssignment(property) || !ts.isStringLiteral(property.name)) continue;
+        const value = property.initializer, key = property.name.text;
+        const literal = ts.isStringLiteral(value) ? value.text : null;
+        const plural = ts.isObjectLiteralExpression(value) ? Object.fromEntries(value.properties.filter(item => ts.isPropertyAssignment(item) && ts.isIdentifier(item.name)).map(item => [item.name.text, ts.isStringLiteral(item.initializer) ? item.initializer.text : null])) : null;
+        const where = `${relative(process.cwd(), file)}:${source.getLineAndCharacterOfPosition(value.getStart(source)).line + 1}`;
+        if (entries.has(key)) failures.push(`${where}: "${key}" is already in ${entries.get(key).where} — a key lives in one part`);
+        entries.set(key, { literal, plural, where });
+      }
+      ts.forEachChild(node, walk);
+    };
+    walk(source);
+  }
+  return { name, parts, entries };
 }
 
 const variables = text => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort().join(',');
 const reference = dictionary('en');
-const others = readdirSync(i18n).filter(name => name.endsWith('.ts') && name !== 'en.ts' && name !== 'keys.ts').map(name => dictionary(name.replace(/\.ts$/, '')));
-if (!others.length) failures.push('i18n: no dictionary beside en.ts');
+const others = readdirSync(i18n, { withFileTypes: true }).filter(item => item.isDirectory() && item.name !== 'en').map(item => dictionary(item.name));
+if (!others.length) failures.push('i18n: no dictionary beside en/');
 
-for (const { file, entries } of others) {
-  const name = relative(process.cwd(), file);
+for (const { name, parts, entries } of others) {
+  if (parts.join() !== reference.parts.join()) failures.push(`i18n/${name}: parts ${parts.join(', ')} — en has ${reference.parts.join(', ')}`);
   for (const [key, entry] of reference.entries) {
     const other = entries.get(key);
-    if (!other) { failures.push(`${name}: missing "${key}"`); continue; }
+    if (!other) { failures.push(`i18n/${name}: missing "${key}" (en: ${entry.where})`); continue; }
     if (other.literal !== null || entry.literal !== null) {
-      if (entry.literal === null || other.literal === null) { failures.push(`${name}: "${key}" must ${entry.literal === null ? 'have' : 'drop'} its plural forms`); continue; }
-      if (!other.literal.trim()) failures.push(`${name}: "${key}" is empty`);
-      if (variables(entry.literal) !== variables(other.literal)) failures.push(`${name}: "${key}" differs in placeholders (${variables(entry.literal)} vs ${variables(other.literal)})`);
+      if (entry.literal === null || other.literal === null) { failures.push(`${other.where}: "${key}" must ${entry.literal === null ? 'have' : 'drop'} its plural forms`); continue; }
+      if (!other.literal.trim()) failures.push(`${other.where}: "${key}" is empty`);
+      if (variables(entry.literal) !== variables(other.literal)) failures.push(`${other.where}: "${key}" differs in placeholders (${variables(entry.literal)} vs ${variables(other.literal)})`);
     } else {
       for (const form of ['one', 'other']) {
         const mine = entry.plural?.[form] ?? null, their = other.plural?.[form] ?? null;
-        if (mine === null || their === null) { failures.push(`${name}: "${key}.${form}" must ${mine === null ? 'be a string' : 'exist'}`); continue; }
-        if (!their.trim()) failures.push(`${name}: "${key}.${form}" is empty`);
-        if (variables(mine) !== variables(their)) failures.push(`${name}: "${key}.${form}" differs in placeholders`);
+        if (mine === null || their === null) { failures.push(`${other.where}: "${key}.${form}" must ${mine === null ? 'be a string' : 'exist'}`); continue; }
+        if (!their.trim()) failures.push(`${other.where}: "${key}.${form}" is empty`);
+        if (variables(mine) !== variables(their)) failures.push(`${other.where}: "${key}.${form}" differs in placeholders`);
       }
     }
   }
-  for (const key of entries.keys()) if (!reference.entries.has(key)) failures.push(`${name}: "${key}" is not in en.ts`);
+  for (const [key, entry] of entries) if (!reference.entries.has(key)) failures.push(`${entry.where}: "${key}" is not in en/`);
 }
 
 /** Every UI file, minus the dictionaries themselves. */
@@ -60,7 +65,7 @@ function files(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap(item => item.isDirectory() ? files(resolve(dir, item.name)) : /\.tsx?$/.test(item.name) ? [resolve(dir, item.name)] : []);
 }
 const cjk = /[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]/;
-/** Chinese in a string, template or JSX text — comments and zh.ts are the only places it belongs. */
+/** Chinese in a string, template or JSX text — comments and the dictionaries are the only places it belongs. */
 function chinese(file) {
   const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
   const found = [];

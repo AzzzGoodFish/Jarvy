@@ -3,14 +3,17 @@ import { resolve, dirname, relative } from 'node:path';
 import ts from 'typescript';
 
 const root = resolve('src/server');
-function files(dir) {
-  return readdirSync(dir, { withFileTypes: true }).flatMap(item => item.isDirectory() ? files(resolve(dir, item.name)) : item.name.endsWith('.ts') ? [resolve(dir, item.name)] : []);
+function files(dir, pattern = /\.ts$/) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(item => item.isDirectory() ? files(resolve(dir, item.name), pattern) : pattern.test(item.name) ? [resolve(dir, item.name)] : []);
 }
 const failures = [];
+// No source file over 500 lines (AGENTS.md), server and web alike.
+for (const file of [...files(root), ...files(resolve('src/web'), /\.(tsx?|css)$/)]) {
+  if (readFileSync(file, 'utf8').split('\n').length > 501) failures.push(`${relative(resolve('src'), file)}: exceeds 500 lines`);
+}
 for (const file of files(root)) {
   const text = readFileSync(file, 'utf8');
   const layer = relative(root, file).split('/')[0];
-  if (text.split('\n').length > 501) failures.push(`${relative(root, file)}: exceeds 500 lines`);
   const syntax = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   for (const node of syntax.statements) {
     if ((!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) || !node.moduleSpecifier || !ts.isStringLiteral(node.moduleSpecifier)) continue;
