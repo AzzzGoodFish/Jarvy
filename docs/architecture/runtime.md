@@ -19,7 +19,7 @@
 5. **Settings.** `SettingsManager.inMemory({ httpIdleTimeoutMs: 900_000 })`; everything else, including retries and compaction, is Pi's default. Before that, `infra/pi/http.ts` installs the same global undici dispatcher Pi's CLI uses, with 900 s header and body timeouts (A40).
 6. **Resources and tools.** A controlled resource loader: no discovery of host extensions, skills, context files or prompt templates. It loads the `chat` tool, the codemode extension and the compiled system prompt. Tools: `bash`, `read`, `edit`, `write`, `chat`, `codemode`.
 7. **Create.** `createAgentSession` gets explicit `cwd`, agent directory, session manager, model runtime, model, thinking level, settings, resource loader and tools. Resource errors and the active tool list are checked.
-8. **Subscribe, then prompt.** Events are subscribed before the first prompt. State changes and queue handling happen in `AgentRuntime`, never by prompting from inside an event callback.
+8. **Subscribe, then prompt.** Events are subscribed before the first prompt. State changes and queue handling happen in `AgentRuntime`, never by prompting from inside an event callback. The same subscription feeds the live turn ([live.md](live.md)) through `infra/pi/live.ts`.
 9. **Shutdown.** Stop taking new work, cancel or wait for the current prompt, unsubscribe and dispose. Pending deliveries stay.
 
 ## States and turn boundaries
@@ -32,6 +32,7 @@ Bot state is **stop / idle / running**. While running, activity is `reasoning`, 
 - A turn ends as **interrupted** when Pi's run signal was aborted, otherwise as **failed** with Pi's error message, shown as 「模型请求失败：<reason>」 (A31). History keeps Pi's original record.
 - `getContextUsage()` may be unknown; it is never shown as 0 %.
 - Compaction start and end (tokens before and after, or the failure) are logged.
+- While a turn runs, its steps are kept in memory and sent to the Bot's DM page ([the live turn](live.md), A47).
 
 ## Switching model or thinking level
 

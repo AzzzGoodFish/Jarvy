@@ -1,7 +1,7 @@
 import type { Part } from "../keys";
 import type { npc as en } from "../en/npc";
 
-/** 中文：NPC 原型（avatar/npc/）：演示脚本和台词。Covers exactly the keys of en/npc.ts. */
+/** 中文：猫的对话框（avatar/npc/）——实时的这一轮（A47），以及演示脚本和原型工具栏。Covers exactly the keys of en/npc.ts. */
 export const npc: Part<typeof en> = {
   "npc.toolbar": "NPC 原型",
   "npc.replay": "重播",
@@ -63,4 +63,42 @@ export const npc: Part<typeof en> = {
   "npc.demo.no": "先不用",
   "npc.demo.replyYes": "好了：线程面板现在打开就停在最新回复，不会再跳；文档里的截图也换成了新的。构建通过。",
   "npc.demo.replyNo": "好了：线程面板现在打开就停在最新回复，不会再跳。构建通过，截图先没动。",
+  // The live turn (A47): steps worded from the server's structure.
+  "npc.live.omitted": "……省略 {count} 字……",
+  "npc.live.tokens": "上下文：{before} → {after} tokens",
+  "npc.live.compact.running": "在整理上下文",
+  "npc.live.compact.ok": "整理好了上下文",
+  "npc.live.compact.failed": "整理上下文失败了",
+  "npc.live.retry.running": "在重试（第 {attempt}/{max} 次）",
+  "npc.live.retry.ok": "重试成功",
+  "npc.live.retry.failed": "重试失败了",
+  "npc.live.read.running": "在读 {target}",
+  "npc.live.read.ok": "读了 {target}",
+  "npc.live.read.failed": "没读到 {target}",
+  "npc.live.edit.running": "在改 {target}",
+  "npc.live.edit.ok": "改好了 {target}",
+  "npc.live.edit.failed": "没改成 {target}",
+  "npc.live.write.running": "在写 {target}",
+  "npc.live.write.ok": "写好了 {target}",
+  "npc.live.write.failed": "没写成 {target}",
+  "npc.live.run.running": "在跑 {target}",
+  "npc.live.run.ok": "跑完了 {target}",
+  "npc.live.run.failed": "{target} 失败了",
+  "npc.live.script.running": "在跑一段脚本",
+  "npc.live.script.ok": "跑完了一段脚本",
+  "npc.live.script.failed": "脚本出错了",
+  "npc.live.tool.running": "在用 {tool}",
+  "npc.live.tool.ok": "用了 {tool}",
+  "npc.live.tool.failed": "{tool} 出错了",
+  "npc.live.sendFailed": "消息没发出去",
+  "npc.live.askFailed": "问题没发出去",
+  "npc.live.askClosed": "问题关掉了",
+  "npc.live.answerBelow": "在下面的卡片里回答",
+  "npc.live.answerIn": "去 {chat} 里回答",
+  "npc.live.browse.running": "在翻看 {chat}",
+  "npc.live.browse.ok": "翻看了 {chat}",
+  "npc.live.browseAll.running": "在翻看聊天",
+  "npc.live.browseAll.ok": "翻看了聊天",
+  "npc.done.interrupted": "被打断了 · {duration}",
+  "npc.done.failed": "这一轮失败了 · {duration}",
 };

@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { ApiEnv, ApiServices } from "../context.js";
 
-/** The turn a Bot is running, live (A47): `snapshot` with the turn so far (null when idle), then `start`, `patch` and
- * `end` as it goes. Only the Bot's owner, the signed-in person, may listen. A reader that falls behind is disconnected,
+/** The turn a Bot is running, live (A47): `snapshot` with the turn so far (null when idle) and the server's clock, then
+ * `start`, `patch` and `end` as it goes. Only the Bot's owner, the signed-in person, may listen. A reader that falls behind is disconnected,
  * as on `/events`; it reconnects and starts again from a snapshot. */
 export function liveRoutes({ account, bots }: ApiServices) {
   const routes = new Hono<ApiEnv>();
@@ -33,7 +33,8 @@ export function liveRoutes({ account, bots }: ApiServices) {
           if (close) controller.close();
         };
         signal.addEventListener("abort", aborted, { once: true });
-        if (signal.aborted) disconnect(); else send("snapshot", { turn });
+        // `now` lets the page line its clock up with the server's for the running times.
+        if (signal.aborted) disconnect(); else send("snapshot", { turn, now: Date.now() });
       },
       cancel() { disconnect(false); },
     }, new ByteLengthQueuingStrategy({ highWaterMark: c.env.outgoing.writableHighWaterMark }));

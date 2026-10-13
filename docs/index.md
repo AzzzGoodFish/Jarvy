@@ -27,6 +27,7 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 | [Delivery](architecture/delivery.md) | Routing, the policy table, the inbox, how Bots and people respond |
 | [Bot input (XML)](architecture/envelope.md) | The `<chat_batch>` and `<notice_batch>` formats |
 | [Bot runtime](architecture/runtime.md) | Pi session setup, lifecycle, states, model switching, timeouts |
+| [The live turn](architecture/live.md) | The running turn in memory, `GET /api/bots/:id/live`, what the cat does (A47) |
 | [Tools and prompt](architecture/tools-and-prompt.md) | The `chat` gateway, internal tools, codemode, the system prompt |
 | [Models and credentials](architecture/models.md) | Connections, credentials, model catalog and auto-configuration |
 | [Memory](architecture/memory.md) | Chat history and Bot History; `history.read`; the activity timeline |
@@ -36,9 +37,8 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 
 ## Not built yet
 
-- A panel for a Bot's live status and logs.
 - A channel-group overview page and folding of long messages.
 - Search across all of a Bot's History, and History ranges around each message it sent.
-- The `self.mood` tool (moods are stored and shown, but a Bot cannot set its own yet).
+- The `self.mood` tool (moods are stored and shown, but a Bot cannot set its own yet; the live turn shows the stored one).
 - Muting for Bots through a tool (the rule already applies to Bots).
 - Channel copies of thread replies do not carry the original's mentions; the thread pane loads all replies at once.

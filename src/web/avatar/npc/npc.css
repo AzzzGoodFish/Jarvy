@@ -18,7 +18,9 @@ div.jv-npc-line { cursor: default; }
 .jv-npc-name { position: absolute; top: -11px; left: 12px; padding: 0 6px; border-radius: 6px; background: var(--ui-bg-elevated); color: var(--ui-text-secondary);
   font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; }
 .jv-npc-name em { margin-left: 6px; font-style: normal; font-weight: 500; color: var(--ui-text-accent); }
-.jv-npc-speech { color: var(--ui-text-primary); }
+/* A long message shows its first lines; the panel has all of it. */
+.jv-npc-speech { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; color: var(--ui-text-primary); white-space: pre-wrap; }
+.jv-npc-hint { margin: 6px 0 0; color: var(--ui-text-tertiary); font-size: 11.5px; }
 
 /* Thought — a round bubble trailing little circles towards the cat; faint italics, one sentence at a time. */
 .jv-npc[data-look=thought] { border-width: 1.5px; border-color: var(--ui-border-default); border-radius: 20px; box-shadow: var(--ui-shadow-sm); }

@@ -9,15 +9,16 @@ src/
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
     activity/ usage/ avatar/ files/ question/ bot/ styles/ theme/ components/ui/
+      avatar/               the 3D Bot (figure.ts), its DM layer (npc/) and colours
   server/
     api/
       app.ts                 Hono app and route registration
       server.ts              Node HTTP adapter
-      routes/                account, bots, chats, channels, models, history, activity, events (SSE)
+      routes/                account, bots, chats, channels, models, history, activity, events and live (SSE)
       middleware/            same-origin and security headers, request bodies, error mapping
       views/                 HTTP projections
     service/
-      bot/                   Bot, its parts, BotService
+      bot/                   Bot, its parts, BotService, the live turn (live.ts)
       chat/                  Chat, its parts, ChatService, mentions, envelope
       delivery/              routes, policy table, plan and dispatch (A41)
       models/                model connections, credentials, catalog queries
@@ -26,7 +27,7 @@ src/
       events.ts              committed business changes (no HTTP/SSE here)
     infra/
       storage/               Store, repositories, migrations/
-      pi/                    Pi session, models, credentials, History conversion, HTTP dispatcher
+      pi/                    Pi session, models, credentials, History and live-event conversion, HTTP dispatcher
       credentials/           per-connection credential serialisation
       files/                 workspace and attachment file I/O
       models/                model-list discovery over the network

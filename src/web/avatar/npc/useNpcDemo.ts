@@ -3,6 +3,8 @@ import { t, type Key } from "../../i18n";
 import type { FigureMotion } from "../figure";
 import type { BotMood } from "../palette";
 import { DEMO_TURN, POSES, type ScriptStep, type StepKind } from "./script";
+import { demoStep } from "./demo-view";
+import type { NpcDriver } from "./view";
 
 export type StepState = "running" | "ok" | "failed";
 /** A step as it plays: the script entry plus its state, timing and how much of its text is out. */
@@ -79,20 +81,27 @@ export function useNpcDemo(enabled: boolean, initialMood: BotMood) {
     : view.phase === "stretch" ? "stretch" : view.phase === "groom" ? "groom" : view.phase === "turn" ? "think" : "idle";
   const flashing = view.flash && view.flash.until > now ? view.flash.mood : null;
   const recap = view.endedAt !== null && now < view.recapUntil;
+  // What the dialogue shows: the running step (or the one that just ended, until the next starts), or a pose's line.
+  const shown = pose ? pose.step ? fullStep(pose.step) : null : current ?? (view.phase === "turn" ? view.steps.at(-1) ?? null : null);
+  const driver: NpcDriver = {
+    view: { steps: view.steps.map(demoStep), shown: shown ? demoStep(shown) : null, startedAt: view.startedAt, endedAt: view.endedAt, skew: 0,
+      answer: value => answer.current?.(value),
+      // The 「done」 line after a turn: up for 6 s, fading out for the last half second; a pose shows it with a sample time.
+      done: pose?.done ? { ms: 31_400, outcome: "completed", fading: false }
+        : !pose && recap ? { ms: view.endedAt! - view.startedAt, outcome: "completed", fading: now >= view.recapUntil - FADE_MS } : null },
+    motion, fast: pose ? !!pose.fast : current?.kind === "write" || current?.kind === "run", mood: pose?.mood ?? flashing ?? baseMood, shake: view.shake,
+    canRecap: !pose && view.endedAt !== null && !recap, showRecap: () => setView(v => ({ ...v, recapUntil: Date.now() + RECAP_MS })),
+  };
   return {
-    ...view, pose, motion, fast: pose ? !!pose.fast : current?.kind === "write" || current?.kind === "run",
-    mood: pose?.mood ?? flashing ?? baseMood, baseMood, setBaseMood,
-    /** What the dialogue shows: the running step (or the one that just ended, until the next starts), or a pose's line. */
-    shown: pose ? pose.step ? fullStep(pose.step) : null : current ?? (view.phase === "turn" ? view.steps.at(-1) ?? null : null),
-    /** The 「done」 line after a turn: up for 6 s, fading out for the last half second; a pose shows it with a sample time. */
-    done: pose?.done ? { ms: 31_400, fading: false } : !pose && recap ? { ms: view.endedAt! - view.startedAt, fading: now >= view.recapUntil - FADE_MS } : null,
-    canRecap: !pose && view.endedAt !== null && !recap,
-    showRecap: () => setView(v => ({ ...v, recapUntil: Date.now() + RECAP_MS })),
-    answer: (value: string) => answer.current?.(value),
-    replay: () => { setPoseKey(null); setRound(n => n + 1); },
-    hold: (key: string) => {
-      setPoseKey(key);
-      setView(v => ({ ...FRESH, shake: v.shake + (POSES.find(item => item.key === key)?.shake ? 1 : 0) }));
+    ...driver,
+    /** The prototype toolbar's controls. */
+    controls: {
+      pose, baseMood, setBaseMood,
+      replay: () => { setPoseKey(null); setRound(n => n + 1); },
+      hold: (key: string) => {
+        setPoseKey(key);
+        setView(v => ({ ...FRESH, shake: v.shake + (POSES.find(item => item.key === key)?.shake ? 1 : 0) }));
+      },
     },
   };
 }

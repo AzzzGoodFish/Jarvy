@@ -200,3 +200,17 @@ Bot info gains 用量: token use and cost per model for one Bot, for today, 7 da
 - A model none of whose calls had a price shows 「未配置价格」, never $0; the total's cost leaves such models out and says so.
 - Days start at midnight in the browser's time zone; the client sends the start time.
 - Per Bot only; a total across Bots is not covered.
+
+## A47 The live turn
+
+While a Bot runs, the page showing its DM acts the turn out: the cat moves with what it is doing, a dialogue beside it says the thinking, the model's own text and the messages, and opening it shows the steps so far. Until now only a status word (`reasoning`, `tool_calling`) and the activity history afterwards showed what a Bot was doing.
+
+- **Kept in memory, per Bot**: the running turn only, dropped when it ends — what it did is in History. No database change, no extra log, no history of turns.
+- **Structure only, worded by the interface**: the server sends step kinds, tool names, a file or the head of a command, output head and tail, and a chat as `{ id, type, title }` (a DM named after the other member). Sentences come from `t()` (A45), so 「在读 ThreadPane.tsx」 follows the interface language.
+- **Nested calls**: a codemode script's `read` / `bash` calls carry `parentToolCallId`; they are kept and shown indented under the call that made them.
+- **Bounded**: 300 steps (the oldest finished ones dropped, never a running one), the latest 4,000 characters of each thinking or text block, 1,200 characters at each end of an output, 300 for an input summary.
+- **Its own SSE stream** (`GET /api/bots/:id/live`, owner only, connected while the DM is open): a snapshot of the turn so far first, then patches batched every 100 ms (a step whole, streamed text appended, a dropped step). A slow reader is disconnected and reconnects from a snapshot, as on `/events`. Not a broadcast: nobody else's page is woken.
+- **Four looks** in the dialogue: a thought bubble for thinking (one sentence at a time), a frameless murmur in brackets for the model's own text (which nobody else sees), a named speech box for a chat-tool message (with `→ #chat` when it went elsewhere), a pill for tools and for how the turn ended. A message sent elsewhere turns the cat; a question tilts its head — and is answered on its card in the transcript, not in the dialogue.
+- **Facts drive the motion**: read and the looking chat tools hold a page, edits and commands type, compacting yawns, retrying fidgets, a failed step is dizzy and shakes, a turn over 20 s that completes is happy and stretches. The base mood is the stored one; `self.mood` is still to come.
+- **After a turn** the 「done」 line stays 6 s and fades; a click on the cat within 10 minutes brings it back, otherwise it opens Bot info as before.
+- **The prototype stays**: `?npc=demo` plays a scripted turn and shows the toolbar (replay, base mood, one button per state); it needs no server and does the README's pictures.

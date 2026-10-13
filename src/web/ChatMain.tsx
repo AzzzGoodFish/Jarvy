@@ -53,7 +53,7 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
         membersOpen={pane?.kind === "info" && pane.page === "members"} onMembers={() => onToggleInfo("members")}
         threadsOpen={pane?.kind === "threads"} onThreads={() => onPane(pane?.kind === "threads" ? null : { kind: "threads" })}
         searchOpen={pane?.kind === "search"} onSearch={() => pane?.kind === "search" ? onPane(null) : find.search(chat)}/>
-        : activeBot && <FloatingBot bot={activeBot} status={status} area={chatArea} avoid={composeWrap} onOpen={() => onBot(activeBot.id)}/>}
+        : activeBot && <FloatingBot bot={activeBot} chatId={chat.id} status={status} area={chatArea} avoid={composeWrap} onOpen={() => onBot(activeBot.id)}/>}
       {inChannel && <NoticeBar chat={chat} onSave={onSaveNote}/>}
       <div className={`ui-transcript jarvy-transcript${inChannel ? " jv-channel-transcript" : ""}`} ref={transcript} aria-label={t("chat.transcript")} role="log">
         {!inChannel && !activeBot?.connectionId && activeBot && <div className="jarvy-model-onboarding"><ModelPicker bot={activeBot} connections={connections} onSaved={updateBot} onManage={onManageModels}/></div>}

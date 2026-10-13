@@ -4,13 +4,15 @@ import { BotAvatar } from "./BotAvatar";
 import type { FigureInput, FigureMotion } from "./figure";
 import { BOT_COLORS, type BotColor, type BotMood } from "./palette";
 import { NpcLayer } from "./npc/NpcLayer";
+import { NpcToolbar } from "./npc/NpcToolbar";
 import { useNpcDemo } from "./npc/useNpcDemo";
+import { useNpcLive } from "./npc/useNpcLive";
 import { t } from "../i18n";
 import "../styles/floating-bot.css";
 
 const KEY = "jarvy-floating-bot", MARGIN = 10, DRAG = 4;
-/** The NPC prototype is on only with `?npc=demo` in the address; it then drives the cat instead of the Bot's status, and
- * once the last turn's 「done」 line has faded a click brings it back instead of opening Bot info. */
+/** With `?npc=demo` in the address the scripted demo turn drives the cat instead of the Bot's live turn (A47), with the
+ * prototype toolbar. */
 const NPC_DEMO = new URLSearchParams(location.search).get("npc") === "demo";
 type Spot = { x: number; y: number };
 
@@ -32,21 +34,23 @@ function savedSpot(): Spot {
   return { x: 1, y: 0 };
 }
 
-/** The live 3D Bot floating over the chat (replaces the title bar). Drag to move — the spot is kept
- * per browser as fractions of the free area, so it survives resizes; it never leaves the chat area
- * or covers the composer. Click opens Bot info. Eyes follow the pointer, or the composer while typing. */
-export function FloatingBot({ bot, status, area, avoid, onOpen }: {
-  bot: Bot; status?: BotStatus; area: RefObject<HTMLElement | null>; avoid: RefObject<HTMLElement | null>; onOpen: () => void;
+/** The live 3D Bot floating over its DM (replaces the title bar), acting out the turn it is running with a dialogue
+ * beside it (A47). Drag to move — the spot is kept per browser as fractions of the free area, so it survives resizes;
+ * it never leaves the chat area or covers the composer. Click opens Bot info — or, once the last turn's line has
+ * faded, brings it back first. Eyes follow the pointer, or the composer while typing. */
+export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
+  bot: Bot; chatId: string; status?: BotStatus; area: RefObject<HTMLElement | null>; avoid: RefObject<HTMLElement | null>; onOpen: () => void;
 }) {
   const button = useRef<HTMLButtonElement>(null), canvas = useRef<HTMLCanvasElement>(null);
   const spot = useRef<Spot>(savedSpot()), drag = useRef<{ id: number; x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const moved = useRef(false), look = useRef<{ x: number; y: number } | null>(null);
   const input = useRef<FigureInput>({ motion: "sleep", mood: "normal", lookX: 0, lookY: 0 });
   const figure = useRef<{ setColor(hex: number): void; shake(now: number): void } | null>(null);
-  const [live, setLive] = useState(false);
-  const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), layout = useRef<(() => void) | null>(null);
-  const { motion, fast } = NPC_DEMO ? demo : motionOf(status);
-  input.current.motion = motion; input.current.fast = fast; input.current.mood = NPC_DEMO ? demo.mood : bot.mood as BotMood;
+  const [rendering, setRendering] = useState(false);
+  const layout = useRef<(() => void) | null>(null);
+  const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), turn = useNpcLive(NPC_DEMO ? null : bot.id, chatId, status, bot.mood as BotMood, motionOf(status));
+  const npc = NPC_DEMO ? demo : turn;
+  input.current.motion = npc.motion; input.current.fast = npc.fast; input.current.mood = npc.mood;
 
   function bounds() {
     const box = area.current!.getBoundingClientRect(), size = button.current!.offsetWidth;
@@ -70,7 +74,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
   useEffect(() => { figure.current?.setColor((BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex); }, [bot.color]);
   const failure = status?.error ? `${status.runId ?? ""}:${status.error}` : null;
   useEffect(() => { if (failure) figure.current?.shake(performance.now()); }, [failure]);
-  useEffect(() => { if (demo.shake) figure.current?.shake(performance.now()); }, [demo.shake]);
+  useEffect(() => { if (npc.shake) figure.current?.shake(performance.now()); }, [npc.shake]);
 
   useEffect(() => {
     const point = (event: PointerEvent) => { if (event.pointerType === "mouse" || event.type === "pointerdown") look.current = { x: event.clientX, y: event.clientY }; };
@@ -115,7 +119,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
       };
       // Rendering pauses while the page is hidden.
       const visibility = () => { cancelAnimationFrame(frame); if (!document.hidden) frame = requestAnimationFrame(tick); };
-      document.addEventListener("visibilitychange", visibility); visibility(); setLive(true);
+      document.addEventListener("visibilitychange", visibility); visibility(); setRendering(true);
       stop = () => {
         document.removeEventListener("visibilitychange", visibility); cancelAnimationFrame(frame);
         cat.dispose(); renderer.dispose(); renderer.forceContextLoss(); figure.current = null;
@@ -125,7 +129,7 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
     // The renderer lives as long as the component; colour, mood and status flow in through refs.
   }, []);
 
-  return <><button ref={button} type="button" className="jv-floating-bot" data-live={live || undefined} title={bot.name} aria-label={t("avatar.openInfo", { name: bot.name })}
+  return <><button ref={button} type="button" className="jv-floating-bot" data-live={rendering || undefined} data-motion={npc.motion} title={bot.name} aria-label={t("avatar.openInfo", { name: bot.name })}
     onPointerDown={event => {
       if (event.button !== 0) return;
       const el = event.currentTarget; el.setPointerCapture(event.pointerId);
@@ -146,10 +150,11 @@ export function FloatingBot({ bot, status, area, avoid, onOpen }: {
       if (d.moved) localStorage.setItem(KEY, JSON.stringify(spot.current));
     }}
     onPointerCancel={() => { drag.current = null; }}
-    onClick={() => { if (moved.current) { moved.current = false; return; } if (NPC_DEMO && demo.canRecap) demo.showRecap(); else onOpen(); }}
+    onClick={() => { if (moved.current) { moved.current = false; return; } if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>
-    {!live && <BotAvatar color={bot.color} mood={bot.mood} size={88}/>}
+    {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88}/>}
   </button>
-  {NPC_DEMO && <NpcLayer demo={demo} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout}/>}</>;
+  <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout}
+    toolbar={NPC_DEMO ? (bar, closePanel) => <NpcToolbar controls={demo.controls} toolbar={bar} onReplay={() => { closePanel(); demo.controls.replay(); }}/> : undefined}/></>;
 }
