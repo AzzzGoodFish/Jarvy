@@ -67,7 +67,7 @@ export class BotService {
   }
   owns(id: string) { return this.deps.store.getBot(id) !== null; }
   list() { return this.deps.store.listBots().map(record => this.details(record)); }
-  create(name?: string) { return this.details(this.deps.store.createBot(name)); }
+  create(name: string) { return this.details(this.deps.store.createBot(name)); }
   describe(id: string) {
     const record = this.deps.store.getBot(id);
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);

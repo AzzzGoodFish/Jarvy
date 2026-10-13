@@ -699,4 +699,7 @@ export const zh: Shape = {
   "activity.toolResult": "{name} · 执行结果",
   "activity.toolFailed": "{name} · 执行出错",
   "activity.images": { one: "{count} 张图片", other: "{count} 张图片" },
+
+  "bot.newName": "新 Bot",
+  "bot.newNameN": "新 Bot {n}",
 };

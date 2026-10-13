@@ -10,7 +10,7 @@ import { findMentions } from "./channel/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
 import { useBotDirects } from "./bot/BotDirects";
 import { useTabBadge } from "./tabBadge";
-import { activityLabel, liveMembers } from "./members";
+import { activityLabel, freeBotName, liveMembers } from "./members";
 import { useTranscript } from "./transcript/useTranscript";
 import { useMarkRead } from "./transcript/useMarkRead";
 import { Login } from "./Login";
@@ -216,7 +216,7 @@ export function App() {
     if (creating) return;
     setCreating(true);
     try {
-      const bot = await api.createBot();
+      const bot = await api.createBot(freeBotName(liveMembers(members).map(member => member.name)));
       const chat = await api.createChat(bot.id);
       setBots(previous => [...previous, bot]); chatSaved(chat); refreshMembers(); openChat(chat);
     } catch (error) { handleError(error); }

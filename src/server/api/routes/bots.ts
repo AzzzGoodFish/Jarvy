@@ -10,8 +10,8 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.get("/", c => c.json({ bots: bots.list() }));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    // No name: the store picks the first free "新 Bot", "新 Bot 2", … (names are unique, A37).
-    return c.json(bots.create(input.name === undefined ? undefined : textField(input, "name")), 201);
+    // Names are unique (A37); a taken one is name_taken.
+    return c.json(bots.create(textField(input, "name")), 201);
   });
   routes.get("/:id", c => c.json(bots.describe(c.req.param("id"))));
   // Deleting a Bot keeps its workspace unless the caller asks otherwise.

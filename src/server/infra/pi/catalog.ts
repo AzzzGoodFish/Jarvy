@@ -7,8 +7,8 @@ export function providerCatalog() {
     if (!models.length && provider.getAllModels?.().length) return [];
     const common = { id: provider.id, api: models[0]?.api ?? "openai-completions", modelCount: models.length };
     return [
-      ...(provider.auth.oauth ? [{ ...common, name: provider.auth.oauth.name, group: "订阅服务" as const, authType: "oauth" as const }] : []),
-      ...(provider.auth.apiKey?.login ? [{ ...common, name: provider.name, group: "API Key" as const, authType: "api_key" as const }] : []),
+      ...(provider.auth.oauth ? [{ ...common, name: provider.auth.oauth.name, authType: "oauth" as const }] : []),
+      ...(provider.auth.apiKey?.login ? [{ ...common, name: provider.name, authType: "api_key" as const }] : []),
     ];
   }).sort((a, b) => a.name.localeCompare(b.name));
 }

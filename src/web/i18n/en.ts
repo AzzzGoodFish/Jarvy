@@ -700,4 +700,7 @@ export const en = {
   "activity.toolResult": "{name} · result",
   "activity.toolFailed": "{name} · failed",
   "activity.images": { one: "{count} image", other: "{count} images" },
+
+  "bot.newName": "New Bot",
+  "bot.newNameN": "New Bot {n}",
 } as const;

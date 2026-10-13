@@ -182,11 +182,9 @@ export class Store {
     if (this.nameTaken(name, exceptBotId)) throw new ConflictError("Another member already has this name", "name_taken");
     return name;
   }
-  createBot(name?: unknown): Bot {
-    // An unnamed Bot gets the first free "新 Bot", "新 Bot 2", ...
-    let clean = "新 Bot";
-    if (name === undefined) for (let suffix = 2; this.nameTaken(clean); suffix++) clean = `新 Bot ${suffix}`;
-    else clean = this.botName(name);
+  /** The caller names the Bot (A45: the interface picks a free default in its own language). */
+  createBot(name: unknown): Bot {
+    const clean = this.botName(name);
     const id = randomUUID(), createdAt = Date.now();
     this.db.exec("BEGIN IMMEDIATE");
     try {
