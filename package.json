@@ -42,7 +42,7 @@
     "build": "npm run check:architecture && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json && vite build && node scripts/bundle-server.mjs",
     "dev:web": "vite",
     "start": "node dist/server/cli.js run",
-    "check:architecture": "node scripts/check-boundaries.mjs",
+    "check:architecture": "node scripts/check-boundaries.mjs && node scripts/check-i18n.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

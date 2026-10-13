@@ -28,6 +28,7 @@ There are no unit tests. Verify with:
 
 - Reuse shadcn/ui components. Colours, type, radii and shadows come from `styles/tokens.css` (`--ui-*`); use them instead of literal values. `shell.css` holds the app frame and shared controls, `rich-text.css` message Markdown, `attachments.css` files and previews; feature styles go in `jarvy.css`, `channels.css`, `threads.css` or `floating-bot.css`.
 - UI copy is short and plain (for example 「暂无公告」). The UI shows what the user needs to act; no development notes, sources or future plans.
+- Interface strings go through `t()` from `web/i18n/` (A45): English is the reference dictionary, and `npm run check:architecture` fails on a missing key or on Chinese text left in a migrated component. Call `t()` while rendering, never at module top level (a module-level constant holds the key, the component resolves it), so switching the language re-renders every string.
 
 ## Documentation
 

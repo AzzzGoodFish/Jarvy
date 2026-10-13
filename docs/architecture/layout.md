@@ -46,6 +46,16 @@ src/
 - `shared/` is not a fifth layer. Only the wiring entry points (`application.ts`, `cli.ts`) depend on every layer.
 - `npm run check:architecture` checks import direction, Pi/SQLite ownership and the 500-line limit on server files. `npm run build` runs it. It does not replace checking behaviour.
 
+## Interface languages
+
+The interface comes in Chinese and English (A45), more can be added; everything the model reads from Jarvy is English.
+
+- `web/i18n/`: `en.ts` is the reference dictionary, `zh.ts` covers the same keys, `keys.ts` derives `Key` and `Shape` from the reference (so a missing, extra or wrongly shaped key fails `tsc`), and `index.tsx` holds the current language, `t()`, `rich()` and `useLocale()`.
+- The language is picked from the browser on first visit (`zh*` → Chinese, anything else English), switchable in 设置 → 通用 and on the login page, and remembered in this browser. `<html lang>` follows it.
+- Strings are resolved while rendering, never at module top level; a module-level constant holds a key. The app root subscribes through `useLocale()`, so switching re-renders in place and open dialogs and panes stay.
+- `scripts/check-i18n.mjs` (part of `check:architecture`) checks key parity, placeholders and empty values, and scans components for Chinese text; files not migrated yet are listed in its `PENDING` set, which can only shrink.
+- What people write — Bot personas, notices, summaries, messages — is never translated.
+
 ## Bot and Chat
 
 A Bot has seven parts in `service/bot/{identity,model,workspace,tools,memory,agent-runtime,state}.ts` and seven public methods: `start / stop / abort / status / deliver / send / changeModel`. `inbox.ts` turns pending deliveries into a batch; `prompt.ts` builds the system prompt.
