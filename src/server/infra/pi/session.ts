@@ -29,6 +29,14 @@ export interface SessionOptions {
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
 /** How one prompt ended, translated from Pi's events; `error` is Pi's own message for a failure. */
 export type PromptResult = { outcome: "completed" | "interrupted" } | { outcome: "failed"; error: string };
+
+/** Room kept for compaction (A40): Pi's summary may use 80% of it, thinking included. Pi's 16k default left a model
+ * thinking at a high level no room to finish the summary, every compaction failed and the context filled up (10/13).
+ * Never below that default; up to a quarter of a small window, 13% of a large one, at most 64k. */
+export function compactionReserve(contextWindow: number): number {
+  return Math.min(65_536, Math.max(16_384, Math.min(32_768, Math.floor(contextWindow / 4)), Math.floor(contextWindow * 0.13)));
+}
+
 export interface BotSession {
   readonly context?: ContextUsage;
   readonly thinkingLevel?: string;
@@ -47,6 +55,7 @@ export type SessionFactory = (options: SessionOptions) => Promise<BotSession>;
 /** All SDK event names, models and resources stay behind this adapter. */
 export class PiSession implements BotSession {
   private session!: AgentSession;
+  private settings!: SettingsManager;
   private unsubscribe?: () => void;
   private unsubscribeHistory?: () => void;
   private promptActive = false;
@@ -98,10 +107,11 @@ export class PiSession implements BotSession {
     const adapter = new PiSession(options, models, credentials);
     // The idle timeout is raised (A40) because a cold prefill of several hundred thousand tokens regularly
     // takes longer than Pi's 5-minute default (observed: a ~490k-token request timing out at 300s).
-    // Compaction keeps Pi's defaults and follows the model's window.
+    // Compaction follows the model's window, with more room for its summary than Pi's default (compactionReserve).
     // The provider timeout comes from the settings; the HTTP client underneath needs the same limit.
     configureHttp(HTTP_IDLE_TIMEOUT_MS);
-    const settingsManager = SettingsManager.inMemory({ httpIdleTimeoutMs: HTTP_IDLE_TIMEOUT_MS });
+    const settingsManager = SettingsManager.inMemory({ httpIdleTimeoutMs: HTTP_IDLE_TIMEOUT_MS,
+      compaction: { reserveTokens: compactionReserve(model.contextWindow) } });
     const tools = ["bash", "read", "edit", "write", "codemode", ...options.tools.map(tool => tool.name)];
     const resourceLoader = new DefaultResourceLoader({ cwd: bot.workspacePath, agentDir, settingsManager,
       noExtensions: true, noSkills: true, noPromptTemplates: true, noContextFiles: true,
@@ -121,7 +131,7 @@ export class PiSession implements BotSession {
     await resourceLoader.reload();
     const result = await createAgentSession({ cwd: bot.workspacePath, agentDir, sessionManager, settingsManager, resourceLoader, modelRuntime: models, model,
       thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools });
-    adapter.session = result.session;
+    adapter.session = result.session; adapter.settings = settingsManager;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
       adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");
     }
@@ -225,6 +235,7 @@ export class PiSession implements BotSession {
     this.credentials.current = next;
     try {
       await this.session.setModel(model, { persist: false });
+      this.settings.applyOverrides({ compaction: { reserveTokens: compactionReserve(model.contextWindow) } });
       this.session.setThinkingLevel(resolveThinking(model, selection.thinkingLevel), { persist: false });
       this.signature = signature;
       return this.session.thinkingLevel;
