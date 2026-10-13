@@ -24,7 +24,7 @@ export class Tools implements ToolsPort {
   definitions(): readonly ToolDefinition[] {
     return [{
       name: "chat",
-      description: "聊天与自身 History 的工具网关。先 list 查询工具集，再 describe 确认参数，最后 call 调用。只有 messages.send / messages.ask 成功发送的消息才在聊天中可见。",
+      description: "Gateway to the chat and to your own History. Use list to see the tools, describe to check a tool's parameters, then call to run it. Only what messages.send or messages.ask sends successfully is visible in the chat.",
       parameters: Gateway,
       execute: async (raw, { toolCallId, signal }) => {
         if (!Value.Check(Gateway, raw)) throw new ChatError(400, "Invalid chat tool request");
@@ -65,7 +65,7 @@ export class Tools implements ToolsPort {
             const message = this.scope.chats.react(this.scope.botId, parsed.messageId, parsed.emoji, wanted);
             const applied = wanted === had ? !wanted : wanted;
             return { messageId: message.id, emoji: parsed.emoji, [applied ? "marked" : "unmarked"]: true,
-              note: applied ? "已加上这个标记" : "你之前已有这个标记，本次改为取消它",
+              note: applied ? "Reaction added" : "You already had this reaction, so this removed it",
               reactions: message.reactions.map(group => ({ emoji: group.emoji, count: group.memberIds.length })) };
           }
           case "messages.read": return this.tools.read(args as Parameters<ChatTools["read"]>[0], signal);

@@ -4,10 +4,10 @@ import type { Memory, Workspace } from "./contracts.js";
 import { formatHistory } from "./history-format.js";
 
 export const historyReadSchema = Type.Object({
-  ids: Type.Array(Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }), { description: "当前 Bot 自己的 History ID 列表，按输入顺序读取。" }),
-  mode: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("detail")], { default: "summary", description: "summary 返回记录摘录；detail 返回完整通用消息内容，不含 usage/adapter extra。" })),
+  ids: Type.Array(Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }), { description: "IDs in your own History, read in the order given." }),
+  mode: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("detail")], { default: "summary", description: "summary returns an excerpt of each record; detail returns the full message content, without usage or adapter extras." })),
   format: Type.Optional(Type.Union([Type.Literal("json"), Type.Literal("markdown")], { default: "json" })),
-  to_file: Type.Optional(Type.Boolean({ default: false, description: "写入当前 Bot 临时目录，只返回文件路径；false 直接返回内容。" })),
+  to_file: Type.Optional(Type.Boolean({ default: false, description: "Write the result to your temporary directory and return only its path; false returns the content directly." })),
 }, { additionalProperties: false });
 export type HistoryReadInput = Static<typeof historyReadSchema>;
 

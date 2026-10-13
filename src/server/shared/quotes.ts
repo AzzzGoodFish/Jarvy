@@ -25,14 +25,14 @@ export function previewQuotes(content: string, quotes: readonly MessageQuote[]):
     return quote ? `「${clipQuote(quote.text).replace(/\s+/g, " ").trim()}」` : mark;
   });
 }
-/** What a Bot reads (A44): each mark becomes a quote block `> 名字（m123）：passage` on its own lines, without the ID
+/** What a Bot reads (A44): each mark becomes a quote block `> Name (m123): passage` on its own lines, without the ID
  * when the source is gone. */
 export function expandQuotes(content: string, quotes: readonly MessageQuote[], name: (memberId: string) => string): string {
   if (!quotes.length) return content;
   return content.replace(/[ \t]*\[\[q(\d+)\]\][ \t]*/g, (mark, n: string, offset: number, whole: string) => {
     const quote = quotes[Number(n) - 1];
     if (!quote) return mark;
-    const head = `${name(quote.senderId)}${quote.messageId ? `（${quote.messageId}）` : ""}：`;
+    const head = `${name(quote.senderId)}${quote.messageId ? ` (${quote.messageId})` : ""}: `;
     const block = `${head}${clipQuote(quote.text).trim()}`.split("\n").map(line => `> ${line}`).join("\n");
     const end = offset + mark.length;
     return `${offset > 0 && whole[offset - 1] !== "\n" ? "\n" : ""}${block}${end < whole.length && whole[end] !== "\n" ? "\n" : ""}`;

@@ -25,7 +25,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
   <updates><notice chat="c-dev" version="3" by="u1" at="…"/><summary chat="t-12" version="2" by="b3" at="…"/></updates>
   <notices>
     <reaction message="m150" chat="c-dev" by="u1" emoji="👍" at="…">the start of the marked message</reaction>
-    <note>这是别人对你消息的反应，按需处理，不一定要回复。</note>
+    <note>These are reactions to your messages. Act on them if you need to; no reply is required.</note>
   </notices>
   <unread total="9"><chat id="c-dev" count="2"/><chat id="c-req" title="需求" type="channel" count="7"/></unread>
 </chat_batch>
@@ -49,8 +49,8 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 A message stores its quotes as structure and marks each with `[[qN]]` (A44). Wherever a Bot reads a message — batches, `messages.read`, `messages.search`, a thread's root in `chats.info` — each mark becomes a quote block on its own lines:
 
 ```
-> Mochi（m123）：被引用的那段话
-我同意这一段。
+> Mochi (m123): the passage being quoted
+I agree with this part.
 ```
 
 The source ID is left out when that message is gone; a passage over 200 characters keeps its first 120 and last 60 around 「……」. Previews (`reply_to`, marked messages in `notices`, thread roots in `threads.list`) show a quote as 「passage」 instead. A message without quotes keeps any `[[qN]]`-like text as it is.

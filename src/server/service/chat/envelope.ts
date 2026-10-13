@@ -60,7 +60,7 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
   const marks = notices.flatMap(notice => notice.kind !== "reaction" ? [] : [`<reaction${attribute("message", notice.message.id)}${attribute("chat", notice.chat.id)}`
     + `${attribute("by", notice.actor.id)}${attribute("emoji", notice.emoji)}${attribute("at", iso(notice.createdAt))}>${escape(notice.message.text)}</reaction>`]);
   return (updates.length ? `<updates>${updates.join("")}</updates>` : "")
-    + (marks.length ? `<notices>${marks.join("")}<note>这是别人对你消息的反应，按需处理，不一定要回复。</note></notices>` : "");
+    + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "");
 }
 
 /** Compact derived input; no runtime bookkeeping, base64 or secret credentials.
