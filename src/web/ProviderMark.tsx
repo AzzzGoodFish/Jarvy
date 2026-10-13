@@ -1,4 +1,5 @@
 import type { ModelConnection } from "./api";
+import { t } from "./i18n";
 
 /** Letter badge used where a provider has no logo of its own. */
 export function ProviderMark({ name }: { name: string }) {
@@ -6,5 +7,5 @@ export function ProviderMark({ name }: { name: string }) {
 }
 export function connectionStatus(connection: Pick<ModelConnection, "configured" | "authType">) {
   const oauth = connection.authType === "oauth";
-  return connection.configured ? { ok: true, label: oauth ? "已登录" : "已配置" } : { ok: false, label: oauth ? "未登录" : "未配置" };
+  return connection.configured ? { ok: true, label: t(oauth ? "status.signedIn" : "status.configured") } : { ok: false, label: t(oauth ? "status.signedOut" : "status.notConfigured") };
 }

@@ -24,7 +24,8 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
   onChannelInfo: (chat: Chat) => void;
   /** Bot info's chat list opens a chat in the main area. */
   onOpenChatId: (id: string) => void;
-  onSettings: (open: boolean) => void;
+  /** Bot info's 管理模型 opens the model page of Settings. */
+  onSettings: () => void;
   chatSaved: (chat: Chat) => void; openChat: (chat: Chat) => void;
   onSectionSaved: (section: Section) => void; onSectionDeleted: (id: string) => void;
   updateBot: (bot: Bot) => void; openAnywhere: (chat: Chat) => void;
@@ -47,7 +48,7 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
       onClose={() => onConfirm(null)} onConfirm={async deleteFiles => { await deleteBot(confirm.bot, deleteFiles); onConfirm(null); }}/>}
     {infoBot && <BotInfo key={infoBot.id} bot={infoBot} status={statuses[infoBot.id]} connections={connections} chats={chats} onSaved={updateBot}
       onOpenChat={id => { onInfoBot(null); onOpenChatId(id); }} onOpenSubscription={openAnywhere}
-      onManageModels={() => { onInfoBot(null); onSettings(true); }} onClose={() => onInfoBot(null)}/>}
+      onManageModels={() => { onInfoBot(null); onSettings(); }} onClose={() => onInfoBot(null)}/>}
     {preview && <FileViewer files={preview.files} initialIndex={preview.index} onClose={() => onPreview(null)}/>}
   </>;
 }

@@ -48,6 +48,7 @@ type Credential =
 - **Bot model menu** (in Bot info): models grouped by connection, searchable above eight, so same-named models of two accounts stay apart. Thinking levels follow Pi's supported levels plus `auto`.
 - **`auto`** is an intent, stored as is; the adapter resolves it to a real level (Pi's default, medium) and the API reports `effectiveThinkingLevel`, shown as `auto · medium` (A17). Choosing applies immediately; changing only the level calls `setThinkingLevel`.
 - `/api/model-options` lists the owner's models, grouped, with thinking capabilities; no secrets, no agent start, no model request.
+- **通用** (`General.tsx`): the interface language and the theme, both remembered in this browser (A45).
 - **关于** (`About.tsx`): the README's one line, the version, and links to the repository, the npm package, the licence and the third-party notice at that version's tag — all read from `package.json` at build time.
 
 ## Auto-configuration

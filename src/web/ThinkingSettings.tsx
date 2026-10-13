@@ -1,11 +1,12 @@
 import type { ConfiguredModel } from "./api";
 import { Input } from "./components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { t } from "./i18n";
 
 // Mirrors Pi 0.99.1 OpenAICompletionsCompat.thinkingFormat. Kept in the web bundle instead of an
 // API call because it only feeds a menu; the server's installModel still rejects unknown values.
 const FORMATS = ["openai", "openrouter", "deepseek", "zai", "qwen", "together", "baseten", "chat-template", "qwen-chat-template", "string-thinking", "ant-ling"];
-const LEVELS = [["off", "关闭"], ["minimal", "极低"], ["low", "低"], ["medium", "中"], ["high", "高"], ["xhigh", "超高"], ["max", "最高"]] as const;
+const LEVELS = [["off", "thinking.level.off"], ["minimal", "thinking.level.minimal"], ["low", "thinking.level.low"], ["medium", "thinking.level.medium"], ["high", "thinking.level.high"], ["xhigh", "thinking.level.xhigh"], ["max", "thinking.level.max"]] as const;
 type Level = typeof LEVELS[number][0];
 type Mode = "default" | "unsupported" | "custom";
 // Pi getSupportedThinkingLevels: null = unsupported; off…high default to supported, while
@@ -17,8 +18,8 @@ function modeOf(map: ConfiguredModel["thinkingLevelMap"], level: Level): Mode {
   return value === undefined ? "default" : "custom";
 }
 export function supportedLevels(model: Pick<ConfiguredModel, "reasoning" | "thinkingLevelMap">): string[] {
-  if (!model.reasoning) return ["关闭"];
-  return LEVELS.filter(([level]) => modeOf(model.thinkingLevelMap, level) !== "unsupported").map(([, label]) => label);
+  if (!model.reasoning) return [t("thinking.level.off")];
+  return LEVELS.filter(([level]) => modeOf(model.thinkingLevelMap, level) !== "unsupported").map(([, label]) => t(label));
 }
 
 export function ThinkingSettings({ model, api, onChange }: { model: ConfiguredModel; api: string; onChange: (patch: Partial<ConfiguredModel>) => void }) {
@@ -32,31 +33,31 @@ export function ThinkingSettings({ model, api, onChange }: { model: ConfiguredMo
   };
   const completions = api === "openai-completions";
   const formats = model.thinkingFormat && !FORMATS.includes(model.thinkingFormat) ? [...FORMATS, model.thinkingFormat] : FORMATS;
-  return <section className="jv-thinking"><h4>思考</h4>
-    <div className="jv-field"><span>思考格式</span>
+  return <section className="jv-thinking"><h4>{t("thinking.title")}</h4>
+    <div className="jv-field"><span>{t("thinking.format")}</span>
       <Select value={model.thinkingFormat || "default"} disabled={!completions && !model.thinkingFormat} onValueChange={value => onChange({ thinkingFormat: value === "default" ? "" : value })}>
-        <SelectTrigger aria-label="思考格式"><SelectValue/></SelectTrigger>
-        <SelectContent className="jv-select-menu"><SelectItem value="default">协议默认</SelectItem>{formats.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
+        <SelectTrigger aria-label={t("thinking.format")}><SelectValue/></SelectTrigger>
+        <SelectContent className="jv-select-menu"><SelectItem value="default">{t("thinking.protocolDefault")}</SelectItem>{formats.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
       </Select>
-      {!completions && <small className="jv-field-hint">仅 OpenAI Chat Completions 协议使用</small>}
+      {!completions && <small className="jv-field-hint">{t("thinking.onlyCompletions")}</small>}
     </div>
-    <div className="jv-thinking-levels" role="group" aria-label="思考档位">
+    <div className="jv-thinking-levels" role="group" aria-label={t("thinking.levels")}>
       {LEVELS.map(([level, label]) => {
         const mode = modeOf(map, level);
         return <div className="jv-thinking-level" key={level}>
-          <span>{label}<code>{level}</code></span>
+          <span>{t(label)}<code>{level}</code></span>
           <Select value={mode} onValueChange={value => setLevel(level, value as Mode)}>
-            <SelectTrigger aria-label={`${label}档位`}><SelectValue/></SelectTrigger>
+            <SelectTrigger aria-label={t("thinking.levelName", { level: t(label) })}><SelectValue/></SelectTrigger>
             <SelectContent className="jv-select-menu">
-              {!explicitOnly(level) && <SelectItem value="default">支持（默认值）</SelectItem>}
-              <SelectItem value="unsupported">不支持</SelectItem>
-              <SelectItem value="custom">支持，发送指定值</SelectItem>
+              {!explicitOnly(level) && <SelectItem value="default">{t("thinking.supportedDefault")}</SelectItem>}
+              <SelectItem value="unsupported">{t("thinking.unsupported")}</SelectItem>
+              <SelectItem value="custom">{t("thinking.supportedCustom")}</SelectItem>
             </SelectContent>
           </Select>
-          {mode === "custom" ? <Input className="jv-mono" required aria-label={`${label}档位发送值`} maxLength={80} value={map[level] ?? ""} onChange={event => setLevel(level, "custom", event.target.value)}/> : <span/>}
+          {mode === "custom" ? <Input className="jv-mono" required aria-label={t("thinking.levelValue", { level: t(label) })} maxLength={80} value={map[level] ?? ""} onChange={event => setLevel(level, "custom", event.target.value)}/> : <span/>}
         </div>;
       })}
     </div>
-    <p className="jv-field-hint">可选档位：{supportedLevels(model).join(" · ")}</p>
+    <p className="jv-field-hint">{t("thinking.supported", { levels: supportedLevels(model).join(" · ") })}</p>
   </section>;
 }

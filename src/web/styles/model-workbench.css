@@ -26,8 +26,8 @@
 :is(.jv-settings-shell, .jv-ui) :is(button, input, select, textarea) { font-family: inherit; letter-spacing: normal; }
 :is(.jv-settings-shell, .jv-ui) svg { flex-shrink: 0; }
 .jv-settings-shell, .jv-bot-info { background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: 14px; box-shadow: 0 24px 64px -16px #0000004d; }
-.jv-settings-shell > [data-slot="dialog-close"], .jv-settings-shell > button[aria-label="关闭"], .jv-bot-info > button[aria-label="关闭"] { top: 14px; right: 14px; padding: 6px; border-radius: 8px; color: var(--jv-dim); }
-:is(.jv-settings-shell, .jv-bot-info) > button[aria-label="关闭"]:hover { background: var(--jv-hover); color: var(--jv-text); }
+.jv-settings-shell > [data-slot="dialog-close"], .jv-bot-info > [data-slot="dialog-close"] { top: 14px; right: 14px; padding: 6px; border-radius: 8px; color: var(--jv-dim); }
+:is(.jv-settings-shell, .jv-bot-info) > [data-slot="dialog-close"]:hover { background: var(--jv-hover); color: var(--jv-text); }
 
 /* ── Controls ───────────────────────────────────────────── */
 :is(.jv-settings-shell, .jv-ui) [data-slot="button"] {
@@ -91,6 +91,8 @@ a.jv-list-row:hover { background: var(--jv-hover); }
 a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset: -2px; }
 .jv-link-row > svg { flex: none; width: 15px; height: 15px; color: var(--jv-dim); }
 .jv-about-intro .jv-row-text > span { white-space: normal; }
+.jv-choice-row { min-height: 46px; }
+.jv-choice-row > svg { flex: none; width: 16px; height: 16px; color: var(--jv-text); }
 .jv-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .jv-row-text > strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-row-text > span, .jv-row-text > code { font-size: 12px; color: var(--jv-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -221,6 +223,8 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
   .jv-settings-nav { flex-direction: row; align-items: center; gap: 4px; padding: 10px 52px 10px 12px; border-right: 0; border-bottom: 1px solid var(--jv-line); overflow-x: auto; }
   .jv-settings-title { padding: 0 8px 0 4px; }
   .jv-nav-item { height: 30px; flex: none; }
+  /* Text-only tabs on a phone, so the row fits beside the close button in English as well as Chinese. */
+  .jv-nav-item svg { display: none; }
   .jv-page { padding: 20px 16px 28px; gap: 20px; }
   .jv-page-header { flex-wrap: wrap; padding-right: 0; }
   .jv-editor-header { padding: 14px 52px 12px 14px; gap: 10px; }

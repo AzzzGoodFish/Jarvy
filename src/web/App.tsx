@@ -4,7 +4,7 @@ import { AppDialogs, type Confirm, type Dialog, type Menu } from "./AppDialogs";
 import { AppSidebar } from "./AppSidebar";
 import { ChatMain } from "./ChatMain";
 import { SidePane } from "./SidePane";
-import { SettingsDialog } from "./Settings";
+import { SettingsDialog, type SettingsTab } from "./Settings";
 import { hintThread } from "./sidebar/Sidebar";
 import { findMentions } from "./channel/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
@@ -43,7 +43,7 @@ export function App() {
   const [focusedBotId, setFocusedBotId] = useState<string | null>(null);
   const [infoBotId, setInfoBotId] = useState<string | null>(null);
   const [connections, setConnections] = useState<ModelConnection[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [accountMenu, setAccountMenu] = useState(false);
   const [createMenu, setCreateMenu] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -76,7 +76,7 @@ export function App() {
   // Newest page first, older pages as you scroll up.
   const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, onError: handleError });
   const { messages, setMessages } = history;
-  const find = useFind({ selected, chats, transcript: history, openChat, setPane, paneRef, blocked: !!infoBotId || showSettings });
+  const find = useFind({ selected, chats, transcript: history, openChat, setPane, paneRef, blocked: !!infoBotId || !!settingsTab });
 
   const statusBotId = chats.find(chat => chat.id === selected)?.botId ?? focusedBotId ?? bots[0]?.id;
   async function readStatus(id: string) {
@@ -150,7 +150,7 @@ export function App() {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       // Radix owns dialog and nested-picker keyboard handling.
-      if (event.defaultPrevented || infoBotId || showSettings) return;
+      if (event.defaultPrevented || infoBotId || settingsTab) return;
       if (event.key === "Escape") { setAccountMenu(false); setCreateMenu(false); setMobileNav(false); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -159,7 +159,7 @@ export function App() {
       }
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
-  }, [infoBotId, showSettings]);
+  }, [infoBotId, settingsTab]);
   useEffect(() => {
     const media = window.matchMedia("(max-width: 620px)");
     const closeOnDesktop = () => { if (!media.matches) setMobileNav(false); };
@@ -305,7 +305,7 @@ export function App() {
   async function logOut() {
     try {
       await drafts.clear(id => api.removeAttachment(id));
-      await api.logout(); setPhase("login"); setAccountMenu(false); setShowSettings(false);
+      await api.logout(); setPhase("login"); setAccountMenu(false); setSettingsTab(null);
       statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed([]);
       setUsername(""); setSelected(null); setChats([]); setBots([]); setConnections([]); setMessages([]);
     } catch (error) { handleError(error); }
@@ -361,7 +361,7 @@ export function App() {
         onCreate={what => { if (what === "bot") return void createBot(); setDialog({ kind: what }); setCreateMenu(false); }}
         onFind={find.openMessage} onOpenFound={openAnywhere} onError={handleError}
         onToggleCreate={open => { setCreateMenu(open); setAccountMenu(false); }} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}
-        onSettings={() => { setAccountMenu(false); setShowSettings(true); }}
+        onSettings={() => { setAccountMenu(false); setSettingsTab("general"); }}
         onToggleTheme={() => { applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark"); setAccountMenu(false); }}
         onLogOut={() => void logOut()}/>
       <ChatMain chat={current} inChannel={inChannel} bots={bots} members={members} meId={meId} drafts={drafts} composeReady={composeReady} botName={botName}
@@ -371,7 +371,7 @@ export function App() {
         onJump={jumpTo} onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))}
         onPreview={(files, index) => setPreview({ files, index })} onSend={sendMain} notice={setNotice}
         onSaveNote={async text => { try { chatSaved(await api.setNote(current!.id, text)); } catch (error) { handleError(error); throw error; } }}
-        createBot={() => void createBot()} creating={creating} updateBot={updateBot} onManageModels={() => setShowSettings(true)} error={handleError}
+        createBot={() => void createBot()} creating={creating} updateBot={updateBot} onManageModels={() => setSettingsTab("models")} error={handleError}
         chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
       <SidePane pane={pane} followedView={followedView} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
@@ -382,10 +382,10 @@ export function App() {
         onNotice={setNotice} onError={handleError} paneWidth={paneWidth} onResize={startResize}/>
     </div>
     {mobileNav && <div className="ui-nav-scrim" onClick={() => setMobileNav(false)} role="presentation"/>}
-    {showSettings && <SettingsDialog connections={connections} onChanged={refreshConnections} onClose={() => setShowSettings(false)}/>}
+    {settingsTab && <SettingsDialog connections={connections} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
       sections={sections} members={members} connections={connections} meId={meId}
-      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setShowSettings}
+      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={() => setSettingsTab("models")}
       onChannelInfo={chat => { openChat(chat); setPane({ kind: "info", page: "main" }); }}
       onOpenChatId={id => { setSelected(id); setMobileNav(false); }}
       chatSaved={chatSaved} openChat={openChat}
