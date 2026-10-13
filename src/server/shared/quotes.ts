@@ -30,9 +30,9 @@ export function previewQuotes(content: string, quotes: readonly MessageQuote[]):
 export function clipMarked(content: string, length: number): string {
   return content.length <= length ? content : content.slice(0, length).replace(/\[(?:\[(?:q\d*\]?)?)?$/, "");
 }
-/** A reply target as a Bot reads it: its first 200 characters, an attachment-only message as (附件). */
+/** A reply target as a Bot reads it: its first 200 characters, an attachment-only message as (attachment). */
 export function replyExcerpt(reply: { content: string; quotes: readonly MessageQuote[] }): string {
-  return reply.content ? previewQuotes(reply.content, reply.quotes).slice(0, 200) : "(附件)";
+  return reply.content ? previewQuotes(reply.content, reply.quotes).slice(0, 200) : "(attachment)";
 }
 /** What a Bot reads (A44): each mark becomes a quote block `> Name (m123): passage` on its own lines, without the ID
  * when the source is gone. */
