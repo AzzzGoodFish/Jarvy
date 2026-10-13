@@ -255,7 +255,7 @@ export const en = {
   "hint.summary": "{actor} updated the thread summary",
   "hint.notice": "{actor} updated the notice",
   "sidebar.said": "{name}: {text}",
-  "sidebar.atMe": "[Mentioned]",
+  "sidebar.atMe": "[Mentioned you]",
   "sidebar.more": "More actions for {name}",
   "sidebar.asking": "(waiting for your answer)",
   "sidebar.working": "(working)",
@@ -299,7 +299,7 @@ export const en = {
   "activity.error": "Error",
   "activity.running": "Running",
   "activity.reasoning": "Thinking",
-  "activity.texting": "Replying",
+  "activity.texting": "Writing",
   "activity.toolCalling": "Using tools",
   "activity.asking": "Waiting for your answer",
 

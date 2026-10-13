@@ -233,7 +233,7 @@ export const zh: Shape = {
   "sidebar.newSection": "新建频道分组",
   "sidebar.newBot": "新建 Bot",
   "account.menu": "账户菜单",
-  "account.menuFor": "用户菜单，{name}",
+  "account.menuFor": "账户菜单，{name}",
   "account.toggleTheme": "切换主题",
   "account.signOut": "退出登录",
   "entry.menu": "会话操作",
