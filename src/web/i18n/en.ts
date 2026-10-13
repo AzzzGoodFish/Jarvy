@@ -220,4 +220,10 @@ export const en = {
   "usage.unpriced": "No price set",
   "usage.note": "Input, output and cache are counted in tokens.",
   "usage.notePartial": "Input, output and cache are counted in tokens; the total cost leaves out models with no price set.",
+
+  "threadSort.title": "Sort",
+  "threadSort.current": "Sort: {order}",
+  "threadSort.updated": "Last updated",
+  "threadSort.created": "Created",
+  "threadSort.status": "Status",
 } as const;

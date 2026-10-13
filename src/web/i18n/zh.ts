@@ -219,4 +219,10 @@ export const zh: Shape = {
   "usage.unpriced": "未配置价格",
   "usage.note": "输入、输出和缓存的单位是 token。",
   "usage.notePartial": "输入、输出和缓存的单位是 token；合计费用不含未配置价格的模型。",
+
+  "threadSort.title": "排序",
+  "threadSort.current": "排序：{order}",
+  "threadSort.updated": "最近更新",
+  "threadSort.created": "创建时间",
+  "threadSort.status": "状态",
 };
