@@ -58,6 +58,8 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     const maxX = Math.max(MARGIN, box.width - size - MARGIN), maxY = Math.max(MARGIN, bottom - size - MARGIN);
     return { minX: MARGIN, minY: MARGIN, maxX, maxY };
   }
+  /** The strip at the top the cat may be dragged in: the dialogue stays below it, so it cannot cover the cat. */
+  const rowHeight = () => button.current ? bounds().maxY - bounds().minY + button.current.offsetWidth : 0;
   function place() {
     if (!button.current || !area.current) return;
     const b = bounds(), el = button.current;
@@ -113,6 +115,9 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
           input.current.lookX = target ? Math.max(-1, Math.min(1, (target.x - box.left - box.width / 2) / 320)) : 0;
           input.current.lookY = target ? Math.max(-1, Math.min(1, (target.y - box.top - box.height / 2) / 320)) : 0;
           input.current.reduced = reduced.matches;
+          // −1 at the left edge of the chat area, +1 at the right: the cat turns across the screen.
+          const areaBox = area.current?.getBoundingClientRect();
+          input.current.faceX = areaBox && areaBox.width > box.width ? Math.max(-1, Math.min(1, ((box.left + box.width / 2) - (areaBox.left + areaBox.width / 2)) / (areaBox.width / 2 - box.width / 2))) : 0;
           cat.frame(now, input.current); renderer.render(scene, camera);
         }
         frame = requestAnimationFrame(tick);
@@ -155,6 +160,6 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     <canvas ref={canvas} aria-hidden="true"/>
     {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88}/>}
   </button>
-  <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout}
+  <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout} clear={rowHeight}
     toolbar={NPC_DEMO ? (bar, closePanel) => <NpcToolbar controls={demo.controls} toolbar={bar} onReplay={() => { closePanel(); demo.controls.replay(); }}/> : undefined}/></>;
 }

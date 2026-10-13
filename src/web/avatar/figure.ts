@@ -6,9 +6,11 @@ type THREE = typeof Three;
  * a page), turn (faces you to talk), ask (head tilted, watching you), yawn (compacting), stretch (a turn ended), groom
  * (licks a paw when idle long). */
 export type FigureMotion = "sleep" | "idle" | "think" | "work" | "busy" | "static" | "read" | "turn" | "ask" | "yawn" | "stretch" | "groom";
-/** lookX/lookY: where the pointer is, −1..1 (positive = right / below), or 0 when unknown.
+/** faceX: which way the cat should look across the screen — −1 at the left edge, +1 at the right, 0 in the middle (the
+ * floating cat turns towards whatever it is next to).
+ * lookX/lookY: where the pointer is, −1..1 (positive = right / below), or 0 when unknown.
  * fast: tool calls tap quicker than text. reduced: prefers-reduced-motion, keeps only poses, blinks and gaze. */
-export interface FigureInput { motion: FigureMotion; mood: BotMood; lookX: number; lookY: number; fast?: boolean; reduced?: boolean; }
+export interface FigureInput { motion: FigureMotion; mood: BotMood; lookX: number; lookY: number; fast?: boolean; reduced?: boolean; faceX?: number; }
 
 const REST_YAW = 0.55, EYE_BIAS = 0.12, EYE_LEAD = 0.6;
 
@@ -143,7 +145,10 @@ export class CatFigure {
     const wave = (speed: number, amount: number) => still ? 0 : Math.sin(t * speed) * amount;
     // Thinking is head-down like working, only slower (looking up read as frozen).
     const down = m === "work" || m === "think";
-    const facing = m === "turn" ? 0.05 : m === "ask" ? 0.14 : m === "read" ? REST_YAW * 0.6 : REST_YAW;
+    // Across the screen the cat turns this way or that (talking straight to you is the extreme: yaw 0.05 at the right
+    // edge is 0.95: the same amount the other way, at the left edge).
+    const across = (input.faceX ?? 0) * (REST_YAW - 0.05);
+    const facing = (m === "turn" ? 0.05 : m === "ask" ? 0.14 : m === "read" ? REST_YAW * 0.6 : REST_YAW) + across;
     const targetYaw = facing + (follow ? input.lookX * 0.18 : 0) + (m === "busy" ? wave(9, 0.12) : 0) + (dizzy ? wave(2.1, 0.1) : 0);
     const targetPitch = (down ? 0.14 : follow ? input.lookY * 0.08 : 0) + (sleep ? 0.16 : 0) + (sad ? 0.1 : 0) + (angry ? 0.06 : 0)
       + (m === "read" ? 0.24 + wave(0.7, 0.02) : 0) + (m === "groom" ? 0.1 : 0) - 0.2 * yawn - 0.14 * stretch;

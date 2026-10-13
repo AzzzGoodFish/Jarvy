@@ -1,5 +1,6 @@
 /* NPC prototype (avatar/npc/, `?npc=demo`): the dialogue beside the DM's cat in its four looks, its live panel, the toolbar. */
-.jv-npc { position: absolute; z-index: 6; width: max-content; max-width: min(300px, calc(100% - 24px)); padding: 10px 12px; overflow: visible;
+/* The width comes from place.ts (the room on the side the box took), so nothing moves while the text grows. */
+.jv-npc { position: absolute; z-index: 6; max-width: min(300px, calc(100% - 24px)); padding: 10px 12px; overflow: visible;
   border: 2px solid var(--ui-border-strong); border-radius: 12px; background: var(--ui-bg-elevated); color: var(--ui-text-primary);
   box-shadow: var(--ui-shadow-md); font-size: 13px; line-height: 1.55; opacity: 1;
   transition: left var(--ui-duration-fast) var(--ui-ease-out), top var(--ui-duration-fast) var(--ui-ease-out), opacity .5s ease; }
@@ -39,13 +40,19 @@ div.jv-npc-line { cursor: default; }
 @keyframes jv-npc-subtitle { from { opacity: 0; transform: translateY(4px); } }
 
 /* Murmur — the model's own text, which nobody else sees: no frame, smaller, in brackets. */
-.jv-npc[data-look=mutter] { padding: 3px 8px; border: 0; border-radius: 8px; box-shadow: none; font-size: 12px;
-  background: color-mix(in srgb, var(--ui-bg-base) 78%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.jv-npc-murmur { color: var(--ui-text-secondary); }
+.jv-npc[data-look=mutter] { padding: 4px 10px; border: 0; border-radius: 10px; box-shadow: none; font-size: 12px;
+  background: color-mix(in srgb, var(--ui-bg-base) 74%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+/* Readable over a message bubble, without a frame: faint text shadow under the words. */
+.jv-npc-murmur { color: var(--ui-text-secondary); text-shadow: 0 0 3px var(--ui-bg-base), 0 0 6px var(--ui-bg-base); }
 
 /* Action — a tool at work or the end of the turn: a short pill with the tool's icon. */
 .jv-npc[data-look=action] { padding: 5px 12px 5px 10px; border-width: 1px; border-color: var(--ui-border-weak); border-radius: 999px; box-shadow: var(--ui-shadow-sm); font-size: 12.5px; }
 .jv-npc-action { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-text-secondary); }
+/* An action line stays on one line: the whole command is in the panel. */
+.jv-npc[data-look=action] .jv-npc-line { display: flex; min-width: 0; }
+.jv-npc[data-look=action] .jv-npc-action { min-width: 0; }
+.jv-npc[data-look=action] .jv-npc-action > :not(svg) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-npc[data-look=action] .jv-npc-action > i { flex: none; white-space: nowrap; }
 .jv-npc-action > svg { width: 14px; height: 14px; flex: none; color: var(--ui-text-tertiary); }
 .jv-npc-action[data-state=failed], .jv-npc-action[data-state=failed] > svg { color: var(--ui-text-danger); font-weight: 600; }
 .jv-npc-action[data-state=ok] > svg { color: var(--ui-text-success); }
