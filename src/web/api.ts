@@ -72,9 +72,27 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     ...(init.body && !(init.body instanceof Blob) ? { "Content-Type": "application/json" } : {}), ...init.headers,
   } }); } catch { throw new Error("无法连接服务器，请检查连接后重试。"); }
   const body: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(response.status,
-    typeof body === "object" && body !== null && "error" in body ? String(body.error) : `HTTP ${response.status}`);
+  if (!response.ok) throw failure(response.status, body);
   return body as T;
+}
+const failure = (status: number, body: unknown) => new ApiError(status, typeof body === "object" && body !== null && "error" in body ? String(body.error) : `HTTP ${status}`);
+/** Uploads one attachment; fetch cannot report upload progress, so this one goes through XMLHttpRequest and tells
+ * `onProgress` how much of the file has gone out (0–1). */
+function upload(chatId: string, file: File, onProgress?: (done: number) => void) {
+  return new Promise<Attachment>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/chats/${chatId}/attachments`);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
+    xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress?.(event.loaded / event.total); };
+    xhr.onerror = () => reject(new Error("无法连接服务器，请检查连接后重试。"));
+    xhr.onload = () => {
+      let body: unknown = {};
+      try { body = JSON.parse(xhr.responseText); } catch { /* not JSON: the status speaks */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body as Attachment); else reject(failure(xhr.status, body));
+    };
+    xhr.send(file);
+  });
 }
 /** Every message after a sequence (default: all), page by page. */
 async function readChatMessages(id: string, from = 0): Promise<{ messages: ChatMessage[] }> {
@@ -140,7 +158,7 @@ export const api = {
   botSubscriptions: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/subscriptions`),
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
-  uploadAttachment: (id: string, file: File) => request<Attachment>(`/chats/${id}/attachments`, { method: "POST", body: file, headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) } }),
+  uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
   authStatus: (id: string) => request<CredentialState>(`/model-connections/${id}/auth`),
   authStart: (id: string) => request<CredentialState>(`/model-connections/${id}/auth`, { method: "POST" }),

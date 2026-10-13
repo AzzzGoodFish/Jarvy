@@ -34,7 +34,13 @@
 .jarvy-first-chat .ui-icon { width: 14px; height: 14px; }
 .jarvy-bubble-avatar { margin-right: 8px; align-self: flex-end; }
 .jarvy-dropping .ui-composer { border-style: dashed; border-color: var(--ui-border-focus); background: var(--ui-fill-ghost-hover); }
-.jarvy-compose-note { font-size: 11px; line-height: 17px; color: var(--ui-text-tertiary); text-align: center; margin: 8px 0 0; }
+/* A file being uploaded: its chip, with the progress along the bottom edge until it joins the draft. */
+.jarvy-file-chip[data-uploading] { position: relative; overflow: hidden; color: var(--ui-text-secondary); }
+.jarvy-file-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: color-mix(in srgb, var(--ui-text-primary) 10%, transparent); }
+.jarvy-file-progress > span { display: block; height: 100%; background: var(--ui-text-primary); transition: width .15s linear; }
+/* Dragging files over the composer: the hint sits inside the input, over its content. */
+.jarvy-drop-hint { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: inherit; background: var(--ui-bg-base);
+  font-size: 13px; color: var(--ui-text-secondary); pointer-events: none; }
 .jarvy-account-menu { bottom: 62px; left: 12px; top: auto; z-index: 50; }
 .jarvy-account-menu .ui-menu-item { gap: 9px; }
 .jarvy-account-menu .ui-menu-note { padding: 8px 9px; }
