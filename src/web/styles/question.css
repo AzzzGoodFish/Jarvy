@@ -1,18 +1,21 @@
-/* Bot question card (question/QuestionCard.tsx, A36). */
-.jv-question { width: min(560px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; background: var(--ui-fill-bubble-agent); color: var(--ui-text-primary); }
+/* Bot question (question/QuestionCard.tsx, A36): part of the Bot's message, not a card of its own — the question
+   reads like message text, each option is a light rounded row like the message bubbles, a settled one is one line. */
+.jv-question { width: min(560px, 100%); display: flex; flex-direction: column; gap: 8px; color: var(--ui-text-primary); }
 .jv-question-head { display: flex; align-items: flex-start; gap: 8px; }
 .jv-question-heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.jv-question-title { flex: 1; min-width: 0; margin: 0; font-size: 14px; line-height: 21px; font-weight: 600; overflow-wrap: anywhere; }
+.jv-question-title { margin: 0; font-size: 14px; line-height: 1.65; font-weight: 600; overflow-wrap: anywhere; }
 .jv-question-detail { margin: 0; font-size: 13px; line-height: 19px; color: var(--ui-text-secondary); overflow-wrap: anywhere; }
 .jv-question-dismiss { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; color: var(--ui-text-tertiary); }
 .jv-question-dismiss:hover:not(:disabled) { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-question-dismiss svg { width: 15px; height: 15px; }
-.jv-question-options { display: flex; flex-direction: column; border-radius: 10px; background: var(--ui-bg-base); box-shadow: 0 0 0 .5px var(--ui-border-weak); overflow: hidden; }
-.jv-question-option { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 9px 12px; text-align: left; background: transparent; color: inherit; }
-.jv-question-option + .jv-question-option { border-top: .5px solid var(--ui-border-weak); }
-.jv-question-option:hover:not(:disabled) { background: var(--ui-fill-ghost-hover); }
-.jv-question-option:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
-.jv-question-key { flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 4px; background: var(--ui-fill-secondary);
+.jv-question-options { display: flex; flex-direction: column; gap: 6px; }
+.jv-question-option { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 12px; border-radius: 16px; text-align: left;
+  background: var(--ui-fill-bubble-agent); color: inherit; transition: background-color .12s; }
+.jv-question-option:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-fill-bubble-agent), var(--ui-text-primary) 6%); }
+.jv-question-option:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 1px; }
+.jv-question-option:disabled { cursor: default; }
+.jv-question-option[data-on] { box-shadow: inset 0 0 0 1px var(--ui-text-secondary); }
+.jv-question-key { flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 5px; background: var(--ui-bg-base);
   box-shadow: inset 0 0 0 .5px var(--ui-border-default); font-size: 11px; line-height: 1; font-weight: 500; color: var(--ui-text-secondary); }
 .jv-question-key svg { width: 12px; height: 12px; }
 .jv-question-option[data-on] .jv-question-key { background: var(--ui-text-primary); color: var(--ui-bg-base); box-shadow: none; }
@@ -21,17 +24,23 @@
 .jv-question-copy small { font-size: 12px; line-height: 17px; color: var(--ui-text-secondary); overflow-wrap: anywhere; }
 .jv-question-option[data-style=primary] strong { font-weight: 600; }
 .jv-question-option[data-style=danger] strong { color: var(--ui-text-danger); }
-.jv-question[data-state=answered] .jv-question-option:not([data-on]) { opacity: .5; }
-.jv-question[data-state=answered] .jv-question-option[data-on] strong { font-weight: 600; }
-/* Settled options are disabled buttons; keep them at full strength and dim only the ones not chosen. */
-.jv-question-option:disabled { cursor: default; opacity: 1; }
 .jv-question-foot { display: flex; align-items: center; gap: 8px; }
-.jv-question-custom { flex: 1; min-width: 0; height: 34px; padding: 0 12px; border-radius: 10px; border: .5px solid var(--ui-border-default); background: var(--ui-bg-base); color: inherit; font: inherit; font-size: 14px; }
+.jv-question-custom { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 0; border-radius: 16px; background: var(--ui-fill-bubble-agent); color: inherit; font: inherit; font-size: 14px; }
+.jv-question-custom::placeholder { color: var(--ui-text-tertiary); }
 .jv-question-custom:focus { outline: 2px solid var(--ui-border-focus); outline-offset: -1px; }
 .jv-question-submit { flex: none; margin-left: auto; font-size: 13px; }
 .jv-question-error { margin: 0; font-size: 12px; color: var(--ui-text-danger); }
-.jv-question[data-state=ignored] { padding: 10px 12px; }
-.jv-question[data-state=ignored] .jv-question-title { font-weight: 400; color: var(--ui-text-secondary); }
-.jv-question-pill { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--ui-fill-secondary); font-size: 12px; line-height: 20px; color: var(--ui-text-secondary); }
-.jv-question-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ui-text-tertiary); }
+/* Settled: one line — what was chosen (or 已忽略), then the question, cut off when long. */
+.jv-question-done { display: flex; align-items: center; gap: 6px; max-width: min(560px, 100%); margin: 0; font-size: 13px; line-height: 20px; color: var(--ui-text-secondary); }
+.jv-question-done svg { flex: none; width: 14px; height: 14px; }
+.jv-question-done[data-state=answered] svg { color: var(--ui-text-primary); }
+.jv-question-answer { flex: none; max-width: 70%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.jv-question-answer strong { font-weight: 600; color: var(--ui-text-primary); }
+.jv-question-asked { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ui-text-tertiary); }
+.jv-question-asked::before { content: "·"; margin-right: 6px; }
 @media (max-width: 620px) { .jv-question-custom { font-size: 16px; } }
+/* DMs: the Bot's message right before its question keeps close and leaves the avatar to the question. */
+.ui-message-row[data-asks] { margin-bottom: 8px; }
+.ui-message-row[data-asks] .jarvy-bubble-avatar { visibility: hidden; }
+/* DM stacks shrink to their bubble; a question takes its own width there. */
+.jv-dm-stack:has(> .jv-question) { width: 100%; }

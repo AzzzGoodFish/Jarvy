@@ -13,8 +13,11 @@ export function DmMessages({ messages, members, colors, me, activeQuestion, onSe
   onQuote?: (message: ChatMessage) => void; onReact: (message: ChatMessage, emoji: string, on: boolean) => void;
   onJump: (id: string | null, passage?: string) => void; onError: (error: unknown) => void;
 }) {
-  // tabIndex lets a tap focus the row, which is what shows its actions on touch screens.
-  return <>{messages.map(message => <div className={`ui-message-row ${message.role === "user" ? "ui-user" : ""}`} data-message={message.id} key={message.id} tabIndex={-1}>
+  // tabIndex lets a tap focus the row, which is what shows its actions on touch screens. A Bot's question stays close
+  // under the Bot's message before it, the avatar beside the question only.
+  return <>{messages.map((message, index) => {
+    const next = messages[index + 1], asks = message.role === "assistant" && !!next?.question && next.senderId === message.senderId;
+    return <div className={`ui-message-row ${message.role === "user" ? "ui-user" : ""}`} data-message={message.id} data-asks={asks || undefined} key={message.id} tabIndex={-1}>
     {message.role === "assistant" && <span className="jarvy-bubble-avatar"><BotAvatar color={bot?.color ?? "gray"} mood={bot?.mood} size={22}/></span>}
     <div className="jv-dm-stack">
       {message.replyTo && <ReplyQuote message={message} members={members} onJump={onJump}/>}
@@ -24,5 +27,6 @@ export function DmMessages({ messages, members, colors, me, activeQuestion, onSe
       <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError}/>
     </div>
     <div className="jv-row-actions"><MessageActions message={message} me={me} members={members} onReply={onQuote} onReact={onReact} onError={onError}/></div>
-  </div>)}</>;
+  </div>;
+  })}</>;
 }
