@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { CheckIcon, MinusIcon, XIcon } from "lucide-react";
 import { api, type ChatMessage, type Question } from "../api";
+import { rich, t } from "../i18n";
 import "../styles/question.css";
 
 const letter = (index: number) => String.fromCharCode(65 + index);
@@ -19,7 +20,7 @@ export function QuestionCard({ message, keyboard, onSettled }: { message: ChatMe
     if (busy || !pending) return;
     setBusy(true); setError("");
     try { onSettled(await api.answerQuestion(message.chatId, message.id, body)); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "提交失败"); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : t("question.failed")); }
     finally { setBusy(false); }
   }
   const pick = (index: number) => {
@@ -43,19 +44,19 @@ export function QuestionCard({ message, keyboard, onSettled }: { message: ChatMe
 
   if (!pending) {
     const answer = question.state === "answered" ? [...(question.answer?.selected ?? []).map(index => question.options[index]?.label ?? ""),
-      ...(question.answer?.custom ? [question.answer.custom] : [])].filter(Boolean).join("、") : null;
-    return <p className="jv-question-done" data-state={question.state} title={`${question.question}\n${answer === null ? "已忽略" : `已选：${answer}`}`}>
+      ...(question.answer?.custom ? [question.answer.custom] : [])].filter(Boolean).join(t("common.listSeparator")) : null;
+    return <p className="jv-question-done" data-state={question.state} title={`${question.question}\n${answer === null ? t("question.dismissed") : t("question.chose", { answer })}`}>
       {answer === null ? <MinusIcon aria-hidden="true"/> : <CheckIcon aria-hidden="true"/>}
-      <span className="jv-question-answer">{answer === null ? "已忽略" : <>已选：<strong>{answer}</strong></>}</span>
+      <span className="jv-question-answer">{answer === null ? t("question.dismissed") : rich("question.chose", { answer: <strong>{answer}</strong> })}</span>
       <span className="jv-question-asked">{question.question}</span>
     </p>;
   }
   return <div className="jv-question" role="group" aria-labelledby={titleId} aria-busy={busy || undefined}>
     <div className="jv-question-head">
       <div className="jv-question-heading"><p id={titleId} className="jv-question-title">{question.question}</p>{question.detail && <p className="jv-question-detail">{question.detail}</p>}</div>
-      <button type="button" className="jv-question-dismiss" aria-label="关闭问题，不回答" title="不回答" disabled={busy} onClick={() => void settle({ action: "dismiss" })}><XIcon aria-hidden="true"/></button>
+      <button type="button" className="jv-question-dismiss" aria-label={t("question.dismissLabel")} title={t("question.dismiss")} disabled={busy} onClick={() => void settle({ action: "dismiss" })}><XIcon aria-hidden="true"/></button>
     </div>
-    <div className="jv-question-options" role={question.multiple ? "group" : undefined} aria-label={question.multiple ? "可多选" : undefined}>
+    <div className="jv-question-options" role={question.multiple ? "group" : undefined} aria-label={question.multiple ? t("question.multiple") : undefined}>
       {question.options.map((option, index) => {
         const on = ticked.includes(index);
         return <button key={option.label} type="button" className="jv-question-option" data-style={option.style} data-on={on || undefined}
@@ -67,10 +68,10 @@ export function QuestionCard({ message, keyboard, onSettled }: { message: ChatMe
       })}
     </div>
     {(question.allowCustom || question.multiple) && <div className="jv-question-foot">
-      {question.allowCustom && <input className="jv-question-custom" value={custom} maxLength={2000} placeholder={question.multiple ? "补充说明（可选）" : "或者自己填写…"} aria-label="自己填写回答"
+      {question.allowCustom && <input className="jv-question-custom" value={custom} maxLength={2000} placeholder={t(question.multiple ? "question.note" : "question.own")} aria-label={t("question.ownLabel")}
         disabled={busy} onChange={event => setCustom(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); submitCustom(); } }}/>}
-      {question.multiple ? <button type="button" className="ui-button jv-question-submit" disabled={busy || (!ticked.length && !custom.trim())} onClick={confirm}>确定{ticked.length ? `（${ticked.length}）` : ""}</button>
-        : <button type="button" className="ui-button jv-question-submit" disabled={busy || !custom.trim()} onClick={submitCustom}>发送</button>}
+      {question.multiple ? <button type="button" className="ui-button jv-question-submit" disabled={busy || (!ticked.length && !custom.trim())} onClick={confirm}>{ticked.length ? t("question.confirmCount", { count: ticked.length }) : t("question.confirm")}</button>
+        : <button type="button" className="ui-button jv-question-submit" disabled={busy || !custom.trim()} onClick={submitCustom}>{t("question.send")}</button>}
     </div>}
     {error && <p className="jv-question-error" role="alert">{error}</p>}
   </div>;

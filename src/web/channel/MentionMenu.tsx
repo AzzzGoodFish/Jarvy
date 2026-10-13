@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from "react";
 import type { Bot, Member } from "../api";
+import { t } from "../i18n";
 import { Icon } from "../ui";
 import { MemberAvatar } from "./ChannelView";
 
@@ -68,26 +69,26 @@ export function useMentionMenu({ textarea, value, setValue, inside, outside, bot
   };
   const option = (member: Member, selected: boolean) => <button key={member.id} type="button" role="option" aria-selected={selected} className="ui-menu-item"
     data-active={selected || undefined} onMouseDown={event => { event.preventDefault(); pick(member); }}>
-    <MemberAvatar member={member} bots={bots} size={20}/><span className="ui-menu-copy">{member.name}</span><span className="jv-muted">{member.kind === "bot" ? "Bot" : "成员"}</span>
+    <MemberAvatar member={member} bots={bots} size={20}/><span className="ui-menu-copy">{member.name}</span><span className="jv-muted">{member.kind === "bot" ? "Bot" : t("common.member")}</span>
   </button>;
   const menu = rows > 0 ? <div ref={box} className="jv-mention-box" data-side={side ? "" : undefined} onBlur={leaves}>
-    <div className="ui-popover jv-mention-menu" role="listbox" aria-label="提及成员">
+    <div className="ui-popover jv-mention-menu" role="listbox" aria-label={t("mention.menu")}>
       {shown.map((member, index) => option(member, index === active))}
       {others.length > 0 && <button type="button" className="ui-menu-item jv-mention-more" aria-haspopup="listbox" aria-expanded={!!side}
         data-active={active === shown.length || undefined} onMouseEnter={() => { setActive(shown.length); openSide(false); }}
         onMouseDown={event => { event.preventDefault(); setActive(shown.length); openSide(true); }}>
-        <span className="ui-menu-copy">不在本频道中</span><span className="jv-muted">{others.length}</span><Icon name="chevron-right"/></button>}
+        <span className="ui-menu-copy">{t("mention.outside")}</span><span className="jv-muted">{others.length}</span><Icon name="chevron-right"/></button>}
     </div>
-    {side && <div className="ui-popover jv-mention-side" role="listbox" aria-label="不在本频道中的成员">
+    {side && <div className="ui-popover jv-mention-side" role="listbox" aria-label={t("mention.outsideList")}>
       <div className="jv-mention-side-head">
-        <button type="button" className="jv-mention-back" aria-label="返回" onMouseDown={event => { event.preventDefault(); backToInput(); }}><Icon name="chevron-left"/></button>
-        <input ref={search} type="search" value={side.search} placeholder="搜索成员" aria-label="搜索不在本频道中的成员"
+        <button type="button" className="jv-mention-back" aria-label={t("common.back")} onMouseDown={event => { event.preventDefault(); backToInput(); }}><Icon name="chevron-left"/></button>
+        <input ref={search} type="search" value={side.search} placeholder={t("common.searchMembers")} aria-label={t("mention.searchOutside")}
           onChange={event => setSide({ search: event.target.value, active: 0 })} onKeyDown={onSearchKey}/>
       </div>
       <div className="jv-mention-side-list">
-        {found.length ? found.map((member, index) => option(member, index === side.active)) : <p className="jv-mention-empty">无匹配成员</p>}
+        {found.length ? found.map((member, index) => option(member, index === side.active)) : <p className="jv-mention-empty">{t("common.noMatch")}</p>}
       </div>
-      <p className="ui-menu-note ui-small">选中后会拉进本频道</p>
+      <p className="ui-menu-note ui-small">{t("mention.invites")}</p>
     </div>}
   </div> : null;
   return { menu, track, onKeyDown, close, leaves };

@@ -10,12 +10,12 @@ import { findMentions } from "./channel/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
 import { useBotDirects } from "./bot/BotDirects";
 import { useTabBadge } from "./tabBadge";
-import { liveMembers } from "./members";
+import { activityLabel, liveMembers } from "./members";
 import { useTranscript } from "./transcript/useTranscript";
 import { useMarkRead } from "./transcript/useMarkRead";
 import { Login } from "./Login";
 import { applyTheme } from "./ui";
-import { t, type Key } from "./i18n";
+import { t } from "./i18n";
 import type { InfoPage } from "./channel/ChannelInfo";
 import type { Pane } from "./pane";
 import { useFind } from "./search/useFind";
@@ -27,7 +27,6 @@ const DevAgentation = import.meta.env.DEV
     return { default: (await import("agentation")).Agentation };
   })
   : null;
-const ACTIVITY: Record<string, Key> = { reasoning: "activity.reasoning", texting: "activity.texting", tool_calling: "activity.toolCalling", asking: "activity.asking" };
 
 export function App() {
   const [phase, setPhase] = useState<"loading" | "login" | "ready">("loading");
@@ -344,7 +343,7 @@ export function App() {
   const composeReady = inChannel || activeBotReady;
   const botName = activeBot?.name ?? "Jarvy";
   const status = activeBot ? statuses[activeBot.id] : undefined;
-  const activity = status?.error ? t("activity.error") : status?.status === "running" ? t(ACTIVITY[status.activity ?? ""] ?? "activity.running") : "";
+  const activity = status?.error ? t("activity.error") : status?.status === "running" ? activityLabel(status.activity) : "";
   // Only the latest question still waiting for an answer takes the A–F shortcuts.
   const activeQuestion = [...messages].reverse().find(message => message.question?.state === "pending")?.id;
   const openThread = pane?.kind === "thread" ? pane : null, full = openThread?.mode === "full";

@@ -7,8 +7,8 @@ import { Icon, IconButton, Markdown } from "../ui";
 import { MessageText } from "./quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "./MessageActions";
 import { memberName } from "../members";
+import { formatClock, formatDate, t } from "../i18n";
 
-const clock = (time: number) => new Date(time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 const NOTICE_KEY = "jarvy-notice-closed";
 const closedNotices = (): string[] => { try { return JSON.parse(localStorage.getItem(NOTICE_KEY) ?? "[]") as string[]; } catch { return []; } };
 
@@ -26,19 +26,19 @@ export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, thre
   const inside = members.filter(member => chat.memberIds.includes(member.id));
   return <header className="ui-chat-header jv-channel-header">
     <div className="ui-header-left">
-      <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label="打开会话列表" onClick={onNav}/>
-      <button type="button" className="jv-channel-title" aria-label={`频道信息：${chat.title}`} aria-pressed={infoOpen} onClick={onInfo}>
+      <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>
+      <button type="button" className="jv-channel-title" aria-label={t("channel.infoFor", { name: chat.title })} aria-pressed={infoOpen} onClick={onInfo}>
         <span className="jv-hash">#</span>{chat.title}<Icon name="chevron-down"/></button>
       {chat.topic && <span className="jv-channel-topic">{chat.topic}</span>}
     </div>
     <div className="ui-header-actions">
-      <button type="button" className="jv-members-button" aria-label={`成员 ${inside.length}`} aria-pressed={membersOpen} title="成员" onClick={onMembers}>
+      <button type="button" className="jv-members-button" aria-label={t("channel.membersCount", { count: inside.length })} aria-pressed={membersOpen} title={t("channel.members")} onClick={onMembers}>
         <span className="jv-stack">{inside.slice(0, 3).map(member => <span key={member.id} className="jv-stack-item">
           <MemberAvatar member={member} bots={bots} size={22}/></span>)}</span>
         <span className="jv-members-count">{inside.length}</span>
       </button>
-      <IconButton icon="search" label="搜索频道消息（Ctrl+F）" aria-pressed={searchOpen} className="jv-threads-button" onClick={onSearch}/>
-      <IconButton icon="chat-bubble" label="线程" aria-pressed={threadsOpen} className="jv-threads-button" onClick={onThreads}/>
+      <IconButton icon="search" label={t("channel.search")} aria-pressed={searchOpen} className="jv-threads-button" onClick={onSearch}/>
+      <IconButton icon="chat-bubble" label={t("channel.threads")} aria-pressed={threadsOpen} className="jv-threads-button" onClick={onThreads}/>
     </div>
   </header>;
 }
@@ -54,20 +54,20 @@ export function NoticeBar({ chat, onSave }: { chat: Chat; onSave: (text: string)
   });
   const save = async () => { if (!editing?.trim()) return; setSaving(true); try { await onSave(editing.trim()); setEditing(null); } finally { setSaving(false); } };
   if (editing !== null) return <div className="jv-notice" data-editing>
-    <div className="jv-notice-head"><Icon name="megaphone"/><strong>编辑公告</strong></div>
-    <textarea className="jv-notice-input" value={editing} autoFocus aria-label="公告内容" onChange={event => setEditing(event.target.value)}/>
-    <div className="jv-notice-actions"><button type="button" className="ui-button" onClick={() => setEditing(null)}>取消</button>
-      <button type="button" className="ui-button ui-primary" disabled={saving || !editing.trim()} onClick={() => void save()}>保存</button></div>
+    <div className="jv-notice-head"><Icon name="megaphone"/><strong>{t("notice.edit")}</strong></div>
+    <textarea className="jv-notice-input" value={editing} autoFocus aria-label={t("notice.content")} onChange={event => setEditing(event.target.value)}/>
+    <div className="jv-notice-actions"><button type="button" className="ui-button" onClick={() => setEditing(null)}>{t("common.cancel")}</button>
+      <button type="button" className="ui-button ui-primary" disabled={saving || !editing.trim()} onClick={() => void save()}>{t("common.save")}</button></div>
   </div>;
-  if (!note) return <div className="jv-notice" data-empty><Icon name="megaphone"/><span className="jv-muted">暂无公告</span>
-    <IconButton icon="pencil" label="编辑公告" onClick={() => setEditing("")}/></div>;
+  if (!note) return <div className="jv-notice" data-empty><Icon name="megaphone"/><span className="jv-muted">{t("notice.none")}</span>
+    <IconButton icon="pencil" label={t("notice.edit")} onClick={() => setEditing("")}/></div>;
   const first = note.text.split("\n").find(line => line.trim() && !line.startsWith("#"))?.replace(/[*`|>-]/g, "").trim() ?? "";
   return <div className="jv-notice" data-open={open || undefined}>
     <div className="jv-notice-head">
-      <button type="button" className="jv-notice-toggle" aria-expanded={open} onClick={toggle}><Icon name="megaphone"/><strong>公告</strong>
+      <button type="button" className="jv-notice-toggle" aria-expanded={open} onClick={toggle}><Icon name="megaphone"/><strong>{t("notice.title")}</strong>
         {!open && <span className="jv-notice-first">{first}</span>}<Icon name={open ? "chevron-down" : "chevron-right"}/></button>
-      <span className="jv-muted jv-notice-meta">{note.updatedBy.name} · {new Date(note.updatedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 第 {note.version} 版</span>
-      <IconButton icon="pencil" label="编辑公告" onClick={() => setEditing(note.text)}/>
+      <span className="jv-muted jv-notice-meta">{note.updatedBy.name} · {formatDate(note.updatedAt, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · {t("notice.version", { version: note.version })}</span>
+      <IconButton icon="pencil" label={t("notice.edit")} onClick={() => setEditing(note.text)}/>
     </div>
     {open && <div className="jv-notice-body ui-bubble jv-flat"><Markdown text={note.text}/></div>}
   </div>;
@@ -94,24 +94,24 @@ export function ChannelMessages({ messages, members, bots, me, divider, activeQu
     const previous = messages[index - 1], member = members.find(item => item.id === message.senderId);
     const folded = !!previous && previous.senderId === message.senderId && message.createdAt - previous.createdAt < 5 * 60_000 && message.id !== firstNew;
     return <div key={message.id}>
-      {message.id === firstNew && <div className="jv-divider" role="separator"><span>以下为新消息</span></div>}
+      {message.id === firstNew && <div className="jv-divider" role="separator"><span>{t("chat.newBelow")}</span></div>}
       <div className="jv-row" tabIndex={-1} data-message={message.id} data-folded={folded || undefined} data-mention={message.mentions.includes(me) || undefined}>
-        <div className="jv-row-gutter">{folded ? <time className="jv-row-time">{clock(message.createdAt)}</time> : <MemberAvatar member={member} bots={bots} size={32}/>}</div>
+        <div className="jv-row-gutter">{folded ? <time className="jv-row-time">{formatClock(message.createdAt)}</time> : <MemberAvatar member={member} bots={bots} size={32}/>}</div>
         <div className="jv-row-body">
-          {!folded && <div className="jv-row-head"><strong>{memberName(member)}</strong>{member?.kind === "bot" && <span className="jv-role">Bot</span>}<time>{clock(message.createdAt)}</time></div>}
-          {message.echoOf && <button type="button" className="jv-echo" onClick={() => onOpenThread?.(message.echoOf!.id)}>回复了线程「{message.echoOf.title}」</button>}
+          {!folded && <div className="jv-row-head"><strong>{memberName(member)}</strong>{member?.kind === "bot" && <span className="jv-role">Bot</span>}<time>{formatClock(message.createdAt)}</time></div>}
+          {message.echoOf && <button type="button" className="jv-echo" onClick={() => onOpenThread?.(message.echoOf!.id)}>{t("channel.echo", { title: message.echoOf.title })}</button>}
           {message.replyTo && <ReplyQuote message={message} members={members} onJump={id => onJump?.(id)}/>}
           {message.question ? <QuestionCard message={{ ...message, question: message.question }} keyboard={message.id === activeQuestion} onSettled={onSettled}/>
             : <div className="ui-bubble jv-flat">{message.content && <MessageText message={message} members={members} me={me} onJump={onJump}/>}
               {message.attachments.length > 0 && <FileCards files={message.attachments} onOpen={file => onPreview(message.attachments, file)}/>}</div>}
           {onReact && <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError ?? (() => {})}/>}
           {message.thread && message.thread.replies > 0 && <button type="button" className="jv-thread-link" data-done={message.thread.status === "done" || undefined}
-            onClick={() => onOpenThread?.(message.thread!.id)}>{message.thread.replies} 条回复{message.thread.status === "done" && " · 已完成"}
-            {message.thread.lastReplyAt && <span className="jv-muted">最后回复 {clock(message.thread.lastReplyAt)}</span>}</button>}
+            onClick={() => onOpenThread?.(message.thread!.id)}>{t("channel.replies", { count: message.thread.replies })}{message.thread.status === "done" && ` · ${t("channel.threadDone")}`}
+            {message.thread.lastReplyAt && <span className="jv-muted">{t("channel.lastReply", { time: formatClock(message.thread.lastReplyAt) })}</span>}</button>}
         </div>
         <div className="jv-row-actions">
-          {onReply && !message.echoOf && <IconButton icon="chat-bubble" label="在线程中回复" onClick={() => onReply(message)}/>}
-          {onReact && <MessageActions message={message} me={me} members={members} onReply={onQuote} onReact={onReact} onError={onError ?? (() => {})}/>}
+          {onReply && !message.echoOf && <IconButton icon="chat-bubble" label={t("channel.replyInThread")} onClick={() => onReply(message)}/>}
+          {onReact && <MessageActions message={message} me={me} onReply={onQuote} onReact={onReact} onError={onError ?? (() => {})}/>}
         </div>
       </div>
     </div>;

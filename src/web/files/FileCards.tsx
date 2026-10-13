@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Attachment } from "../api";
+import { t } from "../i18n";
 import { Icon } from "../ui";
 import { bytes, extension, fileKind, fileUrl, isPicture, pictureSource } from "./files";
 
@@ -20,11 +21,11 @@ export function FileCards({ files, onOpen }: { files: Attachment[]; onOpen: (ind
   return <div className={`ui-message-files ${pictures ? "ui-has-images" : ""}`}>{files.map((file, index) => {
     const picture = isPicture(fileKind(file)), ext = extension(file).toUpperCase();
     return <div key={file.id} className={`ui-message-file ${picture ? "ui-message-image" : ""}`}>
-      <button type="button" className="ui-message-open" onClick={() => onOpen(index)} aria-label={`预览 ${file.name}`}>
+      <button type="button" className="ui-message-open" onClick={() => onOpen(index)} aria-label={t("files.preview", { name: file.name })}>
         {picture ? <span className="ui-image-frame"><Thumbnail file={file}/></span> : <span className="ui-file-icon"><Icon name="file"/></span>}
         <span className="ui-file-copy"><strong title={file.name}>{file.name}</strong><small>{ext ? `${ext} · ` : ""}{bytes(file.size)}</small></span>
       </button>
-      <a className="ui-iconbtn" href={fileUrl(file)} download={file.name} aria-label={`下载 ${file.name}`} title={`下载 ${file.name}`}><Icon name="cloud-download"/></a>
+      <a className="ui-iconbtn" href={fileUrl(file)} download={file.name} aria-label={t("files.download", { name: file.name })} title={t("files.download", { name: file.name })}><Icon name="cloud-download"/></a>
     </div>;
   })}</div>;
 }

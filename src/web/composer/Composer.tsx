@@ -3,6 +3,7 @@ import { api, type Bot, type Member } from "../api";
 import { useMentionMenu } from "../channel/MentionMenu";
 import { useDraft, type DraftStore } from "./drafts";
 import { QuoteTags } from "../channel/quotes";
+import { t } from "../i18n";
 import { Icon } from "../ui";
 
 const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
@@ -38,9 +39,9 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   async function attach(list: File[]) {
     const target = chatId;
     if (!list.length) return;
-    if (uploading) { onNotice("附件上传中，请稍后再添加。"); return; }
-    if (files.length + list.length > 5) { onNotice("每条消息最多添加 5 个附件。"); return; }
-    if (list.some(file => file.size === 0 || file.size > 10 * 1024 * 1024)) { onNotice("每个附件必须在 1 字节到 10 MB 之间。"); return; }
+    if (uploading) { onNotice(t("composer.busy")); return; }
+    if (files.length + list.length > 5) { onNotice(t("composer.tooMany", { count: 5 })); return; }
+    if (list.some(file => file.size === 0 || file.size > 10 * 1024 * 1024)) { onNotice(t("composer.size")); return; }
     const entries = list.map(file => ({ key: newKey(), chatId: target, name: file.name, done: 0 })), keys = entries.map(entry => entry.key);
     const progress = (key: string, done: number) => setUploads(previous => previous.map(item => item.key === key ? { ...item, done } : item));
     setUploads(previous => [...previous, ...entries]);
@@ -65,7 +66,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     event.preventDefault();
     const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
     void attach(list.map((file, index) => file.type.startsWith("image/") && /^image\.\w+$/.test(file.name)
-      ? new File([file], `粘贴图片-${stamp}${list.length > 1 ? `-${index + 1}` : ""}.${file.name.split(".").pop()}`, { type: file.type }) : file));
+      ? new File([file], `${t("composer.pasted")}-${stamp}${list.length > 1 ? `-${index + 1}` : ""}.${file.name.split(".").pop()}`, { type: file.type }) : file));
   }
   const draggingFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
   function dragOver(event: DragEvent<HTMLFormElement>) {
@@ -115,23 +116,23 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   return <form ref={formRef} className={`ui-compose-wrap${dropping ? " jarvy-dropping" : ""}`} onSubmit={event => void send(event)} onDragEnter={dragOver} onDragOver={dragOver}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false); }} onDrop={drop}>
     {files.length + pending.length > 0 && <div className="jarvy-pending-files">{files.map(file => <span className="jarvy-file-chip" key={file.id}><Icon name="paperclip"/><span title={file.name}>{file.name}</span>
-      <button type="button" aria-label={`移除附件：${file.name}`} onClick={() => void remove(file.id)}>×</button></span>)}
+      <button type="button" aria-label={t("composer.removeFile", { name: file.name })} onClick={() => void remove(file.id)}>×</button></span>)}
       {pending.map(item => <span className="jarvy-file-chip" data-uploading key={item.key}><Icon name="paperclip"/><span title={item.name}>{item.name}</span>
-        <span className="jarvy-file-progress" role="progressbar" aria-label={`正在上传：${item.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(item.done * 100)}>
+        <span className="jarvy-file-progress" role="progressbar" aria-label={t("composer.uploading", { name: item.name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(item.done * 100)}>
           <span style={{ width: `${item.done * 100}%` }}/></span></span>)}</div>}
-    {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">回复</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || "(附件)"}</span>
-      <button type="button" aria-label="取消回复" onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
+    {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">{t("composer.replying")}</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || t("common.attachment")}</span>
+      <button type="button" aria-label={t("composer.cancelReply")} onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
     <QuoteTags quotes={saved.passages} onRemove={index => drafts.update(chatId, draft => ({ passages: draft.passages.filter((_, at) => at !== index) }))}/>
     <div className="ui-composer jv-composer">
       {mention && menu.menu}
-      {dropping && <span className="jarvy-drop-hint" role="status">松开以添加附件</span>}
-      <label className="jarvy-attach-trigger" title="上传附件"><Icon name="add"/><input type="file" multiple aria-label="上传附件" disabled={sending || uploading || disabled || files.length >= 5}
+      {dropping && <span className="jarvy-drop-hint" role="status">{t("composer.drop")}</span>}
+      <label className="jarvy-attach-trigger" title={t("composer.attach")}><Icon name="add"/><input type="file" multiple aria-label={t("composer.attach")} disabled={sending || uploading || disabled || files.length >= 5}
         onChange={(event: ChangeEvent<HTMLInputElement>) => { const list = [...(event.target.files ?? [])]; event.target.value = ""; void attach(list); }}/></label>
-      <textarea ref={textarea} id={id} rows={1} maxLength={32000} value={draft} onPaste={paste} placeholder={placeholder} disabled={disabled} aria-label="输入消息"
+      <textarea ref={textarea} id={id} rows={1} maxLength={32000} value={draft} onPaste={paste} placeholder={placeholder} disabled={disabled} aria-label={t("composer.input")}
         onChange={event => { setDraft(event.target.value); if (mention) menu.track(event.target.value); }}
         onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => { if (mention && menu.onKeyDown(event)) return; if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
         onClick={() => { if (mention) menu.track(); }} onBlur={mention ? menu.leaves : undefined}/>
-      <button type="submit" className="ui-round ui-send" aria-label="发送消息" disabled={sending || uploading || disabled || (!draft.trim() && !files.length && !saved.passages.length)}><Icon name="arrow-up"/></button>
+      <button type="submit" className="ui-round ui-send" aria-label={t("composer.send")} disabled={sending || uploading || disabled || (!draft.trim() && !files.length && !saved.passages.length)}><Icon name="arrow-up"/></button>
     </div>
   </form>;
 }

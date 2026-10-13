@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Section } from "../api";
+import { t } from "../i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
 /** A channel's group, picked from the app's own menu rather than the browser's native list (which ignores the theme). */
@@ -9,7 +10,7 @@ export function SectionSelect({ id, value, sections, onChange }: { id: string; v
   return <Select value={value ?? "none"} onValueChange={next => onChange(next === "none" ? null : next)}>
     <SelectTrigger id={id} ref={element => setDialog(element?.closest("dialog") ?? null)} className="jv-select jv-section-select"><SelectValue/></SelectTrigger>
     <SelectContent className="jv-select-menu" position="popper" sideOffset={4} container={dialog}>
-      <SelectItem value="none">无</SelectItem>
+      <SelectItem value="none">{t("info.noSection")}</SelectItem>
       {sections.map(section => <SelectItem key={section.id} value={section.id}>{section.name}</SelectItem>)}
     </SelectContent>
   </Select>;

@@ -43,7 +43,7 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
       onOpenBot={bot => onInfoBot(bot.id)} onSettings={chat => { if (chat.type === "channel") onChannelInfo(chat); }}
       onPin={(chat, pinned) => void pinChat(chat, pinned)} onMute={(chat, muted) => void muteChat(chat, muted)}
       onDeleteChat={chat => onConfirm({ kind: "chat", chat })} onDeleteBot={bot => onConfirm({ kind: "bot", bot })}/>}
-    {confirm?.kind === "chat" && <ConfirmDialog title={t("app.deleteChannelTitle", { name: confirm.chat.title })} confirm={t("app.delete")} onClose={() => onConfirm(null)}
+    {confirm?.kind === "chat" && <ConfirmDialog title={t("app.deleteChannelTitle", { name: confirm.chat.title })} confirm={t("common.delete")} onClose={() => onConfirm(null)}
       body={t("app.deleteChannelBody")} onConfirm={async () => { await removeChannel(confirm.chat); onConfirm(null); }}/>}
     {confirm?.kind === "bot" && <DeleteBotDialog bot={confirm.bot} chats={chats.filter(chat => chat.type === "dm" && chat.botId === confirm.bot.id).length}
       onClose={() => onConfirm(null)} onConfirm={async deleteFiles => { await deleteBot(confirm.bot, deleteFiles); onConfirm(null); }}/>}

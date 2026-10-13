@@ -1,4 +1,5 @@
 import type { Attachment } from "../api";
+import { t } from "../i18n";
 
 /** Preview kinds; larger files are download-only. */
 export type FileKind = "image" | "svg" | "html" | "markdown" | "text" | "download";
@@ -23,7 +24,7 @@ export function bytes(size: number) {
 /** Attachments are served as same-origin octet-stream downloads; text is read through fetch. */
 export async function readText(file: Attachment, signal?: AbortSignal) {
   const response = await fetch(fileUrl(file), { signal, credentials: "same-origin" });
-  if (!response.ok) throw new Error(response.status === 404 ? "附件不存在或已被删除" : `读取失败（${response.status}）`);
+  if (!response.ok) throw new Error(response.status === 404 ? t("files.gone") : t("files.readFailed", { status: response.status }));
   return response.text();
 }
 /** Raster images load straight from the attachment URL (browsers sniff them). SVG is not sniffed, so it

@@ -26,7 +26,7 @@ export function DmMessages({ messages, members, colors, me, activeQuestion, onSe
           {message.attachments.length > 0 && <FileCards files={message.attachments} onOpen={index => onPreview(message.attachments, index)}/>}</div>}
       <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError}/>
     </div>
-    <div className="jv-row-actions"><MessageActions message={message} me={me} members={members} onReply={onQuote} onReact={onReact} onError={onError}/></div>
+    <div className="jv-row-actions"><MessageActions message={message} me={me} onReply={onQuote} onReact={onReact} onError={onError}/></div>
   </div>;
   })}</>;
 }

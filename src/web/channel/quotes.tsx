@@ -3,6 +3,7 @@ import type { ChatMessage, Member } from "../api";
 import { memberName } from "../members";
 import { copyText, Icon, Markdown } from "../ui";
 import { linkMentions } from "./mentions";
+import { t } from "../i18n";
 import type { DraftStore } from "../composer/drafts";
 
 /** Partial quotes (A44). The content marks each quote's place with [[q1]] … [[qN]]; message.quotes holds them in order. */
@@ -11,7 +12,7 @@ const short = (text: string, length = 40) => { const flat = text.replace(/\s+/g,
 
 /** Plain text for previews: each marker becomes its passage in 「」, as the server's sidebar digests do. */
 export function quotedText(message: Pick<ChatMessage, "content" | "quotes">): string {
-  return message.content.replace(MARKER, (marker, n: string) => { const quote = message.quotes[Number(n) - 1]; return quote ? `「${quote.text}」` : marker; });
+  return message.content.replace(MARKER, (marker, n: string) => { const quote = message.quotes[Number(n) - 1]; return quote ? t("quote.inline", { text: quote.text }) : marker; });
 }
 
 /** A message's text: Markdown with @mentions, and each quote marker as a tag that jumps to its source. */
@@ -25,8 +26,8 @@ export function MessageText({ message, members, me, onJump }: {
     const quote = message.quotes[index - 1];
     if (!quote) return null;
     const name = memberName(members.find(member => member.id === quote.senderId));
-    return <button type="button" className="jv-quote-tag" title={`${name}：${quote.text}`} data-gone={quote.messageId ? undefined : ""}
-      onClick={() => onJump?.(quote.messageId, quote.text)}><Icon name="quote"/><span className="jv-quote-name">{name}：</span><span className="jv-quote-text">{short(quote.text, 80)}</span></button>;
+    return <button type="button" className="jv-quote-tag" title={t("sidebar.said", { name, text: quote.text })} data-gone={quote.messageId ? undefined : ""}
+      onClick={() => onJump?.(quote.messageId, quote.text)}><Icon name="quote"/><span className="jv-quote-name">{t("quote.by", { name })}</span><span className="jv-quote-text">{short(quote.text, 80)}</span></button>;
   };
   return <Markdown text={text} renderQuote={renderQuote}/>;
 }
@@ -61,9 +62,9 @@ export function jumpToPassage(element: Element, passage?: string) {
 /** The composer's quote tags (one per line, removable); their order is the order of [[qN]] when sending. */
 export function QuoteTags({ quotes, onRemove }: { quotes: { name: string; text: string }[]; onRemove: (index: number) => void }) {
   if (!quotes.length) return null;
-  return <div className="jv-compose-quotes">{quotes.map((quote, index) => <span key={index} className="jv-quote-tag" title={`${quote.name}：${quote.text}`}>
-    <Icon name="quote"/><span className="jv-quote-name">{quote.name}：</span><span className="jv-quote-text">{short(quote.text)}</span>
-    <button type="button" aria-label={`移除引用：${short(quote.text, 20)}`} onClick={() => onRemove(index)}>×</button></span>)}</div>;
+  return <div className="jv-compose-quotes">{quotes.map((quote, index) => <span key={index} className="jv-quote-tag" title={t("sidebar.said", { name: quote.name, text: quote.text })}>
+    <Icon name="quote"/><span className="jv-quote-name">{t("quote.by", { name: quote.name })}</span><span className="jv-quote-text">{short(quote.text)}</span>
+    <button type="button" aria-label={t("quote.remove", { text: short(quote.text, 20) })} onClick={() => onRemove(index)}>×</button></span>)}</div>;
 }
 
 /** Selecting text inside one message (desktop) offers 「复制」 and 「在回复中引用」 next to the selection; quoting adds the
@@ -74,7 +75,7 @@ export function QuoteSelection({ container, drafts, chatId, source, members, onN
 }) {
   const onQuote = (messageId: string, text: string) => {
     const message = source(messageId);
-    if (message && !quotePassage(drafts, chatId, message, members, text)) onNotice("一条消息最多引用 10 段");
+    if (message && !quotePassage(drafts, chatId, message, members, text)) onNotice(t("quote.tooMany", { count: 10 }));
   };
   const [menu, setMenu] = useState<{ x: number; y: number; messageId: string; text: string } | null>(null);
   useEffect(() => {
@@ -97,9 +98,9 @@ export function QuoteSelection({ container, drafts, chatId, source, members, onN
   }, [container]);
   if (!menu) return null;
   const done = () => { setMenu(null); getSelection()?.removeAllRanges(); };
-  return <div className="ui-popover jv-selection-menu" role="menu" aria-label="选中的文字" style={{ left: menu.x, top: menu.y }} onMouseDown={event => event.preventDefault()}>
-    <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { void copyText(menu.text); done(); }}><Icon name="copy"/><span className="ui-menu-copy">复制</span></button>
-    <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { onQuote(menu.messageId, menu.text); done(); }}><Icon name="quote"/><span className="ui-menu-copy">在回复中引用</span></button>
+  return <div className="ui-popover jv-selection-menu" role="menu" aria-label={t("quote.selection")} style={{ left: menu.x, top: menu.y }} onMouseDown={event => event.preventDefault()}>
+    <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { void copyText(menu.text); done(); }}><Icon name="copy"/><span className="ui-menu-copy">{t("quote.copy")}</span></button>
+    <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { onQuote(menu.messageId, menu.text); done(); }}><Icon name="quote"/><span className="ui-menu-copy">{t("quote.quote")}</span></button>
   </div>;
 }
 
