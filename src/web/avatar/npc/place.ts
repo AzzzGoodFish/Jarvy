@@ -1,12 +1,14 @@
-/** Puts the NPC dialogue beside the cat: on the side with room (left first, as the cat starts top right), else below or
- * above it. It stays inside the chat area, above the composer (`bottom`), clear of the cat's drag row (`clear`, a strip
- * at the top) and under `keepOff` (the toolbar) when it would cross it — all relative to the area.
+/** Puts the NPC dialogue beside the cat: the side the cat faces when there is room there (`facing`, −1 left / +1 right),
+ * else the side with room, else below or above it. It stays inside the chat area, above the composer (`bottom`), clear of
+ * the cat's drag row (`clear`, a strip at the top) and under `keepOff` (the toolbar) when it would cross it — all
+ * relative to the area.
  *
  * A collapsed dialogue (`data-fit`, set by NpcLayer) takes the room on its side and keeps it, so the text growing never
- * moves it; a panel keeps its own width. The side is kept while it has room (or the other side has more than `slack`
- * more), so a box that grows across the threshold does not flip back and forth. The tail always points at the cat. */
+ * moves it; a panel keeps its own width. A side that is not the natural one is kept while it has room (or the natural
+ * side has more than `slack` more room), so a box never flips back and forth across the threshold. The tail always
+ * points at the cat. */
 export function placeBeside(panel: HTMLElement, cat: HTMLElement, width: number, bottom: number,
-  keepOff: { left: number; right: number; bottom: number } | null, clear = 0) {
+  keepOff: { left: number; right: number; bottom: number } | null, clear = 0, facing = 0) {
   const gap = 10, margin = 8, size = cat.offsetWidth, left = cat.offsetLeft, top = cat.offsetTop, slack = 40;
   panel.style.maxHeight = "";
   const roomLeft = left - gap - margin, roomRight = width - (left + size) - gap - margin;
@@ -17,7 +19,12 @@ export function placeBeside(panel: HTMLElement, cat: HTMLElement, width: number,
   const was = panel.dataset.side;
   const fits = (side: string) => side === "left" ? w <= roomLeft : side === "right" ? w <= roomRight : w <= width - 2 * margin;
   // Too narrow on both sides (a phone): below the cat in the upper half of the area, above it in the lower half.
-  const natural = w <= roomLeft ? "left" : w <= roomRight ? "right" : top + size / 2 < bottom / 2 ? "below" : "above";
+  // With room on one side, the box comes out of the side the cat faces; when there is room on both, the wider one.
+  const roomy = w <= roomLeft ? "left" : w <= roomRight ? "right" : null;
+  const wanted = facing < -0.05 ? "left" : facing > 0.05 ? "right" : null;
+  const natural = roomy === null ? (top + size / 2 < bottom / 2 ? "below" : "above")
+    : wanted !== null && w <= (wanted === "left" ? roomLeft : roomRight) ? wanted
+    : w <= roomLeft && w <= roomRight ? (roomLeft >= roomRight ? "left" : "right") : roomy;
   // Keep the side already taken while it still has room (or the other one has more than `slack` more).
   const room = (side: string) => side === "left" ? roomLeft : side === "right" ? roomRight : width - 2 * margin;
   const keep = was && fits(was) && (was === natural || room(was) + slack >= room(natural));
