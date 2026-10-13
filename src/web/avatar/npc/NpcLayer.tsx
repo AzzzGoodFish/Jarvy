@@ -14,9 +14,9 @@ const DONE = { completed: "npc.done", interrupted: "npc.done.interrupted", faile
 /** The NPC layer over a DM: an RPG dialogue beside the cat in four looks — a thought bubble for thinking, a murmur for
  * the model's own text, a named speech box for messages, a pill for tools and the end of a turn — opening into a live
  * panel of every step. `toolbar` is the prototype's (`?npc=demo`); `onPanel` closes the panel from it. */
-export function NpcLayer({ view, name, cat, area, avoid, layout, clear, facing, toolbar }: {
+export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar }: {
   view: NpcView; name: string; cat: RefObject<HTMLElement | null>; area: RefObject<HTMLElement | null>; avoid: RefObject<HTMLElement | null>;
-  layout: MutableRefObject<(() => void) | null>; clear: () => number; facing: () => number;
+  layout: MutableRefObject<(() => void) | null>; facing: () => number;
   toolbar?: (bar: RefObject<HTMLDivElement | null>, closePanel: () => void) => ReactNode;
 }) {
   const box = useRef<HTMLDivElement>(null), bar = useRef<HTMLDivElement>(null), [open, setOpen] = useState(false), [, tick] = useState(0);
@@ -27,9 +27,7 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, clear, facing, 
       const edge = bar.current?.getBoundingClientRect();
       // A collapsed dialogue fits the room beside the cat; the panel keeps its own width.
       if (!open) box.current.setAttribute("data-fit", ""); else box.current.removeAttribute("data-fit");
-      placeBeside(box.current, cat.current, rect.width, bottom, edge ? { left: edge.left - rect.left, right: edge.right - rect.left, bottom: edge.bottom - rect.top } : null,
-        // Keep the box clear of the top strip the cat is dragged in, so it never covers it.
-        clear(), facing());
+      placeBeside(box.current, cat.current, rect.width, bottom, edge ? { left: edge.left - rect.left, right: edge.right - rect.left, bottom: edge.bottom - rect.top } : null, facing());
     };
     layout.current();
     const observer = new ResizeObserver(() => layout.current?.());

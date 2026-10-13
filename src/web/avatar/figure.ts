@@ -6,8 +6,8 @@ type THREE = typeof Three;
  * a page), turn (faces you to talk), ask (head tilted, watching you), yawn (compacting), stretch (a turn ended), groom
  * (licks a paw when idle long). */
 export type FigureMotion = "sleep" | "idle" | "think" | "work" | "busy" | "static" | "read" | "turn" | "ask" | "yawn" | "stretch" | "groom";
-/** faceX: which way the cat should look across the screen — −1 at the left edge, +1 at the right, 0 in the middle (the
- * floating cat turns towards whatever it is next to).
+/** faceX: which way the floating cat turns — +1 to the right (it sits at the left of the chat), −1 to the left (at the
+ * right), 0 straight at you (in the middle); without it the cat keeps its resting three-quarter turn to the right.
  * lookX/lookY: where the pointer is, −1..1 (positive = right / below), or 0 when unknown; the pointer always steers the
  * body and the eyes a little, on top of whatever the action is doing (most when the cat is only watching).
  * fast: tool calls tap quicker than text. reduced: prefers-reduced-motion, keeps only poses, blinks and gaze. */
@@ -146,10 +146,10 @@ export class CatFigure {
     const wave = (speed: number, amount: number) => still ? 0 : Math.sin(t * speed) * amount;
     // Thinking is head-down like working, only slower (looking up read as frozen).
     const down = m === "work" || m === "think";
-    // Across the screen the cat turns this way or that (talking straight to you is the extreme: yaw 0.05 at the right
-    // edge is 0.95: the same amount the other way, at the left edge).
-    const across = (input.faceX ?? 0) * (REST_YAW - 0.05);
-    const facing = (m === "turn" ? 0.05 : m === "ask" ? 0.14 : m === "read" ? REST_YAW * 0.6 : REST_YAW) + across;
+    // The resting turn is three-quarters to the right (a positive yaw); the floating cat mirrors it across the chat — to
+    // the right at the left edge, to the left at the right edge, straight at you in the middle — and so do the eyes.
+    const toward = input.faceX ?? 1;
+    const facing = (m === "turn" ? 0.05 : m === "ask" ? 0.14 : m === "read" ? REST_YAW * 0.6 : REST_YAW) * toward;
     // The pointer: full when the cat is only watching (idle), softer while it works or sleeps; never when dizzy.
     const watch = m === "idle" || m === "static" ? 1 : sleep ? 0.25 : 0.45;
     const followX = dizzy ? 0 : input.lookX * 0.22 * watch, followY = dizzy ? 0 : input.lookY * 0.1 * watch;
@@ -173,7 +173,7 @@ export class CatFigure {
     const lookY = glanceY || (down || m === "read" ? -1 : sleep ? -0.3 : 0);
     this.lookX += (lookX - this.lookX) * 0.2; this.lookY += (lookY - this.lookY) * 0.15;
     const lead = Math.max(-0.2, Math.min(0.2, (targetYaw - this.yaw) * EYE_LEAD));
-    this.eyes.position.x = EYE_BIAS + lead + this.lookX * 0.06;
+    this.eyes.position.x = EYE_BIAS * toward + lead + this.lookX * 0.06;
     this.eyes.position.y = 0.04 + this.lookY * 0.09 - (sad ? 0.03 : 0) - (angry ? 0.015 : 0);
     const blinking = !sleep && (this.shown === "normal" || sad || angry);
     if (m !== "static" && blinking && now - this.start > this.blinkAt && now - this.blinkStart > 400) {
@@ -207,7 +207,7 @@ export class CatFigure {
       paw.scale.set(0.17 * (1 + 0.25 * press), 0.1 * (1 - 0.3 * press), 0.15 * (1 + 0.25 * press));
     });
     this.paper.visible = m === "read";
-    this.mouth.visible = yawn > 0.05; this.mouth.scale.set(0.8 + 0.3 * yawn, 0.2 + 1.3 * yawn, 1);
+    this.mouth.visible = yawn > 0.05; this.mouth.position.x = EYE_BIAS * toward + lead; this.mouth.scale.set(0.8 + 0.3 * yawn, 0.2 + 1.3 * yawn, 1);
     this.root.scale.y = 1 + 0.05 * stretch;
     this.head.position.y = (m === "static" ? 0 : sleep ? wave(1.2, 0.02) - 0.02 : wave(2, 0.01)) - 0.03 * (left + right) + 0.04 * yawn + 0.06 * stretch;
     const shaking = (now - this.shakeAt) / 600;

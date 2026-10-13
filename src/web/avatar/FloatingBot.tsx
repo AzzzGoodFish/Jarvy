@@ -58,14 +58,13 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     const maxX = Math.max(MARGIN, box.width - size - MARGIN), maxY = Math.max(MARGIN, bottom - size - MARGIN);
     return { minX: MARGIN, minY: MARGIN, maxX, maxY };
   }
-  /** The strip at the top the cat may be dragged in: the dialogue stays below it, so it cannot cover the cat. */
-  const rowHeight = () => button.current ? bounds().maxY - bounds().minY + button.current.offsetWidth : 0;
-  /** −1 at the left of the chat area, +1 at the right: which way the cat faces, and so which side the dialogue takes. */
+  /** Which way the cat turns, and so the side the dialogue comes out of: +1 to the right when it sits at the left of the
+   * chat area, −1 to the left at the right, 0 straight at you in the middle (fish m749). */
   function facing() {
     const box = area.current?.getBoundingClientRect(), el = button.current;
     if (!box || !el) return 0;
     const half = box.width / 2 - el.offsetWidth / 2;
-    return half > 0 ? Math.max(-1, Math.min(1, (el.offsetLeft - (box.width / 2 - el.offsetWidth / 2)) / half)) : 0;
+    return half > 0 ? Math.max(-1, Math.min(1, (half - el.offsetLeft) / half)) : 0;
   }
   function place() {
     if (!button.current || !area.current) return;
@@ -122,10 +121,8 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
           input.current.lookX = target ? Math.max(-1, Math.min(1, (target.x - box.left - box.width / 2) / 320)) : 0;
           input.current.lookY = target ? Math.max(-1, Math.min(1, (target.y - box.top - box.height / 2) / 320)) : 0;
           input.current.reduced = reduced.matches;
-          // The cat turns towards the middle of the screen, and the dialogue follows it (which side it faces).
-          const was = input.current.faceX ?? 0, next = facing();
-          input.current.faceX = next;
-          if ((was < -0.05) !== (next < -0.05)) layout.current?.();
+          // The cat turns towards the middle of the chat (the dialogue takes that side whenever the cat is placed).
+          input.current.faceX = facing();
           cat.frame(now, input.current); renderer.render(scene, camera);
         }
         frame = requestAnimationFrame(tick);
@@ -168,6 +165,6 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     <canvas ref={canvas} aria-hidden="true"/>
     {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88}/>}
   </button>
-  <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout} clear={rowHeight} facing={facing}
+  <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout} facing={facing}
     toolbar={NPC_DEMO ? (bar, closePanel) => <NpcToolbar controls={demo.controls} toolbar={bar} onReplay={() => { closePanel(); demo.controls.replay(); }}/> : undefined}/></>;
 }
