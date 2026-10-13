@@ -25,7 +25,7 @@ export function ThreadMeta({ chat, channelName, expanded = false, onTitle, onSta
         : <form className="jv-inline-edit" onSubmit={event => { event.preventDefault(); if (title.trim()) void run(() => onTitle(title.trim()), () => setTitle(null)); }}>
           <input value={title} autoFocus maxLength={80} aria-label={t("thread.title")} onChange={event => setTitle(event.target.value)} onKeyDown={event => { if (event.key === "Escape") setTitle(null); }}/>
           <button type="submit" className="ui-button ui-primary" disabled={busy || !title.trim()}>{t("common.save")}</button></form>}
-      <button type="button" className="jv-status" data-done={isDone || undefined} disabled={busy} title={t("thread.toggleStatus")} onClick={() => void run(() => onStatus(isDone ? "open" : "done"), () => {})}>
+      <button type="button" className="jv-thread-status" data-done={isDone || undefined} disabled={busy} title={t("thread.toggleStatus")} onClick={() => void run(() => onStatus(isDone ? "open" : "done"), () => {})}>
         {isDone ? <><Icon name="check"/>{t("channel.threadDone")}</> : t("threads.open")}</button>
     </div>
     {summary !== null ? <div className="jv-summary" data-editing>

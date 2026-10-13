@@ -43,10 +43,10 @@
 .jv-thread-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 650; line-height: 22px; overflow-wrap: anywhere; }
 .jv-inline-edit { flex: 1; display: flex; gap: 6px; min-width: 0; }
 .jv-inline-edit input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border-radius: 8px; border: .5px solid var(--ui-border-default); background: var(--ui-bg-base); font-size: 14px; }
-.jv-status { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+.jv-thread-status { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
   background: var(--ui-fill-success-subtle); color: var(--ui-text-success, var(--ui-text-primary)); }
-.jv-status[data-done] { background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
-.jv-status .ui-icon { width: 12px; height: 12px; }
+.jv-thread-status[data-done] { background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
+.jv-thread-status .ui-icon { width: 12px; height: 12px; }
 .jv-summary { margin-top: 8px; padding-top: 8px; border-top: .5px solid var(--ui-border-weak); font-size: 13px; }
 .jv-summary-head { display: flex; align-items: center; gap: 8px; }
 .jv-summary-head strong { font-size: 12px; color: var(--ui-text-secondary); }

@@ -37,7 +37,7 @@ export function ThreadList({ channel, members, bots, tick, onOpen, onClose, onEr
           return <button key={thread.id} type="button" className="jv-thread-item" data-unread={thread.unread > 0 || undefined} onClick={() => onOpen(thread.id)}>
             <span className="jv-thread-item-head"><strong>{thread.title}</strong>
               {thread.alerts > 0 ? <span className="jv-badge">{thread.alerts}</span> : thread.unread > 0 && <span className="jv-count">{thread.unread}</span>}
-              <span className="jv-status" data-done={thread.status === "done" || undefined}>{t(thread.status === "done" ? "channel.threadDone" : "threads.open")}</span></span>
+              <span className="jv-thread-status" data-done={thread.status === "done" || undefined}>{t(thread.status === "done" ? "channel.threadDone" : "threads.open")}</span></span>
             {thread.root && <span className="jv-thread-item-root"><MemberAvatar member={sender} bots={bots} size={16}/><span>{previewText(thread.root)}</span></span>}
             <span className="jv-muted jv-thread-item-meta">{t("channel.replies", { count: thread.replies })}{thread.lastReplyAt ? ` · ${when(thread.lastReplyAt)}` : ""}{thread.following ? ` · ${t("threads.following")}` : ""}</span>
           </button>;
@@ -80,7 +80,7 @@ export function FollowedThreads({ threads, chats, members, bots, onNav, renderTh
             aria-current={thread.id === selected || undefined} onClick={() => setSelected(thread.id)}>
             <span className="jv-thread-item-head"><strong>{thread.title}</strong>
               {thread.alerts > 0 ? <span className="jv-badge">{thread.alerts}</span> : thread.unread > 0 && <span className="jv-count">{thread.unread}</span>}
-              <span className="jv-status" data-done={thread.status === "done" || undefined}>{t(thread.status === "done" ? "channel.threadDone" : "threads.open")}</span></span>
+              <span className="jv-thread-status" data-done={thread.status === "done" || undefined}>{t(thread.status === "done" ? "channel.threadDone" : "threads.open")}</span></span>
             {thread.root && <span className="jv-thread-item-root"><MemberAvatar member={sender} bots={bots} size={16}/><span>{previewText(thread.root)}</span></span>}
             <span className="jv-muted jv-thread-item-meta">#{channel?.title ?? ""} · {t("channel.replies", { count: thread.replies })}{thread.lastReplyAt ? ` · ${when(thread.lastReplyAt)}` : ""}{thread.following ? "" : ` · ${t("threads.notFollowing")}`}</span>
           </button>;
