@@ -418,7 +418,7 @@ export const en = {
 
   "composer.busy": "Still uploading. Add more once it's done.",
   "composer.tooMany": "A message can have up to {count} attachments.",
-  "composer.size": "Each attachment has to be between 1 byte and 10 MB.",
+  "composer.size": "Each attachment must be 10 MB or smaller, and not empty.",
   "composer.pasted": "pasted-image",
   "composer.removeFile": "Remove attachment: {name}",
   "composer.uploading": "Uploading: {name}",
@@ -468,7 +468,7 @@ export const en = {
   "question.chose": "Chose: {answer}",
   "question.dismissLabel": "Close the question without answering",
   "question.dismiss": "Don't answer",
-  "question.multiple": "Pick any",
+  "question.multiple": "Pick one or more",
   "question.note": "Add a note (optional)",
   "question.own": "Or write your own…",
   "question.ownLabel": "Your own answer",
