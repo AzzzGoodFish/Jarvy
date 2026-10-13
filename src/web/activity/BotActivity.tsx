@@ -5,6 +5,7 @@ import { ActivityTimeline } from "./ActivityTimeline";
 import { ActivityDetail } from "./ActivityDetail";
 import { Button } from "../components/ui/button";
 import { DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { t } from "../i18n";
 import "./activity.css";
 
 export function BotActivity({ botId, botName, onBack, onOpenChat }: {
@@ -22,7 +23,7 @@ export function BotActivity({ botId, botName, onBack, onOpenChat }: {
     setLoading(true); setError(""); setPage({ items: [], nextBefore: null });
     if (scroll.current) scroll.current.scrollTop = 0;
     activityApi.list(botId, before).then(value => { if (active) setPage(value); })
-      .catch(reason => { if (active) setError(reason instanceof Error ? reason.message : "活动记录加载失败"); })
+      .catch(reason => { if (active) setError(reason instanceof Error ? reason.message : t("activity.loadFailed")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [botId, before, refresh]);
@@ -37,27 +38,27 @@ export function BotActivity({ botId, botName, onBack, onOpenChat }: {
   };
   return <>
     <DialogHeader className="jv-bot-info-navigation">
-      <Button type="button" variant="ghost" size="icon-sm" aria-label={selected ? "返回时间线" : "返回 Bot 信息"} onClick={back}><ArrowLeftIcon/></Button>
-      <DialogTitle>{selected ? selected.kind === "history" ? "History" : "聊天记录" : "活动历史"}</DialogTitle>
+      <Button type="button" variant="ghost" size="icon-sm" aria-label={t(selected ? "activity.backToTimeline" : "usage.back")} onClick={back}><ArrowLeftIcon/></Button>
+      <DialogTitle>{selected ? selected.kind === "history" ? "History" : t("activity.chatRecord") : t("bot.activity")}</DialogTitle>
       <span className="jv-bot-page-name">{botName}</span>
     </DialogHeader>
     <div className="jv-activity">
       <div className="jv-activity-list" hidden={selected !== null}>
-        <div className="jv-activity-toolbar"><span>最新记录在前</span><Button type="button" variant="ghost" size="sm" disabled={loading} onClick={() => { setCursors([undefined]); setRefresh(n => n + 1); }} aria-label="刷新活动历史"><RefreshCwIcon/>{loading ? "读取中…" : "刷新"}</Button></div>
-        <div className="jv-activity-columns" aria-hidden="true"><span>聊天</span><span>时间</span><span>History</span></div>
+        <div className="jv-activity-toolbar"><span>{t("activity.newestFirst")}</span><Button type="button" variant="ghost" size="sm" disabled={loading} onClick={() => { setCursors([undefined]); setRefresh(n => n + 1); }} aria-label={t("activity.refresh")}><RefreshCwIcon/>{t(loading ? "activity.reading" : "usage.refresh")}</Button></div>
+        <div className="jv-activity-columns" aria-hidden="true"><span>{t("activity.columnChat")}</span><span>{t("activity.columnTime")}</span><span>History</span></div>
         <div className="jv-activity-scroll" ref={scroll}>
-          {loading ? <p className="jv-activity-state" role="status">加载活动记录…</p>
-            : error ? <div className="jv-activity-state"><p role="alert">{error}</p><Button variant="outline" size="sm" onClick={() => setRefresh(n => n + 1)}>重试</Button></div>
-            : !page.items.length ? <div className="jv-activity-state jv-activity-empty"><p>还没有活动记录</p><span>聊天发言与 History 会显示在这里</span></div>
+          {loading ? <p className="jv-activity-state" role="status">{t("activity.loading")}</p>
+            : error ? <div className="jv-activity-state"><p role="alert">{error}</p><Button variant="outline" size="sm" onClick={() => setRefresh(n => n + 1)}>{t("common.retry")}</Button></div>
+            : !page.items.length ? <div className="jv-activity-state jv-activity-empty"><p>{t("activity.empty")}</p><span>{t("activity.emptyHint")}</span></div>
             : <ActivityTimeline items={page.items} onSelect={select}/>}
         </div>
         <div className="jv-activity-pagination">
-          <Button type="button" variant="ghost" size="sm" disabled={loading || cursors.length === 1} onClick={() => setCursors(values => values.slice(0, -1))}><ChevronLeftIcon/>较新</Button>
-          <span>第 {cursors.length} 页</span>
-          <Button type="button" variant="ghost" size="sm" disabled={loading || page.nextBefore === null} onClick={() => setCursors(values => [...values, page.nextBefore!])}>较早<ChevronRightIcon/></Button>
+          <Button type="button" variant="ghost" size="sm" disabled={loading || cursors.length === 1} onClick={() => setCursors(values => values.slice(0, -1))}><ChevronLeftIcon/>{t("activity.newer")}</Button>
+          <span>{t("activity.page", { page: cursors.length })}</span>
+          <Button type="button" variant="ghost" size="sm" disabled={loading || page.nextBefore === null} onClick={() => setCursors(values => [...values, page.nextBefore!])}>{t("activity.older")}<ChevronRightIcon/></Button>
         </div>
       </div>
-      {selected && <section className="jv-activity-detail" aria-label={selected.kind === "history" ? "History 记录详情" : "聊天记录详情"}>
+      {selected && <section className="jv-activity-detail" aria-label={t(selected.kind === "history" ? "activity.historyDetail" : "activity.chatDetail")}>
         <ActivityDetail botId={botId} selected={selected} onSelect={select} onOpenChat={onOpenChat}/>
       </section>}
     </div>

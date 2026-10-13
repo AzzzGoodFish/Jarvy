@@ -76,8 +76,7 @@ function chinese(file) {
 }
 
 const PENDING = new Set([
-  'HistoryDetail.tsx', 'activity/ActivityDetail.tsx', 'activity/ActivityTimeline.tsx', 'activity/BotActivity.tsx', 'api.ts', 'avatar/BotAvatar.tsx',
-  'avatar/FloatingBot.tsx', 'avatar/palette.ts',
+  'avatar/BotAvatar.tsx', 'avatar/FloatingBot.tsx', 'avatar/palette.ts',
 ]);
 const seen = new Set();
 for (const file of files(web)) {

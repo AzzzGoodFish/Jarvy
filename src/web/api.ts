@@ -1,5 +1,6 @@
 import type { BotColor, BotMood } from "./avatar/palette";
-export interface ProviderOption { id: string; name: string; group: "订阅服务" | "API Key"; authType: "oauth" | "api_key"; api: string; modelCount: number; }
+import { t } from "./i18n";
+export interface ProviderOption { id: string; name: string; authType: "oauth" | "api_key"; api: string; modelCount: number; }
 export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null; phase: string; runId?: string | null; error: string | null; errorCode: string | null; context?: { tokens: number | null; contextWindow: number; percent: number | null }; }
 export interface CredentialState {
   phase: "idle" | "running" | "completed" | "cancelled" | "error";
@@ -70,7 +71,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   let response: Response;
   try { response = await fetch(`/api${path}`, { ...init, credentials: "same-origin", headers: {
     ...(init.body && !(init.body instanceof Blob) ? { "Content-Type": "application/json" } : {}), ...init.headers,
-  } }); } catch { throw new Error("无法连接服务器，请检查连接后重试。"); }
+  } }); } catch { throw new Error(t("api.offline")); }
   const body: unknown = await response.json().catch(() => ({}));
   if (!response.ok) throw failure(response.status, body);
   return body as T;
@@ -85,7 +86,7 @@ function upload(chatId: string, file: File, onProgress?: (done: number) => void)
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
     xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress?.(event.loaded / event.total); };
-    xhr.onerror = () => reject(new Error("无法连接服务器，请检查连接后重试。"));
+    xhr.onerror = () => reject(new Error(t("api.offline")));
     xhr.onload = () => {
       let body: unknown = {};
       try { body = JSON.parse(xhr.responseText); } catch { /* not JSON: the status speaks */ }
@@ -102,7 +103,7 @@ async function readChatMessages(id: string, from = 0): Promise<{ messages: ChatM
     const page = await request<{ messages: ChatMessage[]; nextSequence: number; hasMore: boolean }>(`/chats/${id}/messages?after=${after}&limit=1000`);
     messages.push(...page.messages);
     if (!page.hasMore) return { messages };
-    if (page.nextSequence <= after) throw new Error("聊天记录读取失败，请重试。");
+    if (page.nextSequence <= after) throw new Error(t("api.historyFailed"));
     after = page.nextSequence;
   }
 }
