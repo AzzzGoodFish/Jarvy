@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { t, useLocale } from "./i18n";
-import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Eye, EyeOff, File, Folder,
+import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Eye, EyeOff, File, FileAudio, FileVideo, Folder,
   Expand, Image, Info, List, LogOut, MessageCircle, Moon, PanelLeft, Paperclip, Pencil, Megaphone, Trash2, Pin, Quote, Plus, Reply,
   Search, Settings, Shrink, SmilePlus, Sun, UserPlus, Users, X, type LucideIcon } from "lucide-react";
 
@@ -20,7 +20,7 @@ const ICONS: Record<string, LucideIcon> = {
   add: Plus, "chat-bubble": MessageCircle, window: AppWindow, close: X, "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight, "chevron-down": ChevronDown, gear: Settings, "person-add": UserPlus, "arrow-bracket-to-left": LogOut,
   "arrow-up": ArrowUp, copy: Copy, check: Check, "cloud-download": Download, bell: Bell, "bell-slash": BellOff, image: Image,
-  paperclip: Paperclip, "smiley-plus": SmilePlus, info: Info, people: Users, pencil: Pencil, file: File, folder: Folder,
+  paperclip: Paperclip, "smiley-plus": SmilePlus, info: Info, people: Users, pencil: Pencil, file: File, "file-video": FileVideo, "file-audio": FileAudio, folder: Folder,
   "layout-sidebar-left": PanelLeft, sun: Sun, moon: Moon, "arrows-expand": Expand, "arrows-contract": Shrink,
   "arrow-u-up-right": Reply, "list-bullets": List, eye: Eye, "eye-slash": EyeOff, pin: Pin, megaphone: Megaphone, trash: Trash2, search: Search, quote: Quote,
 };

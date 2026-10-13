@@ -44,7 +44,7 @@ Pending question cards are marked ignored at startup, since no tool call outlive
 
 ## Attachments
 
-Up to 10 MB each and 5 per message. Into a Bot: the BLOB is copied to a stable path on the tool host, checked for size, name, path and completeness, and listed in the XML. Out of a Bot: `messages.send` takes `{path, name}`; the server reads the file and saves it to the target chat. Images are never inlined; PDFs, audio and so on need tools that can read them.
+Up to 10 MB each and 5 per message. Into a Bot: the BLOB is copied to a stable path on the tool host, checked for size, name, path and completeness, and listed in the XML. Out of a Bot: `messages.send` takes `{path, name}`; the server reads the file and saves it to the target chat. Images are never inlined; PDFs, audio and so on need tools that can read them. `GET /api/attachments/:id` serves single byte ranges (206 / 416) and the file's own type only for the fixed media list in A34; anything else is `application/octet-stream`, always with `Content-Disposition: attachment`.
 
 ## Schema versions
 

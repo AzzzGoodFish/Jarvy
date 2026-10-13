@@ -1,8 +1,8 @@
 import type { Attachment } from "../api";
 import { t } from "../i18n";
 
-/** Preview kinds; larger files are download-only. */
-export type FileKind = "image" | "svg" | "html" | "markdown" | "text" | "download";
+/** Preview kinds; larger files are download-only, except audio and video, which stream (A34). */
+export type FileKind = "image" | "svg" | "video" | "audio" | "html" | "markdown" | "text" | "download";
 export const PREVIEW_LIMIT = 1024 * 1024;
 const TEXT = ["txt", "json", "jsonl", "yaml", "yml", "ts", "tsx", "js", "jsx", "mjs", "cjs", "css", "log", "csv", "py", "sh", "sql", "toml", "xml", "ini", "env", "diff", "patch"];
 
@@ -12,12 +12,21 @@ export function fileKind(file: Attachment): FileKind {
   const ext = extension(file), mime = file.mimeType.toLowerCase();
   if (ext === "svg" || mime === "image/svg+xml") return "svg";
   if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp"].includes(ext)) return "image";
+  // The type first, so an audio-only .webm is audio.
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  if (["webm", "mp4", "mov"].includes(ext)) return "video";
+  if (["mp3", "wav", "ogg"].includes(ext)) return "audio";
   if (["html", "htm"].includes(ext) || mime === "text/html") return "html";
   if (["md", "markdown"].includes(ext)) return "markdown";
   if (mime.startsWith("text/") || TEXT.includes(ext)) return "text";
   return "download";
 }
 export const isPicture = (kind: FileKind) => kind === "image" || kind === "svg";
+/** Audio and video play from the attachment URL: the element reads it in byte ranges, never the whole file first. */
+export const isMedia = (kind: FileKind): kind is "video" | "audio" => kind === "video" || kind === "audio";
+export const KIND_LABEL = { image: "files.kindImage", svg: "files.kindSvg", video: "files.kindVideo", audio: "files.kindAudio", html: "files.kindHtml",
+  markdown: "files.kindMarkdown", text: "files.kindText", download: "files.kindFile" } as const;
 export function bytes(size: number) {
   return size < 1024 ? `${size} B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1024 / 1024).toFixed(1)} MB`;
 }

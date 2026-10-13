@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, attachmentBody, readJson } from "../middleware/body.js";
 import { chatView, messageView } from "../views/chat.js";
+import { byteRange, downloadType } from "../views/download.js";
 
 export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">) {
   const routes = new Hono<ApiEnv>();
@@ -53,12 +54,16 @@ export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">)
 export function attachmentRoutes(chats: ApiServices["chats"]) {
   const routes = new Hono<ApiEnv>();
   routes.get("/:id", c => {
+    // Access first: someone who cannot read the attachment learns nothing, not even its size.
     const attachment = chats.download(c.get("actorId"), c.req.param("id"));
     if (!attachment) throw new HTTPException(404, { message: "Attachment not found" });
-    return c.body(new Uint8Array(attachment.data), 200, {
-      "Content-Type": "application/octet-stream", "Content-Length": String(attachment.data.length),
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.file.name)}`,
-    });
+    const size = attachment.data.length, range = byteRange(c.req.header("Range"), size);
+    const headers = { "Content-Type": downloadType(attachment.file.mimeType), "Accept-Ranges": "bytes",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.file.name)}` };
+    if (range === "unsatisfiable") return c.body(null, 416, { ...headers, "Content-Range": `bytes */${size}` });
+    if (!range) return c.body(new Uint8Array(attachment.data), 200, { ...headers, "Content-Length": String(size) });
+    return c.body(new Uint8Array(attachment.data.subarray(range.start, range.end + 1)), 206,
+      { ...headers, "Content-Length": String(range.end - range.start + 1), "Content-Range": `bytes ${range.start}-${range.end}/${size}` });
   });
   routes.get("/:id/run", c => {
     const attachment = chats.download(c.get("actorId"), c.req.param("id"));

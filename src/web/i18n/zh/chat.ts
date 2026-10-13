@@ -182,4 +182,9 @@ export const chat: Part<typeof en> = {
   "directs.back": "返回列表",
   "directs.between": "{name} 与 {other}",
   "directs.readOnly": "只读",
+
+  "files.kindVideo": "视频",
+  "files.kindAudio": "音频",
+  "files.cantPlay": "这个浏览器播放不了",
+  "files.cantPlayHint": "下载后用播放器打开。",
 };

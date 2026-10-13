@@ -179,4 +179,9 @@ export const chat = {
   "directs.back": "Back to the list",
   "directs.between": "{name} and {other}",
   "directs.readOnly": "Read only",
+
+  "files.kindVideo": "Video",
+  "files.kindAudio": "Audio",
+  "files.cantPlay": "This browser can't play it",
+  "files.cantPlayHint": "Download it and open it in a player.",
 } as const;

@@ -3,21 +3,19 @@ import { createPortal } from "react-dom";
 import type { Attachment } from "../api";
 import { t } from "../i18n";
 import { Icon, IconButton, Markdown } from "../ui";
-import { PREVIEW_LIMIT, bytes, fileKind, fileUrl, isPicture, pictureSource, readText, runUrl, safeHtml, scriptReport } from "./files";
+import { KIND_LABEL, PREVIEW_LIMIT, bytes, fileKind, fileUrl, isMedia, isPicture, pictureSource, readText, runUrl, safeHtml, scriptReport } from "./files";
 import { errorText } from "../errors";
 
-const KIND_LABEL = { image: "files.kindImage", svg: "files.kindSvg", html: "files.kindHtml", markdown: "files.kindMarkdown", text: "files.kindText", download: "files.kindFile" } as const;
-
-/** Attachment preview dialog: pictures, rendered Markdown, text,
+/** Attachment preview dialog: pictures, audio and video (the browser's own player, never autoplaying), rendered Markdown, text,
  * static HTML (no scripts) with a source toggle, a download fallback, a wide mode and ←/→ between
  * the message's files. */
 export function FileViewer({ files, initialIndex = 0, onClose }: { files: Attachment[]; initialIndex?: number; onClose: () => void }) {
   const [index, setIndex] = useState(initialIndex), [mode, setMode] = useState<"preview" | "source">("preview"), [wide, setWide] = useState(false);
   const [text, setText] = useState(""), [picture, setPicture] = useState(""), [error, setError] = useState(""), [loading, setLoading] = useState(true), [attempt, setAttempt] = useState(0);
   // Running scripts is confirmed every time a file is shown (A35); it never carries over.
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState(false), [unplayable, setUnplayable] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null), body = useRef<HTMLDivElement>(null), positions = useRef(new Map<string, number>());
-  const file = files[index]!, kind = fileKind(file), tooLarge = file.size > PREVIEW_LIMIT, readable = !tooLarge && kind !== "download";
+  const file = files[index]!, kind = fileKind(file), media = isMedia(kind), tooLarge = !media && file.size > PREVIEW_LIMIT, readable = !media && !tooLarge && kind !== "download";
   useEffect(() => {
     const el = dialog.current!, previous = document.activeElement as HTMLElement | null;
     el.showModal();
@@ -25,7 +23,7 @@ export function FileViewer({ files, initialIndex = 0, onClose }: { files: Attach
   }, []);
   useEffect(() => {
     const abort = new AbortController();
-    setText(""); setPicture(""); setError(""); setMode("preview"); setRunning(false); setLoading(readable);
+    setText(""); setPicture(""); setError(""); setMode("preview"); setRunning(false); setUnplayable(false); setLoading(readable);
     if (readable) (isPicture(kind) ? pictureSource(file, abort.signal).then(setPicture) : readText(file, abort.signal).then(setText))
       .then(() => setLoading(false))
       .catch(reason => { if (!abort.signal.aborted) { setError(errorText(reason, "files.readError")); setLoading(false); } });
@@ -36,7 +34,7 @@ export function FileViewer({ files, initialIndex = 0, onClose }: { files: Attach
   const choose = (next: number) => { remember(); setIndex(Math.max(0, Math.min(files.length - 1, next))); };
   const scripts = useMemo(() => kind === "html" && text ? scriptReport(text) : null, [kind, text]);
   const sourceToggle = readable && ["markdown", "html"].includes(kind) && !loading && !error;
-  const view = kind === "image" || kind === "svg" ? "ui-image-view" : kind === "html" && mode === "preview" ? "ui-html-view" : kind === "markdown" && mode === "preview" ? "ui-document" : "";
+  const view = isPicture(kind) || media && !unplayable ? "ui-image-view" : kind === "html" && mode === "preview" ? "ui-html-view" : kind === "markdown" && mode === "preview" ? "ui-document" : "";
   const download = <a className="ui-button" href={fileUrl(file)} download={file.name}><Icon name="cloud-download"/>{t("files.downloadFile")}</a>;
   return createPortal(<dialog ref={dialog} className="ui-viewer" aria-labelledby="jvPreviewTitle" data-wide={wide || undefined}
     onCancel={event => { event.preventDefault(); onClose(); }}
@@ -60,7 +58,13 @@ export function FileViewer({ files, initialIndex = 0, onClose }: { files: Attach
       <button type="button" className="ui-button" onClick={() => setRunning(!running)}>{t(running ? "files.stop" : "files.run")}</button>
     </div>}
     <div className={`ui-preview-body ${view}`} ref={body} tabIndex={-1}>
-      {!readable ? <div className="ui-fallback"><Icon name="file"/><strong>{t("files.downloadToView")}</strong><p>{t(tooLarge ? "files.tooLarge" : "files.unsupported")}</p>{download}</div>
+      {media ? unplayable
+          ? <div className="ui-fallback"><Icon name={`file-${kind}`}/><strong>{t("files.cantPlay")}</strong><p>{t("files.cantPlayHint")}</p>{download}</div>
+          // Keyed by file: moving to another file or closing unmounts the player, which stops it.
+          : kind === "video"
+            ? <video key={file.id} className="ui-preview-video" src={fileUrl(file)} controls preload="metadata" playsInline onError={() => setUnplayable(true)}/>
+            : <audio key={file.id} className="ui-preview-audio" src={fileUrl(file)} controls preload="metadata" onError={() => setUnplayable(true)}/>
+        : !readable ? <div className="ui-fallback"><Icon name="file"/><strong>{t("files.downloadToView")}</strong><p>{t(tooLarge ? "files.tooLarge" : "files.unsupported")}</p>{download}</div>
         : loading ? <p className="ui-unloaded">{t("files.reading")}</p>
         : error ? <div className="ui-error" role="alert"><p>{error}</p><button type="button" className="ui-button" onClick={() => setAttempt(value => value + 1)}>{t("common.retry")}</button></div>
         : isPicture(kind) ? <img className="ui-preview-image" src={picture} alt={file.name}/>
