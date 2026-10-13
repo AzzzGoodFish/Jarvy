@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { t } from "../i18n";
 import "./activity.css";
+import { errorText } from "../errors";
 
 export function BotActivity({ botId, botName, onBack, onOpenChat }: {
   botId: string; botName: string; onBack: () => void; onOpenChat: (id: string) => void;
@@ -23,7 +24,7 @@ export function BotActivity({ botId, botName, onBack, onOpenChat }: {
     setLoading(true); setError(""); setPage({ items: [], nextBefore: null });
     if (scroll.current) scroll.current.scrollTop = 0;
     activityApi.list(botId, before).then(value => { if (active) setPage(value); })
-      .catch(reason => { if (active) setError(reason instanceof Error ? reason.message : t("activity.loadFailed")); })
+      .catch(reason => { if (active) setError(errorText(reason, "activity.loadFailed")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [botId, before, refresh]);

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { t, type Key } from "./i18n";
 import "./styles/model-workbench.css";
 import "./styles/bot-model.css";
+import { errorText } from "./errors";
 
 const DESCRIPTIONS: Record<string, Key> = { auto: "botModel.auto", off: "botModel.off", minimal: "botModel.minimal", low: "botModel.low", medium: "botModel.medium", high: "botModel.high", xhigh: "botModel.xhigh", max: "botModel.max" };
 const keyOf = (connectionId: string, modelId: string) => JSON.stringify([connectionId, modelId]);
@@ -28,7 +29,7 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
     let live = true;
     setLoading(true); setLoadError("");
     api.modelOptions().then(result => { if (live) setGroups(result.connections); })
-      .catch(reason => { if (live) setLoadError(reason instanceof Error ? reason.message : t("botModel.loadFailed")); })
+      .catch(reason => { if (live) setLoadError(errorText(reason, "botModel.loadFailed")); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [connections, attempt]);
@@ -47,7 +48,7 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
     openMenu(false);
     setBusy(true); setError("");
     try { onSaved(await api.selectBotModel(bot.id, connectionId, modelId, thinkingLevel)); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("botModel.switchFailed")); }
+    catch (reason) { setError(errorText(reason, "botModel.switchFailed")); }
     finally { setBusy(false); }
   }
   function navigate(event: KeyboardEvent) {

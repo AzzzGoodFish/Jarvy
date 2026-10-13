@@ -35,9 +35,9 @@ export class BotService {
   private started = false;
   constructor(private readonly deps: BotDependencies) {}
   get(id: string): Bot {
-    if (this.closed) throw new RuntimeFault("stopping", "服务正在停止。", 503);
+    if (this.closed) throw new RuntimeFault("stopping", "Shutting down.", 503);
     const record = this.deps.store.getBot(id);
-    if (!record) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     let bot = this.bots.get(id);
     if (bot) return bot;
     const { store, chats, files, credentials } = this.deps;
@@ -83,7 +83,7 @@ export class BotService {
     this.describe(id);
     const actor = this.deps.store.userMemberId();
     const message = this.deps.chats.message(actor, messageId);
-    if (!message || message.sender.id !== id) throw new RuntimeFault("message_missing", "聊天记录不存在。", 404);
+    if (!message || message.sender.id !== id) throw new RuntimeFault("message_missing", "Message not found", 404);
     const chat = this.deps.chats.get(actor, message.chatId)!;
     return { message, chat: { id: chat.id, title: chat.title } };
   }
@@ -94,7 +94,7 @@ export class BotService {
     const bot = this.get(id);
     void bot.deliver(urgency).catch(error => {
       const fault = publicFault(error);
-      bot.state.update({ ...bot.status(), error: { code: fault.code, message: fault.message } });
+      bot.state.update({ ...bot.status(), error: { code: fault.code, message: fault.message, ...(fault.params ? { params: fault.params } : {}) } });
       console.error("[bot] delivery failed", { botId: id, code: fault.code });
     });
   }
@@ -121,13 +121,13 @@ export class BotService {
     });
   }
   status(id: string): BotStatus & { botId: string; runId: string | null } {
-    if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     const bot = this.bots.get(id);
     return { ...(bot?.status() ?? { status: "stop", activity: null, context: null, error: null }), botId: id, runId: bot?.agentRuntime.activeRunId ?? null };
   }
   async selectModel(id: string, input: Record<string, unknown>) {
     const selection = this.deps.store.validateSelection(id, input);
-    if (!selection) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    if (!selection) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     await this.get(id).changeModel(selection);
     this.resume(id);
     return this.deps.store.getBot(id)!;
@@ -147,7 +147,7 @@ export class BotService {
     const bot = this.get(id), workspacePath = bot.workspace.location().cwd;
     await bot.stop();
     this.bots.delete(id);
-    if (!this.deps.store.deleteBot(id)) throw new RuntimeFault("bot_missing", "Bot 不存在。", 404);
+    if (!this.deps.store.deleteBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
   }
   async close(): Promise<void> {

@@ -11,7 +11,7 @@ export class ConnectionCredentials implements CredentialStore {
     if (providerId !== this.providerName) return undefined;
     const row = this.repository.read(this.ownerId, this.connectionId);
     // Fail closed instead of allowing the SDK to fall back to host env credentials.
-    if (!row) throw new RuntimeFault("credentials_missing", "请先配置此模型连接的凭证。", 422);
+    if (!row) throw new RuntimeFault("credentials_missing", "Set up this connection's credential first.", 422);
     return row.value;
   }
   async list(options?: AuthOperationOptions) {
@@ -20,7 +20,7 @@ export class ConnectionCredentials implements CredentialStore {
     return row ? [{ providerId: this.providerName, type: row.value.type }] : [];
   }
   async modify(providerId: string, fn: (current: Credential | undefined) => Promise<Credential | undefined>, options?: AuthOperationOptions): Promise<Credential | undefined> {
-    if (providerId !== this.providerName) throw new RuntimeFault("credential_scope", "凭证连接不匹配。");
+    if (providerId !== this.providerName) throw new RuntimeFault("credential_scope", "The credential belongs to another connection.");
     return this.coordinator.exclusive(this.connectionId, async () => {
       const prior = this.repository.read(this.ownerId, this.connectionId);
       const next = await fn(prior?.value);
@@ -31,7 +31,7 @@ export class ConnectionCredentials implements CredentialStore {
     }, options?.signal);
   }
   async delete(providerId: string, options?: AuthOperationOptions): Promise<void> {
-    if (providerId !== this.providerName) throw new RuntimeFault("credential_scope", "凭证连接不匹配。");
+    if (providerId !== this.providerName) throw new RuntimeFault("credential_scope", "The credential belongs to another connection.");
     await this.coordinator.exclusive(this.connectionId, async () => { this.repository.delete(this.ownerId, this.connectionId); }, options?.signal);
   }
 }

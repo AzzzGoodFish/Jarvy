@@ -1,3 +1,4 @@
+import type { ErrorParams } from "./errors.js";
 import type { MessageQuote } from "./quotes.js";
 export interface MemberIdentity { id: string; kind: "user" | "bot"; name: string; /** A deleted Bot (its old messages stay, v15). */ deleted?: boolean; }
 /** Channel notice / thread summary (A37): one current version, no edit history. */
@@ -62,7 +63,7 @@ export interface MessageDraft { content: string; attachmentIds: string[]; client
 /** A partial quote as a sender asks for it: the source message and the passage (A44). */
 export interface QuoteDraft { messageId: string; text: string; }
 export class ChatError extends Error {
-  constructor(readonly status: 400 | 403 | 404 | 409, message: string) { super(message); }
+  constructor(readonly status: 400 | 403 | 404 | 409, message: string, readonly code?: string, readonly params?: ErrorParams) { super(message); }
 }
 
 export interface DeliveryMessage extends MessageDraft {

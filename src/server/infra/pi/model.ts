@@ -10,8 +10,8 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
   const contextWindow = configured.contextWindow ?? builtin?.contextWindow;
   const maxTokens = configured.maxTokens ?? builtin?.maxTokens;
   const baseUrl = connection.baseUrl || builtin?.baseUrl || runtime.getModels(connection.providerName)[0]?.baseUrl;
-  if (!contextWindow || !maxTokens) throw new RuntimeFault("model_incomplete", "请补全模型的上下文窗口和最大输出。", 422);
-  if (configured.thinkingFormat && !FORMATS.has(configured.thinkingFormat)) throw new RuntimeFault("model_incomplete", "不支持此思考格式。", 422);
+  if (!contextWindow || !maxTokens) throw new RuntimeFault("model_incomplete", "Fill in the model's context window and max output.", 422);
+  if (configured.thinkingFormat && !FORMATS.has(configured.thinkingFormat)) throw new RuntimeFault("thinking_format", "This thinking format isn't supported.", 422);
   // Precedence: builtin provider defaults < saved compat (catalog/autoconfig/user) < thinking format field.
   const compat = { ...builtin?.compat, ...configured.compat, ...(configured.thinkingFormat ? { thinkingFormat: configured.thinkingFormat as OpenAICompletionsCompat["thinkingFormat"] } : {}) } as Model<Api>["compat"];
   runtime.registerProvider(connection.providerName, {
@@ -24,7 +24,7 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
       thinkingLevelMap: configured.thinkingLevelMap, compat }],
   });
   const model = runtime.getModel(connection.providerName, configured.id);
-  if (!model) throw new RuntimeFault("model_missing", "模型不存在。", 404);
+  if (!model) throw new RuntimeFault("model_missing", "Model not found", 404);
   // Literal request headers, not Pi config expressions (which may resolve shell commands).
   model.headers = { ...model.headers, ...headers };
   return model;

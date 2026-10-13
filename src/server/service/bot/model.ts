@@ -7,7 +7,7 @@ export class Model implements ModelPort {
   constructor(private readonly botId: string, private readonly store: Store, private readonly resolve: (model: ConfiguredModel, level: string) => string) {}
   current(): PreparedModel {
     const bot = this.store.getBot(this.botId)!;
-    if (!bot.connectionId || !bot.modelId) throw new RuntimeFault("model_required", "请先为 Bot 选择模型。", 422);
+    if (!bot.connectionId || !bot.modelId) throw new RuntimeFault("model_required", "Pick a model for the Bot first.", 422);
     return { selection: { connectionId: bot.connectionId, modelId: bot.modelId, thinkingLevel: bot.thinkingLevel }, credentialRef: bot.connectionId };
   }
   async prepare(input: ModelSelection): Promise<PreparedModel> {

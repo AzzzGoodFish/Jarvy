@@ -4,6 +4,7 @@ import { api, type Bot, type Chat, type Member, type Section } from "../api";
 import { Icon, IconButton, Modal } from "../ui";
 import { MemberAvatar } from "./ChannelView";
 import { t } from "../i18n";
+import { errorText } from "../errors";
 
 /** Add people the usual chat-app way: search, pick one or more, confirm. */
 function MemberPicker({ candidates, bots, busy, onCancel, onConfirm }: {
@@ -41,7 +42,7 @@ export function AddMembersDialog({ chat, members, bots, onClose, onChanged }: {
       let saved = chat;
       for (const id of picked) saved = await api.addMember(chat.id, id);
       onChanged(saved); onClose();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : t("dialogs.addFailed")); }
+    } catch (reason) { setError(errorText(reason, "dialogs.addFailed")); }
     finally { setBusy(false); }
   }
   return <Modal title={t("info.addMembers")} onClose={onClose} className="jv-channel-dialog">
@@ -63,7 +64,7 @@ export function NewChannelDialog({ sections, members, bots, me, onClose, onSaved
     if (!name.trim() || busy) return;
     setBusy(true); setError("");
     try { onSaved(await api.createChannel({ name: name.trim(), topic: topic.trim(), sectionId, memberIds: memberIds.filter(id => id !== me) })); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("common.saveFailed")); }
+    catch (reason) { setError(errorText(reason, "common.saveFailed")); }
     finally { setBusy(false); }
   }
   const current = members.filter(member => memberIds.includes(member.id));
@@ -111,13 +112,13 @@ export function SectionDialog({ section, onClose, onSaved, onDeleted }: {
     if (!name.trim() || busy) return;
     setBusy(true); setError("");
     try { onSaved(section ? await api.updateSection(section.id, { name: name.trim() }) : await api.createSection({ name: name.trim() })); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("common.saveFailed")); setBusy(false); }
+    catch (reason) { setError(errorText(reason, "common.saveFailed")); setBusy(false); }
   }
   async function remove() {
     if (!section || !confirm(t("dialogs.deleteSection", { name: section.name }))) return;
     setBusy(true);
     try { await api.deleteSection(section.id); onDeleted?.(section.id); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("dialogs.deleteFailed")); setBusy(false); }
+    catch (reason) { setError(errorText(reason, "dialogs.deleteFailed")); setBusy(false); }
   }
   return <Modal title={t(section ? "dialogs.editSection" : "sidebar.newSection")} onClose={onClose}>
     <form onSubmit={event => void save(event)}>

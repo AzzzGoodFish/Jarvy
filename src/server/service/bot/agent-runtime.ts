@@ -39,7 +39,7 @@ export class AgentRuntime implements RuntimePort {
   }
   private fail(error: unknown) {
     const fault = publicFault(error);
-    this.update({ status: this.session ? "idle" : "stop", activity: null, error: { code: fault.code, message: fault.message } });
+    this.update({ status: this.session ? "idle" : "stop", activity: null, error: { code: fault.code, message: fault.message, ...(fault.params ? { params: fault.params } : {}) } });
     // An unexpected error has no public code of its own; log what it was so the run can be diagnosed.
     console.error("[bot] execution failed", { botId: this.inbox.botId, runId: this.runId, code: fault.code, ...(error instanceof RuntimeFault ? {} : { error }) });
   }
@@ -112,7 +112,7 @@ export class AgentRuntime implements RuntimePort {
         const result = await this.promptTask;
         repository.finish(batch.run.id, result.outcome, result.outcome === "failed" ? "model_request_failed" : null);
         // Show the provider's reason (e.g. a 400 body) instead of a generic hint; one line, bounded.
-        if (result.outcome === "failed") throw new RuntimeFault("model_request_failed", `模型请求失败：${result.error.replace(/\s+/g, " ").slice(0, 300)}`, 502);
+        if (result.outcome === "failed") { const detail = result.error.replace(/\s+/g, " ").slice(0, 300); throw new RuntimeFault("model_request_failed", `Model request failed: ${detail}`, 502, { detail }); }
       } catch (error) {
         const run = repository.run(batch.run.id);
         if (run?.state === "claimed" || run?.state === "submitted") repository.finish(batch.run.id, submitted ? "unknown" : "failed", publicFault(error).code);
@@ -133,7 +133,7 @@ export class AgentRuntime implements RuntimePort {
   // and each request resolves its API key when it starts, so in-flight requests are unaffected.
   reconfigure(operation: () => Promise<void>): Promise<void> {
     const task = this.operations.catch(() => {}).then(async () => {
-      if (this.stopping) throw new RuntimeFault("stopping", "Bot 正在停止。");
+      if (this.stopping) throw new RuntimeFault("stopping", "Shutting down.");
       await operation();
     });
     this.operations = task;
@@ -143,7 +143,7 @@ export class AgentRuntime implements RuntimePort {
   private async operation(operation: () => Promise<void>): Promise<void> {
     this.pauses++;
     const task = this.operations.catch(() => {}).then(async () => {
-      if (this.stopping) throw new RuntimeFault("stopping", "Bot 正在停止。");
+      if (this.stopping) throw new RuntimeFault("stopping", "Shutting down.");
       await this.pump;
       await operation();
     });

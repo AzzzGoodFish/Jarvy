@@ -3,6 +3,7 @@ import { CheckIcon, MinusIcon, XIcon } from "lucide-react";
 import { api, type ChatMessage, type Question } from "../api";
 import { rich, t } from "../i18n";
 import "../styles/question.css";
+import { errorText } from "../errors";
 
 const letter = (index: number) => String.fromCharCode(65 + index);
 const editable = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
@@ -20,7 +21,7 @@ export function QuestionCard({ message, keyboard, onSettled }: { message: ChatMe
     if (busy || !pending) return;
     setBusy(true); setError("");
     try { onSettled(await api.answerQuestion(message.chatId, message.id, body)); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("question.failed")); }
+    catch (reason) { setError(errorText(reason, "question.failed")); }
     finally { setBusy(false); }
   }
   const pick = (index: number) => {

@@ -48,7 +48,7 @@ export class Application {
     try {
       release = await lockfile.lock(root, { retries: 0, stale: 30_000, update: 10_000, lockfilePath: join(root, ".runtime.lock"),
         onCompromised: () => { console.error("[runtime] data lock compromised"); options.onCompromised?.(); void app?.close().catch(() => console.error("[runtime] shutdown after lock loss failed")); } });
-    } catch { throw new RuntimeFault("data_locked", "数据目录正在使用，或无法取得运行锁。", 409); }
+    } catch { throw new RuntimeFault("data_locked", "The data directory is in use, or its run lock can't be taken.", 409); }
     let store: Store | undefined;
     try { store = new Store(root); app = new Application(store, root, release, options.factory); return app; }
     catch (error) { store?.close(); await release(); throw error; }

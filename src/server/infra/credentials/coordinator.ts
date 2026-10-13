@@ -5,7 +5,7 @@ export class CredentialCoordinator {
   private readonly tails = new Map<string, Promise<void>>();
   private closing = false;
   async exclusive<T>(connectionId: string, action: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-    if (this.closing) throw new RuntimeFault("stopping", "凭证服务正在停止。");
+    if (this.closing) throw new RuntimeFault("stopping", "Shutting down.");
     signal?.throwIfAborted();
     const prior = this.tails.get(connectionId) ?? Promise.resolve();
     const operation = prior.then(() => { signal?.throwIfAborted(); return action(); });

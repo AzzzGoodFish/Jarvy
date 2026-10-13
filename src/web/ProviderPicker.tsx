@@ -4,6 +4,7 @@ import { api, type ProviderOption } from "./api";
 import { ProviderMark } from "./ProviderMark";
 import { Button } from "./components/ui/button";
 import { t } from "./i18n";
+import { errorText } from "./errors";
 
 /** Providers and connections are listed in three groups, by how they connect. */
 export const GROUPS = [{ id: "custom", label: "group.custom" }, { id: "subscription", label: "group.subscription" }, { id: "api_key", label: "group.apiKey" }] as const;
@@ -20,7 +21,7 @@ export function ProviderPicker({ onBack, onSelect }: { onBack: () => void; onSel
   useEffect(() => {
     let alive = true; setLoading(true); setError("");
     void api.modelProviders().then(result => { if (alive) setProviders(result.providers); })
-      .catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setLoading(false); });
+      .catch(reason => { if (alive) setError(errorText(reason, "picker.loadFailed")); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [revision]);
   const visible = [CUSTOM, ...providers].filter(item => `${item.name} ${item.id}`.toLowerCase().includes(query.toLowerCase()));

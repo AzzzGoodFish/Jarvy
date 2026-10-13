@@ -1,12 +1,11 @@
 import type { BotColor, BotMood } from "./avatar/palette";
 import { t } from "./i18n";
 export interface ProviderOption { id: string; name: string; authType: "oauth" | "api_key"; api: string; modelCount: number; }
-export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null; phase: string; runId?: string | null; error: string | null; errorCode: string | null; context?: { tokens: number | null; contextWindow: number; percent: number | null }; }
+export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null; phase: string; runId?: string | null; error: string | null; errorCode: string | null; errorParams?: Record<string, string | number>; context?: { tokens: number | null; contextWindow: number; percent: number | null }; }
 export interface CredentialState {
   phase: "idle" | "running" | "completed" | "cancelled" | "error";
   prompt?: { id: string; type: "select" | "text" | "secret" | "manual_code"; message: string; placeholder?: string; options?: { id: string; label: string; description?: string }[] };
   event?: { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; intervalSeconds?: number; expiresInSeconds?: number } | { type: "info"; message: string; links?: { url: string; label?: string }[] } | { type: "progress"; message: string };
-  error?: string;
 }
 export interface Bot { id: string; name: string; description: string; systemPrompt: string; connectionId: string | null; modelId: string; thinkingLevel: string; effectiveThinkingLevel: string | null; workspacePath: string; color: BotColor; mood: BotMood; createdAt: number; }
 export interface ConfiguredModel { api?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
@@ -66,7 +65,11 @@ export interface ChatMessage { id: string; chatId: string; sequence: number; sen
   /** Partial quotes (A44), in the order of the [[q1]] … [[qN]] markers in content; messageId is null once the source is gone. */
   quotes: MessageQuote[]; }
 export interface MessageQuote { messageId: string | null; senderId: string; text: string; }
-export class ApiError extends Error { constructor(readonly status: number, message: string) { super(message); } }
+/** A failed request. `code` and `params` (A45) name a failure the interface words itself (errors.ts); the message is
+ * the server's English, shown only when there is no code. */
+export class ApiError extends Error {
+  constructor(readonly status: number, message: string, readonly code?: string, readonly params?: Record<string, string | number>) { super(message); }
+}
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try { response = await fetch(`/api${path}`, { ...init, credentials: "same-origin", headers: {
@@ -76,7 +79,10 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (!response.ok) throw failure(response.status, body);
   return body as T;
 }
-const failure = (status: number, body: unknown) => new ApiError(status, typeof body === "object" && body !== null && "error" in body ? String(body.error) : `HTTP ${status}`);
+const failure = (status: number, body: unknown) => {
+  const value = typeof body === "object" && body !== null ? body as { error?: unknown; code?: unknown; params?: Record<string, string | number> } : {};
+  return new ApiError(status, value.error === undefined ? `HTTP ${status}` : String(value.error), typeof value.code === "string" ? value.code : undefined, value.params);
+};
 /** Uploads one attachment; fetch cannot report upload progress, so this one goes through XMLHttpRequest and tells
  * `onProgress` how much of the file has gone out (0–1). */
 function upload(chatId: string, file: File, onProgress?: (done: number) => void) {

@@ -9,6 +9,7 @@ import { ProviderMark, connectionStatus } from "./ProviderMark";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { t } from "./i18n";
+import { errorText } from "./errors";
 
 let draftSequence = 0;
 const draftModel = (model: ConfiguredModel, selected: boolean, existing = false): ModelDraft => ({ key: `draft-${++draftSequence}`, model, selected, ...(existing ? { originalId: model.id } : {}) });
@@ -35,7 +36,7 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
     if (custom) return;
     let alive = true; setFetching(true);
     const request = connection ? api.modelCatalog(connection.id) : api.providerModels(preset!.id);
-    void request.then(result => { if (alive) merge(result.models); }).catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setFetching(false); });
+    void request.then(result => { if (alive) merge(result.models); }).catch(reason => { if (alive) setError(errorText(reason, "editor.fetchFailed")); }).finally(() => { if (alive) setFetching(false); });
     return () => { alive = false; };
   }, [connection?.id, preset?.id, custom]);
   async function discover() {
@@ -43,7 +44,7 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
     try {
       const result = await api.discoverModels({ connectionId: id.current, baseUrl: url, api: protocol, ...(key.trim() ? { apiKey: key } : {}) });
       merge(result.models); setNotice(result.models.length ? t("editor.fetched", { count: result.models.length }) : t("editor.noneReturned"));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : t("editor.fetchFailed")); }
+    } catch (reason) { setError(errorText(reason, "editor.fetchFailed")); }
     finally { setFetching(false); }
   }
   /** Sequential catalog lookups; results land on the drafts only and are saved with the form. */
@@ -84,14 +85,14 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
       for (const original of new Set([...removed, ...drafts.filter(item => item.originalId && !item.selected).map(item => item.originalId!)])) await api.deleteConnectionModel(saved.id, original);
       setKey("");
       await onSaved(saved.id); setNotice(t("editor.saved"));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : t("editor.saveFailed")); }
+    } catch (reason) { setError(errorText(reason, "editor.saveFailed")); }
     finally { setBusy(false); }
   }
   async function remove() {
     if (!connection || !confirm(t("editor.confirmDelete", { name: connection.displayName }))) return;
     setBusy(true); setError("");
     try { await api.deleteModelConnection(connection.id); await onChanged(); onBack(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("editor.deleteFailed")); }
+    catch (reason) { setError(errorText(reason, "editor.deleteFailed")); }
     finally { setBusy(false); }
   }
   const visible = drafts.filter(item => `${item.model.id} ${item.model.name}`.toLowerCase().includes(query.toLowerCase()));

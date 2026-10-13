@@ -45,26 +45,26 @@ export class ModelService {
     return modelCatalog(credentials, connection.providerName);
   }
   discover(input: Record<string, unknown>, signal: AbortSignal) {
-    if (typeof input.baseUrl !== "string") throw new RuntimeFault("discovery_url", "请填写 API URL。", 400);
+    if (typeof input.baseUrl !== "string") throw new RuntimeFault("discovery_url_missing", "Enter the API URL.", 400);
     let key = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
     if (!key && typeof input.connectionId === "string") {
       this.required(this.store.getModelConnection(input.connectionId));
       const credential = this.store.credentials.read(this.store.userMemberId(), input.connectionId)?.value;
       if (credential?.type === "api_key") key = credential.key ?? "";
     }
-    if (!key) throw new RuntimeFault("discovery_key", "请填写 API Key。", 400);
+    if (!key) throw new RuntimeFault("discovery_key", "Enter the API key.", 400);
     return discoverModels({ api: String(input.api ?? "openai-completions"), baseUrl: input.baseUrl, key }, signal);
   }
   /** Suggests model fields from the local Pi catalog; the caller decides whether to save them. */
   autoconfigure(input: Record<string, unknown>) {
     const text = (value: unknown) => typeof value === "string" && value.trim() && value.length <= 200 ? value.trim() : null;
     const modelId = text(input.modelId), api = text(input.api);
-    if (!modelId || !api) throw new RuntimeFault("autoconfig_input", "请填写模型 ID。", 400);
+    if (!modelId || !api) throw new RuntimeFault("autoconfig_model", "Enter the model ID.", 400);
     let choice: { provider: string; modelId: string } | undefined;
     if (input.choice !== undefined) {
       const raw = input.choice as Record<string, unknown> | null;
       const provider = text(raw?.provider), chosen = text(raw?.modelId);
-      if (!provider || !chosen) throw new RuntimeFault("autoconfig_input", "配置来源无效。", 400);
+      if (!provider || !chosen) throw new RuntimeFault("autoconfig_source", "The setup source isn't valid.", 400);
       choice = { provider, modelId: chosen };
     }
     return autoconfigure(modelId, api, choice);

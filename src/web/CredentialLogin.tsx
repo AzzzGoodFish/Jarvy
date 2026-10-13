@@ -5,6 +5,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { t } from "./i18n";
+import { errorText } from "./errors";
 
 export function CredentialLogin({ connection, providerName, authType, ensureConnection, onChanged }: {
   connection?: ModelConnection; providerName: string; authType: ModelConnection["authType"];
@@ -37,7 +38,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
         phase.current = next.phase; setState(next);
         if (finished) await changed.current();
         if (next.phase === "running" && alive) timer = setTimeout(() => void read(), 750);
-      } catch (reason) { if (alive) setError(reason instanceof Error ? reason.message : t("auth.statusFailed")); }
+      } catch (reason) { if (alive) setError(errorText(reason, "auth.statusFailed")); }
     }
     void read();
     return () => { alive = false; clearTimeout(timer); };
@@ -46,7 +47,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
   async function act(action: () => Promise<CredentialState>) {
     setBusy(true); setError("");
     try { const next = await action(); setState(next); if (next.phase !== "running") await onChanged(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : t("common.failed")); }
+    catch (reason) { setError(errorText(reason, "common.failed")); }
     finally { setBusy(false); }
   }
   function start(choice?: string) {
@@ -86,7 +87,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
       </> : <Button type="button" variant="outline" disabled={busy} onClick={() => start()}>{t(authType === "api_key" ? "auth.configureCredential" : connection?.configured ? "auth.signInAgain" : "auth.signIn")}</Button>}
       {connection?.configured && <Button type="button" variant="outline" disabled={busy} onClick={() => void act(async () => { await api.authLogout(connectionId!); return { phase: "idle" }; })}>{t(authType === "api_key" ? "auth.removeCredential" : "auth.signOut")}</Button>}
     </div>}
-    {(error || state.error) && <p role="alert" className="jarvy-model-feedback">{error || state.error}</p>}
+    {(error || state.phase === "error") && <p role="alert" className="jarvy-model-feedback">{error || t("error.loginFailed")}</p>}
     {error && <Button type="button" variant="link" disabled={busy} onClick={() => { setError(""); setRefresh(value => value + 1); }}>{t("auth.refresh")}</Button>}
   </section>;
 }

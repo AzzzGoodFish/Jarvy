@@ -19,6 +19,7 @@ import { t } from "./i18n";
 import type { InfoPage } from "./channel/ChannelInfo";
 import type { Pane } from "./pane";
 import { useFind } from "./search/useFind";
+import { errorText, statusError } from "./errors";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
 const DevAgentation = import.meta.env.DEV
@@ -135,7 +136,7 @@ export function App() {
       const status = data.status;
       statusVersions.current.set(data.botId, (statusVersions.current.get(data.botId) ?? 0) + 1);
       setStatuses(previous => ({ ...previous, [data.botId]: status }));
-      if (status.error && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(status.error);
+      if (status.error && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
       if (status.status === "idle" || status.status === "stop") void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
     });
     source.onerror = () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); };
@@ -170,7 +171,7 @@ export function App() {
 
   function handleError(error: unknown) {
     if (error instanceof ApiError && error.status === 401) { setPhase("login"); return; }
-    setNotice(error instanceof Error ? error.message : t("common.failed"));
+    setNotice(errorText(error, "common.failed"));
   }
   async function refreshChats() {
     const request = ++chatRequest.current;

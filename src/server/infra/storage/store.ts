@@ -179,7 +179,7 @@ export class Store {
   private botName(value: unknown, exceptBotId?: string): string {
     const name = requireText(value, "Bot name", 80);
     if (name.includes("@") || /[\n\r]/.test(name)) throw new ValidationError("Bot name cannot contain @ or line breaks");
-    if (this.nameTaken(name, exceptBotId)) throw new ConflictError("名称已被其他成员使用");
+    if (this.nameTaken(name, exceptBotId)) throw new ConflictError("Another member already has this name", "name_taken");
     return name;
   }
   createBot(name?: unknown): Bot {
@@ -257,7 +257,7 @@ export class Store {
     return this.getModelConnection(id)!;
   }
   private checkCustomName(name: string, except = ""): void {
-    if (this.db.prepare("SELECT 1 FROM provider_connections WHERE owner_id=? AND kind='custom' AND provider_name=? AND id<>?").get(this.userMemberId(), name, except)) throw new ValidationError("Invalid Provider name: 名称已存在");
+    if (this.db.prepare("SELECT 1 FROM provider_connections WHERE owner_id=? AND kind='custom' AND provider_name=? AND id<>?").get(this.userMemberId(), name, except)) throw new ValidationError("A provider with this name already exists", "provider_name_taken");
   }
   updateModelConnection(id: string, input: Record<string, unknown>): ModelConnection | null {
     const current = this.getModelConnection(id);

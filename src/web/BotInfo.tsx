@@ -13,6 +13,7 @@ import { Button } from "./components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
+import { errorText } from "./errors";
 
 type Note = { kind: "error" | "ok"; text: string } | null;
 const STATUS_LABEL = { running: "activity.running", idle: "activity.idle", stop: "activity.stopped" } as const;
@@ -40,20 +41,20 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
   async function controlRuntime(action: "start" | "stop" | "abort") {
     setControl(action); setControlError("");
     try { await api.controlBot(bot.id, action); }
-    catch (reason) { setControlError(reason instanceof Error ? reason.message : t("common.failed")); }
+    catch (reason) { setControlError(errorText(reason, "common.failed")); }
     finally { setControl(null); }
   }
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true); setProfileNote(null);
     try { onSaved(await api.saveBot(bot.id, { name, description, systemPrompt })); setProfileNote({ kind: "ok", text: t("bot.saved") }); }
-    catch (reason) { setProfileNote({ kind: "error", text: reason instanceof Error ? reason.message : t("common.saveFailed") }); }
+    catch (reason) { setProfileNote({ kind: "error", text: errorText(reason, "common.saveFailed") }); }
     finally { setBusy(false); }
   }
   async function changeColor(color: BotColor) {
     if (color === bot.color) return;
     setBusy(true); setColorNote(null);
     try { onSaved(await api.setBotColor(bot.id, color)); }
-    catch (reason) { setColorNote({ kind: "error", text: reason instanceof Error ? reason.message : t("bot.changeFailed") }); }
+    catch (reason) { setColorNote({ kind: "error", text: errorText(reason, "bot.changeFailed") }); }
     finally { setBusy(false); }
   }
   const note = (value: Note) => value && <p className={value.kind === "error" ? "jv-note-error" : "jv-note-ok"} role={value.kind === "error" ? "alert" : "status"}>{value.text}</p>;

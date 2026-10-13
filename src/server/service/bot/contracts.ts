@@ -4,6 +4,7 @@ import type { ToolDefinition } from "../../shared/tools.js";
 import type { HistoryDraft, HistoryPage, HistoryRecord, HistoryLink, HistoryReadMode, HistoryReadResult, HistorySummary, ModelUsage } from "../../shared/history.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 import type { QuestionSpec } from "../../shared/chat.js";
+import type { ErrorParams } from "../../shared/errors.js";
 
 /** Bot 使用各组成对象的类型契约；组件实现独立展开，不在 Bot 内代实现。 */
 export interface BotParts {
@@ -81,7 +82,7 @@ export interface BotStatus {
   /** asking: a messages.ask call is waiting for the user (A36). */
   activity: "reasoning" | "texting" | "tool_calling" | "asking" | null;
   context: { tokens: number | null; limit: number } | null;
-  error: { code: string; message: string } | null;
+  error: { code: string; message: string; params?: ErrorParams } | null;
 }
 export interface OutgoingMessage {
   content: string;

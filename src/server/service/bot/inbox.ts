@@ -16,7 +16,7 @@ export class BotInbox {
   claim(selection: ModelSelection) { return this.repository.claim(this.botId, selection, this.hasNotices()); }
   private hasNotices() { return this.chats.notices(this.botId).length > 0; }
   reference(workspace: string) {
-    if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "模型切换尚未确认，请重新选择模型。");
+    if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.");
     return this.repository.ensureSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
   }
   /** XML for the claimed messages plus the tail (other deliveries not told yet, unread); `notices` are told once
@@ -25,7 +25,7 @@ export class BotInbox {
     // A run for notices alone; null when they were withdrawn since the claim.
     if (!batch.inputs.length) { const pending = this.notices(); return pending && { xml: pending.xml, notices: pending.ids }; }
     const inputs = await this.files.envelope(this.botId, batch.inputs.map(input => input.messageId));
-    for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "聊天访问权限已变化。");
+    for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "Chat access has changed.");
     const digest = this.chats.channels.digest(this.botId);
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const pending = this.envelope(this.chats.notices(this.botId));

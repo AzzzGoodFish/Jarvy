@@ -69,25 +69,25 @@ export class PiSession implements BotSession {
     await mkdir(sessionsDir, { recursive: true, mode: 0o700 });
     const expected = resolve(sessionsDir) + sep;
     if (!resolve(reference.file).startsWith(expected) || dirname(resolve(reference.file)) !== resolve(sessionsDir))
-      throw new RuntimeFault("session_path", "会话文件路径无效。");
+      throw new RuntimeFault("session_path", "The session file path isn't valid.");
     const exists = existsSync(reference.file);
     if (!exists && (reference.persisted || store.runtime.runs(bot.id).some(run => run.state === "unknown")))
-      throw new RuntimeFault("session_missing", "会话文件缺失，需检查运行记录后恢复。");
+      throw new RuntimeFault("session_missing", "The session file is missing; check the run records before recovering.");
     if (exists) {
       let header: { type?: string; id?: string };
       try { header = JSON.parse(readFileSync(reference.file, "utf8").split("\n")[0]!); }
-      catch { throw new RuntimeFault("session_corrupt", "会话文件无法读取。"); }
+      catch { throw new RuntimeFault("session_corrupt", "The session file can't be read."); }
       if (header.type !== "session" || !header.id || (reference.sessionId && header.id !== reference.sessionId))
-        throw new RuntimeFault("session_mismatch", "会话文件身份不匹配。");
+        throw new RuntimeFault("session_mismatch", "The session file doesn't match this Bot.");
     }
     const connection = store.getModelConnection(selection.connectionId);
-    if (!connection) throw new RuntimeFault("connection_missing", "模型连接不存在。", 404);
+    if (!connection) throw new RuntimeFault("connection_missing", "Connection not found", 404);
     const scoped = new ConnectionCredentials(store.credentials, options.credentials, store.userMemberId(), connection.id, connection.providerName);
     await scoped.read(connection.providerName);
     const credentials = new CurrentCredentials(scoped);
     const models = await ModelRuntime.create({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
     const configured = connection.models.find(model => model.id === selection.modelId);
-    if (!configured) throw new RuntimeFault("model_missing", "模型不存在。", 404);
+    if (!configured) throw new RuntimeFault("model_missing", "Model not found", 404);
     const model = installModel(models, connection, configured, store.modelHeaders(connection.id, configured.id));
     const sessionManager = SessionManager.open(reference.file, sessionsDir, bot.workspacePath);
     const adapter = new PiSession(options, models, credentials);
@@ -118,7 +118,7 @@ export class PiSession implements BotSession {
       thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools });
     adapter.session = result.session;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
-      adapter.session.dispose(); throw new RuntimeFault("tools_missing", "运行工具加载失败。");
+      adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");
     }
     adapter.unsubscribe = adapter.session.subscribe(event => adapter.onEvent(event));
     if (options.onHistory) {
@@ -164,7 +164,7 @@ export class PiSession implements BotSession {
    * request that follows a tool cancelled mid-run. Apply the same signal rule to those. */
   private classify(message: { stopReason: string; errorMessage?: string }): PromptResult {
     if (message.stopReason === "aborted" || (message.stopReason === "error" && this.session.agent.signal?.aborted)) return { outcome: "interrupted" };
-    if (message.stopReason === "error") return { outcome: "failed", error: message.errorMessage?.trim() || "未知错误" };
+    if (message.stopReason === "error") return { outcome: "failed", error: message.errorMessage?.trim() || "Unknown error" };
     return { outcome: "completed" };
   }
   private maybeAbort(): void {
@@ -199,7 +199,7 @@ export class PiSession implements BotSession {
   }
   async configure(selection: ModelSelection): Promise<string> {
     const connection = this.options.store.getModelConnection(selection.connectionId), configured = connection?.models.find(item => item.id === selection.modelId);
-    if (!connection || !configured) throw new RuntimeFault("model_missing", "模型不存在。", 404);
+    if (!connection || !configured) throw new RuntimeFault("model_missing", "Model not found", 404);
     const signature = JSON.stringify([{ connectionId: selection.connectionId, modelId: selection.modelId }, connection.providerName, connection.api, connection.baseUrl, configured, this.options.store.modelHeaders(connection.id, configured.id)]);
     if (signature === this.signature) {
       this.session.setThinkingLevel(resolveThinking(configured, selection.thinkingLevel), { persist: false });
@@ -219,7 +219,7 @@ export class PiSession implements BotSession {
       return this.session.thinkingLevel;
     } catch {
       this.credentials.current = previous;
-      throw new RuntimeFault("model_switch_uncertain", "模型切换未完成，请重新选择模型。", 409);
+      throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.", 409);
     }
   }
   async dispose(): Promise<void> {

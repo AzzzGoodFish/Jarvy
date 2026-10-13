@@ -6,6 +6,7 @@ import { HistoryDetail, historyTime } from "../HistoryDetail";
 import { t } from "../i18n";
 import { Markdown } from "../ui";
 import { Button } from "../components/ui/button";
+import { errorText } from "../errors";
 
 type Detail = { kind: "chat"; data: ChatDetail } | { kind: "history"; data: HistoryData };
 export function ActivityDetail({ botId, selected, onSelect, onOpenChat }: {
@@ -21,7 +22,7 @@ export function ActivityDetail({ botId, selected, onSelect, onOpenChat }: {
       ? historyApi.read(botId, selected.id).then(data => ({ kind: "history", data }))
       : activityApi.message(botId, selected.id).then(data => ({ kind: "chat", data }));
     task.then(value => { if (active) setDetail(value); })
-      .catch(reason => { if (active) setError(reason instanceof Error ? reason.message : t("activity.detailFailed")); })
+      .catch(reason => { if (active) setError(errorText(reason, "activity.detailFailed")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [botId, selected.kind, selected.id, attempt]);

@@ -12,5 +12,8 @@ export const handleError: ErrorHandler<ApiEnv> = (error, c) => {
   else if (error instanceof ValidationError || (error instanceof TypeError && "code" in error && error.code === "ERR_INVALID_URL")) status = 400;
   else if (error instanceof ConflictError) status = 409;
   if (status === 500) console.error("[api] request failed", { path: c.req.path, code: error instanceof RuntimeFault ? error.code : "internal" });
-  return c.json({ error: status === 500 ? "Internal server error" : error.message }, status as ContentfulStatusCode);
+  if (status === 500) return c.json({ error: "Internal server error" }, 500);
+  // A coded failure (A45) carries its code and the values its sentence needs; the interface words it.
+  const coded = error instanceof RuntimeFault || error instanceof ChatError || error instanceof ValidationError || error instanceof ConflictError ? error : null;
+  return c.json({ error: error.message, ...(coded?.code ? { code: coded.code } : {}), ...(coded?.params ? { params: coded.params } : {}) }, status as ContentfulStatusCode);
 };

@@ -45,7 +45,7 @@ export class RuntimeRepository {
   }
   submitted(runId: string): void {
     if (!this.db.prepare("UPDATE bot_runs SET state='submitted' WHERE id=? AND state='claimed'").run(runId).changes)
-      throw new RuntimeFault("invalid_run", "运行状态已变化。");
+      throw new RuntimeFault("invalid_run", "The run state has changed.");
   }
   finish(runId: string, state: Exclude<RunState, "claimed" | "submitted">, errorCode: string | null = null): void {
     this.db.exec("BEGIN IMMEDIATE");
@@ -59,7 +59,7 @@ export class RuntimeRepository {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       if (!this.db.prepare("UPDATE bot_runs SET state='cancelled',ended_at=? WHERE id=? AND state='claimed'").run(Date.now(), runId).changes)
-        throw new RuntimeFault("unsafe_replay", "不能自动重放已提交的运行。");
+        throw new RuntimeFault("unsafe_replay", "A submitted run can't be replayed automatically.");
       this.db.prepare("UPDATE inbox SET state='pending',run_id=NULL WHERE run_id=? AND state='claimed'").run(runId);
       this.db.exec("COMMIT");
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }

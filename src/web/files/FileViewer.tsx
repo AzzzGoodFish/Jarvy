@@ -4,6 +4,7 @@ import type { Attachment } from "../api";
 import { t } from "../i18n";
 import { Icon, IconButton, Markdown } from "../ui";
 import { PREVIEW_LIMIT, bytes, fileKind, fileUrl, isPicture, pictureSource, readText, runUrl, safeHtml, scriptReport } from "./files";
+import { errorText } from "../errors";
 
 const KIND_LABEL = { image: "files.kindImage", svg: "files.kindSvg", html: "files.kindHtml", markdown: "files.kindMarkdown", text: "files.kindText", download: "files.kindFile" } as const;
 
@@ -27,7 +28,7 @@ export function FileViewer({ files, initialIndex = 0, onClose }: { files: Attach
     setText(""); setPicture(""); setError(""); setMode("preview"); setRunning(false); setLoading(readable);
     if (readable) (isPicture(kind) ? pictureSource(file, abort.signal).then(setPicture) : readText(file, abort.signal).then(setText))
       .then(() => setLoading(false))
-      .catch(reason => { if (!abort.signal.aborted) { setError(reason instanceof Error ? reason.message : t("files.readError")); setLoading(false); } });
+      .catch(reason => { if (!abort.signal.aborted) { setError(errorText(reason, "files.readError")); setLoading(false); } });
     return () => abort.abort();
   }, [file.id, attempt]);
   useEffect(() => { if (body.current) body.current.scrollTop = positions.current.get(`${index}:${mode}`) ?? 0; }, [index, mode, loading]);

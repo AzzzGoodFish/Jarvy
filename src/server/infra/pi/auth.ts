@@ -12,7 +12,7 @@ interface LoginPrompt {
 }
 export interface LoginState {
   phase: "idle" | "running" | "completed" | "cancelled" | "error";
-  prompt?: LoginPrompt; event?: AuthEvent; error?: string;
+  prompt?: LoginPrompt; event?: AuthEvent;
 }
 interface LoginFlow {
   state: LoginState; controller: AbortController; task: Promise<void>;
@@ -25,7 +25,7 @@ export class CredentialLogins {
   constructor(private readonly store: Store, private readonly credentials: CredentialCoordinator, private readonly changed: (id: string) => void) {}
   private connection(id: string) {
     const connection = this.store.getModelConnection(id);
-    if (!connection) throw new RuntimeFault("connection_missing", "连接不存在。", 404);
+    if (!connection) throw new RuntimeFault("connection_missing", "Connection not found", 404);
     return connection;
   }
   status(id: string): LoginState {
@@ -50,7 +50,7 @@ export class CredentialLogins {
         this.changed(id);
       } catch (error) {
         flow.state = flow.controller.signal.aborted ? { phase: "cancelled" }
-          : { phase: "error", error: "登录操作失败，请刷新后重试。" };
+          : { phase: "error" };
         if (!flow.controller.signal.aborted) console.error("[oauth] login failed", { connectionId: id, provider: connection.providerName, type: error instanceof Error ? error.constructor.name : "Error" });
       } finally { flow.answer = undefined; }
     })();
@@ -74,9 +74,9 @@ export class CredentialLogins {
   input(id: string, body: Record<string, unknown>): LoginState {
     this.connection(id);
     const flow = this.flows.get(id), prompt = flow?.state.prompt;
-    if (!flow?.answer || !prompt || body.promptId !== prompt.id) throw new RuntimeFault("login_step", "授权步骤已更新，请重新操作。", 409);
-    if (typeof body.value !== "string" || !body.value.trim()) throw new RuntimeFault("login_input", "请输入授权信息。", 400);
-    if (prompt.options && !prompt.options.some(option => option.id === body.value)) throw new RuntimeFault("login_input", "请选择登录方式。", 400);
+    if (!flow?.answer || !prompt || body.promptId !== prompt.id) throw new RuntimeFault("login_step", "The sign-in step has changed. Please start again.", 409);
+    if (typeof body.value !== "string" || !body.value.trim()) throw new RuntimeFault("login_input", "Enter the sign-in details.", 400);
+    if (prompt.options && !prompt.options.some(option => option.id === body.value)) throw new RuntimeFault("login_option", "Pick a sign-in method.", 400);
     flow.answer(body.value);
     return this.status(id);
   }

@@ -6,6 +6,7 @@ import { DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { formatNumber, t } from "../i18n";
 import type { Key } from "../i18n/keys";
 import "./usage.css";
+import { errorText } from "../errors";
 
 type Range = "today" | "7d" | "30d";
 const RANGES: Range[] = ["today", "7d", "30d"];
@@ -29,7 +30,7 @@ export function BotUsage({ botId, botName, onBack }: { botId: string; botName: s
     let active = true;
     setModels(null); setError("");
     usageApi.list(botId, since(range)).then(value => { if (active) setModels(value.models); })
-      .catch(reason => { if (active) setError(reason instanceof Error ? reason.message : t("usage.loadFailed")); });
+      .catch(reason => { if (active) setError(errorText(reason, "usage.loadFailed")); });
     return () => { active = false; };
   }, [botId, range, refresh]);
   const priced = models?.filter(item => item.cost !== null) ?? [];

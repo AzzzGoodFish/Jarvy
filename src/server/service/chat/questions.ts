@@ -49,7 +49,7 @@ export class ChatQuestions {
     // A repeated tool call (same History source) gets the recorded outcome instead of waiting again.
     if (question.state === "answered") return Promise.resolve(resultOf(question, question.answer!));
     if (question.state === "dismissed") return Promise.resolve({ status: "dismissed" });
-    if (question.state === "ignored") return Promise.reject(new ChatError(409, "问题已失效"));
+    if (question.state === "ignored") return Promise.reject(new ChatError(409, "The question has expired", "question_expired"));
     return new Promise((resolve, reject) => {
       const stop = () => {
         this.waiting.delete(message.id);
@@ -67,12 +67,12 @@ export class ChatQuestions {
     this.repository.assertAccess(actorId, chatId, true);
     if (message.sender.id === actorId) throw new ChatError(403, "A question is answered by the other members");
     const question = message.question, waiter = this.waiting.get(messageId);
-    if (question.state !== "pending") throw new ChatError(409, "问题已结束");
-    if (!waiter) { if (this.repository.settleQuestion(messageId, "ignored", null)) this.changed(chatId); throw new ChatError(409, "问题已失效"); }
+    if (question.state !== "pending") throw new ChatError(409, "The question is already settled", "question_closed");
+    if (!waiter) { if (this.repository.settleQuestion(messageId, "ignored", null)) this.changed(chatId); throw new ChatError(409, "The question has expired", "question_expired"); }
     const dismissed = input.action === "dismiss";
     if (!dismissed && input.action !== "answer") throw new ChatError(400, "Invalid question action");
     const answer = dismissed ? null : answerOf(question, input);
-    if (!this.repository.settleQuestion(messageId, dismissed ? "dismissed" : "answered", answer)) throw new ChatError(409, "问题已结束");
+    if (!this.repository.settleQuestion(messageId, dismissed ? "dismissed" : "answered", answer)) throw new ChatError(409, "The question is already settled", "question_closed");
     this.waiting.delete(messageId);
     waiter(answer ? resultOf(question, answer) : { status: "dismissed" });
     this.changed(chatId);
