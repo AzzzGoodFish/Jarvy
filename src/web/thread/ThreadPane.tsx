@@ -8,6 +8,7 @@ import type { Focus } from "../pane";
 import { findMentions } from "../channel/mentions";
 import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
+import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
 
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
@@ -117,59 +118,59 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   };
   const jump = (id: string | null, passage?: string) => {
     const element = id && body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`);
-    if (!element) { onNotice(id ? "原消息不在这个线程里" : "原消息已不在"); return; }
+    if (!element) { onNotice(t(id ? "thread.sourceElsewhere" : "app.sourceGone")); return; }
     jumpToPassage(element, passage);
   };
   const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onJump: jump, onError };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
   const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes: { messageId: string; text: string }[] = [], alsoToChannel = false) => {
     await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
-    const outside = channel ? findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name) : [];
-    if (outside.length) onNotice(`${[...new Set(outside)].join("、")} 不在频道中，未收到通知`);
+    const outside = channel ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
+    if (outside.length) onNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
     const [loaded, list] = await Promise.all([api.chat(threadId), api.messages(threadId)]);
     setChat(loaded); setMessages(list.messages); onChanged(loaded);
   };
-  const channelName = channel?.title ?? "频道", rootSender = members.find(member => member.id === root?.senderId);
+  const channelName = channel?.title ?? t("search.channel"), rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
   const Shell = mode === "pane" ? "aside" : mode === "embed" ? "section" : "main";
-  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label="线程"
+  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label={t("thread.label")}
     onKeyDown={event => { if (chat && onSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") { event.preventDefault(); onSearch(chat); } }}>
     <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
-      {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label="打开会话列表" onClick={onNav}/>}
-      {mode === "embed" && <IconButton icon="chevron-left" className="ui-mobile-only" label="返回线程列表" onClick={onClose}/>}
+      {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>}
+      {mode === "embed" && <IconButton icon="chevron-left" className="ui-mobile-only" label={t("thread.backToList")} onClick={onClose}/>}
       {mode === "full" ? <button type="button" className="jv-crumb" onClick={onClose}><Icon name="chevron-left"/><span className="jv-hash">#</span>{channelName}</button>
-        : mode === "embed" ? <button type="button" className="jv-crumb" title="在频道中查看" onClick={onToggleMode}><span className="jv-hash">#</span>{channelName}</button>
-        : <><strong>线程</strong><span className="jv-muted jv-pane-sub">#{channelName}</span></>}
+        : mode === "embed" ? <button type="button" className="jv-crumb" title={t("thread.inChannel")} onClick={onToggleMode}><span className="jv-hash">#</span>{channelName}</button>
+        : <><strong>{t("thread.label")}</strong><span className="jv-muted jv-pane-sub">#{channelName}</span></>}
       <span className="jv-spacer"/>
-      {chat && onSearch && <IconButton icon="search" label="搜索线程消息（Ctrl+F）" onClick={() => onSearch(chat)}/>}
-      {chat && <button type="button" className="ui-button jv-follow" data-on={chat.following || undefined} title={chat.following ? "新回复计入未读" : "新回复不计入未读"}
-        onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name="bell"/>{chat.following ? "已关注" : "关注"}</button>}
-      {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={mode === "pane" ? "展开" : "收起到侧栏"} onClick={onToggleMode}/>}
-      {mode === "pane" && <IconButton icon="close" label="关闭线程" onClick={onClose}/>}
+      {chat && onSearch && <IconButton icon="search" label={t("thread.search")} onClick={() => onSearch(chat)}/>}
+      {chat && <button type="button" className="ui-button jv-follow" data-on={chat.following || undefined} title={t(chat.following ? "thread.followingHint" : "thread.notFollowingHint")}
+        onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name="bell"/>{t(chat.following ? "threads.following" : "thread.follow")}</button>}
+      {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={t(mode === "pane" ? "thread.expand" : "thread.collapse")} onClick={onToggleMode}/>}
+      {mode === "pane" && <IconButton icon="close" label={t("thread.close")} onClick={onClose}/>}
     </header>
     {chat && <div className={mode === "pane" ? "jv-thread-pin" : "jv-thread-pin jv-thread-pin-wide"}><ThreadMeta chat={chat} channelName={channelName} expanded={showSummary}
         onTitle={title => save(() => api.updateThread(threadId, { title }))} onStatus={status => save(() => api.updateThread(threadId, { status }))}
         onSummary={text => save(() => api.setNote(threadId, text))}
         onConclude={async () => {
           try {
-            await send(`结论：\n\n${chat.note?.text ?? ""}`, [], Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""), undefined, [], true);
+            await send(`${t("thread.conclusion")}\n\n${chat.note?.text ?? ""}`, [], Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""), undefined, [], true);
             await save(() => api.updateThread(threadId, { status: "done" }));
-            onNotice(`已完成，摘要已发到 #${channelName}`);
+            onNotice(t("thread.concluded", { channel: channelName }));
           } catch (error) { onError(error); throw error; }
         }}/></div>}
     <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>
       <div ref={rows}>
       {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
         onSettled={() => {}} onPreview={onPreview} onReact={react} onJump={jump} onError={onError}/>}
-      <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? `${messages.length} 条回复` : "暂无回复"}</span></div>
+      <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: messages.length }) : t("thread.noReplies")}</span></div>
       <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER}
         onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
       </div>
-      {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label="回到最新回复"
+      {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label={t("thread.toLatest")}
         onClick={() => body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" })}>
-        {unseen > 0 && <span>{unseen} 条新消息</span>}<Icon name="chevron-down"/></button></div>}
+        {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}
     </div>
-    <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder="回复线程" scrollRef={body} disabled={!chat}
+    <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder={t("thread.reply")} scrollRef={body} disabled={!chat}
       initialText={messages.length === 0 && root && root.senderId !== me && rootSender && !rootSender.deleted ? `@${rootSender.name} ` : undefined}
       mention={{ bots, inside: liveMembers(members).filter(member => member.id !== me && !!channel?.memberIds.includes(member.id)),
         outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite }}
