@@ -179,3 +179,13 @@ A person can quote a passage of a message, several per reply, each shown as a ta
 - **Interface**: on desktop, selecting text in a message offers 「复制」 and 「在回复中引用」; the composer shows each quote as a removable tag 「名字：开头…」 on its own line, and it belongs to the chat's draft. In a message the tag jumps to the source and highlights the passage, or the whole message when the passage cannot be found, or says the source is gone; a source in another chat (a thread reply quoted in a copy to the channel) opens where it is. Phones show and follow quotes but do not create them yet.
 - **Delivery to a Bot**: each marker becomes a quote line `> 名字（m123）：片段` (without the ID when the source is gone); over 200 characters keep the first 120 and the last 60 around 「……」. The same expansion is used wherever a Bot reads messages (`messages.read`, batches). History and storage keep the structure. Sidebar digests show the passage in 「」.
 - Not covered: Bots creating partial quotes, quoting across chats, quoting attachments, quotes inside quotes.
+
+## A45 Interface languages; English toward the model
+
+Jarvy is for people in any language. The interface comes in Chinese and English, more can be added, and everything the model reads from Jarvy itself is English.
+
+- **Interface**: every user-facing string goes through `t(key, vars)` from `web/i18n/`, with one dictionary per language (`en`, `zh`) and no i18n library. English is the reference; a build check fails when a key is missing from any dictionary or a string with CJK characters is left in a component.
+- **Choosing the language**: on first visit from the browser's languages (`zh*` gives Chinese, anything else English); 设置 → 语言 switches it, remembered in this browser. Dates and numbers are formatted with `Intl` for that language; `<html lang>` follows it.
+- **Server messages**: errors and notices meant for people carry a stable `code`; the interface shows its own text for known codes and the server's English message otherwise.
+- **Toward the model, English**: the system prompt, tool descriptions and schemas, envelope notes and tool results are written in English. The prompt tells a Bot to answer in the language of the person it is talking to (in a chat with several people, the language the chat is held in). What people write — Bot personas, notices, summaries, messages — is never translated.
+- **Migration**: in batches, each merged to main as soon as it is done, so other work never waits on a long-lived branch. New interface code uses `t()` from the first batch on.
