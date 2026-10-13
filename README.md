@@ -20,7 +20,7 @@ Jarvy looks like the team chat you already know: direct messages, channels, thre
 
 It is local and single-user. Your account, Bots, chats, files and model keys stay in one SQLite database on your machine.
 
-> The interface is currently in Chinese.
+The interface comes in English and Chinese, following your browser's language; switch it in Settings → General or on the login page. Bots answer in the language you write to them in.
 
 ## Highlights
 

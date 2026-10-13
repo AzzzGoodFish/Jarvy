@@ -2,6 +2,33 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.3.0 — 2026-10-13
+
+Upgrading moves the database from schema v17 to v18 on first start: a DM that has no message yet loses its old placeholder title. A v18 database cannot be opened by 0.2.0; keep a copy if you may need to go back.
+
+### Added
+
+- **Chinese and English.** Every screen comes in both languages. The first visit follows the browser's languages (`zh*` gives Chinese, anything else English); 设置 → 通用 / Settings → General and an EN / 中 switch on the login page change it, remembered in this browser. Dates, times and numbers follow the language. (A45)
+- **English toward the model.** The system prompt, tool descriptions, batch notes and tool results are English for every Bot, and a new Language section tells a Bot to reply in the language of the people it talks to. Personas, notices, summaries and messages stay as people wrote them. (A45)
+- **Bot usage.** Bot info → 运行 → 用量 / Usage shows calls, input, output, cache read and cache write tokens and cost per model for today, 7 days or 30 days, with a total row; a model with no price says so instead of showing 0. (A46)
+- **Thread sorting and filters.** Both thread lists sort by last update, creation time or status, remembered per list; followed threads add Open and Done tabs with counts.
+- **About page** in Settings: the version, the one-line description, and links to the source, the npm package, the license and the third-party notices.
+- **Upload progress.** Pasted, dropped or picked files appear as cards above the composer at once, with a progress bar while they upload; the drop hint sits inside the composer, so nothing below it jumps.
+- **Preview: the cat as an NPC.** Opening a DM with `?npc=demo` in the address plays a scripted turn of the floating cat: a thought bubble, muttering and speech, actions for reading, typing, waiting, yawning and stretching, and a panel with every step. It is not yet driven by the Bot's real work.
+
+### Changed
+
+- **Question cards** are part of the Bot's message: options look like the bubbles, and a settled question folds to one line (「✓ 已选：…」 or 「已忽略」).
+- Failures carry a stable code and the interface words them in its language; the server's own text is English.
+- Stored titles no longer contain interface words: quotes are written as "passage", an attachment-only first message gives its file name, and a DM between two Bots is called "A · B".
+- New Bots are named by the interface (New Bot / 新 Bot); the server requires a name.
+- The root message's author follows a thread opened under it; the follow button uses a plain bell (the crossed-out bell is only for mute).
+
+### Fixed
+
+- Getting a model list from a wrong address, an unreachable host or a web page gives a clear message instead of a server error.
+- Uploading in one chat no longer blocks sending in another.
+
 ## 0.2.0 — 2026-10-12
 
 Upgrading moves the database from schema v16 to v17 on first start. A v17 database cannot be opened by 0.1.0; keep a copy if you may need to go back.
