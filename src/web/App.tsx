@@ -15,6 +15,7 @@ import { useTranscript } from "./transcript/useTranscript";
 import { useMarkRead } from "./transcript/useMarkRead";
 import { Login } from "./Login";
 import { applyTheme } from "./ui";
+import { t, type Key } from "./i18n";
 import type { InfoPage } from "./channel/ChannelInfo";
 import type { Pane } from "./pane";
 import { useFind } from "./search/useFind";
@@ -26,6 +27,7 @@ const DevAgentation = import.meta.env.DEV
     return { default: (await import("agentation")).Agentation };
   })
   : null;
+const ACTIVITY: Record<string, Key> = { reasoning: "activity.reasoning", texting: "activity.texting", tool_calling: "activity.toolCalling", asking: "activity.asking" };
 
 export function App() {
   const [phase, setPhase] = useState<"loading" | "login" | "ready">("loading");
@@ -169,7 +171,7 @@ export function App() {
 
   function handleError(error: unknown) {
     if (error instanceof ApiError && error.status === 401) { setPhase("login"); return; }
-    setNotice(error instanceof Error ? error.message : "操作失败，请重试。");
+    setNotice(error instanceof Error ? error.message : t("common.failed"));
   }
   async function refreshChats() {
     const request = ++chatRequest.current;
@@ -225,7 +227,7 @@ export function App() {
       await api.deleteChat(chat.id);
       await refreshChats();
       if (selectedRef.current === chat.id) setSelected(null);
-      setNotice("频道已删除");
+      setNotice(t("app.channelDeleted"));
     } catch (error) { handleError(error); }
   }
   /** Pin or unpin a chat in its sidebar group. */
@@ -247,20 +249,20 @@ export function App() {
       refreshMembers();
       if (selectedRef.current && gone.has(selectedRef.current)) setSelected(null);
       if (infoBotId === bot.id) setInfoBotId(null);
-      setNotice(`${bot.name} 已删除`);
+      setNotice(t("app.botDeleted", { name: bot.name }));
     } catch (error) { handleError(error); }
   }
   async function sendMain(content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) {
     const id = selected!;
     await api.send(id, content, attachmentIds, key, false, replyTo, quotes);
     const chat = chatListRef.current.find(item => item.id === id), outside = chat?.type === "channel"
-      ? findMentions(content, liveMembers(members)).filter(hit => !chat.memberIds.includes(hit.member.id)).map(hit => hit.member.name) : [];
-    if (outside.length) setNotice(`${[...new Set(outside)].join("、")} 不在频道中，未收到通知`);
+      ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !chat.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
+    if (outside.length) setNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
     await Promise.all([refreshTranscript(id), refreshChats()]);
   }
   /** Adds someone picked from the @ menu to the channel (or the thread's channel). */
   function invite(channelId: string, member: Member) {
-    void api.addMember(channelId, member.id).then(chat => { chatSaved(chat); setNotice(`${member.name} 已加入 #${chat.title}`); }).catch(handleError);
+    void api.addMember(channelId, member.id).then(chat => { chatSaved(chat); setNotice(t("app.memberAdded", { name: member.name, channel: chat.title })); }).catch(handleError);
   }
   async function replyInThread(message: ChatMessage) {
     try { const thread = await api.openThread(message.id); setPane({ kind: "thread", id: thread.id, parentId: message.chatId, mode: "pane" }); }
@@ -291,7 +293,7 @@ export function App() {
   /** A reply's or a partial quote's source (A44): scrolls to it and highlights the passage; null means it is gone. */
   /** A quote tag (or a reply bar): its message here, or — in a channel copy of a thread reply — in that thread (A44). */
   const jumpTo = (id: string | null, passage?: string) => id ? void history.toMessage(id, passage)
-    .then(async elsewhere => { if (elsewhere) find.openMessage(await api.chat(elsewhere), id, passage); }).catch(() => setNotice("原消息已不在")) : setNotice("原消息已不在");
+    .then(async elsewhere => { if (elsewhere) find.openMessage(await api.chat(elsewhere), id, passage); }).catch(() => setNotice(t("app.sourceGone"))) : setNotice(t("app.sourceGone"));
   function threadChanged(thread: Chat) {
     setFollowed(previous => previous.map(item => item.id === thread.id ? { ...item, ...thread } : item));
     void api.followedThreads().then(result => setFollowed(result.threads)).catch(() => {});
@@ -333,7 +335,7 @@ export function App() {
   }, [hasTranscript]);
   const viewing = chats.find(chat => chat.id === selected), inChannel = viewing?.type === "channel";
   const botDirects = useBotDirects(phase === "ready" ? chats.find(chat => chat.id === selected && chat.type === "dm")?.botId : undefined, tick);
-  if (phase === "loading") return <div className="jarvy-loading">正在连接 Jarvy…</div>;
+  if (phase === "loading") return <div className="jarvy-loading">{t("app.connecting")}</div>;
   if (phase === "login") return <Login onLogin={name => void loadData(name).catch(handleError)}/>;
   const current = chats.find(chat => chat.id === selected);
   const activeBot = bots.find(bot => bot.id === (current?.botId ?? focusedBotId)) ?? bots[0];
@@ -342,8 +344,7 @@ export function App() {
   const composeReady = inChannel || activeBotReady;
   const botName = activeBot?.name ?? "Jarvy";
   const status = activeBot ? statuses[activeBot.id] : undefined;
-  const activity = status?.error ? "运行出错" : status?.status === "running"
-    ? ({ reasoning: "思考中", texting: "处理中", tool_calling: "执行工具", asking: "等你回答" } as Record<string, string>)[status.activity ?? ""] ?? "运行中" : "";
+  const activity = status?.error ? t("activity.error") : status?.status === "running" ? t(ACTIVITY[status.activity ?? ""] ?? "activity.running") : "";
   // Only the latest question still waiting for an answer takes the A–F shortcuts.
   const activeQuestion = [...messages].reverse().find(message => message.question?.state === "pending")?.id;
   const openThread = pane?.kind === "thread" ? pane : null, full = openThread?.mode === "full";

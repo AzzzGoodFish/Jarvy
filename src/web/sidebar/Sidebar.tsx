@@ -7,6 +7,7 @@ import { BotAvatar } from "../avatar/BotAvatar";
 import { Button } from "../components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { formatClock, t } from "../i18n";
 import { Icon } from "../ui";
 
 const COLLAPSED_KEY = "jarvy-collapsed-sections";
@@ -15,8 +16,8 @@ const savedCollapsed = (): string[] => { try { return JSON.parse(localStorage.ge
 /** Unread @-mentions (every unread DM message) as a filled badge; other unread as bold + count. */
 /** Red: delivered to you and unread (DMs, @, replies); grey: other unread (A41). */
 export function Badge({ chat }: { chat: Chat }) {
-  if (chat.alerts > 0) return <span className="jv-badge" aria-label={`${chat.alerts} 条发给你的未读`}>{chat.alerts}</span>;
-  if (chat.unread > 0) return <span className="jv-count" aria-label={`${chat.unread} 条未读`}>{chat.unread}</span>;
+  if (chat.alerts > 0) return <span className="jv-badge" aria-label={t("sidebar.alerts", { count: chat.alerts })}>{chat.alerts}</span>;
+  if (chat.unread > 0) return <span className="jv-count" aria-label={t("sidebar.unread", { count: chat.unread })}>{chat.unread}</span>;
   return null;
 }
 /** The hint line for a queued delivery you have not seen (a mark on your message, a new notice / summary), worded
@@ -25,9 +26,10 @@ export function hintText(chat: Chat): string | null {
   const hint = chat.hint;
   if (!hint || hint.createdAt < chat.updatedAt - 1000) return null;
   // On a channel row, a thread's hint names the thread, and opening the row opens it (hintThread).
-  const thread = hint.chatType === "thread" && hint.chatId !== chat.id ? `线程「${hint.title.length > 16 ? `${hint.title.slice(0, 16)}…` : hint.title}」` : "";
-  if (hint.kind === "reaction") return `${hint.actor} 对你${thread ? `在${thread}中` : ""}的消息表达了 ${hint.detail}`;
-  return thread ? `${hint.actor} 更新了${thread}的摘要` : `${hint.actor} 更新了${hint.chatType === "thread" ? "线程摘要" : "公告"}`;
+  const elsewhere = hint.chatType === "thread" && hint.chatId !== chat.id;
+  const vars = { actor: hint.actor, emoji: hint.detail, title: hint.title.length > 16 ? `${hint.title.slice(0, 16)}…` : hint.title };
+  if (hint.kind === "reaction") return t(elsewhere ? "hint.reactionInThread" : "hint.reaction", vars);
+  return t(elsewhere ? "hint.threadSummary" : hint.chatType === "thread" ? "hint.summary" : "hint.notice", vars);
 }
 /** The thread a channel row's showing hint is about, so opening the row can open that thread with it. */
 export function hintThread(chat: Chat): string | null {
@@ -37,8 +39,8 @@ export function hintThread(chat: Chat): string | null {
  * who wrote it) — after a red 「[有人@我]」 while an @ or a reply to you is unread. */
 function Digest({ chat, channel }: { chat: Chat; channel: boolean }) {
   const hint = hintText(chat);
-  const text = hint ?? (chat.lastMessage ? (channel && chat.lastSender ? `${chat.lastSender}：${chat.lastMessage}` : chat.lastMessage) : channel ? chat.topic : "");
-  return <span className="jv-digest">{chat.atMe && <span className="jv-at-me">[有人@我]</span>}<span className={hint ? "jv-hint-line" : undefined}>{text}</span></span>;
+  const text = hint ?? (chat.lastMessage ? (channel && chat.lastSender ? t("sidebar.said", { name: chat.lastSender, text: chat.lastMessage }) : chat.lastMessage) : channel ? chat.topic : "");
+  return <span className="jv-digest">{chat.atMe && <span className="jv-at-me">{t("sidebar.atMe")}</span>}<span className={hint ? "jv-hint-line" : undefined}>{text}</span></span>;
 }
 
 /** Channel groups (Section) with their channels, ungrouped channels under 「频道」, then one DM row per Bot
@@ -77,6 +79,7 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
   const threadUnread = followed.reduce((sum, thread) => sum + thread.unread, 0), threadMentions = followed.reduce((sum, thread) => sum + thread.mentions, 0);
   // Pinned chats come first within their own group.
   const channels = visible.filter(chat => chat.type === "channel").sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.title.localeCompare(b.title, "zh-CN"));
+  // Channel names are data, not interface text: they sort the Chinese-aware way (by pinyin) in either language.
   // A Bot's DM is its most recent one (older data may hold several); Bots without a DM come last.
   const dms = bots.map(bot => ({ bot, chat: chats.find(chat => chat.type === "dm" && chat.botId === bot.id) }))
     .filter(({ bot }) => bot.name.toLocaleLowerCase().includes(query))
@@ -85,14 +88,14 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
     onContextMenu={event => { event.preventDefault(); onMenu({ kind: "channel", chat }, { x: event.clientX, y: event.clientY }); }}>
     <button type="button" className="jv-side-row" data-active={selected === chat.id || undefined}
       data-unread={chat.unread > 0 || undefined} aria-current={selected === chat.id ? "page" : undefined} onClick={() => onSelect(chat)}>
-      {chat.pinned ? <Pin className="jv-side-pin" aria-label="已置顶"/> : <span className="jv-hash" aria-hidden="true">#</span>}
+      {chat.pinned ? <Pin className="jv-side-pin" aria-label={t("sidebar.pinned")}/> : <span className="jv-hash" aria-hidden="true">#</span>}
       <span className="jv-side-text">
         <span className="jv-side-line"><span className="jv-side-label" title={chat.title}>{chat.title}</span>
-          {chat.muted && <span className="jv-side-muted" aria-label="免打扰"><Icon name="bell-slash"/></span>}</span>
+          {chat.muted && <span className="jv-side-muted" aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}</span>
         <span className="jv-side-line"><Digest chat={chat} channel/><Badge chat={chat}/></span>
       </span>
     </button>
-    <button type="button" className="jv-side-more" aria-label={`${chat.title} 的更多操作`} onClick={event => onMenu({ kind: "channel", chat }, below(event.currentTarget))}><Ellipsis aria-hidden="true"/></button>
+    <button type="button" className="jv-side-more" aria-label={t("sidebar.more", { name: chat.title })} onClick={event => onMenu({ kind: "channel", chat }, below(event.currentTarget))}><Ellipsis aria-hidden="true"/></button>
   </div>;
   const dmRow = ({ bot, chat }: { bot: Bot; chat: Chat | undefined }) => {
     const badge = asking.has(bot.id) ? "asking" : working.has(bot.id) ? "working" : undefined, active = !!chat && selected === chat.id;
@@ -102,20 +105,20 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
         className="h-15 w-full justify-start gap-2.5 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
         onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}>
         <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge}/>
-        {badge && <span className="sr-only">{badge === "asking" ? "（等你回答）" : "（工作中）"}</span>}
+        {badge && <span className="sr-only">{t(badge === "asking" ? "sidebar.asking" : "sidebar.working")}</span>}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
             <span className={`min-w-0 flex-1 truncate text-sm ${chat?.unread ? "font-semibold" : "font-medium"}`} title={bot.name}>{bot.name}</span>
-            {chat?.muted && <span className="jv-side-muted" aria-label="免打扰"><Icon name="bell-slash"/></span>}
-            {chat?.pinned && <Pin className="jv-dm-pin shrink-0" aria-label="已置顶"/>}
+            {chat?.muted && <span className="jv-side-muted" aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}
+            {chat?.pinned && <Pin className="jv-dm-pin shrink-0" aria-label={t("sidebar.pinned")}/>}
             {chat && <time className="shadcn-chat-time shrink-0 text-[11px] font-normal text-muted-foreground" dateTime={new Date(chat.updatedAt).toISOString()}>
-              {new Date(chat.updatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+              {formatClock(chat.updatedAt)}
             </time>}
           </span>
           <span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{chat ? <Digest chat={chat} channel={false}/> : ""}</span>{chat && <Badge chat={chat}/>}</span>
         </span>
       </Button>
-      <Button type="button" variant="ghost" size="icon-xs" aria-label={`${bot.name} 的更多操作`}
+      <Button type="button" variant="ghost" size="icon-xs" aria-label={t("sidebar.more", { name: bot.name })}
         className="shadcn-chat-more absolute top-4 right-2 opacity-0" onClick={event => onMenu({ kind: "dm", bot, chat }, below(event.currentTarget))}>
         <Ellipsis aria-hidden="true"/>
       </Button>
@@ -125,8 +128,8 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
   const head = (key: string, label: string, closed: boolean, unread: boolean, section?: Section) => <div className="jv-side-section-head">
     <button type="button" className="jv-side-section-toggle" aria-expanded={!closed} onClick={() => toggle(key)}>
       <span className="jv-side-chevron"><Icon name={closed ? "chevron-right" : "chevron-down"}/></span>
-      <span className="jv-side-section-name">{label}{closed && unread && <span className="jv-dot" aria-label="有未读"/>}</span></button>
-    {section && <button type="button" className="jv-side-section-edit" aria-label={`编辑分组：${label}`} onClick={() => onEditSection(section)}><Icon name="pencil"/></button>}
+      <span className="jv-side-section-name">{label}{closed && unread && <span className="jv-dot" aria-label={t("sidebar.hasUnread")}/>}</span></button>
+    {section && <button type="button" className="jv-side-section-edit" aria-label={t("sidebar.editSection", { name: label })} onClick={() => onEditSection(section)}><Icon name="pencil"/></button>}
   </div>;
   const isClosed = (key: string) => !query && collapsed.includes(key);
   const group = (key: string, label: string, rows: Chat[], section?: Section) => <div className="jv-side-section" key={key}>
@@ -138,29 +141,29 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
     <div className="mx-3 mt-1 mb-2 shrink-0" role="search">
       <InputGroup className="h-9 bg-background">
         <InputGroupInput id="jarvy-search" type="search" value={filter} onChange={event => onFilterChange(event.target.value)}
-          placeholder="搜索会话和消息" aria-label="搜索会话和消息"
+          placeholder={t("sidebar.search")} aria-label={t("sidebar.search")}
           onKeyDown={event => { if (event.key === "Escape" && filter) { event.preventDefault(); onFilterChange(""); } }} className="text-sm"/>
         <InputGroupAddon align="inline-start"><Search aria-hidden="true"/></InputGroupAddon>
       </InputGroup>
     </div>
     <ScrollArea className="min-h-0 flex-1" type="auto">
-      {query ? <nav className="jv-side-nav jv-side-search px-3 pb-6" aria-label="搜索结果">
-        <ResultGroup label="会话" items={[...channels.map(channelRow), ...dms.map(dmRow)]}/>
+      {query ? <nav className="jv-side-nav jv-side-search px-3 pb-6" aria-label={t("sidebar.results")}>
+        <ResultGroup label={t("sidebar.chats")} items={[...channels.map(channelRow), ...dms.map(dmRow)]}/>
         <SearchResults query={filter} shown={new Set(channels.map(chat => chat.id))} chats={chats} members={members}
           onOpenChat={onOpenFound} onOpenMessage={onOpenMessage} onError={onError}/>
-      </nav> : <nav className="jv-side-nav px-3 pb-6" aria-label="频道与私信">
+      </nav> : <nav className="jv-side-nav px-3 pb-6" aria-label={t("sidebar.nav")}>
         {followed.length > 0 && <button type="button" className="jv-side-row jv-side-top" data-active={followedOpen || undefined} data-unread={threadUnread > 0 || undefined}
           aria-current={followedOpen ? "page" : undefined} onClick={onOpenFollowed}>
-          <Icon name="chat-bubble"/><span className="jv-side-label">我关注的线程</span>
+          <Icon name="chat-bubble"/><span className="jv-side-label">{t("sidebar.followed")}</span>
           {threadMentions > 0 ? <span className="jv-badge">{threadMentions}</span> : threadUnread > 0 && <span className="jv-count">{threadUnread}</span>}
         </button>}
         {sections.map(section => group(`s:${section.id}`, section.name, channels.filter(chat => chat.sectionId === section.id), section))}
         {channels.some(chat => !chat.sectionId || !sections.some(section => section.id === chat.sectionId)) &&
-          group("channels", "频道", channels.filter(chat => !chat.sectionId || !sections.some(section => section.id === chat.sectionId)))}
+          group("channels", t("sidebar.channels"), channels.filter(chat => !chat.sectionId || !sections.some(section => section.id === chat.sectionId)))}
         <div className="jv-side-section">
-          {head("dms", "私信", isClosed("dms"), dms.some(({ chat }) => !!chat?.unread))}
+          {head("dms", t("sidebar.dms"), isClosed("dms"), dms.some(({ chat }) => !!chat?.unread))}
           {!isClosed("dms") && <div className="space-y-1">{dms.map(dmRow)}</div>}
-          {!isClosed("dms") && dms.length === 0 && <p className="jv-side-empty">暂无私信</p>}
+          {!isClosed("dms") && dms.length === 0 && <p className="jv-side-empty">{t("sidebar.noDms")}</p>}
         </div>
       </nav>}
     </ScrollArea>

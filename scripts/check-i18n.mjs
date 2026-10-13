@@ -76,13 +76,12 @@ function chinese(file) {
 }
 
 const PENDING = new Set([
-  'App.tsx', 'AppDialogs.tsx', 'AppSidebar.tsx', 'BotInfo.tsx', 'BotModelControls.tsx', 'ChatMain.tsx', 'HistoryDetail.tsx', 'ModelPicker.tsx', 'SidePane.tsx',
-  'activity/ActivityDetail.tsx', 'activity/ActivityTimeline.tsx', 'activity/BotActivity.tsx', 'api.ts', 'avatar/BotAvatar.tsx', 'avatar/FloatingBot.tsx',
-  'avatar/palette.ts', 'bot/BotDirects.tsx', 'channel/ChannelDialogs.tsx', 'channel/ChannelInfo.tsx', 'channel/ChannelView.tsx', 'channel/MemberList.tsx',
-  'channel/MentionMenu.tsx', 'channel/MessageActions.tsx', 'channel/SectionSelect.tsx', 'channel/quotes.tsx', 'composer/Composer.tsx', 'dm/DeleteDialog.tsx',
-  'files/FileCards.tsx', 'files/FileViewer.tsx', 'files/files.ts', 'members.ts', 'question/QuestionCard.tsx', 'search/SearchPane.tsx', 'search/SearchResults.tsx',
-  'search/search.tsx', 'search/useFind.ts', 'sidebar/EntryMenu.tsx', 'sidebar/Sidebar.tsx', 'thread/ThreadList.tsx', 'thread/ThreadMeta.tsx', 'thread/ThreadPane.tsx',
-  'ui.tsx',
+  'BotInfo.tsx', 'BotModelControls.tsx', 'ChatMain.tsx', 'HistoryDetail.tsx', 'ModelPicker.tsx', 'activity/ActivityDetail.tsx',
+  'activity/ActivityTimeline.tsx', 'activity/BotActivity.tsx', 'api.ts', 'avatar/BotAvatar.tsx', 'avatar/FloatingBot.tsx', 'avatar/palette.ts',
+  'bot/BotDirects.tsx', 'channel/ChannelDialogs.tsx', 'channel/ChannelInfo.tsx', 'channel/ChannelView.tsx', 'channel/MemberList.tsx',
+  'channel/MentionMenu.tsx', 'channel/MessageActions.tsx', 'channel/SectionSelect.tsx', 'channel/quotes.tsx', 'composer/Composer.tsx',
+  'dm/DeleteDialog.tsx', 'files/FileCards.tsx', 'files/FileViewer.tsx', 'files/files.ts', 'question/QuestionCard.tsx', 'thread/ThreadList.tsx',
+  'thread/ThreadMeta.tsx', 'thread/ThreadPane.tsx',
 ]);
 const seen = new Set();
 for (const file of files(web)) {

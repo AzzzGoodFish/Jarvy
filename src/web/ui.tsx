@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import { t, useLocale } from "./i18n";
 import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Eye, EyeOff, File, Folder,
   Expand, Image, Info, List, LogOut, MessageCircle, Moon, PanelLeft, Paperclip, Pencil, Megaphone, Trash2, Pin, Quote, Plus, Reply,
   Search, Settings, Shrink, SmilePlus, Sun, UserPlus, Users, X, type LucideIcon } from "lucide-react";
@@ -37,7 +38,7 @@ export function Modal({ title, onClose, children, className = "" }: { title: str
     el.showModal(); return () => { el.close(); previous?.focus({ preventScroll: true }); };
   }, []);
   return createPortal(<dialog ref={ref} className={`ui-small-dialog ${className}`} aria-labelledby={id} onCancel={event => { event.preventDefault(); onClose(); }}>
-    <IconButton icon="close" label={`关闭${title}`} className="ui-dialog-close" onClick={onClose}/>
+    <IconButton icon="close" label={t("ui.closeNamed", { name: title })} className="ui-dialog-close" onClick={onClose}/>
     <div className="ui-dialog-body"><h1 id={id}>{title}</h1>{children}</div>
   </dialog>, document.body);
 }
@@ -57,19 +58,20 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   useEffect(() => { if (state === "idle") return; const timer = setTimeout(() => setState("idle"), 1500); return () => clearTimeout(timer); }, [state]);
   const copy = async () => setState(await copyText((ref.current?.textContent ?? "").replace(/\n$/, "")) ? "copied" : "failed");
   return <figure className="ui-code-figure"><pre ref={ref}>{children}</pre>
-    <IconButton icon={state === "copied" ? "check" : "copy"} label={state === "copied" ? "已复制" : state === "failed" ? "复制失败" : "复制代码"} onClick={() => void copy()}/>
+    <IconButton icon={state === "copied" ? "check" : "copy"} label={t(state === "copied" ? "ui.copied" : state === "failed" ? "ui.copyFailed" : "ui.copyCode")} onClick={() => void copy()}/>
   </figure>;
 }
 // Chat text keeps single line breaks as typed (soft break -> <br>), like common chat apps.
 const MARKDOWN_PLUGINS = [remarkGfm, remarkBreaks];
 export const Markdown = memo(function Markdown({ text, renderQuote }: { text: string; /** Partial quotes: "#quote-N" links (channel/quotes.tsx). */ renderQuote?: (index: number) => ReactNode }) {
+  useLocale(); // memo skips the app root's re-render, so follow a language switch here
   return <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} skipHtml components={{
     // channel/mentions.ts turns "@name" into "#mention" / "#mention-me" links; they render as highlights.
     a: ({ href, children }) => href === "#mention" || href === "#mention-me"
       ? <span className="jv-mention" data-me={href === "#mention-me" || undefined}>{children}</span>
       : renderQuote && href?.startsWith("#quote-") ? renderQuote(Number(href.slice(7)))
       : <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-    img: ({ alt }) => <span>[图片：{alt || "外部图片已隐藏"}]</span>,
+    img: ({ alt }) => <span>{t("ui.image", { alt: alt || t("ui.imageHidden") })}</span>,
     pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   }}>{text}</ReactMarkdown>;
 });

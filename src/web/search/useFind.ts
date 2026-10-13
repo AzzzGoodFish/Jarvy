@@ -36,7 +36,7 @@ export function useFind({ selected, chats, transcript, openChat, setPane, paneRe
       if (blocked || event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return;
       const current = chats.find(chat => chat.id === selected);
       if (!current) return;
-      if (paneRef.current?.kind === "search" && document.activeElement?.closest("[aria-label=聊天内搜索]")) return;
+      if (paneRef.current?.kind === "search" && document.activeElement?.closest(".jv-search-pane")) return;
       event.preventDefault(); search(current);
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);

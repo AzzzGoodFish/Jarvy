@@ -3,6 +3,7 @@ import { BotDirects } from "./bot/BotDirects";
 import { ChannelInfo } from "./channel/ChannelInfo";
 import type { DraftStore } from "./composer/drafts";
 import { liveMembers } from "./members";
+import { t } from "./i18n";
 import type { Pane } from "./pane";
 import { SearchPane } from "./search/SearchPane";
 import { ThreadPane } from "./thread/ThreadPane";
@@ -53,6 +54,6 @@ export function SidePane({ pane, followedView, followed, chats, sections, member
       onBot={onOpenBot} onDelete={() => onDeleteChannel(paneChannel)} onChanged={onChannelSaved} onClose={close} onError={onError}/>}
     {pane?.kind === "botdms" && activeBot && !paneChannel && <BotDirects bot={activeBot} chats={botDirects} members={members} bots={bots} me={meId} tick={tick}
       onClose={close} onPreview={onPreview} onError={onError}/>}
-    {pane && !full && <div className="jv-resize" style={{ right: paneWidth - 4 }} onPointerDown={onResize} role="separator" aria-orientation="vertical" aria-label="拖动调整侧栏宽度"/>}
+    {pane && !full && <div className="jv-resize" style={{ right: paneWidth - 4 }} onPointerDown={onResize} role="separator" aria-orientation="vertical" aria-label={t("app.resizePane")}/>}
   </>;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Chat, type ChatMessage, type Member, type SearchResult } from "../api";
+import { formatClock, formatDay, t } from "../i18n";
 import { memberName } from "../members";
 import { quotedText } from "../channel/quotes";
 
@@ -19,7 +20,7 @@ export function useSearch(query: string, within: string | undefined, onError: (e
 
 /** Where a message is, for a result line: 「#频道」, 「#频道 › 线程标题」 or the Bot's name for a DM. */
 export function placeOf(chat: Chat, chats: Chat[], members: Member[]): string {
-  if (chat.type === "thread") return `#${chats.find(item => item.id === chat.parentId)?.title ?? "频道"} › ${chat.title}`;
+  if (chat.type === "thread") return `#${chats.find(item => item.id === chat.parentId)?.title ?? t("search.channel")} › ${chat.title}`;
   if (chat.type === "channel") return `#${chat.title}`;
   return memberName(members.find(member => member.id === chat.botId));
 }
@@ -33,11 +34,7 @@ export function Snippet({ text, query, room = 24 }: { text: string; query: strin
   return <>{start > 0 && "…"}{plain.slice(start, at)}<mark className="jv-hit">{plain.slice(at, end)}</mark>{plain.slice(end, end + 120)}</>;
 }
 
-const when = (time: number) => {
-  const date = new Date(time), today = new Date();
-  return date.toDateString() === today.toDateString() ? date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString("zh-CN", { year: date.getFullYear() === today.getFullYear() ? undefined : "numeric", month: "numeric", day: "numeric" });
-};
+const when = (time: number) => new Date(time).toDateString() === new Date().toDateString() ? formatClock(time) : formatDay(time);
 
 /** One message found: who, where (unless searching inside that chat), when, and the text around the hit. */
 export function MessageHit({ message, chat, chats, members, query, showPlace = true, onOpen }: {

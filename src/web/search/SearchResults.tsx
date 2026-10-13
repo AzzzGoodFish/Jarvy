@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Chat, Member } from "../api";
+import { t } from "../i18n";
 import { Icon } from "../ui";
 import { MessageHit, Snippet, placeOf, useSearch } from "./search";
 
@@ -12,7 +13,7 @@ export function ResultGroup({ label, items, empty }: { label: string; items: Rea
   return <section className="jv-result-group" aria-label={label}>
     <h3 className="jv-result-head">{label}<span>{items.length}</span></h3>
     {items.length ? (all ? items : items.slice(0, FIRST)) : <p className="jv-result-empty">{empty}</p>}
-    {!all && items.length > FIRST && <button type="button" className="jv-result-more" onClick={() => setAll(true)}>查看全部 {items.length} 条<Icon name="chevron-down"/></button>}
+    {!all && items.length > FIRST && <button type="button" className="jv-result-more" onClick={() => setAll(true)}>{t("search.showAll", { count: items.length })}<Icon name="chevron-down"/></button>}
   </section>;
 }
 
@@ -30,10 +31,10 @@ export function SearchResults({ query, shown, chats, members, onOpenChat, onOpen
     {(chat.note?.text || chat.topic) && <span className="jv-hit-text"><Snippet text={chat.note?.text || chat.topic} query={query}/></span>}
   </button>;
   return <div className="jv-results" aria-live="polite">
-    <ResultGroup label="线程" items={found.filter(chat => chat.type === "thread").map(chatRow)}/>
-    <ResultGroup label="频道（主题与公告）" items={found.filter(chat => chat.type === "channel").map(chatRow)}/>
-    {result ? <ResultGroup label="消息" empty="没有找到消息" items={result.messages.map(({ message, chat }) =>
+    <ResultGroup label={t("search.threads")} items={found.filter(chat => chat.type === "thread").map(chatRow)}/>
+    <ResultGroup label={t("search.channels")} items={found.filter(chat => chat.type === "channel").map(chatRow)}/>
+    {result ? <ResultGroup label={t("search.messages")} empty={t("search.noMessages")} items={result.messages.map(({ message, chat }) =>
       <MessageHit key={message.id} message={message} chat={chat} chats={chats} members={members} query={query} onOpen={onOpenMessage}/>)}/>
-      : loading && <p className="jv-result-empty">正在搜索…</p>}
+      : loading && <p className="jv-result-empty">{t("search.searching")}</p>}
   </div>;
 }

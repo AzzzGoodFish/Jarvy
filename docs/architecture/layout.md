@@ -50,9 +50,9 @@ src/
 
 The interface comes in Chinese and English (A45), more can be added; everything the model reads from Jarvy is English.
 
-- `web/i18n/`: `en.ts` is the reference dictionary, `zh.ts` covers the same keys, `keys.ts` derives `Key` and `Shape` from the reference (so a missing, extra or wrongly shaped key fails `tsc`), and `index.tsx` holds the current language, `t()`, `rich()` and `useLocale()`.
+- `web/i18n/`: `en.ts` is the reference dictionary, `zh.ts` covers the same keys, `keys.ts` derives `Key` and `Shape` from the reference (so a missing, extra or wrongly shaped key fails `tsc`), and `index.tsx` holds the current language, `t()`, `rich()`, `useLocale()` and the formatters `formatDate()`, `formatClock()`, `formatDay()` and `formatNumber()` (dates, times and numbers follow the interface language, not a fixed zh-CN).
 - The language is picked from the browser on first visit (`zh*` → Chinese, anything else English), switchable in 设置 → 通用 and on the login page, and remembered in this browser. `<html lang>` follows it.
-- Strings are resolved while rendering, never at module top level; a module-level constant holds a key. The app root subscribes through `useLocale()`, so switching re-renders in place and open dialogs and panes stay.
+- Strings are resolved while rendering, never at module top level; a module-level constant holds a key. The app root subscribes through `useLocale()`, so switching re-renders in place and open dialogs and panes stay; a `memo` component that shows text (Markdown) calls `useLocale()` itself, since memo skips that re-render. Styles and selectors never match translated text (`aria-label`); they use classes or `data-slot`.
 - `scripts/check-i18n.mjs` (part of `check:architecture`) checks key parity, placeholders and empty values, and scans components for Chinese text; files not migrated yet are listed in its `PENDING` set, which can only shrink.
 - What people write — Bot personas, notices, summaries, messages — is never translated.
 

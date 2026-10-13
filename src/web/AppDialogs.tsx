@@ -5,6 +5,7 @@ import { DeleteBotDialog, ConfirmDialog } from "./dm/DeleteDialog";
 import { EntryMenu, type MenuTarget } from "./sidebar/EntryMenu";
 import { FileViewer } from "./files/FileViewer";
 import { liveMembers } from "./members";
+import { t } from "./i18n";
 
 export type Dialog = { kind: "channel" } | { kind: "members"; chat: Chat } | { kind: "section"; section?: Section } | null;
 export type Menu = { target: MenuTarget; at: { x: number; y: number } } | null;
@@ -42,8 +43,8 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
       onOpenBot={bot => onInfoBot(bot.id)} onSettings={chat => { if (chat.type === "channel") onChannelInfo(chat); }}
       onPin={(chat, pinned) => void pinChat(chat, pinned)} onMute={(chat, muted) => void muteChat(chat, muted)}
       onDeleteChat={chat => onConfirm({ kind: "chat", chat })} onDeleteBot={bot => onConfirm({ kind: "bot", bot })}/>}
-    {confirm?.kind === "chat" && <ConfirmDialog title={`删除频道 #${confirm.chat.title}`} confirm="删除" onClose={() => onConfirm(null)}
-      body="频道里的消息、线程和附件都会删除。" onConfirm={async () => { await removeChannel(confirm.chat); onConfirm(null); }}/>}
+    {confirm?.kind === "chat" && <ConfirmDialog title={t("app.deleteChannelTitle", { name: confirm.chat.title })} confirm={t("app.delete")} onClose={() => onConfirm(null)}
+      body={t("app.deleteChannelBody")} onConfirm={async () => { await removeChannel(confirm.chat); onConfirm(null); }}/>}
     {confirm?.kind === "bot" && <DeleteBotDialog bot={confirm.bot} chats={chats.filter(chat => chat.type === "dm" && chat.botId === confirm.bot.id).length}
       onClose={() => onConfirm(null)} onConfirm={async deleteFiles => { await deleteBot(confirm.bot, deleteFiles); onConfirm(null); }}/>}
     {infoBot && <BotInfo key={infoBot.id} bot={infoBot} status={statuses[infoBot.id]} connections={connections} chats={chats} onSaved={updateBot}

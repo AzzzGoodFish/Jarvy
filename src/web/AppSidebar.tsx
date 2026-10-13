@@ -1,6 +1,7 @@
 import type { Bot, Chat, Member, Section, ThreadEntry } from "./api";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Icon, IconButton } from "./ui";
+import { t } from "./i18n";
 import { type MenuTarget } from "./sidebar/EntryMenu";
 import { useEffect, useRef } from "react";
 
@@ -33,31 +34,31 @@ export function AppSidebar({ username, chats, sections, bots, members, followed,
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [accountMenu, createMenu]);
-  return <><aside className="ui-sidebar" aria-label="会话列表">
+  return <><aside className="ui-sidebar" aria-label={t("sidebar.label")}>
     <header className="ui-sidebar-header"><div className="jarvy-sidebar-create" ref={createRef}>
-      <IconButton icon="add" label="打开新建菜单" aria-expanded={createMenu} aria-haspopup="menu" disabled={creating} onClick={() => onToggleCreate(!createMenu)}/>
-      {createMenu && <div className="ui-popover jarvy-create-menu" role="menu" aria-label="新建菜单">
-        <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("channel")}><Icon name="list-bullets"/><span className="ui-menu-copy">新建频道</span></button>
-        <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("section")}><Icon name="folder"/><span className="ui-menu-copy">新建频道分组</span></button>
-        <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("bot")}><Icon name="person-add"/><span className="ui-menu-copy">新建 Bot</span></button>
+      <IconButton icon="add" label={t("sidebar.create")} aria-expanded={createMenu} aria-haspopup="menu" disabled={creating} onClick={() => onToggleCreate(!createMenu)}/>
+      {createMenu && <div className="ui-popover jarvy-create-menu" role="menu" aria-label={t("sidebar.createMenu")}>
+        <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("channel")}><Icon name="list-bullets"/><span className="ui-menu-copy">{t("sidebar.newChannel")}</span></button>
+        <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("section")}><Icon name="folder"/><span className="ui-menu-copy">{t("sidebar.newSection")}</span></button>
+        <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("bot")}><Icon name="person-add"/><span className="ui-menu-copy">{t("sidebar.newBot")}</span></button>
       </div>}
     </div></header>
     <Sidebar chats={chats} sections={sections} bots={bots} members={members} onOpenMessage={onFind} onOpenFound={onOpenFound} onError={onError}
       working={working} asking={asking} selected={selected} filter={filter} onFilterChange={onFilterChange}
       followed={followed} followedOpen={followedOpen} onOpenFollowed={onOpenFollowed}
       onSelect={onOpenChat} onOpenBot={onOpenBot} onMenu={onOpenMenu} onEditSection={onEditSection}/>
-    <footer className="ui-sidebar-footer"><button type="button" className="ui-footer-entry" aria-label={`用户菜单，${username}`} aria-expanded={accountMenu}
+    <footer className="ui-sidebar-footer"><button type="button" className="ui-footer-entry" aria-label={t("account.menuFor", { name: username })} aria-expanded={accountMenu}
       onClick={() => onToggleAccount(!accountMenu)}>
       <span className="ui-user-avatar">{username.slice(0, 2).toUpperCase()}</span><span>{username}</span><Icon name="chevron-down"/>
     </button></footer>
   </aside>
     {/* Outside the sidebar, whose stacking context (and transform on phones) would otherwise hold it. */}
-    {accountMenu && <div ref={accountRef} className="ui-popover jarvy-account-menu" role="menu" aria-label="账户菜单">
+    {accountMenu && <div ref={accountRef} className="ui-popover jarvy-account-menu" role="menu" aria-label={t("account.menu")}>
       <div className="ui-menu-note ui-small">{username}</div>
-      <button role="menuitem" className="ui-menu-item" onClick={onSettings}><Icon name="gear"/><span className="ui-menu-copy">设置</span></button>
-      <button role="menuitem" className="ui-menu-item" onClick={onToggleTheme}><Icon name="moon"/><span className="ui-menu-copy">切换主题</span></button>
+      <button role="menuitem" className="ui-menu-item" onClick={onSettings}><Icon name="gear"/><span className="ui-menu-copy">{t("settings.title")}</span></button>
+      <button role="menuitem" className="ui-menu-item" onClick={onToggleTheme}><Icon name="moon"/><span className="ui-menu-copy">{t("account.toggleTheme")}</span></button>
       <hr className="ui-menu-divider"/>
-      <button role="menuitem" className="ui-menu-item" onClick={onLogOut}><Icon name="arrow-bracket-to-left"/><span className="ui-menu-copy">退出登录</span></button>
+      <button role="menuitem" className="ui-menu-item" onClick={onLogOut}><Icon name="arrow-bracket-to-left"/><span className="ui-menu-copy">{t("account.signOut")}</span></button>
     </div>}
   </>;
 }

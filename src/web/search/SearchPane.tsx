@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Chat, Member } from "../api";
+import { t } from "../i18n";
 import { IconButton } from "../ui";
 import { MessageHit, useSearch } from "./search";
 
@@ -14,20 +15,20 @@ export function SearchPane({ chat, chats, members, focusKey, onOpenMessage, onCl
   const [query, setQuery] = useState(""), input = useRef<HTMLInputElement>(null);
   useEffect(() => { input.current?.focus(); input.current?.select(); }, [focusKey, chat.id]);
   const { result, loading } = useSearch(query, chat.id, onError);
-  const where = chat.type === "channel" ? `#${chat.title}` : chat.type === "thread" ? "本线程" : "本私聊";
-  return <aside className="ui-pane jv-pane" aria-label="聊天内搜索">
-    <header className="ui-pane-header jv-pane-header"><strong>搜索</strong><span className="jv-muted jv-pane-sub">{where}</span><span className="jv-spacer"/>
-      <IconButton icon="close" label="关闭搜索" onClick={onClose}/></header>
+  const where = chat.type === "channel" ? `#${chat.title}` : t(chat.type === "thread" ? "search.inThread" : "search.inDm");
+  return <aside className="ui-pane jv-pane jv-search-pane" aria-label={t("search.paneLabel")}>
+    <header className="ui-pane-header jv-pane-header"><strong>{t("search.title")}</strong><span className="jv-muted jv-pane-sub">{where}</span><span className="jv-spacer"/>
+      <IconButton icon="close" label={t("search.close")} onClick={onClose}/></header>
     <div className="jv-pane-search">
-      <input ref={input} type="search" value={query} placeholder={chat.type === "channel" ? "搜索频道和它的线程里的消息" : "搜索消息"} aria-label="搜索消息"
+      <input ref={input} type="search" value={query} placeholder={t(chat.type === "channel" ? "search.channelPlaceholder" : "search.placeholder")} aria-label={t("search.placeholder")}
         onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); if (query) setQuery(""); else onClose(); } }}/>
     </div>
     <div className="ui-pane-body jv-pane-body jv-results" aria-live="polite">
-      {!query.trim() ? <p className="jv-result-empty">输入要找的文字</p>
-        : !result ? loading && <p className="jv-result-empty">正在搜索…</p>
-        : !result.messages.length ? <p className="jv-result-empty">没有找到消息</p>
+      {!query.trim() ? <p className="jv-result-empty">{t("search.prompt")}</p>
+        : !result ? loading && <p className="jv-result-empty">{t("search.searching")}</p>
+        : !result.messages.length ? <p className="jv-result-empty">{t("search.noMessages")}</p>
         : <>
-          <p className="jv-result-count">{result.messages.length >= 60 ? "最近 60 条" : `${result.messages.length} 条`}，最新在前</p>
+          <p className="jv-result-count">{t(result.messages.length >= 60 ? "search.countLatest" : "search.count", { count: result.messages.length })}</p>
           {result.messages.map(({ message, chat: place }) => <MessageHit key={message.id} message={message} chat={place} chats={chats} members={members}
             query={query} showPlace={place.id !== chat.id} onOpen={onOpenMessage}/>)}
         </>}

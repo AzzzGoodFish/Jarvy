@@ -1,6 +1,8 @@
 import { Fragment, useSyncExternalStore, type ReactNode } from "react";
 import { en } from "./en";
 import type { Entry, Key } from "./keys";
+
+export type { Key } from "./keys";
 import { zh } from "./zh";
 
 /** Interface languages (A45): one dictionary each, English the reference. Strings come from `t()` at render time —
@@ -45,6 +47,15 @@ export function t(key: Key, vars?: Record<string, string | number>) {
   const value = text(key, vars?.count);
   return vars ? value.replace(/\{(\w+)\}/g, (match, name: string) => name in vars ? String(vars[name]) : match) : value;
 }
+/** A date or time written the current language's way, e.g. `{ hour: "2-digit", minute: "2-digit" }` → 09:30. */
+export const formatDate = (value: number | Date, options: Intl.DateTimeFormatOptions) => new Date(value).toLocaleString(TAGS[current], options);
+/** The time of day: 09:30 in Chinese, 9:30 AM in English. */
+export const formatClock = (value: number | Date) => formatDate(value, { hour: current === "zh" ? "2-digit" : "numeric", minute: "2-digit" });
+/** A day: Oct 12 / 10月12日, with the year when it is not this year. */
+export const formatDay = (value: number | Date) => {
+  const thisYear = new Date(value).getFullYear() === new Date().getFullYear();
+  return formatDate(value, { year: thisYear ? undefined : "numeric", month: current === "zh" ? "numeric" : "short", day: "numeric" });
+};
 /** A number written the current language's way (`notation: "compact"` gives 12K / 1.2万). */
 export const formatNumber = (value: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat(TAGS[current], options).format(value);
 /** Like t(), when some values are elements (a <strong> inside a sentence). */
