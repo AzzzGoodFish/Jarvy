@@ -28,5 +28,19 @@ for (const file of files(root)) {
     if (forbidden) failures.push(`${relative(root, file)} → ${specifier}`);
   }
 }
+// The web is a client of the HTTP API: src/web never imports src/server, statically, as a type or with import().
+const web = resolve('src/web');
+for (const file of files(web, /\.tsx?$/)) {
+  const syntax = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+  const visit = node => {
+    const specifier = (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) ? node.moduleSpecifier
+      : ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword ? node.arguments[0]
+      : ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) ? node.argument.literal : undefined;
+    if (specifier && ts.isStringLiteral(specifier) && specifier.text.startsWith('.') && !relative(root, resolve(dirname(file), specifier.text)).startsWith('..'))
+      failures.push(`${relative(resolve('src'), file)} → ${specifier.text} (src/web never imports src/server)`);
+    ts.forEachChild(node, visit);
+  };
+  visit(syntax);
+}
 if (failures.length) { console.error(failures.join('\n')); process.exitCode = 1; }
 else console.log('Architecture boundaries: OK');
