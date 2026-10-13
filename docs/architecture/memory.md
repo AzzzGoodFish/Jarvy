@@ -56,7 +56,7 @@ chat({ action: "call", tool: "history.read", args: {
 
 - Reads only the calling Bot's History; no Bot ID, database path or file name can be passed.
 - Results keep the requested order (duplicates included); unknown IDs are listed in `missingIds`. Database and file errors are raised, not hidden.
-- `summary`: ID, time, role, model and a static 160-character excerpt. No model call, no stored summaries. The repository keeps a summary as structure — the start of the text and reasoning, the tool steps (`{ kind: call | result, name, error? }`, in order) and the image count, which is what the Bot activity timeline and `GET /api/bots/:id/history` get and the interface words (A45); `Memory` joins it into the excerpt line history.read returns.
+- `summary`: ID, time, role, model and a static 160-character excerpt. No model call, no stored summaries. The repository keeps a summary as structure — the start of the text and reasoning, the tool steps (`{ kind: call | result, name, error? }`, in order) and the image count, which is what the Bot activity timeline and `GET /api/bots/:id/history` get and the interface words (A45); `Memory` joins it into the English excerpt line history.read returns (`Called chat`, `chat · result` / `chat · failed`, `image`).
 - `detail`: the full message — text, visible thinking, images, tool calls and arguments, results, tool definitions, stop reason, errors — without `usage` and `extra`.
 - JSON is `{mode, records, missingIds}`; Markdown carries the same, with code fences long enough for the content.
 - `to_file: true` writes the same content to `workspace/temp/history-<uuid>.json|md` (mode `0600`) and returns only the path.

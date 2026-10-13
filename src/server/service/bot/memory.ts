@@ -2,10 +2,10 @@ import type { ActivityCursor } from "../../shared/activity.js";
 import type { HistoryDraft, HistoryReadMode, HistoryReadResult, HistoryReadSummary, HistorySummary } from "../../shared/history.js";
 import { HistoryRepository } from "../../infra/storage/history-repository.js";
 
-/** What history.read shows of a summary: one line, its text, then its tool steps and images (the prompt batch words it). */
+/** What history.read shows of a summary: one line, its text, then its tool steps and images (in English, like everything a Bot reads; A45). */
 function summaryLine({ tools, images, ...summary }: HistorySummary): HistoryReadSummary {
-  const steps = tools.map(tool => tool.kind === "call" ? `调用 ${tool.name}` : `${tool.name} · ${tool.error ? "执行出错" : "执行结果"}`);
-  const line = [summary.preview, ...steps, ...Array.from({ length: images }, () => "图片")].filter(Boolean).join(" ");
+  const steps = tools.map(tool => tool.kind === "call" ? `Called ${tool.name}` : `${tool.name} · ${tool.error ? "failed" : "result"}`);
+  const line = [summary.preview, ...steps, ...Array.from({ length: images }, () => "image")].filter(Boolean).join(" ");
   return { ...summary, preview: line.slice(0, 160).replace(/\s+/g, " ").trim() };
 }
 
