@@ -1,9 +1,9 @@
 /* NPC prototype (avatar/npc/, `?npc=demo`): the dialogue beside the DM's cat in its four looks, its live panel, the toolbar. */
-/* The width comes from place.ts (the room on the side the box took), so nothing moves while the text grows. */
+/* The width comes from place.ts (the room on the side the box took), so nothing moves while the text grows. Its place
+   is not eased: it is set in the same frame as the cat's, so the box keeps up while the cat is dragged (fish m798). */
 .jv-npc { position: absolute; z-index: 6; max-width: min(300px, calc(100% - 24px)); padding: 10px 12px; overflow: visible;
   border: 2px solid var(--ui-border-strong); border-radius: 12px; background: var(--ui-bg-elevated); color: var(--ui-text-primary);
-  box-shadow: var(--ui-shadow-md); font-size: 13px; line-height: 1.55; opacity: 1;
-  transition: left var(--ui-duration-fast) var(--ui-ease-out), top var(--ui-duration-fast) var(--ui-ease-out), opacity .5s ease; }
+  box-shadow: var(--ui-shadow-md); font-size: 13px; line-height: 1.55; opacity: 1; transition: opacity .5s ease; }
 .jv-npc[hidden] { display: none; }
 .jv-npc[data-fading] { opacity: 0; }
 .jv-npc::before, .jv-npc::after { content: none; position: absolute; }

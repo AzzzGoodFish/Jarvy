@@ -66,7 +66,7 @@ export class CatFigure {
   private motion: FigureMotion = "static"; private motionAt = 0;
   private readonly disposables: { dispose(): void }[] = [];
   private shown: BotMood = "normal";
-  private yaw = REST_YAW; private pitch = 0; private lookX = 0; private lookY = 0;
+  private yaw = REST_YAW; private pitch = 0; private lookX = 0; private lookY = 0; private drawn = false;
   private blinkAt = 1500; private blinkStart = -1e9; private shakeAt = -1e9; private readonly start = performance.now();
   constructor(THREE: THREE, color: number) {
     const keep = <T extends { dispose(): void }>(item: T) => { this.disposables.push(item); return item; };
@@ -158,7 +158,9 @@ export class CatFigure {
       + (m === "read" ? 0.24 + wave(0.7, 0.02) : 0) + (m === "groom" ? 0.1 : 0) - 0.2 * yawn - 0.14 * stretch;
     const targetRoll = (dizzy ? wave(3.2, 0.07) : 0) + (m === "think" ? wave(1.3, 0.025) : 0) + (m === "busy" ? wave(9, 0.05) : 0)
       + (m === "ask" ? 0.24 + wave(1.1, 0.03) : 0) + (m === "groom" ? -0.14 : 0) + (m === "turn" ? wave(2.4, 0.03) : 0);
-    this.yaw += (targetYaw - this.yaw) * 0.07; this.pitch += (targetPitch - this.pitch) * 0.1;
+    // The first frame starts in place, so a cat sitting on the right does not turn round when the page opens.
+    const ease = (from: number, to: number, rate: number) => this.drawn ? from + (to - from) * rate : to;
+    this.yaw = ease(this.yaw, targetYaw, 0.07); this.pitch = ease(this.pitch, targetPitch, 0.1);
     this.root.rotation.y = this.yaw; this.head.rotation.x = this.pitch;
     this.head.rotation.z += (targetRoll - this.head.rotation.z) * 0.2;
     // Work taps fast (tools faster than text); thinking taps slowly and lightly, eyes drifting across the "desk".
@@ -171,7 +173,7 @@ export class CatFigure {
     const lookX = glanceX || (m === "work" ? (still ? 0 : left > right ? -0.6 : 0.6)
       : m === "think" ? wave(0.9, 0.5) : m === "busy" ? wave(9, 0.5) : m === "read" ? (still ? 0 : ((since * 0.8) % 1) * 1.2 - 0.6) : 0);
     const lookY = glanceY || (down || m === "read" ? -1 : sleep ? -0.3 : 0);
-    this.lookX += (lookX - this.lookX) * 0.2; this.lookY += (lookY - this.lookY) * 0.15;
+    this.lookX = ease(this.lookX, lookX, 0.2); this.lookY = ease(this.lookY, lookY, 0.15); this.drawn = true;
     const lead = Math.max(-0.2, Math.min(0.2, (targetYaw - this.yaw) * EYE_LEAD));
     this.eyes.position.x = EYE_BIAS * toward + lead + this.lookX * 0.06;
     this.eyes.position.y = 0.04 + this.lookY * 0.09 - (sad ? 0.03 : 0) - (angry ? 0.015 : 0);
