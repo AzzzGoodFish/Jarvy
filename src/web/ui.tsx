@@ -2,6 +2,7 @@ import { memo, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, ty
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import { remarkCjkLinks } from "./cjk-links";
 import remarkGfm from "remark-gfm";
 import { t, useLocale } from "./i18n";
 import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Eye, EyeOff, File, FileAudio, FileVideo, Folder,
@@ -62,7 +63,8 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   </figure>;
 }
 // Chat text keeps single line breaks as typed (soft break -> <br>), like common chat apps.
-const MARKDOWN_PLUGINS = [remarkGfm, remarkBreaks];
+// A bare URL ends at Chinese punctuation (cjk-links.ts).
+const MARKDOWN_PLUGINS = [remarkGfm, remarkCjkLinks, remarkBreaks];
 export const Markdown = memo(function Markdown({ text, renderQuote }: { text: string; /** Partial quotes: "#quote-N" links (channel/quotes.tsx). */ renderQuote?: (index: number) => ReactNode }) {
   useLocale(); // memo skips the app root's re-render, so follow a language switch here
   return <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} skipHtml components={{

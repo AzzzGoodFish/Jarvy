@@ -42,6 +42,13 @@ a.ui-button, a.ui-iconbtn { color: inherit; text-decoration: none; }
   border-radius: var(--ui-radius-base); background: var(--ui-fill-secondary); color: var(--ui-text-secondary);
 }
 .ui-image-frame .ui-broken-image { width: 100%; height: 100%; }
+/* Once loaded, a picture keeps its own proportions (fish m815): as wide as it is, up to the card's width, no taller than
+   --image-max-h, never enlarged. The card narrows to it, but not below a width that keeps its name readable; a very tall
+   or tiny picture then sits in the middle of its frame. Until it loads, the frame keeps the fixed height above. */
+.ui-message-image[data-sized] { --image-max-h: 320px; align-self: flex-start;
+  width: min(100%, max(176px, min(var(--image-w), calc(var(--image-max-h) * var(--image-ratio))))); }
+.ui-message-image[data-sized] .ui-image-frame { height: auto; }
+.ui-message-image[data-sized] .ui-image-frame img { width: auto; height: auto; max-width: 100%; max-height: var(--image-max-h); }
 
 /* ── Preview dialog ───────────────────────────────────────────── */
 .ui-viewer { width: 920px; height: min(690px, calc(100dvh - 64px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); border-radius: var(--ui-radius-2xl); }
@@ -115,6 +122,7 @@ a.ui-button, a.ui-iconbtn { color: inherit; text-decoration: none; }
   .ui-message-files { width: 282px; min-width: 0; max-width: 100%; }
   .ui-bubble:has(.ui-message-files) { max-width: 96%; }
   .ui-image-frame { height: 158px; }
+  .ui-message-image[data-sized] { --image-max-h: 260px; }
   .ui-message-file .ui-file-copy strong { font-size: 12px; }
   .ui-message-file > .ui-iconbtn { width: 32px; height: 32px; }
   .ui-message-image > .ui-iconbtn { bottom: 9px; }

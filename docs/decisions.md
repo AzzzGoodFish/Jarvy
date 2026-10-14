@@ -69,6 +69,7 @@ Pi's codemode is enabled in its default mode. `chat` behaves the same from a scr
 ## A26 Message layout, composer, model auto-configuration
 
 - Bubbles lost `white-space: pre-wrap` (which turned Markdown's newlines into blank lines); `remark-breaks` keeps single line breaks, and spacing is tightened in `jarvy.css`.
+- A bare URL ends at the first CJK or full-width punctuation mark (`web/cjk-links.ts`): GFM ends autolinks only at whitespace, so Chinese text after a URL became part of it. Chinese letters inside a URL stay; links written as `[text](url)` are untouched.
 - The composer grows with its content up to 130 px, then scrolls.
 - Auto-configuration uses only the catalog bundled with the pinned SDK (offline and reproducible; new models arrive with Pi upgrades), never stores where a suggestion came from, and copies compat and thinking format only when the protocols match. compat is checked for shape and size only, since its fields change with Pi ([models](architecture/models.md)).
 
@@ -102,7 +103,7 @@ Bots are drawn as a three.js block cat in one of six random colours (changeable 
 
 ## A34 Attachment preview
 
-Messages show image thumbnails and file cards; the viewer previews images, Markdown, text and static HTML (scripts, frames, external loads and event attributes removed, in a `sandbox=""` iframe with a deny-all CSP), with full-window mode and navigation between a message's files. The backend and page CSP are unchanged: SVG is read as text and shown as a `data:` URL.
+Messages show image thumbnails and file cards. A thumbnail keeps the picture's proportions once it has loaded: as wide as the picture, up to the card's width, at most 320 px tall (260 px on phones), never enlarged; until then it has a fixed height. The viewer previews images, Markdown, text and static HTML (scripts, frames, external loads and event attributes removed, in a `sandbox=""` iframe with a deny-all CSP), with full-window mode and navigation between a message's files. The backend and page CSP are unchanged: SVG is read as text and shown as a `data:` URL.
 
 Audio and video (webm, mp4, mov; mp3, wav, ogg — by type first, then extension) play in the browser's own `<video controls>` / `<audio controls>`, never autoplaying; the element streams from the attachment URL, nothing is read whole first, and the 1 MB preview limit does not apply. A file the browser cannot decode falls back to download. For seeking (and for Safari, which plays video only from partial responses), `GET /api/attachments/:id` answers a single `Range: bytes=…` with 206 (`bytes=-0` or a start past the end is 416; an end past the file is cut to its last byte; several ranges or a malformed header get the whole file), after the access check. It sends the file's own `Content-Type` only for a fixed list of media types — `video/webm`, `video/mp4`, `video/quicktime`, `audio/mpeg`, `audio/wav`, `audio/x-wav`, `audio/ogg`, `audio/webm`, `audio/mp4` — and `application/octet-stream` for everything else; `nosniff` and `Content-Disposition: attachment` stay.
 
