@@ -4,6 +4,7 @@ import { ArchiveIcon, BrainIcon, CheckIcon, ChevronRightIcon, CodeXmlIcon, FileT
 import { formatNumber, t } from "../../i18n";
 import { placeBeside } from "./place";
 import { latestSentence, type NpcView, type StepIcon, type ViewStep } from "./view";
+import { Typed } from "./typed";
 import "./npc.css";
 
 const ICONS: Record<StepIcon, typeof BrainIcon> = { think: BrainIcon, mutter: SpeechIcon, read: FileTextIcon, write: PencilLineIcon, run: SquareTerminalIcon,
@@ -43,16 +44,18 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
   useEffect(() => { setOpen(false); }, [first]);
   const shown = view.shown, look = shown ? shown.look : view.done ? "action" : null;
   let line: ReactNode = null;
+  // Every line is typed out (`Typed`, fish m808): streamed words as they come, a tool's line or a message that comes in
+  // one piece over a moment. A new step or sentence types from the start.
   if (shown?.look === "thought" || shown?.look === "mutter") {
-    const { index, sentence } = latestSentence(shown.line ?? "");
-    line = shown.look === "thought" ? <span key={index} className="jv-npc-thought">{sentence}{shown.state === "running" && <i className="jv-npc-caret"/>}</span>
-      : <span key={index} className="jv-npc-murmur">{t("npc.mutter", { text: sentence })}</span>;
-  } else if (shown?.look === "speech") line = <span className="jv-npc-speech">{shown.line}{shown.state === "running" && shown.icon === "say" && <i className="jv-npc-caret"/>}</span>;
+    const { index, sentence } = latestSentence(shown.line ?? ""), typed = <Typed key={`${shown.id}:${index}`} text={sentence} limit={300} streaming={shown.look === "thought" && shown.state === "running"}/>;
+    const [before, after] = t("npc.mutter", { text: "\u0001" }).split("\u0001");
+    line = shown.look === "thought" ? <span key={index} className="jv-npc-thought">{typed}</span> : <span key={index} className="jv-npc-murmur">{before}{typed}{after}</span>;
+  } else if (shown?.look === "speech") line = <span className="jv-npc-speech"><Typed key={shown.id} text={shown.line ?? ""} limit={1500} streaming={shown.state === "running" && shown.icon === "say"}/></span>;
   else if (shown) {
     const Icon = ICONS[shown.icon];
-    line = <span className="jv-npc-action" data-state={shown.state}><Icon/>{shown.title}{shown.state === "running" && <i className="jv-npc-dots"/>}</span>;
+    line = <span className="jv-npc-action" data-state={shown.state}><Icon/><Typed key={shown.id} text={shown.title} limit={300}/>{shown.state === "running" && <i className="jv-npc-dots"/>}</span>;
   } else if (view.done) line = <span className="jv-npc-action" data-state={view.done.outcome === "completed" ? "ok" : "failed"}>
-    {view.done.outcome === "completed" ? <CheckIcon/> : <XIcon/>}{t(DONE[view.done.outcome], { duration: seconds(view.done.ms) })}</span>;
+    {view.done.outcome === "completed" ? <CheckIcon/> : <XIcon/>}<Typed key={`done:${view.done.ms}`} text={t(DONE[view.done.outcome], { duration: seconds(view.done.ms) })} limit={300}/></span>;
   const expandable = view.steps.length > 0, asking = shown?.icon === "ask" && shown.state === "running";
   return <>
     {toolbar?.(bar, () => setOpen(false))}

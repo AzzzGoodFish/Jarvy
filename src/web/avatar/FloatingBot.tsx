@@ -121,8 +121,11 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
           input.current.lookX = target ? Math.max(-1, Math.min(1, (target.x - box.left - box.width / 2) / 320)) : 0;
           input.current.lookY = target ? Math.max(-1, Math.min(1, (target.y - box.top - box.height / 2) / 320)) : 0;
           input.current.reduced = reduced.matches;
-          // The cat turns towards the middle of the chat (the dialogue takes that side whenever the cat is placed).
-          input.current.faceX = facing();
+          // The cat turns towards the middle of the chat (the dialogue takes that side whenever the cat is placed). Not
+          // working, it keeps its turn while it is carried, and asleep until it wakes (fish m808); the first frame
+          // always takes it from where the cat is.
+          const motion = input.current.motion, carried = !!drag.current?.moved && (motion === "idle" || motion === "groom" || motion === "stretch");
+          if (input.current.faceX === undefined || !(carried || motion === "sleep")) input.current.faceX = facing();
           cat.frame(now, input.current); renderer.render(scene, camera);
         }
         frame = requestAnimationFrame(tick);

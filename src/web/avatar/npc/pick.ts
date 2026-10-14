@@ -1,10 +1,11 @@
 import type { ViewStep } from "./view";
 
 /** A finished step stays up a while: words and failures firmly (they show even over what runs next, one after another),
- * a quick tool call and the rest of a murmur lightly (only while nothing but thinking runs). */
+ * a quick tool call and the rest of a murmur lightly (only while nothing but thinking runs). A message also stays as
+ * long as it takes to type it out (60 characters a second, 1.5 s at most; `Typed`). */
 function linger(step: ViewStep): { firm: number; light: number } {
   const length = step.line?.length ?? 0;
-  if (step.look === "speech") { const ms = Math.min(7000, Math.max(2500, 1500 + 50 * length)); return { firm: ms, light: ms }; }
+  if (step.look === "speech") { const ms = Math.min(7000, Math.max(2500, 1500 + 50 * length)) + Math.min(1500, length / 0.06); return { firm: ms, light: ms }; }
   if (step.look === "mutter") return { firm: 1500, light: Math.min(3500, Math.max(1500, 800 + 30 * length)) };
   if (step.state === "failed") return { firm: 2000, light: 2000 };
   return { firm: 0, light: step.look === "action" ? 900 : 0 };
