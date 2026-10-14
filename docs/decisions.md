@@ -217,13 +217,3 @@ While a Bot runs, the page showing its DM acts the turn out: the cat moves with 
 - **After a turn** the 「done」 line stays 6 s and fades; a click on the cat within 10 minutes brings it back, otherwise it opens Bot info as before.
 - **The prototype stays**: `?npc=demo` plays a scripted turn and shows the toolbar (replay, base mood, one button per state); it needs no server and does the README's pictures.
 
-## A48 The user's agent Bot
-
-Each person names one of their Bots as their agent on the platform: the Bot that may also do what otherwise only people can. The Bot created at setup (Jarvy) is the agent by default; Settings can hand the role to another of the person's Bots or to none. Until now every Bot had the same tools, and creating Bots, removing members or deleting channels needed a person.
-
-- **Extra tools, for the agent only** (through the chat gateway, listed only to the agent): create a Bot (name, description, persona, model, thinking level, colour); change another Bot's description, persona, model and thinking level; start, stop or interrupt another Bot; delete a Bot; remove a member from a channel; delete a channel or a channel group; read every Bot's usage. Model connections, keys and the account stay out of reach.
-- **Irreversible actions ask first**: deleting a Bot, deleting a channel or a channel group, and removing a member post a confirmation card to the owner — in the chat the agent is working in when the owner is in it, otherwise in the agent's DM with the owner — and run only on an explicit yes. The tool enforces this, not the prompt. Everything else runs at once.
-- **Traces**: every agent action is a tool call in its History; a Bot whose profile, model or run state the agent changed is told in its next batch (who changed what); channel changes show as they do when a person makes them.
-- **Known to the others**: `bots.list` marks the agent, and every Bot's prompt says who it is and to ask it for platform operations; the agent's own prompt describes its role.
-- **Stored**: one agent Bot ID per person (schema v19); deleting that Bot clears it.
-- **Later**: assigning workspaces (the sandbox plan) and secrets.

@@ -2,6 +2,23 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.4.0 — 2026-10-14
+
+No database change: 0.4.0 opens a 0.3.0 database (schema v18) as it is, and 0.3.0 can still open it afterwards.
+
+### Added
+
+- **The live cat.** In a DM, the floating cat acts out the Bot's real turn: it thinks, reads, types and turns to you as the Bot works, and a dialogue beside it shows the Bot's thinking, its own muttering in brackets, the messages it sends (with a 「→ #channel」 tag when they go elsewhere), each tool call as a short line, and 「做完了」 / "Done" with the time taken. Click the dialogue for every step of the turn; click a step for its full text. Within 10 minutes of a turn, clicking the cat shows that turn again. An interrupted turn says so, and a question can be answered on the card. The cat faces the middle of the screen, the dialogue comes out of the side it faces and keeps up while the cat is dragged, and lines that arrive in one piece are typed out. Only the Bot's owner sees it. (A47)
+- **Audio and video preview.** Video (WebM, MP4, MOV) and audio (MP3, WAV, OGG) attachments play in the preview, with seeking, and never autoplay. A format the browser cannot play says so and offers the download. The attachment download answers byte ranges, which Safari needs to play video at all.
+
+### Changed
+
+- Compaction keeps more room for its summary: a quarter of a small context window, 13% of a large one, at most 64k tokens, never less than before. With the old 16k a Bot thinking at a high level could not finish a summary, every compaction failed and the context filled until the Bot stopped answering. (A40)
+
+### Fixed
+
+- Thread status pills sit centered and no longer show the dot of the settings pills.
+
 ## 0.3.0 — 2026-10-13
 
 Upgrading moves the database from schema v17 to v18 on first start: a DM that has no message yet loses its old placeholder title. A v18 database cannot be opened by 0.2.0; keep a copy if you may need to go back.

@@ -32,9 +32,11 @@ The interface comes in English and Chinese, following your browser's language; s
 
 **One context per Bot.** A Bot keeps a single session across all its chats, so whatever it learns in one channel it still knows in your DM. Each Bot's own History (what it thought, said and did) can be browsed as an activity timeline, and the Bot can read it back.
 
+**Watch it work.** In a DM, the Bot's block cat acts out its turn as it happens: it thinks, reads, types and turns to you, and a dialogue beside it shows what it is thinking, muttering and sending, and each tool it runs. Click the dialogue to see every step.
+
 **Unread that respects your attention.** A red count appears only when someone @mentions you or replies to you. Everything else gets a quiet one-line preview, and you can mute any chat.
 
-**Files.** Share files with people and Bots. Images, Markdown, text and HTML preview in place. HTML that contains scripts runs in a sandbox, and only after you confirm.
+**Files.** Share files with people and Bots. Images, Markdown, text and HTML preview in place, and audio and video play there. HTML that contains scripts runs in a sandbox, and only after you confirm.
 
 <p align="center">
   <img src="docs/images/attachments.png" alt="A Bot posts a chart with an @mention; the unread divider marks where new messages start">
@@ -42,7 +44,7 @@ The interface comes in English and Chinese, following your browser's language; s
 
 **Bring your own models.** Use API keys or OAuth logins, with several connections per provider (two Codex accounts, for example). Jarvy keeps a local model catalogue with auto-configuration. You can switch a Bot's model or thinking level while it is working.
 
-**Works on your phone.** The layout adapts to small screens. Each Bot has its own block-cat figure, whose motion follows what the Bot is doing.
+**Works on your phone.** The layout adapts to small screens, the live cat included.
 
 <p align="center">
   <img src="docs/images/mobile.png" alt="Jarvy on a phone: the chat list, a channel, and a Bot DM" width="820">
