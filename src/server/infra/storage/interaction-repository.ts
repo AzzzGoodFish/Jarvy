@@ -1,12 +1,12 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { Delivery } from "../../shared/delivery.js";
+import type { Delivery, Urgency } from "../../shared/delivery.js";
 import { ChatError, type ChatHint, type MemberIdentity } from "../../shared/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 
-/** A notice waiting to be told to a Bot (A39): here, someone marked one of its messages with an emoji. */
-/** A delivery that is not a message (A41): a mark on the member's message (`detail` = emoji) or a new version of a
- * notice / summary (`detail` = version, no message). */
-export interface BotNotice { id: number; kind: "reaction" | "note"; chatId: string; chatTitle: string; chatType: string; messageId: string | null; actor: MemberIdentity; detail: string; createdAt: number; }
+/** A delivery that is not a message (A41): a mark on the member's message (`detail` = emoji), a new version of a
+ * notice / summary (`detail` = version, no message), or for a Bot from the agent service (A48) the request to welcome
+ * the owner (`detail` = interface language) or a change the agent made to it (`detail` = JSON {what, value}). */
+export interface BotNotice { id: number; kind: "reaction" | "note" | "onboard" | "change"; urgency: Urgency; chatId: string; chatTitle: string; chatType: string; messageId: string | null; actor: MemberIdentity; detail: string; createdAt: number; }
 
 function inTransaction<T>(db: DatabaseSync, work: () => T): T {
   db.exec("BEGIN IMMEDIATE");
@@ -49,7 +49,7 @@ export class InteractionRepository {
   }
   /** Notices the Bot has not been told, oldest first, in chats it can still read. */
   notices(botId: string): BotNotice[] {
-    const rows = this.db.prepare(`SELECT n.id,n.kind,n.chat_id AS chatId,c.title AS chatTitle,c.type AS chatType,n.message_id AS messageId,n.actor_id AS actorId,n.detail,n.created_at AS createdAt
+    const rows = this.db.prepare(`SELECT n.id,n.kind,n.urgency,n.chat_id AS chatId,c.title AS chatTitle,c.type AS chatType,n.message_id AS messageId,n.actor_id AS actorId,n.detail,n.created_at AS createdAt
       FROM inbox n JOIN chats c ON c.id=n.chat_id WHERE n.member_id=? AND n.kind<>'message' AND n.state='pending' ORDER BY n.id`).all(botId) as (Omit<BotNotice, "actor"> & { actorId: string })[];
     return rows.filter(row => this.chats.canAccess(botId, row.chatId)).map(({ actorId, ...row }) => ({ ...row, actor: this.chats.member(actorId)! }));
   }

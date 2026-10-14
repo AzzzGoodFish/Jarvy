@@ -126,7 +126,8 @@ export const api = {
   createBot: (name: string) => request<Bot>("/bots", { method: "POST", body: body({ name }) }),
   saveBot: (id: string, update: Pick<Bot, "name" | "description" | "systemPrompt">) => request<Bot>(`/bots/${id}`, { method: "PUT", body: body(update) }),
   modelOptions: () => request<{ connections: BotModelGroup[] }>("/model-options"),
-  selectBotModel: (id: string, connectionId: string, modelId: string, thinkingLevel: string) => request<Bot>(`/bots/${id}/model`, { method: "PUT", body: body({ connectionId, modelId, thinkingLevel }) }),
+  /** `language`: the interface language; the agent Bot's first model has it welcome the owner in it (A48). */
+  selectBotModel: (id: string, connectionId: string, modelId: string, thinkingLevel: string, language: string) => request<Bot>(`/bots/${id}/model`, { method: "PUT", body: body({ connectionId, modelId, thinkingLevel, language }) }),
   answerQuestion: (chatId: string, messageId: string, answer: { action: "answer"; selected: number[]; custom?: string } | { action: "dismiss" }) =>
     request<ChatMessage>(`/chats/${chatId}/questions/${messageId}`, { method: "POST", body: body(answer) }),
   setBotColor: (id: string, color: BotColor) => request<Bot>(`/bots/${id}/color`, { method: "PUT", body: body({ color }) }),

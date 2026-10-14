@@ -35,7 +35,7 @@ export class Application {
     this.files = new ChatFiles(dataDir, this.chats);
     store.runtime.recover();
     this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials,
-      changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), factory });
+      changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
     this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id));

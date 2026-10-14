@@ -1,5 +1,6 @@
 import { isAbsolute } from "node:path";
 import type { MemberIdentity } from "../../shared/chat.js";
+import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../../shared/agent.js";
 
 export interface EnvelopeMessage {
   id: string;
@@ -37,7 +38,13 @@ const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z")
 type NoticeChat = { id: string; type: "dm" | "channel" | "thread"; title: string };
 export type EnvelopeNotice =
   | { kind: "reaction"; id: number; chat: NoticeChat; message: { id: string; text: string }; actor: MemberIdentity; emoji: string; createdAt: number }
-  | { kind: "note"; id: number; chat: NoticeChat; actor: MemberIdentity; version: number; createdAt: number };
+  | { kind: "note"; id: number; chat: NoticeChat; actor: MemberIdentity; version: number; createdAt: number }
+  | { kind: "onboard"; id: number; chat: NoticeChat; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
+  | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number };
+/** The agent Bot's first turn (A48): the owner has just given it a model, in the DM named on the element. */
+const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up Jarvy and picked your model. You are their agent Bot. `
+  + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what Jarvy is and how you can help, `
+  + "such as building a team of Bots for their work and running Jarvy for them. Then ask what they want to get done: a software project, writing, research or something else.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
 export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[]): string {
   if (!notices.length) throw new Error("Empty notice batch");
@@ -50,7 +57,8 @@ export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotic
  * described by a message keeps that (fuller) definition. */
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
-    if (!chats.has(notice.chat.id)) chats.set(notice.chat.id, `<chat${attribute("id", notice.chat.id)}${attribute("type", notice.chat.type)}${attribute("title", notice.chat.title)}/>`);
+    // A DM without messages yet is untitled (v18).
+    if (!chats.has(notice.chat.id)) chats.set(notice.chat.id, `<chat${attribute("id", notice.chat.id)}${attribute("type", notice.chat.type)}${notice.chat.title ? attribute("title", notice.chat.title) : ""}/>`);
     remember(members, notice.actor.id, `<member${attribute("id", notice.actor.id)}${attribute("name", notice.actor.name)}${attribute("kind", notice.actor.kind)}/>`);
   }
   const latest = new Map<string, Extract<EnvelopeNotice, { kind: "note" }>>();
@@ -59,8 +67,15 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + `${attribute("version", String(note.version))}${attribute("by", note.actor.id)}${attribute("at", iso(note.createdAt))}/>`);
   const marks = notices.flatMap(notice => notice.kind !== "reaction" ? [] : [`<reaction${attribute("message", notice.message.id)}${attribute("chat", notice.chat.id)}`
     + `${attribute("by", notice.actor.id)}${attribute("emoji", notice.emoji)}${attribute("at", iso(notice.createdAt))}>${escape(notice.message.text)}</reaction>`]);
+  // Changes the agent Bot made to you (A48): where to ask it (your DM with it), what changed and the new value.
+  const changes = notices.flatMap(notice => notice.kind !== "change" ? [] : [`<change${attribute("chat", notice.chat.id)}${attribute("by", notice.actor.id)}`
+    + `${attribute("what", notice.what)}${attribute("at", iso(notice.createdAt))}${notice.value === null ? "/>" : `>${escape(notice.value)}</change>`}`]);
+  const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("chat", notice.chat.id)}${attribute("by", notice.actor.id)}`
+    + `${attribute("at", iso(notice.createdAt))}><note>${escape(welcome(notice.actor.name, notice.language))}</note></onboard>`]).slice(-1);
   return (updates.length ? `<updates>${updates.join("")}</updates>` : "")
-    + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "");
+    + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
+    + (changes.length ? `<changes>${changes.join("")}<note>The agent Bot changed your settings, and the changes already apply. A persona change is already in your instructions. If something is unclear, ask it in that DM.</note></changes>` : "")
+    + onboard.join("");
 }
 
 /** Compact derived input; no runtime bookkeeping, base64 or secret credentials.

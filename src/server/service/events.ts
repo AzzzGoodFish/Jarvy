@@ -1,6 +1,7 @@
 import type { BotService } from "./bot/service.js";
 
-export type Change = { kind: "chat"; id: string } | { kind: "sections"; ownerId: string } | { kind: "inbox"; memberId: string } | { kind: "bot"; id: string; status: ReturnType<BotService["status"]> };
+export type Change = { kind: "chat"; id: string } | { kind: "sections"; ownerId: string } | { kind: "inbox"; memberId: string } | { kind: "bot"; id: string; status: ReturnType<BotService["status"]> }
+  | { kind: "bots" };
 /** Committed business changes; HTTP transport and serialization live in API. */
 export class Changes {
   private readonly listeners = new Set<(change: Change) => void>();

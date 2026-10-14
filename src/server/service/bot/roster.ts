@@ -5,6 +5,8 @@ import type { BotStatus } from "./contracts.js";
 export interface RosterEntry {
   id: string;
   name: string;
+  /** The agent Bot (A48). */
+  agent: boolean;
   status: BotStatus;
   /** Chats of the messages the current run is handling; empty when not running. */
   runChatIds: readonly string[];
@@ -23,7 +25,7 @@ export function botRows(chats: ChatService, viewerId: string, entries: readonly 
       const chat = chats.get(viewerId, chatId);
       if (chat) visible.push({ id: chat.id, type: chat.type, title: chat.title }); else hidden++;
     }
-    return { self: entry.id === viewerId, row: { name: entry.name, ...(entry.id === viewerId ? { self: true } : {}), status: entry.status.status,
+    return { self: entry.id === viewerId, row: { name: entry.name, ...(entry.id === viewerId ? { self: true } : {}), ...(entry.agent ? { agent: true } : {}), status: entry.status.status,
       ...(running && entry.status.activity ? { activity: entry.status.activity } : {}),
       ...(visible.length ? { chats: visible } : {}), ...(hidden ? { otherChats: hidden } : {}),
       ...(entry.errorCode ? { error: entry.errorCode } : {}) } };

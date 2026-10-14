@@ -26,7 +26,8 @@ export class ChatTools {
     if (missing.length) throw new ChatError(404, `No member named: ${missing.join(", ")} (see members.list)`);
     return found.map(item => item.member!);
   }
-  private section(value: string): string {
+  /** A channel group by ID or name. */
+  section(value: string): string {
     const sections = this.chats.channels.sections(this.bot);
     const matches = sections.filter(section => section.id === value || same(value, section.name));
     if (!matches.length) throw new ChatError(404, `No section named ${value} (see sections.list)`);

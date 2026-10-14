@@ -20,8 +20,9 @@ what happened             ──►    routes:  who receives it, and the reason 
 
 ```ts
 type Urgency = "interrupt" | "queue" | "digest";
-type DeliveryKind = "message" | "reaction" | "note";        // note = a new notice or thread summary version
-type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower";
+type DeliveryKind = "message" | "reaction" | "note"        // note = a new notice or thread summary version
+  | "onboard" | "change";                                   // to one Bot, from the agent service (A48)
+type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent";
 interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
 ```
 
@@ -34,6 +35,8 @@ interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: Deliv
 | channel copy of a thread reply | channel subscribers that did not get the thread reply | `subscription` |
 | reaction | the author of the marked message, if it is not the one marking | `author` |
 | note | channel members (notice) or thread followers (summary), except the editor | `member`, `follower` |
+| onboard | the agent Bot, in its DM with the owner, when it first has a model (A48) | `setup` |
+| change | a Bot the agent Bot changed, in their DM (A48) | `agent` |
 
 The sender is never its own recipient; each member gets at most one row per message.
 
@@ -43,6 +46,8 @@ The sender is never its own recipient; each member gets at most one row per mess
 message:  { dm: "interrupt", mention: "interrupt", reply: "interrupt", subscription: "interrupt" },
 reaction: { author: "queue" },
 note:     { member: "queue", follower: "queue" },
+onboard:  { setup: "interrupt" },
+change:   { agent: "digest" },
 ```
 
 **Mute** is a per-recipient override: in a chat the recipient muted (a thread follows its channel), `interrupt` becomes `queue` unless the reason is `mention` or `reply`. It applies to people and Bots alike.

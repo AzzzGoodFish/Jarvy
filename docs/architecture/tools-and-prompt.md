@@ -43,7 +43,21 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36) |
 | `history.read` | the Bot's own History by ID ([memory](memory.md)) |
 
-Removing members and deleting channels or groups are left to people (A38). `messages.ask` needs a person in the chat.
+Removing members and deleting channels or groups are left to people (A38), and to the agent Bot once the owner confirms (below). `messages.ask` needs a person in the chat.
+
+## The agent Bot's tools (`service/bot/agent-schemas.ts`)
+
+Only the agent Bot (A48) lists these; for any other Bot they are unknown tools. They go through `AgentOps` (`service/bot/agent.ts`), the same services the owner's page uses.
+
+| Tool | Purpose |
+| --- | --- |
+| `models.list` | connected models with their thinking levels; no credentials |
+| `bots.create` / `bots.update` | name, description, persona, model (a connection and a model from `models.list`) and thinking; update gives only what changes |
+| `bots.start` / `bots.stop` | a Bot's runtime; never stops itself |
+| `bots.usage` | a Bot's token use and cost over the last days, per model |
+| `bots.delete` / `chats.delete` / `chats.removeMembers` / `sections.delete` | first a card in `askIn` with the agent's question and button labels; runs as the owner only if they confirm. Never deletes itself; channels only where it is a member |
+
+A Bot the agent changes is told with its next batch (`<changes>`, [Bot input](envelope.md)).
 
 ## Shared entry points
 
@@ -72,6 +86,8 @@ Your name is {name}.
 ## Environment
 You are in a group chat with people and other Bots. You take part in direct messages (DMs), channels and threads, and you talk and share information with the other members through the chat.
 Here your name is {name}, and your description is: {description}
+
+{the agent Bot only: ## Your role — what it is for and its own tools, A48}
 
 ## Language
 Write to people in the language they write to you in. In a channel or thread, use the language its conversation is held in.

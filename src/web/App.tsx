@@ -125,6 +125,11 @@ export function App() {
       void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
     });
     source.addEventListener("sections", reloadSections);
+    // The agent Bot created, changed or deleted Bots (A48): reload them, and the chats a deleted one leaves.
+    source.addEventListener("bots", () => {
+      void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
+      void refresh().catch(error => { if (alive) handleError(error); });
+    });
     // Something was delivered to you (A41): the rows' red counts and hints come with the chat list.
     source.addEventListener("inbox", () => void refresh().catch(error => { if (alive) handleError(error); }));
     source.addEventListener("chat", event => {

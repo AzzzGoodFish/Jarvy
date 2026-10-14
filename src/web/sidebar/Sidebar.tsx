@@ -82,10 +82,11 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
   // Pinned chats come first within their own group.
   const channels = visible.filter(chat => chat.type === "channel").sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.title.localeCompare(b.title, "zh-CN"));
   // Channel names are data, not interface text: they sort the Chinese-aware way (by pinyin) in either language.
-  // A Bot's DM is its most recent one (older data may hold several); Bots without a DM come last.
+  // A Bot's DM is its most recent one (older data may hold several); Bots without a DM come last. The agent Bot's DM is
+  // always on top (A48), then pinned ones.
   const dms = bots.map(bot => ({ bot, chat: chats.find(chat => chat.type === "dm" && chat.botId === bot.id) }))
     .filter(({ bot }) => bot.name.toLocaleLowerCase().includes(query))
-    .sort((a, b) => Number(!!b.chat?.pinned) - Number(!!a.chat?.pinned) || (b.chat?.updatedAt ?? 0) - (a.chat?.updatedAt ?? 0));
+    .sort((a, b) => Number(b.bot.agent) - Number(a.bot.agent) || Number(!!b.chat?.pinned) - Number(!!a.chat?.pinned) || (b.chat?.updatedAt ?? 0) - (a.chat?.updatedAt ?? 0));
   const channelRow = (chat: Chat) => <div className="jv-side-wrap" key={chat.id}
     onContextMenu={event => { event.preventDefault(); onMenu({ kind: "channel", chat }, { x: event.clientX, y: event.clientY }); }}>
     <button type="button" className="jv-side-row" data-active={selected === chat.id || undefined}

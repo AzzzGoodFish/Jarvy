@@ -3,7 +3,7 @@ import { Popover } from "radix-ui";
 import { CheckIcon, ChevronDownIcon, LoaderCircleIcon, SearchIcon } from "lucide-react";
 import { api, type Bot, type BotModelGroup, type ModelConnection } from "./api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { t, type Key } from "./i18n";
+import { getLocale, t, type Key } from "./i18n";
 import "./styles/model-workbench.css";
 import "./styles/bot-model.css";
 import { errorText } from "./errors";
@@ -47,7 +47,7 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
   async function choose(connectionId: string, modelId: string, thinkingLevel: string) {
     openMenu(false);
     setBusy(true); setError("");
-    try { onSaved(await api.selectBotModel(bot.id, connectionId, modelId, thinkingLevel)); }
+    try { onSaved(await api.selectBotModel(bot.id, connectionId, modelId, thinkingLevel, getLocale())); }
     catch (reason) { setError(errorText(reason, "botModel.switchFailed")); }
     finally { setBusy(false); }
   }

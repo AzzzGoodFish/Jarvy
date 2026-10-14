@@ -24,11 +24,15 @@ import { BotInbox } from "./inbox.js";
 import { botPrompt } from "./prompt.js";
 import type { RosterEntry } from "./roster.js";
 import { LiveTurns } from "./live.js";
+import { AgentOps } from "./agent.js";
+import { welcomeLanguage } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 
 export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
   changed: (botId: string) => void; factory?: SessionFactory;
+  /** Bots were created, renamed or deleted by the agent Bot (A48): the owner's page reloads them. */
+  listChanged?: () => void;
 }
 /** Service-level lifetime/lookup entry. Each Bot remains the complete business object. */
 export class BotService {
@@ -36,7 +40,10 @@ export class BotService {
   private readonly lives = new Map<string, LiveTurns>();
   private closed = false;
   private started = false;
-  constructor(private readonly deps: BotDependencies) {}
+  /** What only the agent Bot does (A48). */
+  readonly agent: AgentOps;
+  constructor(private readonly deps: BotDependencies) { this.agent = new AgentOps(this, deps.store, deps.chats); }
+  listChanged() { this.deps.listChanged?.(); }
   get(id: string): Bot {
     if (this.closed) throw new RuntimeFault("stopping", "Shutting down.", 503);
     const record = this.deps.store.getBot(id);
@@ -52,7 +59,8 @@ export class BotService {
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
       workspace, memory,
-      tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster() }), agentRuntime: runtime,
+      tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster(),
+        ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
       const outgoing = await files.readOutgoing(record.workspacePath, message.attachments ?? [], message.signal);
@@ -132,7 +140,7 @@ export class BotService {
     return store.listBots().map(record => {
       const bot = this.bots.get(record.id), runId = bot?.agentRuntime.activeRunId ?? null;
       const status = bot?.status() ?? { status: "stop", activity: null, context: null, error: null };
-      return { id: record.id, name: record.name, status,
+      return { id: record.id, name: record.name, agent: record.id === AGENT_BOT_ID, status,
         runChatIds: status.status === "running" && runId ? store.runtime.inputs(runId).map(input => input.chatId) : [],
         errorCode: store.runtime.latestErrorCode(record.id) };
     });
@@ -142,18 +150,22 @@ export class BotService {
     const bot = this.bots.get(id);
     return { ...(bot?.status() ?? { status: "stop", activity: null, context: null, error: null }), botId: id, runId: bot?.agentRuntime.activeRunId ?? null };
   }
+  /** `language` is the browser's interface language: the agent Bot's first model asks it to welcome the owner in it (A48). */
   async selectModel(id: string, input: Record<string, unknown>) {
     const selection = this.deps.store.validateSelection(id, input);
     if (!selection) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     await this.get(id).changeModel(selection);
     this.resume(id);
+    if (id === AGENT_BOT_ID) this.agent.onboard(welcomeLanguage(input.language));
     return this.deps.store.getBot(id)!;
   }
   connectionChanged(connectionId: string) {
     for (const bot of this.deps.store.listBots()) if (bot.connectionId === connectionId) this.resume(bot.id);
   }
-  async chatDeleted(chatId: string): Promise<void> {
-    for (const bot of this.bots.values()) {
+  /** A deleted chat ends the turns handling it; `except` is the agent Bot that deleted it from inside its turn. */
+  async chatDeleted(chatId: string, except?: string): Promise<void> {
+    for (const [id, bot] of this.bots) {
+      if (id === except) continue;
       const runId = bot.agentRuntime.activeRunId;
       if (runId && this.deps.store.runtime.inputs(runId).some(input => input.chatId === chatId)) await bot.abort();
     }
@@ -161,6 +173,7 @@ export class BotService {
   /** Deletes a Bot: stop it, drop its data, keep its messages. `keepFiles` leaves the workspace (and
    * the History database) on disk, since it may hold work worth keeping. */
   async delete(id: string, keepFiles: boolean): Promise<void> {
+    if (id === AGENT_BOT_ID) throw new RuntimeFault("agent_undeletable", "The agent Bot can't be deleted", 409);
     const bot = this.get(id), workspacePath = bot.workspace.location().cwd;
     await bot.stop();
     this.bots.delete(id);

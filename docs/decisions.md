@@ -218,3 +218,20 @@ While a Bot runs, the page showing its DM acts the turn out: the cat moves with 
 - **After a turn** the 「done」 line stays 6 s and fades; a click on the cat within 10 minutes brings it back, otherwise it opens Bot info as before.
 - **The prototype stays**: `?npc=demo` plays a scripted turn and shows the toolbar (replay, base mood, one button per state); it needs no server and does the README's pictures.
 
+
+## A48 The agent Bot
+
+The Bot created at setup (Jarvy by default) is the owner's agent: it helps a new owner get started and helps run Jarvy itself — building and adjusting the Bot team, their models, usage, and clearing things away (fish m850, m852, m854).
+
+- **Which Bot**: the setup Bot always has the same id, and that id is the agent; nothing is assigned or stored. It can be renamed, stopped and started like any Bot, but not deleted (`agent_undeletable`). If it is missing at startup (deleted before this version), it is created again with that id: named Jarvy (Jarvy 2, 3… if the name is taken), no persona, no model.
+- **What only it can do**: its `chat` gateway lists more tools; other Bots don't see them, and a call from them is an unknown tool.
+  - `bots.create` (name, description, persona, model, thinking) and `bots.update` (the same fields, for any Bot, itself included); `bots.start` and `bots.stop` (not itself); `bots.usage` (A46); `models.list` (connected models and their thinking levels, never credentials).
+  - Adding connections, keys and logins stays with the owner in Settings until a way to enter secrets that never passes through a chat exists.
+  - Deleting: `bots.delete` (not itself), `chats.delete` (a channel it is in), `chats.removeMembers`, `sections.delete`. Each first posts a confirmation card in a chat the owner is in: the agent writes the question and the two button labels in the owner's language, and the deletion runs only if the owner picks the confirming one; declining or dismissing the card changes nothing. The card is a step of the tool, not a rule in the prompt. A confirmed deletion runs as the owner, so the channel layer's "only people remove members or delete" stays as it is.
+- **Bots are told what changed**: when the agent changes another Bot's name, description, persona, model or thinking, or starts or stops it, that Bot is told with its next batch (a `digest` delivery: it is not woken for it), as `<change>` entries naming its DM with the agent and the new value; a persona isn't repeated, it is already in the prompt.
+- **Prompts**: `bots.list` marks the agent (`agent: true`) and says what to ask it for; its own prompt gains a short section on its role (guide the owner, build their Bot team, confirm before deleting). All of it is English (A45).
+- **Onboarding**: the first time the agent has a model — normally when the owner picks one in its DM after setup — an `onboard` delivery goes to the agent in that DM, and its turn welcomes the owner and asks what they want to get done (a software project, writing, research, …). The browser sends its interface language with the model choice, and the request asks for the welcome in that language. It happens once: a setting records it, and on upgrade an agent that already has a model counts as onboarded.
+- **Interface**: the agent's DM is always on top of the DM list; its Bot info has a short section on what it does for the owner, and its row menu has no delete. Its avatars wear a crown.
+- **Storage (v19)**: a `settings(key, value)` table (first key: when the agent was onboarded); `inbox.kind` gains `onboard` and `change`, so the table is rebuilt with its rows.
+
+Why: the setup Bot already has a fixed id that survives renaming, and keeping it undeletable leaves nothing to keep in sync. A model can skip a rule in its prompt but not a step in its tool, so confirmation lives in the tools. Connections stay out until keys never have to pass through a chat.

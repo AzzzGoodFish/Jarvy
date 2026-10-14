@@ -6,7 +6,7 @@ import { Icon } from "../ui";
 export type MenuTarget = { kind: "dm"; bot: Bot; chat: Chat | undefined } | { kind: "channel"; chat: Chat };
 
 /** The 「…」 menu of a sidebar row: same menu from the button and from a right-click.
- * DMs: 置顶 / 免打扰 / Bot 信息 / 删除 Bot; channels: 置顶 / 免打扰 / 频道信息 / 删除频道. */
+ * DMs: 置顶 / 免打扰 / Bot 信息 / 删除 Bot (not for the agent Bot, A48); channels: 置顶 / 免打扰 / 频道信息 / 删除频道. */
 export function EntryMenu({ target, x, y, onClose, onOpenBot, onSettings, onPin, onMute, onDeleteChat, onDeleteBot }: {
   target: MenuTarget; /** Viewport point to open at; kept inside the window. */ x: number; y: number;
   onClose: () => void; onOpenBot: (bot: Bot) => void; onSettings: (chat: Chat) => void;
@@ -29,9 +29,9 @@ export function EntryMenu({ target, x, y, onClose, onOpenBot, onSettings, onPin,
     {target.kind === "dm"
       ? <button role="menuitem" className="ui-menu-item" onClick={() => { onOpenBot(target.bot); onClose(); }}><Icon name="gear"/><span className="ui-menu-copy">{t("entry.botInfo")}</span></button>
       : <button role="menuitem" className="ui-menu-item" onClick={() => { onSettings(target.chat); onClose(); }}><Icon name="info"/><span className="ui-menu-copy">{t("entry.channelInfo")}</span></button>}
-    <hr className="ui-menu-divider"/>
+    {!(target.kind === "dm" && target.bot.agent) && <hr className="ui-menu-divider"/>}
     {target.kind === "dm"
-      ? <button role="menuitem" className="ui-menu-item jv-menu-danger" onClick={() => { onDeleteBot(target.bot); onClose(); }}>
+      ? !target.bot.agent && <button role="menuitem" className="ui-menu-item jv-menu-danger" onClick={() => { onDeleteBot(target.bot); onClose(); }}>
         <Icon name="close"/><span className="ui-menu-copy">{t("entry.deleteBot")}</span></button>
       : <button role="menuitem" className="ui-menu-item jv-menu-danger" onClick={() => { onDeleteChat(target.chat); onClose(); }}>
         <Icon name="close"/><span className="ui-menu-copy">{t("entry.deleteChannel")}</span></button>}

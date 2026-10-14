@@ -115,6 +115,7 @@ export const common = {
   "error.autoconfigModel": "Enter the model ID.",
   "error.autoconfigSource": "The setup source isn't valid.",
   "error.botMissing": "This Bot doesn't exist.",
+  "error.agentUndeletable": "The agent Bot can't be deleted. You can rename or stop it.",
   "error.chatAccessChanged": "Chat access has changed.",
   "error.connectionMissing": "This model connection doesn't exist.",
   "error.credentialChanged": "The credential changed. Please try again.",

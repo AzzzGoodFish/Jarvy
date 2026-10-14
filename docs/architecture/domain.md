@@ -15,7 +15,7 @@ Chat (dm | channel | thread)
 ```
 
 - **Member** is a participant with a stable ID, a name and `send` / `deliver`. People and Bots are the same to every layer above the member itself; they differ only in how they respond to a delivery (A41).
-- **Bot** is an object with behaviour, not a configuration row: identity, description and persona, a model selection, a workspace, tools, memory, a runtime and live state.
+- **Bot** is an object with behaviour, not a configuration row: identity, description and persona, a model selection, a workspace, tools, memory, a runtime and live state. The Bot created at setup is the owner's **agent Bot** (A48): it cannot be deleted and has tools for running Jarvy itself.
 - **Chat** has an ID, type, title and members, and owns the chat rules, message storage and history queries. Between any two members there is at most one DM. Channels belong to optional channel groups (sections); a thread is its own chat tied to a parent channel and a root message, and inherits the channel's access ([channels](channels.md)).
 - **One Pi session per Bot**, shared across all its chats (A03). What a chat shows and what is in the Bot's context are different sets.
 
@@ -58,4 +58,5 @@ There is one account today, but methods and data always carry the actor, members
 - A person's identity comes from authentication; a Bot's from the runtime it is bound to. Tools cannot claim an author.
 - Reading, searching and sending all check membership. A Bot may send to any chat it can access, not only where its input came from.
 - Model connections and Bots belong to an owner.
+- Only the agent Bot creates, changes, starts, stops and deletes Bots, and it deletes channels, groups and channel members only after the owner confirms on a card; deletions it makes run as the owner (A48).
 - A Bot's shared context does not isolate what one member tells it from another. Before several people share Jarvy, rules for passing information on must be decided.

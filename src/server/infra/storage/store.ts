@@ -10,6 +10,7 @@ import { ChatRepository } from "./chat-repository.js";
 import { RuntimeRepository } from "./runtime-repository.js";
 import { modelApis } from "../pi/catalog.js";
 import { CredentialRepository } from "./credential-repository.js";
+import { AgentRepository } from "./agent-repository.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 
 export const defaultDataDir = () => process.env.JARVY_DATA_DIR || join(homedir(), ".jarvy");
@@ -77,6 +78,7 @@ export class Store {
   readonly chats: ChatRepository;
   readonly runtime: RuntimeRepository;
   readonly credentials: CredentialRepository;
+  readonly agent: AgentRepository;
 
   constructor(dataDir = defaultDataDir()) {
     const root = resolve(dataDir);
@@ -90,6 +92,8 @@ export class Store {
     this.chats = new ChatRepository(this.db);
     this.runtime = new RuntimeRepository(this.db);
     this.credentials = new CredentialRepository(this.db);
+    this.agent = new AgentRepository(this.db, () => this.userMemberId());
+    this.agent.ensure();
   }
 
   close(): void { this.db.close(); }

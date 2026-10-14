@@ -11,14 +11,30 @@ import { chatDetail, chatRows } from "./chat-views.js";
 import { ChatTools } from "./chat-tools.js";
 import { definitions, type ToolName } from "./tool-schemas.js";
 import { botRows, type RosterEntry } from "./roster.js";
+import type { AgentOps } from "./agent.js";
+import { AgentTools } from "./agent-tools.js";
+import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
 
 const Gateway = Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("describe"), Type.Literal("call")]),
   tool: Type.Optional(Type.String()), args: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }, { additionalProperties: false });
 export class Tools implements ToolsPort {
   private send?: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>;
   private readonly tools: ChatTools;
-  constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; asking?: (waiting: boolean) => void; roster: () => RosterEntry[] }) {
+  /** The agent Bot's own tools (A48); other Bots have none. */
+  private readonly agent?: AgentTools;
+  constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
     this.tools = new ChatTools(scope);
+    if (scope.agent) this.agent = new AgentTools({ ops: scope.agent, tools: this.tools });
+  }
+  private get catalog(): Record<string, { description: string; schema: (typeof definitions)[ToolName]["schema"] | (typeof agentDefinitions)[AgentToolName]["schema"] }> {
+    return this.agent ? { ...definitions, ...agentDefinitions } : definitions;
+  }
+  /** Posts a card and waits for the person's answer (messages.ask, and the agent's confirmations). */
+  private async ask(chatId: string, question: QuestionSpec, toolCallId: string, signal?: AbortSignal) {
+    const sent = await this.send!(chatId, { content: question.question, question, toolCallId, signal });
+    this.scope.asking?.(true);
+    try { return { messageId: sent.id, ...await this.scope.chats.questions.wait(this.scope.chats.message(this.scope.botId, sent.id)!, signal) }; }
+    finally { if (!signal?.aborted) this.scope.asking?.(false); }
   }
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>) { this.send = send; }
   definitions(): readonly ToolDefinition[] {
@@ -31,16 +47,18 @@ export class Tools implements ToolsPort {
         signal?.throwIfAborted();
         if (raw.action === "list") {
           if (raw.tool !== undefined || raw.args !== undefined) throw new ChatError(400, "list does not accept tool or args");
-          return Object.entries(definitions).map(([name, tool]) => ({ name, description: tool.description }));
+          return Object.entries(this.catalog).map(([name, tool]) => ({ name, description: tool.description }));
         }
-        if (!raw.tool || !Object.hasOwn(definitions, raw.tool)) throw new ChatError(400, "Unknown chat tool; use list first");
-        const name = raw.tool as ToolName, definition = definitions[name];
+        if (!raw.tool || !Object.hasOwn(this.catalog, raw.tool)) throw new ChatError(400, "Unknown chat tool; use list first");
+        const name = raw.tool as ToolName, definition = this.catalog[name]!;
         if (raw.action === "describe") {
           if (raw.args !== undefined) throw new ChatError(400, "describe does not accept args");
           return { name, description: definition.description, parameters: definition.schema };
         }
         const args = raw.args;
         if (!args || !Value.Check(definition.schema, args)) throw new ChatError(400, "Invalid tool arguments; use describe for the parameter schema");
+        if (this.agent && Object.hasOwn(agentDefinitions, name))
+          return this.agent.call(name as unknown as AgentToolName, args, (chatId, question) => this.ask(chatId, question, toolCallId, signal));
         switch (name) {
           case "history.read":
             return readHistory(this.scope.memory, this.scope.workspace, args as HistoryReadInput, signal);
@@ -99,10 +117,7 @@ export class Tools implements ToolsPort {
             if (!this.tools.chat(parsed.chatId).memberIds.some(id => this.scope.chats.member(id)?.kind === "user")) throw new ChatError(400, "No person in this chat to answer; use messages.send");
             const question: QuestionSpec = { question: parsed.question, ...(parsed.detail ? { detail: parsed.detail } : {}), options: parsed.options,
               multiple: parsed.multiple === true, allowCustom: parsed.allowCustom === true };
-            const sent = await this.send!(parsed.chatId, { content: parsed.question, question, toolCallId, signal });
-            this.scope.asking?.(true);
-            try { return { messageId: sent.id, ...await this.scope.chats.questions.wait(this.scope.chats.message(this.scope.botId, sent.id)!, signal) }; }
-            finally { if (!signal?.aborted) this.scope.asking?.(false); }
+            return this.ask(parsed.chatId, question, toolCallId, signal);
           }
         }
       },

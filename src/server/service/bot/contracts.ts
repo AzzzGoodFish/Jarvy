@@ -18,7 +18,8 @@ export interface BotParts {
 }
 
 export interface Identity {
-  snapshot(): { name: string; description: string; persona: string };
+  /** `agent`: this is the agent Bot (A48). */
+  snapshot(): { name: string; description: string; persona: string; agent: boolean };
   update(input: { name: string; description: string; persona: string }): void;
   setColor(color: unknown): void;
 }

@@ -118,6 +118,7 @@ export const common: Part<typeof en> = {
   "error.autoconfigModel": "请填写模型 ID。",
   "error.autoconfigSource": "配置来源无效。",
   "error.botMissing": "Bot 不存在。",
+  "error.agentUndeletable": "主 Bot 不能删除，但可以改名或停止。",
   "error.chatAccessChanged": "聊天访问权限已变化。",
   "error.connectionMissing": "模型连接不存在。",
   "error.credentialChanged": "凭证已更改，请重试。",

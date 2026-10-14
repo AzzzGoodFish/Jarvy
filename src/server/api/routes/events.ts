@@ -24,6 +24,8 @@ export function eventRoutes({ events, account, chats, bots }: ApiServices) {
           // Something was delivered to this person (A41): the page re-reads its inbox.
           if (change.kind === "inbox" && change.memberId === actorId) send("inbox", {});
           if (change.kind === "bot" && bots.owns(change.id)) send("bot", { botId: change.id, status: botStatusView(change.status) });
+          // The agent Bot created, changed or deleted Bots (A48): the page reloads them and its chats.
+          if (change.kind === "bots") send("bots", {});
         }, () => disconnect());
         const heartbeat = setInterval(() => {
           if (!account.authenticated(token)) disconnect(); else send("heartbeat", {});

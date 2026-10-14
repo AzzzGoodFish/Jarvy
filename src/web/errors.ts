@@ -4,7 +4,7 @@ import { t, type Key } from "./i18n";
 /** Failures the server names with a code (A45), worded here. scripts/check-i18n.mjs keeps this table and the
  * server's codes in step: a code thrown there must be here, and an entry here must still be thrown there. */
 const ERROR_KEYS: Record<string, Key> = {
-  autoconfig_model: "error.autoconfigModel", autoconfig_source: "error.autoconfigSource",
+  agent_undeletable: "error.agentUndeletable", autoconfig_model: "error.autoconfigModel", autoconfig_source: "error.autoconfigSource",
   bot_missing: "error.botMissing", chat_access_changed: "error.chatAccessChanged",
   connection_missing: "error.connectionMissing", credential_changed: "error.credentialChanged", credential_scope: "error.credentialScope",
   credentials_missing: "error.credentialsMissing", data_locked: "error.dataLocked",

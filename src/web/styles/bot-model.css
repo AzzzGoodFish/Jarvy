@@ -56,6 +56,11 @@
 .jv-bot-info #jarvy-bot-description { min-height: 60px; }
 .jv-bot-info #jarvy-bot-persona { min-height: 150px; }
 .jv-bot-info .jv-list-row [data-slot="button"] { flex: none; }
+/* What the agent Bot does for the owner (A48). */
+.jv-agent-about { gap: 10px; font-size: 13px; line-height: 1.55; }
+.jv-agent-about > p { margin: 0; }
+.jv-agent-about > ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; list-style: disc; }
+.jv-agent-about > ul > li::marker { color: var(--jv-dim); }
 /* Activity view keeps its own wide shell; header matches the dialog header. */
 .jv-bot-info .jv-bot-info-navigation { flex-direction: row; align-items: center; gap: 10px; min-height: 56px; padding: 0 56px 0 16px; border-bottom: 1px solid var(--jv-line); flex-shrink: 0; }
 .jv-bot-info-navigation [data-slot=dialog-title] { flex: none; font-size: 15px; font-weight: 600; }

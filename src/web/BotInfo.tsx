@@ -77,6 +77,14 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
           </div>
         </section>
 
+        {bot.agent && <section className="jv-section" aria-label={t("agent.title")}><h3 className="jv-section-title">{t("agent.title")}</h3>
+          <div className="jv-panel jv-agent-about">
+            <p>{t("agent.intro", { name: bot.name })}</p>
+            <ul>{(["agent.create", "agent.model", "agent.run", "agent.delete"] as const).map(key => <li key={key}>{t(key)}</li>)}</ul>
+            <p className="jv-hint">{t("agent.note")}</p>
+          </div>
+        </section>}
+
         <section className="jv-section" aria-label={t("usage.model")}><h3 className="jv-section-title">{t("usage.model")}</h3>
           <div className="jv-panel">
             <BotModelControls bot={bot} connections={connections} onSaved={onSaved} onManage={onManageModels}/>

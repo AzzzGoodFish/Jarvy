@@ -64,6 +64,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v16 | `inbox` replaces `bot_pending` and `bot_notices`; `chat_states.muted` |
 | v17 | `message_quotes`: a message's partial quotes by mark position — source message (cleared when it goes), its sender, the quoted text (A44) |
 | v18 | An untitled DM's title is `""` instead of the placeholder 「新对话」; the first message still names it. No column changes; titles people or first messages gave stay (A45, 0.3.0) |
+| v19 | `settings(key, value)`, first key `agent_onboarded` (set on upgrade when the agent Bot already has a model); `inbox.kind` gains `onboard` and `change`, the table rebuilt with its rows, indexes and id sequence (A48) |
 
 ## Search
 

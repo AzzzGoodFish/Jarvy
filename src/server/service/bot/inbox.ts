@@ -6,15 +6,17 @@ import type { ChatService } from "../chat/service.js";
 import { encodeChatBatch, encodeNoticeBatch, type EnvelopeNotice } from "../chat/envelope.js";
 import type { BotNotice } from "../../infra/storage/interaction-repository.js";
 import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
+import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
 /** Converts already-committed Chat input into runtime input; no SDK dependencies. */
 export class BotInbox {
   constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles) {}
-  /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. */
+  /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. A digest delivery
+   * (a change the agent Bot made, A48) is not work of its own: it rides along with the next batch. */
   pending() { return this.repository.hasPending(this.botId) || this.hasNotices(); }
   claim(selection: ModelSelection) { return this.repository.claim(this.botId, selection, this.hasNotices()); }
-  private hasNotices() { return this.chats.notices(this.botId).length > 0; }
+  private hasNotices() { return this.chats.notices(this.botId).some(notice => notice.urgency !== "digest"); }
   reference(workspace: string) {
     if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.");
     return this.repository.ensureSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
@@ -36,6 +38,11 @@ export class BotInbox {
     return notices.map(notice => {
       const chat = { id: notice.chatId, type: notice.chatType as "dm" | "channel" | "thread", title: notice.chatTitle };
       if (notice.kind === "note") return { kind: "note" as const, id: notice.id, chat, actor: notice.actor, version: Number(notice.detail), createdAt: notice.createdAt };
+      if (notice.kind === "onboard") return { kind: "onboard" as const, id: notice.id, chat, actor: notice.actor, language: welcomeLanguage(notice.detail), createdAt: notice.createdAt };
+      if (notice.kind === "change") {
+        const change = JSON.parse(notice.detail) as BotChange;
+        return { kind: "change" as const, id: notice.id, chat, actor: notice.actor, what: change.what, value: change.value, createdAt: notice.createdAt };
+      }
       const marked = notice.messageId ? this.chats.message(this.botId, notice.messageId) : null;
       const text = marked ? previewQuotes(marked.content, marked.quotes).slice(0, 120) : "";
       return { kind: "reaction" as const, id: notice.id, chat, message: { id: notice.messageId ?? "", text }, actor: notice.actor, emoji: notice.detail, createdAt: notice.createdAt };

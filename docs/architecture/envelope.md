@@ -42,6 +42,8 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `file` | one per attachment: an absolute, readable path on the tool host and the name; never base64 |
 | `updates` | new versions of notices (channels) and summaries (threads) since last told — where, version, editor, time; no content. The Bot reads them with `chats.info` |
 | `notices` | reactions to the Bot's messages, quoting the marked message, with a fixed note |
+| `changes` | what the agent Bot changed about this Bot (A48): one `change` per field — its DM with the agent, the agent, which field, when, and the new value (none for a persona) — with a fixed note |
+| `onboard` | to the agent Bot only, once (A48): the owner has just given it a model; its note asks for a welcome in the owner's interface language, in the DM it names |
 | `unread` | the Bot's unread counts; chats not defined above carry `title` and `type` |
 
 ## Partial quotes

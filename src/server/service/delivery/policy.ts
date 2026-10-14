@@ -9,6 +9,10 @@ const POLICY: Record<DeliveryKind, Partial<Record<DeliveryReason, Urgency>>> = {
   reaction: { author: "queue" },
   // A new version of a notice or summary is queued like a mark.
   note: { member: "queue", follower: "queue" },
+  // The owner just gave the agent Bot its first model: it should welcome them now (A48).
+  onboard: { setup: "interrupt" },
+  // What the agent Bot changed about a Bot rides along with that Bot's next batch, without waking it.
+  change: { agent: "digest" },
 };
 export function urgencyOf(kind: DeliveryKind, reason: DeliveryReason): Urgency | undefined { return POLICY[kind][reason]; }
 /** 免打扰: what would interrupt is queued instead, except being @-ed or replied to. */
