@@ -9,7 +9,7 @@ src/
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
     activity/ usage/ avatar/ files/ question/ bot/ styles/ theme/ components/ui/
-      avatar/               the 3D Bot (figure.ts), its DM layer (npc/) and colours
+      avatar/               the 3D Bot (figure.ts; the agent Bot's crown, crown.ts), its DM layer (npc/) and colours
   server/
     api/
       app.ts                 Hono app and route registration

@@ -18,7 +18,7 @@ export function DmMessages({ messages, members, me, activeQuestion, onSettled, o
   return <>{messages.map((message, index) => {
     const next = messages[index + 1], asks = message.role === "assistant" && !!next?.question && next.senderId === message.senderId;
     return <div className={`ui-message-row ${message.role === "user" ? "ui-user" : ""}`} data-message={message.id} data-asks={asks || undefined} key={message.id} tabIndex={-1}>
-    {message.role === "assistant" && <span className="jarvy-bubble-avatar"><BotAvatar color={bot?.color ?? "gray"} mood={bot?.mood} size={22}/></span>}
+    {message.role === "assistant" && <span className="jarvy-bubble-avatar"><BotAvatar color={bot?.color ?? "gray"} mood={bot?.mood} size={22} crown={bot?.agent}/></span>}
     <div className="jv-dm-stack">
       {message.replyTo && <ReplyQuote message={message} members={members} onJump={onJump}/>}
       {message.question ? <QuestionCard message={{ ...message, question: message.question }} keyboard={message.id === activeQuestion} onSettled={onSettled}/>

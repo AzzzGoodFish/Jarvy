@@ -107,7 +107,7 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
       <Button type="button" variant="ghost" data-active={active} aria-current={active ? "page" : undefined}
         className="h-15 w-full justify-start gap-2.5 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
         onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}>
-        <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge}/>
+        <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge} crown={bot.agent}/>
         {badge && <span className="sr-only">{t(badge === "asking" ? "sidebar.asking" : "sidebar.working")}</span>}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">

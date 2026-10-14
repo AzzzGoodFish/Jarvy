@@ -1,4 +1,5 @@
 import type * as Three from "three";
+import { Crown } from "./crown";
 import type { BotMood } from "./palette";
 
 type THREE = typeof Three;
@@ -63,6 +64,7 @@ export class CatFigure {
   private readonly paws: Three.Mesh[];
   private readonly paper: Three.Mesh;
   private readonly mouth: Three.Mesh;
+  private readonly crown: Crown;
   private motion: FigureMotion = "static"; private motionAt = 0;
   private readonly disposables: { dispose(): void }[] = [];
   private shown: BotMood = "normal";
@@ -111,10 +113,13 @@ export class CatFigure {
     this.paper.position.set(0, -0.36, 0.62); this.paper.rotation.x = -0.55; this.paper.castShadow = true; this.paper.visible = false; this.root.add(this.paper);
     this.mouth = new THREE.Mesh(keep(new THREE.CircleGeometry(0.07, 20)), ink);
     this.mouth.position.set(EYE_BIAS, -0.2, 0.364); this.mouth.visible = false; this.head.add(this.mouth);
+    this.crown = new Crown(THREE); this.disposables.push(...this.crown.disposables); this.root.add(this.crown.root);
     this.root.rotation.y = REST_YAW;
     this.show("normal");
   }
   setColor(color: number) { this.body.color.setHex(color); }
+  /** The agent Bot wears a crown (A48). */
+  setCrown(on: boolean) { this.crown.root.visible = on; }
   private show(mood: BotMood) {
     this.shown = mood;
     for (const eye of this.parts) {
@@ -130,6 +135,7 @@ export class CatFigure {
     const tilt = mood === "sad" ? 0.32 : mood === "angry" ? -0.38 : 0;
     this.parts.forEach((eye, i) => { eye.group.scale.y = mood === "angry" ? 0.78 : 1; eye.group.rotation.z = i ? tilt : -tilt; });
     for (const paw of this.paws) { paw.position.y = -0.66; paw.scale.set(0.17, 0.1, 0.15); }
+    this.crown.place(0, REST_YAW, 0, true);
   }
   /** A short head shake (a run failed); plays on the next frames. */
   shake(now: number) { this.shakeAt = now; }
@@ -212,6 +218,7 @@ export class CatFigure {
     this.mouth.visible = yawn > 0.05; this.mouth.position.x = EYE_BIAS * toward + lead; this.mouth.scale.set(0.8 + 0.3 * yawn, 0.2 + 1.3 * yawn, 1);
     this.root.scale.y = 1 + 0.05 * stretch;
     this.head.position.y = (m === "static" ? 0 : sleep ? wave(1.2, 0.02) - 0.02 : wave(2, 0.01)) - 0.03 * (left + right) + 0.04 * yawn + 0.06 * stretch;
+    this.crown.place(this.head.position.y, this.yaw, t, still);
     const shaking = (now - this.shakeAt) / 600;
     this.root.position.x = !still && shaking >= 0 && shaking < 1 ? Math.sin(shaking * Math.PI * 6) * 0.06 * (1 - shaking) : 0;
   }

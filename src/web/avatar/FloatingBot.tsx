@@ -45,7 +45,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
   const spot = useRef<Spot>(savedSpot()), drag = useRef<{ id: number; x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const moved = useRef(false), look = useRef<{ x: number; y: number } | null>(null);
   const input = useRef<FigureInput>({ motion: "sleep", mood: "normal", lookX: 0, lookY: 0 });
-  const figure = useRef<{ setColor(hex: number): void; shake(now: number): void } | null>(null);
+  const figure = useRef<{ setColor(hex: number): void; setCrown(on: boolean): void; shake(now: number): void } | null>(null);
   const [rendering, setRendering] = useState(false);
   const layout = useRef<(() => void) | null>(null);
   const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), turn = useNpcLive(NPC_DEMO ? null : bot.id, chatId, status, bot.mood as BotMood, motionOf(status));
@@ -80,6 +80,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
   }, []);
 
   useEffect(() => { figure.current?.setColor((BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex); }, [bot.color]);
+  useEffect(() => { figure.current?.setCrown(bot.agent); }, [bot.agent]);
   const failure = status?.error ? `${status.runId ?? ""}:${status.error}` : null;
   useEffect(() => { if (failure) figure.current?.shake(performance.now()); }, [failure]);
   useEffect(() => { if (npc.shake) figure.current?.shake(performance.now()); }, [npc.shake]);
@@ -109,7 +110,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
       shape.configureRenderer(THREE, renderer);
       const { scene, camera } = shape.createStage(THREE);
       const cat = new shape.CatFigure(THREE, (BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex);
-      cat.pose(input.current.mood); scene.add(cat.root); shape.frameCamera(camera, 1, 3.3);
+      cat.setCrown(bot.agent); cat.pose(input.current.mood); scene.add(cat.root); shape.frameCamera(camera, 1, 3.3);
       figure.current = cat;
       let pixels = 0;
       const tick = (now: number) => {
@@ -166,7 +167,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     onClick={() => { if (moved.current) { moved.current = false; return; } if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>
-    {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88}/>}
+    {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88} crown={bot.agent}/>}
   </button>
   <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout} facing={facing}
     toolbar={NPC_DEMO ? (bar, closePanel) => <NpcToolbar controls={demo.controls} toolbar={bar} onReplay={() => { closePanel(); demo.controls.replay(); }}/> : undefined}/></>;

@@ -14,7 +14,7 @@ const closedNotices = (): string[] => { try { return JSON.parse(localStorage.get
 
 export function MemberAvatar({ member, bots, size, working = false }: { member: Member | undefined; bots: Bot[]; size: number; working?: boolean }) {
   const bot = member?.kind === "bot" ? bots.find(item => item.id === member.id) : undefined;
-  if (bot) return <BotAvatar color={bot.color} mood={bot.mood} size={size} badge={working ? "working" : undefined}/>;
+  if (bot) return <BotAvatar color={bot.color} mood={bot.mood} size={size} badge={working ? "working" : undefined} crown={bot.agent}/>;
   return <span className="ui-user-avatar jv-user-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}>{(member?.name ?? "?").slice(0, 2).toUpperCase()}</span>;
 }
 

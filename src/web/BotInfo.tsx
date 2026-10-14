@@ -65,7 +65,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
       <DialogHeader className="jv-dialog-header"><DialogTitle>{t("entry.botInfo")}</DialogTitle></DialogHeader>
       <div className="jv-bot-scroll">
         <section className="jv-bot-hero">
-          <BotAvatar color={bot.color} mood={bot.mood} size={72}/>
+          <BotAvatar color={bot.color} mood={bot.mood} size={72} crown={bot.agent}/>
           <div className="jv-bot-identity">
             <strong>{bot.name}</strong>
             <span>{bot.description || t("bot.noDescription")}</span>
