@@ -4,7 +4,7 @@ import { activityPage } from "./activity.js";
 import { dirname, join } from "node:path";
 import { rm } from "node:fs/promises";
 import type { Store } from "../../infra/storage/store.js";
-import type { Bot as BotRecord } from "../../shared/models.js";
+import { AGENT_BOT_ID, type Bot as BotRecord } from "../../shared/models.js";
 import type { BotStatus } from "./contracts.js";
 import { RuntimeFault, publicFault } from "../../shared/runtime.js";
 import type { ChatService } from "../chat/service.js";
@@ -66,7 +66,7 @@ export class BotService {
   }
   private details(record: BotRecord) {
     const model = record.connectionId ? this.deps.store.getModelConnection(record.connectionId)?.models.find(model => model.id === record.modelId) : undefined;
-    return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null };
+    return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null, agent: record.id === AGENT_BOT_ID };
   }
   owns(id: string) { return this.deps.store.getBot(id) !== null; }
   /** The turn a Bot is running, live (A47); kept for a Bot whether or not it has started. */

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-const DEFAULT_BOT_ID = "00000000-0000-4000-8000-000000000001";
+import { AGENT_BOT_ID as DEFAULT_BOT_ID } from "../../../shared/models.js";
 
 /** Sequential migrations of the persisted v1-v4 public data contract. */
 export function migratePrototype(db: DatabaseSync): void {

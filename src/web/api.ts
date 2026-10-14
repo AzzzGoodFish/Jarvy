@@ -7,7 +7,9 @@ export interface CredentialState {
   prompt?: { id: string; type: "select" | "text" | "secret" | "manual_code"; message: string; placeholder?: string; options?: { id: string; label: string; description?: string }[] };
   event?: { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; intervalSeconds?: number; expiresInSeconds?: number } | { type: "info"; message: string; links?: { url: string; label?: string }[] } | { type: "progress"; message: string };
 }
-export interface Bot { id: string; name: string; description: string; systemPrompt: string; connectionId: string | null; modelId: string; thinkingLevel: string; effectiveThinkingLevel: string | null; workspacePath: string; color: BotColor; mood: BotMood; createdAt: number; }
+export interface Bot { id: string; name: string; description: string; systemPrompt: string; connectionId: string | null; modelId: string; thinkingLevel: string; effectiveThinkingLevel: string | null; workspacePath: string; color: BotColor; mood: BotMood; createdAt: number;
+  /** The agent Bot (A48): the owner's helper for running Jarvy itself. */
+  agent: boolean; }
 export interface ConfiguredModel { api?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
 export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }
 export type AutoconfigFields = Pick<ConfiguredModel, "reasoning" | "input" | "contextWindow" | "maxTokens" | "cost" | "thinkingLevelMap" | "thinkingFormat" | "compat">;
