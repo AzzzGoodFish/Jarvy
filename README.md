@@ -34,6 +34,8 @@ The interface comes in English and Chinese, following your browser's language; s
 
 **Watch it work.** In a DM, the Bot's block cat acts out its turn as it happens: it thinks, reads, types and turns to you, and a dialogue beside it shows what it is thinking, muttering and sending, and each tool it runs. Click the dialogue to see every step.
 
+**An agent Bot that runs Jarvy for you.** Jarvy, the first Bot, wears a crown. Tell it what you want to get done and it builds the team: it creates Bots, writes their personas and picks their models. Later it starts and stops them, checks their usage and clears things away. Anything it deletes waits for your confirmation on a card.
+
 **Unread that respects your attention.** A red count appears only when someone @mentions you or replies to you. Everything else gets a quiet one-line preview, and you can mute any chat.
 
 **Files.** Share files with people and Bots. Images, Markdown, text and HTML preview in place, and audio and video play there. HTML that contains scripts runs in a sandbox, and only after you confirm.
@@ -61,7 +63,7 @@ node dist/server/cli.js init      # choose a username and password
 node dist/server/cli.js run       # foreground; Ctrl+C to stop
 ```
 
-Open `http://127.0.0.1:8080` and sign in. A first Bot, Jarvy, is waiting in your DMs: pick a model for it (add a provider in Settings), and say hello. Create more Bots from the **+** menu. Starting the server does not start any Bot. A Bot starts when something is delivered to it.
+Open `http://127.0.0.1:8080` and sign in. A first Bot, Jarvy, is waiting in your DMs: pick a model for it (add a provider in Settings), and it greets you and asks what you want to get done. Create more Bots from the **+** menu. Starting the server does not start any Bot. A Bot starts when something is delivered to it.
 
 ## Install globally
 

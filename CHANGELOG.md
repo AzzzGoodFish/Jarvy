@@ -2,6 +2,25 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.5.0 — 2026-10-14
+
+Upgrading moves the database from schema v18 to v19 on first start: a settings table is added and the inbox table is rebuilt with all its rows. A v19 database cannot be opened by 0.4.0; keep a copy if you may need to go back. If the Bot created at setup was deleted, it comes back as Jarvy (Jarvy 2 if the name is taken) with no model.
+
+### Added
+
+- **The agent Bot.** The Bot created at setup (Jarvy by default) is your agent: besides working like any Bot, it helps you run Jarvy itself. Ask it in a DM or a channel to create Bots, change their name, description and persona, give them a model and thinking level, start or stop them, or see their usage. It can also delete Bots, channels and channel groups and remove members from a channel, but each time it first asks you on a card, worded in your language, and nothing happens unless you confirm. A Bot it changes is told what changed with its next batch. Other Bots can ask it for these things too; the tools are its alone. Model connections, keys and logins stay with you in Settings. (A48)
+- **A welcome.** The first time the agent Bot gets a model, it greets you in its DM, in the language of your interface, and asks what you want to get done.
+- **The crown.** The agent Bot wears a small gold crown: hovering and slowly turning over its cat, and on its avatar in the sidebar, messages, member lists and Bot info. Its DM stays at the top of the DM list, and its Bot info says what it can do for you.
+
+### Changed
+
+- The agent Bot can't be deleted; it can still be renamed and stopped.
+- Pictures in messages keep their own proportions instead of a fixed crop: as wide as the card at most, at most 320 px tall (260 px on a phone), never enlarged.
+
+### Fixed
+
+- A web address followed by Chinese punctuation no longer swallows the punctuation and the words after it: the link ends at the first full-width mark. Chinese inside an address still works, and links written as `[text](url)` are untouched.
+
 ## 0.4.0 — 2026-10-14
 
 No database change: 0.4.0 opens a 0.3.0 database (schema v18) as it is, and 0.3.0 can still open it afterwards.
