@@ -11,7 +11,7 @@ export interface ViewStep {
   depth: number;
   /** One line: 「在读 ThreadPane.tsx」, 「npm run build 失败了」. */
   title: string;
-  /** What the dialogue says: the thinking or text (shown a sentence at a time), a message, a question. */
+  /** What the dialogue says: the thinking or text (shown whole, scrolling), a message, a question. */
   line?: string;
   /** A message or question that went to another chat: 「→ #研发」. */
   to?: string;
@@ -39,11 +39,4 @@ export interface NpcDriver {
   view: NpcView; motion: FigureMotion; fast: boolean; mood: BotMood; shake: number;
   /** A click on the cat brings the last turn's line back (once it has faded). */
   canRecap: boolean; showRecap: () => void;
-}
-
-/** Thinking and muttering show like subtitles: only the sentence being written (the last one finished until the
- * next starts). The index changes with each sentence, so the line can fade in anew. */
-export function latestSentence(text: string): { index: number; sentence: string } {
-  const sentences = text.split(/(?<=[。！？.!?…])\s*/).filter(Boolean);
-  return { index: Math.max(0, sentences.length - 1), sentence: sentences.at(-1) ?? "" };
 }

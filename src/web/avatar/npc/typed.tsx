@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /** Characters per millisecond: 60 a second. */
 const RATE = 0.06;
@@ -7,7 +7,7 @@ const calm = matchMedia("(prefers-reduced-motion: reduce)");
 /** Text typed out in the dialogue (fish m808): what shows chases the text at 60 characters a second, or faster so that
  * what is behind is caught up within `limit` ms (a message 1.5 s, the rest 0.3 s). Streamed text comes a little at a
  * time and looks as before; text that comes in one piece — a tool's line, a message — is typed. Text that changes (a
- * tool's line once it has run) keeps how far it got, so it is not typed twice; a new step or sentence comes with a new
+ * tool's line once it has run) keeps how far it got, so it is not typed twice; a new step or paragraph comes with a new
  * `key` and starts from nothing. The caret blinks while it types, and while `streaming`. Reduced motion shows the text
  * at once. */
 export function Typed({ text, limit, streaming = false }: { text: string; limit: number; streaming?: boolean }) {
@@ -20,4 +20,29 @@ export function Typed({ text, limit, streaming = false }: { text: string; limit:
   // Never half of a surrogate pair (an emoji).
   const shown = typing ? text.slice(0, Math.floor(typed.count)).replace(/[\uD800-\uDBFF]$/, "") : text;
   return <>{shown}{(typing || streaming) && <i className="jv-npc-caret"/>}</>;
+}
+
+/** Thinking or a murmur (fish m898, m909): all of it, up to 12 lines (6 on a phone, npc.css), scrolling. It follows the
+ * newest words until it is scrolled back, and again once scrolled to the end; `onReading` says when it is scrolled
+ * back. The top fades while there is more above. */
+export function Tail({ className, children, onReading }: { className: string; children: ReactNode; onReading: (reading: boolean) => void }) {
+  const outer = useRef<HTMLSpanElement>(null), inner = useRef<HTMLSpanElement>(null), told = useRef(onReading);
+  const [above, setAbove] = useState(false);
+  told.current = onReading;
+  useEffect(() => {
+    const box = outer.current, text = inner.current;
+    if (!box || !text) return;
+    let following = true;
+    // The text grows as it is typed, without this rendering again: watch its size.
+    const grow = () => { if (following) box.scrollTop = box.scrollHeight; setAbove(box.scrollTop > 1); };
+    const scroll = () => {
+      const end = box.scrollHeight - box.scrollTop - box.clientHeight < 4;
+      if (end !== following) { following = end; told.current(!end); }
+      setAbove(box.scrollTop > 1);
+    };
+    const observer = new ResizeObserver(grow); observer.observe(text); observer.observe(box); grow();
+    box.addEventListener("scroll", scroll, { passive: true });
+    return () => { observer.disconnect(); box.removeEventListener("scroll", scroll); told.current(false); };
+  }, []);
+  return <span ref={outer} className={`${className} jv-npc-tail`} data-above={above || undefined}><span ref={inner}>{children}</span></span>;
 }

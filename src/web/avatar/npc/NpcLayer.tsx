@@ -3,8 +3,8 @@ import { ArchiveIcon, BrainIcon, CheckIcon, ChevronRightIcon, CodeXmlIcon, FileT
   MessagesSquareIcon, Minimize2Icon, PencilLineIcon, RefreshCwIcon, SquareTerminalIcon, SpeechIcon, WrenchIcon, XIcon } from "lucide-react";
 import { formatNumber, t } from "../../i18n";
 import { placeBeside } from "./place";
-import { latestSentence, type NpcView, type StepIcon, type ViewStep } from "./view";
-import { Typed } from "./typed";
+import { type NpcView, type StepIcon, type ViewStep } from "./view";
+import { Tail, Typed } from "./typed";
 import "./npc.css";
 
 const ICONS: Record<StepIcon, typeof BrainIcon> = { think: BrainIcon, mutter: SpeechIcon, read: FileTextIcon, write: PencilLineIcon, run: SquareTerminalIcon,
@@ -42,14 +42,22 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
   // The panel closes when the first step changes: another turn, or none.
   const first = view.steps[0]?.id;
   useEffect(() => { setOpen(false); }, [first]);
-  const shown = view.shown, look = shown ? shown.look : view.done ? "action" : null;
+  // While the pointer is on the dialogue or its text is scrolled back, it keeps the step it shows (fish m909): the
+  // step still updates, the next one waits.
+  const [hover, setHover] = useState(false), [reading, setReading] = useState(false), [pin, setPin] = useState<string | null>(null);
+  const holding = hover || reading;
+  useEffect(() => { setPin(holding ? view.shown?.id ?? null : null); }, [holding]);
+  const shown = (pin && view.steps.find(step => step.id === pin)) || view.shown, look = shown ? shown.look : view.done ? "action" : null;
   let line: ReactNode = null;
   // Every line is typed out (`Typed`, fish m808): streamed words as they come, a tool's line or a message that comes in
-  // one piece over a moment. A new step or sentence types from the start.
+  // one piece over a moment. A new step types from the start. Thinking and murmurs show all of the step's text, its
+  // paragraphs a blank line apart, scrolling (`Tail`, fish m898, m909).
   if (shown?.look === "thought" || shown?.look === "mutter") {
-    const { index, sentence } = latestSentence(shown.line ?? ""), typed = <Typed key={`${shown.id}:${index}`} text={sentence} limit={300} streaming={shown.look === "thought" && shown.state === "running"}/>;
+    const whole = (shown.line ?? "").replace(/\n\s*\n\s*/g, "\n\n").trim();
+    const typed = <Typed key={shown.id} text={whole} limit={300} streaming={shown.look === "thought" && shown.state === "running"}/>;
     const [before, after] = t("npc.mutter", { text: "\u0001" }).split("\u0001");
-    line = shown.look === "thought" ? <span key={index} className="jv-npc-thought">{typed}</span> : <span key={index} className="jv-npc-murmur">{before}{typed}{after}</span>;
+    line = <Tail key={shown.id} className={shown.look === "thought" ? "jv-npc-thought" : "jv-npc-murmur"} onReading={setReading}>
+      {shown.look === "thought" ? typed : <>{before}{typed}{after}</>}</Tail>;
   } else if (shown?.look === "speech") line = <span className="jv-npc-speech"><Typed key={shown.id} text={shown.line ?? ""} limit={1500} streaming={shown.state === "running" && shown.icon === "say"}/></span>;
   else if (shown) {
     const Icon = ICONS[shown.icon];
@@ -57,10 +65,13 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
   } else if (view.done) line = <span className="jv-npc-action" data-state={view.done.outcome === "completed" ? "ok" : "failed"}>
     {view.done.outcome === "completed" ? <CheckIcon/> : <XIcon/>}<Typed key={`done:${view.done.ms}`} text={t(DONE[view.done.outcome], { duration: seconds(view.done.ms) })} limit={300}/></span>;
   const expandable = view.steps.length > 0, asking = shown?.icon === "ask" && shown.state === "running";
+  // A hidden dialogue gets no pointer leave.
+  useEffect(() => { if (!line) setHover(false); }, [!line]);
   return <>
     {toolbar?.(bar, () => setOpen(false))}
     <div ref={box} className="jv-npc" data-open={open || undefined} data-look={open ? undefined : look ?? undefined} data-kind={shown?.icon}
-      data-fading={!open && !shown && view.done?.fading || undefined} hidden={!open && !line}>
+      data-fading={!open && !shown && view.done?.fading || undefined} hidden={!open && !line}
+      onPointerEnter={event => { if (event.pointerType === "mouse") setHover(true); }} onPointerLeave={() => setHover(false)}>
       {open ? <section className="jv-npc-panel" aria-label={t("npc.panel")}>
         <header><strong>{t("npc.panel")}</strong>
           {view.startedAt > 0 && <span>{seconds((view.endedAt ?? Date.now() + view.skew) - view.startedAt)}</span>}
@@ -68,7 +79,9 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
         <ol>{view.steps.map(step => <Step key={step.id} step={step} skew={view.skew}/>)}</ol>
       </section> : <>
         {look === "speech" && <span className="jv-npc-name">{name}{shown?.to && <em>{t("npc.to", { chat: shown.to })}</em>}</span>}
-        {expandable ? <button type="button" className="jv-npc-line" onClick={() => setOpen(true)} title={t("npc.expand")}>{line}</button> : <div className="jv-npc-line">{line}</div>}
+        {/* Not a <button>: the text inside scrolls, which buttons do not allow everywhere. */}
+        {expandable ? <div role="button" tabIndex={0} className="jv-npc-line" onClick={() => setOpen(true)} title={t("npc.expand")}
+          onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpen(true); } }}>{line}</div> : <div className="jv-npc-line">{line}</div>}
         {asking && view.answer && shown.options?.some(option => option.value) && <div className="jv-npc-options">
           {shown.options.map(option => <button key={option.label} type="button" onClick={() => view.answer!(option.value!)}>{option.label}</button>)}
         </div>}
