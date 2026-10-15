@@ -139,7 +139,7 @@ export class PiSession implements BotSession {
     if (options.onHistory) {
       const history = new PiHistoryAdapter(sessionManager.getHeader()!);
       // Registered after AgentSession's own listener. Pi awaits listeners in order,
-      // so message_end already has its final entry identity here (Pi 0.99.1).
+      // so message_end already has its final entry identity here (Pi 1.2.0).
       adapter.unsubscribeHistory = adapter.session.agent.subscribe(async event => {
         if (event.type !== "message_end") return;
         const entries = sessionManager.getEntries();
@@ -176,7 +176,7 @@ export class PiSession implements BotSession {
   }
   /** The last assistant message decides the prompt (a later retry success replaces an earlier error).
    * pi-ai providers and Agent.handleRunFailure report a failure as "aborted" when the run's signal was
-   * cancelled, but Pi 0.99.1's lazyStream reports request-setup failures as "error" regardless — e.g. the
+   * cancelled, but Pi 1.2.0's lazyStream reports request-setup failures as "error" regardless — e.g. the
    * request that follows a tool cancelled mid-run. Apply the same signal rule to those. */
   private classify(message: { stopReason: string; errorMessage?: string }): PromptResult {
     if (message.stopReason === "aborted" || (message.stopReason === "error" && this.session.agent.signal?.aborted)) return { outcome: "interrupted" };

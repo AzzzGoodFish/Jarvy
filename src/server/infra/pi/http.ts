@@ -4,7 +4,7 @@ import * as undici from "undici";
 /** The process-wide HTTP client the providers' fetch goes through (A40).
  * Pi's CLI sets this up itself, but the SDK does not, so Node's defaults applied: 300s for response headers and
  * between body chunks. A long-context request that took longer failed with "Request timed out." whatever the
- * provider timeout said. This mirrors Pi's own `configureHttpDispatcher` (0.99.1), which
+ * provider timeout said. This mirrors Pi's own `configureHttpDispatcher` (1.2.0), which
  * the package does not export: same proxy handling, same undici for fetch and dispatcher. */
 let configured = false;
 export function configureHttp(timeoutMs: number): void {

@@ -16,6 +16,7 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
       temp/
     agent/pi/sessions/<timestamp>.jsonl   the Bot's one session file
   attachments/<attachmentId>/<name>    readable copies of attachments, rebuilt from the database
+  pi/models.json                       pi.dev's model catalog as last fetched (A49)
 ```
 
 | Data | Owner |
@@ -37,7 +38,7 @@ The session file name is chosen once per Bot and stored with the Pi session ID; 
 | claimed but not submitted to Pi | release the claim; nothing is lost |
 | submission started, end unknown | mark `unknown`; never replay tools with side effects automatically |
 | session file exists | open the registered path and check the session identity |
-| file never written | keep the same path; Pi 0.99.1 writes the file with the first user or assistant message |
+| file never written | keep the same path; Pi 1.2.0 writes the file with the first user or assistant message |
 | file was written but is lost or corrupt | fail explicitly; never replace it with an empty history |
 
 Pending question cards are marked ignored at startup, since no tool call outlives the process.

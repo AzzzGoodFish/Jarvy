@@ -3,8 +3,8 @@ import type { ModelConnection } from "../../shared/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import type { CredentialLogins } from "../../infra/pi/auth.js";
-import { providerCatalog } from "../../infra/pi/catalog.js";
-import { modelCatalog, builtinModelCatalog } from "../../infra/pi/model.js";
+import { providerCatalog, type ModelCatalog } from "../../infra/pi/catalog.js";
+import { modelCatalog, providerModels } from "../../infra/pi/model.js";
 import { ConnectionCredentials } from "../../infra/pi/credentials.js";
 import { thinkingOptions } from "../../infra/pi/thinking.js";
 import { autoconfigure } from "../../infra/pi/autoconfig.js";
@@ -13,7 +13,7 @@ import { discoverModels } from "../../infra/models/discovery.js";
 /** Model settings and credential operations; HTTP never constructs SDK credentials. */
 export class ModelService {
   constructor(private readonly store: Store, private readonly credentials: CredentialCoordinator,
-    private readonly logins: CredentialLogins, private readonly changed: (connectionId: string) => void) {}
+    private readonly logins: CredentialLogins, private readonly changed: (connectionId: string) => void, private readonly models: ModelCatalog) {}
   private required(value: ModelConnection | null): ModelConnection {
     if (!value) throw new RuntimeFault("connection_missing", "Connection not found", 404);
     return value;
@@ -37,12 +37,14 @@ export class ModelService {
     this.changed(id); return saved;
   }
   deleteModel(id: string, modelId: string) { return this.required(this.store.deleteConnectionModel(id, modelId)); }
-  providers() { return providerCatalog(); }
-  builtinModels(provider: string) { return builtinModelCatalog(provider); }
+  providers() { return providerCatalog(this.models.providers()); }
+  /** Brings pi.dev's newer catalog entries in the background (A49). */
+  refreshCatalog() { this.models.refresh(); }
+  builtinModels(provider: string) { return providerModels(this.models.providers(), provider); }
   async catalog(id: string) {
     const connection = this.required(this.store.getModelConnection(id));
     const credentials = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.userMemberId(), id, connection.providerName);
-    return modelCatalog(credentials, connection.providerName);
+    return modelCatalog(credentials, connection.providerName, this.models);
   }
   discover(input: Record<string, unknown>, signal: AbortSignal) {
     if (typeof input.baseUrl !== "string") throw new RuntimeFault("discovery_url_missing", "Enter the API URL.", 400);
@@ -55,7 +57,7 @@ export class ModelService {
     if (!key) throw new RuntimeFault("discovery_key", "Enter the API key.", 400);
     return discoverModels({ api: String(input.api ?? "openai-completions"), baseUrl: input.baseUrl, key }, signal);
   }
-  /** Suggests model fields from the local Pi catalog; the caller decides whether to save them. */
+  /** Suggests model fields from Pi's catalog (with pi.dev's newer entries, A49); the caller decides whether to save them. */
   autoconfigure(input: Record<string, unknown>) {
     const text = (value: unknown) => typeof value === "string" && value.trim() && value.length <= 200 ? value.trim() : null;
     const modelId = text(input.modelId), api = text(input.api);
@@ -67,7 +69,7 @@ export class ModelService {
       if (!provider || !chosen) throw new RuntimeFault("autoconfig_source", "The setup source isn't valid.", 400);
       choice = { provider, modelId: chosen };
     }
-    return autoconfigure(modelId, api, choice);
+    return autoconfigure(this.models.providers(), modelId, api, choice);
   }
   options() {
     return this.list().filter(connection => connection.models.length).map(connection => ({

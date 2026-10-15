@@ -235,3 +235,10 @@ The Bot created at setup (Jarvy by default) is the owner's agent: it helps a new
 - **Storage (v19)**: a `settings(key, value)` table (first key: when the agent was onboarded); `inbox.kind` gains `onboard` and `change`, so the table is rebuilt with its rows.
 
 Why: the setup Bot already has a fixed id that survives renaming, and keeping it undeletable leaves nothing to keep in sync. A model can skip a rule in its prompt but not a step in its tool, so confirmation lives in the tools. Connections stay out until keys never have to pass through a chat.
+
+## A49 Pi 1.2.0 and the online model catalog
+
+- `pi-coding-agent` and `pi-ai` are pinned to 1.2.0 (supersedes A24's version). Sessions (JSONL v3) carry over both ways; History, credentials and Codex accounts are unchanged. Pi now brings `pi-agent-core` (its agent loop), which stays behind `infra/pi` like the rest. Pi no longer ships a shrinkwrap and pins `brace-expansion` 5.0.12 itself; `npm audit` is clean.
+- Auto-configuration and the provider list read the model catalog with pi.dev's overlay (supersedes A26's bundled-only catalog). Jarvy fetches pi.dev's catalog at most every 4 hours, keeps it in the data directory, and falls back to it and to the bundled catalog when offline; `PI_OFFLINE=1` turns the fetch off. Pi's own overlay only refreshes providers that have a credential, so the catalog fetches the whole list itself, in the same shape. Entries newer than the SDK can carry fields it ignores, so the overlay brings models released between upgrades, not new request features.
+- Pi renamed the Azure provider from `azure-openai-responses` to `azure`. Saved connections are not migrated (fish m941): an Azure connection made before has to be created again.
+- Codemode's own description is shorter and its errors say how to recover; Jarvy's tools and prompts are unchanged.

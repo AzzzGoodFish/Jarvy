@@ -4,7 +4,7 @@
 
 ## Lifecycle
 
-- Bots run on the Pi coding-agent SDK (`@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`, pinned to 0.99.1). Jarvy does not rebuild the session or tool loop.
+- Bots run on the Pi coding-agent SDK (`@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`, pinned to 1.2.0, A49). Jarvy does not rebuild the session or tool loop.
 - `jarvy run` starts the server only; no Bot session is created at startup (A11).
 - A new Bot opens its DM and asks for a model, then waits for the first message. It does not greet.
 - A Bot starts when something is delivered to it. Each Bot always has exactly one logical session; repeated wake-ups never create a second instance.

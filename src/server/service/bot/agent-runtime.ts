@@ -129,7 +129,7 @@ export class AgentRuntime implements RuntimePort {
     return task;
   }
   // Model/thinking changes queue behind start/stop and each other but not behind the running turn:
-  // Pi 0.99.1 re-reads agent.state.model/thinkingLevel before every next request (prepareNextTurn),
+  // Pi 1.2.0 re-reads agent.state.model/thinkingLevel before every next request (AgentSession's prepareNextTurnWithContext),
   // and each request resolves its API key when it starts, so in-flight requests are unaffected.
   reconfigure(operation: () => Promise<void>): Promise<void> {
     const task = this.operations.catch(() => {}).then(async () => {

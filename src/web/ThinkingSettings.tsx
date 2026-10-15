@@ -3,7 +3,7 @@ import { Input } from "./components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { t } from "./i18n";
 
-// Mirrors Pi 0.99.1 OpenAICompletionsCompat.thinkingFormat. Kept in the web bundle instead of an
+// Mirrors Pi 1.2.0 OpenAICompletionsCompat.thinkingFormat. Kept in the web bundle instead of an
 // API call because it only feeds a menu; the server's installModel still rejects unknown values.
 const FORMATS = ["openai", "openrouter", "deepseek", "zai", "qwen", "together", "baseten", "chat-template", "qwen-chat-template", "string-thinking", "ant-ling"];
 const LEVELS = [["off", "thinking.level.off"], ["minimal", "thinking.level.minimal"], ["low", "thinking.level.low"], ["medium", "thinking.level.medium"], ["high", "thinking.level.high"], ["xhigh", "thinking.level.xhigh"], ["max", "thinking.level.max"]] as const;

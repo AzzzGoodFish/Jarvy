@@ -1,6 +1,6 @@
-import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { Api, Model, OpenAICompletionsCompat } from "@earendil-works/pi-ai";
+import type { Api, Model, OpenAICompletionsCompat, Provider } from "@earendil-works/pi-ai";
+import type { ModelCatalog } from "./catalog.js";
 import type { ConfiguredModel, ModelConnection } from "../../shared/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
@@ -30,13 +30,14 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
   return model;
 }
 
-/** Public catalog metadata only; no credential or header values leave the adapter. */
-export async function modelCatalog(credentials: import("@earendil-works/pi-ai").CredentialStore, providerName: string): Promise<ConfiguredModel[]> {
+/** Public catalog metadata only; no credential or header values leave the adapter. A connection's catalog takes the
+ * model catalog's newer entries too (A49). */
+export async function modelCatalog(credentials: import("@earendil-works/pi-ai").CredentialStore, providerName: string, catalog: ModelCatalog): Promise<ConfiguredModel[]> {
   const runtime = await ModelRuntime.create({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
-  return runtime.getModels(providerName).map(publicModel);
+  return catalog.overlay(providerName, runtime.getModels(providerName)).map(publicModel);
 }
-export function builtinModelCatalog(providerName: string): ConfiguredModel[] {
-  return (builtinProviders().find(provider => provider.id === providerName)?.getModels() ?? []).map(publicModel);
+export function providerModels(providers: readonly Provider[], providerName: string): ConfiguredModel[] {
+  return (providers.find(provider => provider.id === providerName)?.getModels() ?? []).map(publicModel);
 }
 /** Catalog compat without thinkingFormat, which has its own field (one editable source). */
 export function catalogCompat(model: Model<Api>): Record<string, unknown> {

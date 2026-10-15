@@ -7,6 +7,7 @@ import { mkdir, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import lockfile from "proper-lockfile";
 import { Store } from "./infra/storage/store.js";
+import { ModelCatalog } from "./infra/pi/catalog.js";
 import { ChatService } from "./service/chat/service.js";
 import { ChatFiles } from "./service/chat/files.js";
 import { Changes } from "./service/events.js";
@@ -38,7 +39,7 @@ export class Application {
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
-    this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id));
+    this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), new ModelCatalog(dataDir));
   }
   static async open(dataDir: string, options: { factory?: SessionFactory; onCompromised?: () => void } = {}): Promise<Application> {
     await mkdir(resolve(dataDir), { recursive: true, mode: 0o700 });
@@ -53,7 +54,7 @@ export class Application {
     try { store = new Store(root); app = new Application(store, root, release, options.factory); return app; }
     catch (error) { store?.close(); await release(); throw error; }
   }
-  start(): void { this.bots.start(); }
+  start(): void { this.bots.start(); this.models.refreshCatalog(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
       await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();

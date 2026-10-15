@@ -40,6 +40,7 @@ type Credential =
 - OAuth login does not need a running Bot. Refreshes are written back to the same connection and serialised per connection, so an old refresh token never overwrites a new one and two connections never overwrite each other.
 - Login uses Pi's native flows: browser or device code for Codex, ChatGPT OAuth for `openai` (manual entry takes the full callback URL). `ModelRuntime.login` gets a persistent per-data-directory device ID (v8). OAuth records keep provider extras such as `clientId` and `scopes`.
 - The model catalog is chat-only: providers with only image or classifier models are hidden.
+- The catalog (`infra/pi/catalog.ts`, A49) is the one bundled with Pi, overlaid with `https://pi.dev/api/models` when that is newer: an entry replaces the bundled one with the same ID or adds a model, only for providers and protocols the SDK knows. It is checked when the server starts and then at most every 4 hours (ETag, 15 s timeout), kept in `<data>/pi/models.json` and used offline; a failed check keeps what was there. `PI_OFFLINE=1`, Pi's own switch, stops the checks. The provider list, a provider's models, a connection's catalog and auto-configuration all read it; requests still go through Pi with the connection's own model settings.
 
 ## Settings UI
 
@@ -53,7 +54,7 @@ type Credential =
 
 ## Auto-configuration
 
-`POST /api/model-autoconfig` suggests a model's specs from the pi-ai catalog that ships with the pinned SDK (A26). There is no online sync and no catalog table: upgrading Pi upgrades the catalog.
+`POST /api/model-autoconfig` suggests a model's specs from the model catalog (A49): the one that ships with Pi, overlaid with pi.dev's newer entries. There is no catalog table: upgrading Pi upgrades the bundled part.
 
 - **Matching** (`infra/pi/autoconfig.ts`): exact IDs and IDs without namespace or date suffix rank together; substrings are a fallback. The model's own vendor scores highest; with several vendors the provider named after the vendor, or the only one on the same protocol, wins, otherwise the user chooses. Reseller-only matches take the most complete entry and say so; no match lists similar IDs.
 - **Filled in**: reasoning, image input, context and output limits, cost, thinking level map. Thinking format and compat are filled only when the catalog's protocol matches the connection's. ID, a custom name, headers and API override are untouched.

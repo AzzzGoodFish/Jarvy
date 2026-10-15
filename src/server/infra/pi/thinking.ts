@@ -1,7 +1,7 @@
 import { clampThinkingLevel, getSupportedThinkingLevels, type Api, type Model, type ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ConfiguredModel } from "../../shared/models.js";
 
-// Pi 0.99.1 core/defaults.js uses medium; this constant is not publicly exported.
+// Pi 1.2.0 core/defaults.js uses medium; this constant is not publicly exported.
 // Keep this adapter aligned when upgrading Pi; never read the host's settings.
 const PI_DEFAULT_THINKING: ModelThinkingLevel = "medium";
 // These two Pi helpers only read reasoning/thinkingLevelMap in the pinned SDK.

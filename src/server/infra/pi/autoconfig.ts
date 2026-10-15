@@ -1,11 +1,10 @@
-import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
-import type { Api, Model } from "@earendil-works/pi-ai";
+import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import type { AutoconfigResult, AutoconfigSource } from "../../shared/models.js";
 import { catalogCompat, publicModel } from "./model.js";
 
 // Matching adapted from VulnHunter service/src/modules/catalog/catalog-match.ts: exact →
 // namespace/date-stripped → substring, then an "official vendor" score decides. The catalog is
-// the SDK-pinned pi-ai builtin list (local only, no online sync), so it changes with Pi.
+// Pi's, overlaid with pi.dev's newer entries (ModelCatalog, A49).
 interface Row { provider: string; model: Model<Api>; official: number; }
 
 // Model-name prefix → vendor provider words. Extend when a new vendor family appears in Pi.
@@ -22,30 +21,27 @@ function officialScore(provider: string, id: string): number {
 }
 const strip = (id: string) => id.toLowerCase().replace(/^.*\//, "").replace(/-(\d{6,8})$/, "");
 
-let rows: Row[] | undefined;
-function catalog(): Row[] {
-  rows ??= builtinProviders().flatMap(provider => provider.getModels().map(model => ({ provider: provider.id, model, official: officialScore(provider.id, model.id) })));
-  return rows;
+function rows(providers: readonly Provider[]): Row[] {
+  return providers.flatMap(provider => provider.getModels().map(model => ({ provider: provider.id, model, official: officialScore(provider.id, model.id) })));
 }
 const source = (row: Row): AutoconfigSource => ({ provider: row.provider, modelId: row.model.id, name: row.model.name, api: row.model.api, official: row.official === 2 });
 /** Richer catalog entries first when only resellers carry the model. */
 const completeness = (row: Row) => Object.values(row.model.thinkingLevelMap ?? {}).filter(value => value !== undefined).length
   + Object.keys(row.model.compat ?? {}).length + (row.model.cost.input > 0 ? 1 : 0);
 
-function candidates(query: string): Row[] {
+function candidates(all: Row[], query: string): Row[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  const all = catalog();
   // Exact and namespace/date-stripped IDs name the same model ("zai-org/GLM-5.3" ≈ zai "glm-5.3"),
   // so they are ranked together; substring hits are only a fallback.
   const same = all.filter(row => row.model.id.toLowerCase() === q || strip(row.model.id) === strip(q));
   return same.length ? same : all.filter(row => row.model.id.toLowerCase().includes(strip(q)));
 }
 
-function similar(query: string): Row[] {
+function similar(all: Row[], query: string): Row[] {
   const q = strip(query);
   // Require a shared 3-character prefix so unrelated private model names get "none", not noise.
-  return catalog().map(row => ({ row, ...similarity(strip(row.model.id), q) })).filter(item => item.prefix >= 3)
+  return all.map(row => ({ row, ...similarity(strip(row.model.id), q) })).filter(item => item.prefix >= 3)
     .sort((a, b) => b.score - a.score || b.row.official - a.row.official).slice(0, 5).map(item => item.row);
 }
 function similarity(a: string, b: string) {
@@ -74,15 +70,15 @@ function matched(row: Row, api: string, alternatives: Row[], reseller: boolean):
     alternatives: alternatives.filter(item => item !== row).slice(0, 8).map(source) };
 }
 
-/** Match a model ID against the local catalog. `choice` applies a source the user picked. */
-export function autoconfigure(modelId: string, api: string, choice?: { provider: string; modelId: string }): AutoconfigResult {
-  const hits = candidates(modelId);
+/** Match a model ID against the catalog. `choice` applies a source the user picked. */
+export function autoconfigure(providers: readonly Provider[], modelId: string, api: string, choice?: { provider: string; modelId: string }): AutoconfigResult {
+  const all = rows(providers), hits = candidates(all, modelId);
   if (choice) {
-    const row = catalog().find(item => item.provider === choice.provider && item.model.id === choice.modelId);
+    const row = all.find(item => item.provider === choice.provider && item.model.id === choice.modelId);
     if (row) return matched(row, api, hits, row.official < 2);
   }
   if (!hits.length) {
-    const options = similar(modelId);
+    const options = similar(all, modelId);
     return options.length ? { status: "choose", reason: "similar", options: options.map(source) } : { status: "none" };
   }
   const official = hits.filter(row => row.official === 2);
