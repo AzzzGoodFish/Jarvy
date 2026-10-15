@@ -1,3 +1,4 @@
+import type { EnvironmentKind } from "../../shared/environment.js";
 import type { Urgency } from "../../shared/delivery.js";
 import type { ActivityCursor } from "../../shared/activity.js";
 import type { ToolDefinition } from "../../shared/tools.js";
@@ -38,6 +39,8 @@ export interface Workspace {
   prepare(): Promise<void>;
   location(): { type: string; cwd: string; tempDir: string };
   writeTempFile(name: string, content: string, signal?: AbortSignal): Promise<string>;
+  /** Where the Bot's tools run now (A50). */
+  environment(): { kind: EnvironmentKind; cwd: string };
 }
 export interface Tools {
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>): void;
@@ -70,6 +73,7 @@ export interface RuntimeSetup {
   identity: () => ReturnType<Identity["snapshot"]>;
   model: () => PreparedModel;
   workspace: ReturnType<Workspace["location"]>;
+  environment: () => ReturnType<Workspace["environment"]>;
   tools: readonly ToolDefinition[];
   onStatus(status: BotStatus): void;
   onHistory(record: HistoryDraft): Promise<void>;

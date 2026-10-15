@@ -1,3 +1,5 @@
+import { readFile as readLocal, rm } from "node:fs/promises";
+import { basename } from "node:path";
 import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import { IMAGE_SNIFF_BYTES, imageKind } from "./image-kind.js";
@@ -12,10 +14,10 @@ export function environmentTools(current: () => WorkEnvironment): ToolDefinition
   const readFile = (path: string) => current().readFile(path), writeFile = (path: string, content: string) => current().writeFile(path, content);
   const cwd = current().cwd;
   const definitions = [
-    createBashToolDefinition(cwd, { operations: {
+    relocated(createBashToolDefinition(cwd, { operations: {
       exec: (command, dir, { onData, signal, timeout, env }) => current().exec(command, { cwd: dir, onData,
         ...(signal ? { signal } : {}), ...(timeout ? { timeout } : {}), ...(env ? { env: defined(env) } : {}) }),
-    } }),
+    } }) as unknown as ToolDefinition, current),
     // Pictures go to the model as pictures; the kind comes from a file's first bytes, as Pi's local read does.
     createReadToolDefinition(cwd, { operations: { readFile, access, detectImageMimeType: async path => imageKind(await current().head(path, IMAGE_SNIFF_BYTES)) } }),
     createWriteToolDefinition(cwd, { operations: { writeFile, mkdir: path => current().mkdir(path) } }),
@@ -33,6 +35,37 @@ function inside(definition: ToolDefinition, current: () => WorkEnvironment): Too
     if (ctx && typeof ctx === "object") args[4] = new Proxy(ctx, { get: (target, key) => key === "cwd" ? current().cwd : Reflect.get(target, key, target) });
     return execute(...args);
   }) as ToolDefinition["execute"] };
+}
+
+type Output = { content: { type: string; text?: string }[]; details?: { fullOutputPath?: unknown }; structuredContent?: Record<string, unknown> };
+
+/** Pi keeps the whole of a long command output in a file on this machine and names it in the result. A Bot working
+ * elsewhere gets the file in its environment's temp directory instead, under the path it can read there. */
+function relocated(definition: ToolDefinition, current: () => WorkEnvironment): ToolDefinition {
+  const execute = definition.execute.bind(definition) as (...args: unknown[]) => Promise<Output>;
+  return { ...definition, execute: (async (...args: unknown[]) => {
+    const env = current();
+    if (env.kind === "host") return execute(...args);
+    try {
+      const result = await execute(...args), path = result.details?.fullOutputPath;
+      if (typeof path !== "string") return result;
+      const target = await moveOut(path, env), swap = (text?: string) => text?.replaceAll(path, target);
+      return { ...result, content: result.content.map(part => part.type === "text" ? { ...part, text: swap(part.text) } : part),
+        details: { ...result.details, fullOutputPath: target },
+        ...(result.structuredContent?.full_output_path ? { structuredContent: { ...result.structuredContent, full_output_path: target } } : {}) };
+    } catch (error) {
+      // An aborted or timed-out command fails with its output, which may name the file too.
+      const path = error instanceof Error ? /Full output: (\S+?)\]/.exec(error.message)?.[1] : undefined;
+      if (!path) throw error;
+      throw new Error((error as Error).message.replaceAll(path, await moveOut(path, env)));
+    }
+  }) as unknown as ToolDefinition["execute"] };
+}
+async function moveOut(path: string, env: WorkEnvironment): Promise<string> {
+  const target = `${env.cwd}/temp/${basename(path)}`;
+  await env.writeFile(target, await readLocal(path));
+  await rm(path, { force: true });
+  return target;
 }
 
 function defined(vars: NodeJS.ProcessEnv): Record<string, string> {

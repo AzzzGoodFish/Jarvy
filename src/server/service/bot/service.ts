@@ -12,6 +12,8 @@ import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
 import { BotEnvironments } from "./environments.js";
+import { Computers } from "./computers.js";
+import type { EnvironmentKind } from "../../shared/environment.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
 import { Bot } from "./bot.js";
@@ -39,12 +41,17 @@ export interface BotDependencies {
 export class BotService {
   private readonly bots = new Map<string, Bot>();
   private readonly lives = new Map<string, LiveTurns>();
-  private readonly environments = new BotEnvironments();
+  private readonly computers: Computers;
+  private readonly environments: BotEnvironments;
   private closed = false;
   private started = false;
   /** What only the agent Bot does (A48). */
   readonly agent: AgentOps;
-  constructor(private readonly deps: BotDependencies) { this.agent = new AgentOps(this, deps.store, deps.chats); }
+  constructor(private readonly deps: BotDependencies) {
+    this.agent = new AgentOps(this, deps.store, deps.chats);
+    this.computers = new Computers({ store: deps.store, changed: () => this.listChanged(), busy: id => this.bots.get(id)?.status().status === "running" });
+    this.environments = new BotEnvironments(deps.store, this.computers);
+  }
   listChanged() { this.deps.listChanged?.(); }
   get(id: string): Bot {
     if (this.closed) throw new RuntimeFault("stopping", "Shutting down.", 503);
@@ -57,7 +64,7 @@ export class BotService {
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath) }));
-    const workspace = new Workspace(record.workspacePath);
+    const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath));
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
@@ -77,7 +84,8 @@ export class BotService {
   }
   private details(record: BotRecord) {
     const model = record.connectionId ? this.deps.store.getModelConnection(record.connectionId)?.models.find(model => model.id === record.modelId) : undefined;
-    return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null, agent: record.id === AGENT_BOT_ID };
+    return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null, agent: record.id === AGENT_BOT_ID,
+      environment: this.environments.placement(record.id) };
   }
   owns(id: string) { return this.deps.store.getBot(id) !== null; }
   /** The turn a Bot is running, live (A47); kept for a Bot whether or not it has started. */
@@ -95,7 +103,30 @@ export class BotService {
     return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
   }
   list() { return this.deps.store.listBots().map(record => this.details(record)); }
-  create(name: string) { return this.details(this.deps.store.createBot(name)); }
+  /** A new Bot works on its own computer when this machine has Docker, unless asked for the owner's computer (A50). */
+  create(name: string, environment?: EnvironmentKind) {
+    const kind = environment ?? (this.computers.available ? "computer" : "host");
+    if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
+    const record = this.deps.store.createBot(name);
+    this.environments.setHome(record.id, kind);
+    return this.details(record);
+  }
+  /** Moves a Bot to its own computer or to the owner's computer, as its default; the next tool call runs there. */
+  setHome(id: string, kind: EnvironmentKind) {
+    this.describe(id);
+    this.environments.setHome(id, kind);
+    return this.describe(id);
+  }
+  /** Starting (or resetting, which starts afresh) returns at once: the Bot's state follows as it changes. */
+  async computer(id: string, action: "start" | "stop" | "reset") {
+    this.describe(id);
+    if (action === "stop") await this.computers.stop(id);
+    else {
+      if (action === "reset") await this.computers.reset(id);
+      void this.computers.ensure(id).catch(() => {});
+    }
+    return this.describe(id);
+  }
   describe(id: string) {
     const record = this.deps.store.getBot(id);
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
@@ -135,6 +166,7 @@ export class BotService {
   start(): void {
     if (this.started) return;
     this.started = true;
+    void this.computers.start();
     for (const { botId, urgency } of this.deps.store.runtime.waitingBots(this.deps.store.userMemberId())) this.deliver(botId, urgency);
   }
   /** Every Bot's run state, for `bots.list` (A43). A Bot not loaded in this process is stopped. */

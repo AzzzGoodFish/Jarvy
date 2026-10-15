@@ -11,6 +11,7 @@ import { RuntimeRepository } from "./runtime-repository.js";
 import { modelApis } from "../pi/catalog.js";
 import { CredentialRepository } from "./credential-repository.js";
 import { AgentRepository } from "./agent-repository.js";
+import { EnvironmentRepository } from "./environment-repository.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 
 export const defaultDataDir = () => process.env.JARVY_DATA_DIR || join(homedir(), ".jarvy");
@@ -79,6 +80,7 @@ export class Store {
   readonly runtime: RuntimeRepository;
   readonly credentials: CredentialRepository;
   readonly agent: AgentRepository;
+  readonly environments: EnvironmentRepository;
 
   constructor(dataDir = defaultDataDir()) {
     const root = resolve(dataDir);
@@ -93,6 +95,7 @@ export class Store {
     this.runtime = new RuntimeRepository(this.db);
     this.credentials = new CredentialRepository(this.db);
     this.agent = new AgentRepository(this.db, () => this.userMemberId());
+    this.environments = new EnvironmentRepository(this.db, () => this.userMemberId());
     this.agent.ensure();
   }
 
@@ -176,6 +179,7 @@ export class Store {
       this.db.prepare("DELETE FROM chats WHERE type='dm' AND id IN (SELECT chat_id FROM chat_members WHERE member_id=?)").run(id);
       for (const table of ["chat_members", "chat_states", "inbox"]) this.db.prepare(`DELETE FROM ${table} WHERE member_id=?`).run(id);
       this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(id);
+      this.db.prepare("DELETE FROM environment_grants WHERE bot_id=?").run(id);
       this.db.exec("COMMIT");
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     return true;

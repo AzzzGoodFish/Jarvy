@@ -9,7 +9,13 @@ export interface CredentialState {
 }
 export interface Bot { id: string; name: string; description: string; systemPrompt: string; connectionId: string | null; modelId: string; thinkingLevel: string; effectiveThinkingLevel: string | null; workspacePath: string; color: BotColor; mood: BotMood; createdAt: number;
   /** The agent Bot (A48): the owner's helper for running Jarvy itself. */
-  agent: boolean; }
+  agent: boolean;
+  /** Where its file and command tools run (A50). */
+  environment: BotPlacement; }
+/** `computer` is a Bot's own computer, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
+export type EnvironmentKind = "computer" | "host";
+export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
+export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: { state: ComputerState; error?: string } | null; docker: boolean }
 export interface ConfiguredModel { api?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
 export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }
 export type AutoconfigFields = Pick<ConfiguredModel, "reasoning" | "input" | "contextWindow" | "maxTokens" | "cost" | "thinkingLevelMap" | "thinkingFormat" | "compat">;
@@ -167,6 +173,8 @@ export const api = {
   botDirects: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/dms`),
   botSubscriptions: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/subscriptions`),
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
+  setBotEnvironment: (id: string, home: EnvironmentKind) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ home }) }),
+  computer: (id: string, action: "start" | "stop" | "reset") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),

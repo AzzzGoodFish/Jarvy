@@ -14,6 +14,10 @@ const Settings = {
   persona: Type.Optional(Type.String({ maxLength: 16_000, description: "Its standing instructions: who it is and how it works (the Persona section of its prompt)" })),
   model: Type.Optional(Model), thinking: Type.Optional(Thinking),
 };
+/** Where a new Bot's file and command tools run (A50). */
+const Environment = Type.Union([Type.Literal("computer"), Type.Literal("host")], {
+  description: "Where its file and command tools run: computer, a Linux container of its own (the default when Docker is available), or host, the owner's computer, where you work too",
+});
 /** A deletion first asks the owner on a card (A48); the agent words it in the owner's language. */
 const Confirm = {
   askIn: Type.String({ description: "ID of a chat the owner is in, where the confirmation card goes; usually the chat you were asked in" }),
@@ -28,7 +32,7 @@ const after = "The owner first gets a card in askIn, and nothing is deleted unle
 export const agentDefinitions = {
   "models.list": { description: "List the models you can give a Bot: each connection with its models and their thinking levels. Only the owner adds connections, keys and logins, in Settings.", schema: None },
   "bots.create": { description: "Create a Bot. Give it a model so it can work; without one it waits until it gets one. It starts when a message first arrives for it. bots.update changes everything later.",
-    schema: Type.Object({ name: Name, ...Settings }, { additionalProperties: false }) },
+    schema: Type.Object({ name: Name, ...Settings, environment: Type.Optional(Environment) }, { additionalProperties: false }) },
   "bots.update": { description: "Change a Bot's name, description, persona, model or thinking; give only what changes. Works for any Bot, yourself included. The Bot is told what changed with its next batch, in its DM with you.",
     schema: Type.Object({ bot: BotName, name: Type.Optional(Name), ...Settings }, { additionalProperties: false }) },
   "bots.start": { description: "Start a stopped Bot. A stopped Bot also starts by itself when a message arrives for it.", schema: Type.Object({ bot: BotName }, { additionalProperties: false }) },

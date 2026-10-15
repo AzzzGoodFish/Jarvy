@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { ApiEnv, ApiServices } from "../context.js";
+import { HTTPException } from "hono/http-exception";
 import { jsonBody, readJson, textField } from "../middleware/body.js";
 import { botStatusView } from "../views/bot-status.js";
 import { activityRoutes } from "./activity.js";
@@ -10,8 +11,15 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.get("/", c => c.json({ bots: bots.list() }));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    // Names are unique (A37); a taken one is name_taken.
-    return c.json(bots.create(textField(input, "name")), 201);
+    // Names are unique (A37); a taken one is name_taken. Without `environment` a Bot gets its own computer when
+    // Docker is there (A50).
+    return c.json(bots.create(textField(input, "name"), input.environment === undefined ? undefined : environmentKind(input.environment)), 201);
+  });
+  routes.put("/:id/environment", jsonBody, async c => c.json(bots.setHome(c.req.param("id"), environmentKind((await readJson(c)).home))));
+  routes.post("/:id/computer/:action", async c => {
+    const action = c.req.param("action");
+    if (action !== "start" && action !== "stop" && action !== "reset") throw new HTTPException(404, { message: "Not found" });
+    return c.json(await bots.computer(c.req.param("id"), action));
   });
   routes.get("/:id", c => c.json(bots.describe(c.req.param("id"))));
   // Deleting a Bot keeps its workspace unless the caller asks otherwise.
@@ -56,4 +64,9 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.route("/", historyRoutes(bots));
   routes.route("/", activityRoutes(bots));
   return routes;
+}
+
+function environmentKind(value: unknown): "computer" | "host" {
+  if (value !== "computer" && value !== "host") throw new HTTPException(400, { message: "environment must be computer or host" });
+  return value;
 }

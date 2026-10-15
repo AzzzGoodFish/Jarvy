@@ -4,6 +4,7 @@
 export interface WorkEnvironment {
   /** Stable name, such as `host`. */
   readonly id: string;
+  readonly kind: EnvironmentKind;
   /** The directory the tools start in. */
   readonly cwd: string;
   /** Runs a shell command, streaming its output. A non-zero exit is a result, not an error; a timeout throws
@@ -30,3 +31,20 @@ export interface ExecOptions {
   /** The environment Pi built for the command. Only an environment on this machine passes it on; others keep their own. */
   env?: Record<string, string>;
 }
+
+/** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's own computer, a Docker container
+ * only it uses. */
+export type EnvironmentKind = "host" | "computer";
+export interface EnvironmentRecord {
+  id: string; ownerId: string; kind: EnvironmentKind;
+  /** The Bot a computer belongs to. */
+  botId: string | null;
+  /** How to reach it, such as the container's name. */
+  spec: Record<string, string>;
+}
+/** A Bot's own computer as people see it. `preparing` covers building the image and creating or starting the
+ * container; `unavailable` means this machine has no usable Docker. */
+export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
+export interface ComputerStatus { state: ComputerState; error?: string }
+/** Where a Bot works, for the interface: its default and current environment, and its computer when it has one. */
+export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: ComputerStatus | null; docker: boolean }

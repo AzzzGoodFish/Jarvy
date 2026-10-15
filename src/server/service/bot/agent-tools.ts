@@ -30,8 +30,8 @@ export class AgentTools {
     switch (name) {
       case "models.list": return this.ops.models();
       case "bots.create": {
-        const bot = await this.ops.create(args as unknown as BotSettings & { name: string });
-        return { name: bot.name, model: bot.connectionId ? this.ops.modelLabel(bot) : null, thinking: bot.thinkingLevel };
+        const bot = await this.ops.create(args as unknown as BotSettings & { name: string; environment?: "computer" | "host" });
+        return { name: bot.name, model: bot.connectionId ? this.ops.modelLabel(bot) : null, thinking: bot.thinkingLevel, environment: this.ops.environment(bot.id) };
       }
       case "bots.update": {
         const { bot, ...settings } = args as unknown as BotSettings & { bot: string };

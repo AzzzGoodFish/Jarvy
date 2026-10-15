@@ -7,6 +7,7 @@ import { api, type Bot, type BotStatus, type Chat, type ModelConnection } from "
 import { BotAvatar } from "./avatar/BotAvatar";
 import { BOT_COLORS, colorHex, type BotColor } from "./avatar/palette";
 import { BotModelControls } from "./BotModelControls";
+import { BotEnvironment } from "./environment/BotEnvironment";
 import { copyText } from "./ui";
 import { formatNumber, t } from "./i18n";
 import { Button } from "./components/ui/button";
@@ -105,6 +106,8 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
               <Button type="submit" className="jv-primary" disabled={busy || !dirty}>{t(busy ? "bot.saving" : "common.save")}</Button></div>
           </form>
         </section>
+
+        <BotEnvironment bot={bot} onSaved={onSaved}/>
 
         <section className="jv-section" aria-label={t("bot.runtime")}><h3 className="jv-section-title">{t("bot.runtime")}</h3>
           <div className="jv-list">

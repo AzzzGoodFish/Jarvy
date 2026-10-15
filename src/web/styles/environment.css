@@ -1,0 +1,11 @@
+/* Work environments (A50): the choice in Bot info and a new Bot's setup, and its own computer's row. */
+.jv-env-option:disabled { cursor: not-allowed; opacity: .55; }
+.jv-env-option .jv-row-text > span { white-space: normal; }
+.jv-env-computer { margin-top: 8px; }
+.jv-env-note { margin: 6px 2px 0; }
+.jarvy-model-picker .jv-env-setup { margin-top: 14px; }
+.jarvy-model-picker .jv-env-setup > h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--jv-text); }
+.jv-env-confirm { margin-top: 8px; padding: 12px 14px; border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field); }
+.jv-env-confirm > strong { display: block; font-size: 13px; color: var(--jv-text); }
+.jv-env-confirm > p { margin: 4px 0 10px; font-size: 13px; line-height: 1.5; color: var(--jv-dim); }
+.jv-env-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
