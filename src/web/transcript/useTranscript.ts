@@ -69,15 +69,19 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    // A row can grow after it is on screen (an image or file card finishing its layout). If we were at the bottom,
-    // stay there instead of leaving a growing gap under the newest message.
+    // A row can grow after it is on screen (an image or file card finishing its layout), and the transcript itself
+    // can shrink (a restored draft makes the composer taller). If we were at the bottom, stay there instead of leaving
+    // a gap under the newest message (fish m887). The transcript's children come and go with loading and paging, so
+    // every one of them is watched, not only the first.
     const grown = new ResizeObserver(() => {
       if (!settled.current || !atBottom.current) return;
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return; // already there
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
     });
-    const innermost = el.firstElementChild;
-    if (innermost) grown.observe(innermost);
+    const watch = () => { grown.disconnect(); grown.observe(el); for (const child of el.children) grown.observe(child); };
+    watch();
+    const children = new MutationObserver(watch);
+    children.observe(el, { childList: true });
     const track = () => {
       // While the opening jump is still ahead, the position says nothing: the transcript is short and about to move.
       if (!settled.current) { atBottom.current = true; setAway(false); return; }
@@ -86,7 +90,7 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
       if (atBottom.current) seen.current = list.current.at(-1)?.sequence ?? 0;
     };
     track(); el.addEventListener("scroll", track, { passive: true });
-    return () => { grown.disconnect(); el.removeEventListener("scroll", track); };
+    return () => { grown.disconnect(); children.disconnect(); el.removeEventListener("scroll", track); };
   }, [scroller.current, chatId]);
   useLayoutEffect(() => {
     const el = scroller.current, last = messages.at(-1);
