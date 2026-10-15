@@ -7,6 +7,8 @@ function files(dir, pattern = /\.ts$/) {
   return readdirSync(dir, { withFileTypes: true }).flatMap(item => item.isDirectory() ? files(resolve(dir, item.name), pattern) : pattern.test(item.name) ? [resolve(dir, item.name)] : []);
 }
 const failures = [];
+// Execution in work environments (A50): pi-env and the Pi Durable pieces it is built on stay in infra/env.
+const EXECUTION = /^@earendil-works\/(pi-env|pi-durable|chord)(\/|$)/;
 // No source file over 500 lines (AGENTS.md), server and web alike.
 for (const file of [...files(root), ...files(resolve('src/web'), /\.(tsx?|css)$/)]) {
   if (readFileSync(file, 'utf8').split('\n').length > 501) failures.push(`${relative(resolve('src'), file)}: exceeds 500 lines`);
@@ -23,7 +25,8 @@ for (const file of files(root)) {
       || layer === 'service' && target === 'api'
       || layer === 'infra' && ['api', 'service', 'application.js'].includes(target)
       || layer === 'shared' && target !== null && target !== 'shared'
-      || specifier.startsWith('@earendil-works/') && !relative(root, file).startsWith('infra/pi/')
+      || EXECUTION.test(specifier) && !relative(root, file).startsWith('infra/env/')
+      || specifier.startsWith('@earendil-works/') && !EXECUTION.test(specifier) && !relative(root, file).startsWith('infra/pi/')
       || specifier === 'node:sqlite' && !relative(root, file).startsWith('infra/storage/');
     if (forbidden) failures.push(`${relative(root, file)} → ${specifier}`);
   }

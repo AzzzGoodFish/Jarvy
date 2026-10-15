@@ -4,7 +4,7 @@
 
 ## One `chat` tool, three actions
 
-Besides Pi's `bash`, `read`, `edit`, `write` and `codemode`, a Bot has one chat tool with on-demand discovery (A07):
+Besides Pi's `bash`, `read`, `edit`, `write` (which run in the Bot's [work environment](environments.md)) and `codemode`, a Bot has one chat tool with on-demand discovery (A07):
 
 ```ts
 chat({ action: "list" });

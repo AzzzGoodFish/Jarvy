@@ -14,7 +14,7 @@ Jarvy's design tokens (`src/web/styles/tokens.css`) and the remaining styles are
 
 ## Dependencies
 
-- Runtime: `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai` 1.2.0, `hono` 4.13.11, `@hono/node-server` 2.1.3, `typebox` 1.3.27, `proper-lockfile` 4.1.2, `undici` 8.10.2 — MIT. Jarvy calls Pi's native model, tool, OAuth and refresh APIs rather than copying provider login code.
+- Runtime: `@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai` and `@earendil-works/pi-env` 1.2.0, `hono` 4.13.11, `@hono/node-server` 2.1.3, `typebox` 1.3.27, `proper-lockfile` 4.1.2, `undici` 8.10.2 — MIT. Jarvy calls Pi's native model, tool, OAuth and refresh APIs rather than copying provider login code.
 - Frontend: React, Tailwind CSS, Radix UI, Lucide React, `cn`, class-variance-authority, react-markdown, remark-gfm, remark-breaks, three.js — under their own licenses, shipped with the installed packages.
 - Development only: **Agentation** (`agentation` 3.1.2, © Benji Taylor, PolyForm Shield 1.0.0) is loaded only in Vite development builds and is not part of the production build.
 

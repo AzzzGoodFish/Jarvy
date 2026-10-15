@@ -28,6 +28,7 @@ src/
     infra/
       storage/               Store, repositories, migrations/
       pi/                    Pi session, models, credentials, History and live-event conversion, HTTP dispatcher
+      env/                   work environments: where a Bot's file and command tools run (pi-env, Pi Durable)
       credentials/           per-connection credential serialisation
       files/                 workspace and attachment file I/O
       models/                model-list discovery over the network
@@ -43,9 +44,9 @@ src/
 
 - API calls services only — never Store, repositories or Pi. Hono registers every method and path explicitly.
 - Services hold business rules and complete objects; they may call Infra and other services' public interfaces.
-- Infra never imports Service or API. Database rows, network and SDK objects are converted here; data crossing layers uses `shared/` contracts. Pi types stay in `infra/pi/`, `node:sqlite` in `infra/storage/`.
+- Infra never imports Service or API. Database rows, network and SDK objects are converted here; data crossing layers uses `shared/` contracts. Pi types stay in `infra/pi/`, pi-env and Pi Durable in `infra/env/`, `node:sqlite` in `infra/storage/`.
 - `shared/` is not a fifth layer. Only the wiring entry points (`application.ts`, `cli.ts`) depend on every layer.
-- `npm run check:architecture` checks import direction, Pi/SQLite ownership and the 500-line limit on server files. `npm run build` runs it. It does not replace checking behaviour.
+- `npm run check:architecture` checks import direction, Pi/pi-env/SQLite ownership and the 500-line limit on server files. `npm run build` runs it. It does not replace checking behaviour.
 
 ## Interface languages
 

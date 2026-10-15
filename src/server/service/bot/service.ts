@@ -11,6 +11,7 @@ import type { ChatService } from "../chat/service.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
+import { BotEnvironments } from "./environments.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
 import { Bot } from "./bot.js";
@@ -38,6 +39,7 @@ export interface BotDependencies {
 export class BotService {
   private readonly bots = new Map<string, Bot>();
   private readonly lives = new Map<string, LiveTurns>();
+  private readonly environments = new BotEnvironments();
   private closed = false;
   private started = false;
   /** What only the agent Bot does (A48). */
@@ -53,7 +55,8 @@ export class BotService {
     const { store, chats, files, credentials } = this.deps, live = this.live(id);
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
-        tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event) }));
+        tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event),
+        environment: () => this.environments.current(id, record.workspacePath) }));
     const workspace = new Workspace(record.workspacePath);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
@@ -178,6 +181,7 @@ export class BotService {
     await bot.stop();
     this.bots.delete(id);
     this.lives.get(id)?.close(); this.lives.delete(id);
+    await this.environments.release(id);
     if (!this.deps.store.deleteBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
   }
@@ -186,5 +190,6 @@ export class BotService {
     this.closed = true;
     await Promise.all([...this.bots.values()].map(bot => bot.stop()));
     for (const live of this.lives.values()) live.close();
+    await this.environments.close();
   }
 }

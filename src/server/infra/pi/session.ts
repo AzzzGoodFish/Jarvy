@@ -16,6 +16,8 @@ import { Type, type TSchema } from "typebox";
 import type { ToolDefinition } from "../../shared/tools.js";
 import type { LiveEvent } from "../../shared/live.js";
 import { LiveTranslator } from "./live.js";
+import type { WorkEnvironment } from "../../shared/environment.js";
+import { environmentTools } from "./environment-tools.js";
 
 export interface SessionOptions {
   store: Store; bot: Bot; selection: ModelSelection; reference: SessionRef;
@@ -24,6 +26,8 @@ export interface SessionOptions {
   activity: (phase: BotPhase) => void;
   /** The turn as it happens, step by step (A47). */
   live?: (event: LiveEvent) => void;
+  /** Where bash, read, write and edit run (A50): the Bot's current environment, asked at every tool call. */
+  environment: () => WorkEnvironment;
 }
 /** The longest we wait for one provider request (Pi's default is five minutes). */
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
@@ -130,7 +134,7 @@ export class PiSession implements BotSession {
     });
     await resourceLoader.reload();
     const result = await createAgentSession({ cwd: bot.workspacePath, agentDir, sessionManager, settingsManager, resourceLoader, modelRuntime: models, model,
-      thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools });
+      thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools, customTools: environmentTools(options.environment) });
     adapter.session = result.session; adapter.settings = settingsManager;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
       adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");
