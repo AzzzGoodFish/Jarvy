@@ -11,7 +11,7 @@ import type { ChatService } from "../chat/service.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
-import { BotEnvironments } from "./environments.js";
+import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
 import type { EnvironmentKind } from "../../shared/environment.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
@@ -28,7 +28,8 @@ import { botPrompt } from "./prompt.js";
 import type { RosterEntry } from "./roster.js";
 import { LiveTurns } from "./live.js";
 import { AgentOps } from "./agent.js";
-import { welcomeLanguage } from "../../shared/agent.js";
+import { urgencyOf } from "../delivery/policy.js";
+import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 
 export interface BotDependencies {
@@ -60,16 +61,20 @@ export class BotService {
     let bot = this.bots.get(id);
     if (bot) return bot;
     const { store, chats, files, credentials } = this.deps, live = this.live(id);
-    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files), (setup, model, reference, activity) =>
+    const here = () => { const place = this.environments.here(id, record.workspacePath); return { name: place.name, directory: place.directory }; };
+    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath) }));
-    const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath));
+    const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
+      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind, cwd: place.directory }; });
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
       workspace, memory,
       tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster(),
+        places: { list: () => this.environments.list(id, record.workspacePath), switch: environmentId => this.environments.switch(id, environmentId, record.workspacePath),
+          summary: botId => this.environments.summary(botId) },
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
@@ -108,14 +113,38 @@ export class BotService {
     const kind = environment ?? (this.computers.available ? "computer" : "host");
     if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
     const record = this.deps.store.createBot(name);
-    this.environments.setHome(record.id, kind);
+    this.environments.setHome(record.id, kind, record.workspacePath);
     return this.details(record);
   }
-  /** Moves a Bot to its own computer or to the owner's computer, as its default; the next tool call runs there. */
+  /** The owner moves a Bot to its own computer or to their computer, as its default; the next tool call runs there. */
   setHome(id: string, kind: EnvironmentKind) {
-    this.describe(id);
-    this.environments.setHome(id, kind);
+    const moved = this.environments.setHome(id, kind, this.record(id).workspacePath);
+    if (moved) this.tellOwner(id, [{ what: "environment", value: where(moved) }], true);
     return this.describe(id);
+  }
+  /** The owner lets a Bot use their computer, or takes it back; taking it back while the Bot is there sends it home. */
+  grantHost(id: string, granted: boolean) {
+    const { changed, moved } = this.environments.grantHost(id, granted, this.deps.store.userMemberId(), this.record(id).workspacePath);
+    const changes: BotChange[] = changed ? [{ what: "access", value: `your owner's computer: ${granted ? "you may switch to it" : "taken back"}` }] : [];
+    if (moved) changes.push({ what: "environment", value: where(moved) });
+    if (changes.length) this.tellOwner(id, changes, !!moved);
+    return this.describe(id);
+  }
+  /** Tells a Bot what its owner changed about where it works (A41, A50). A move interrupts a running turn, as an
+   * @-mention does, so the Bot doesn't go on in the old place; a Bot not running, or a change of access alone, is
+   * told with its next batch (fish m1012–m1015). */
+  private tellOwner(id: string, changes: readonly BotChange[], move: boolean) {
+    // A Bot still being set up (no model yet, its first-setup card) has nothing to be told.
+    if (!this.record(id).connectionId) return;
+    const owner = this.deps.store.userMemberId(), chatId = this.deps.chats.openDirect(owner, id).id;
+    const urgency = move && this.bots.get(id)?.status().status === "running" ? urgencyOf("change", "owner")! : "digest";
+    for (const change of changes) this.deps.store.agent.notify({ botId: id, kind: "change", reason: "owner", urgency, chatId, actorId: owner, detail: JSON.stringify(change) });
+    if (urgency === "interrupt") this.deliver(id, urgency);
+  }
+  private record(id: string): BotRecord {
+    const record = this.deps.store.getBot(id);
+    if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    return record;
   }
   /** Starting (or resetting, which starts afresh) returns at once: the Bot's state follows as it changes. */
   async computer(id: string, action: "start" | "stop" | "reset") {
@@ -127,11 +156,7 @@ export class BotService {
     }
     return this.describe(id);
   }
-  describe(id: string) {
-    const record = this.deps.store.getBot(id);
-    if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
-    return this.details(record);
-  }
+  describe(id: string) { return this.details(this.record(id)); }
   runs(id: string) { this.describe(id); return this.deps.store.runtime.runs(id); }
   activity(id: string, before?: ActivityCursor, limit = 40) {
     const bot = this.get(id);
@@ -225,3 +250,6 @@ export class BotService {
     await this.environments.close();
   }
 }
+
+/** Where a move took the Bot, in the words it is told. */
+const where = (moved: Moved) => `${moved.to.name}, in ${moved.to.directory}`;

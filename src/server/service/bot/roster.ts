@@ -14,9 +14,9 @@ export interface RosterEntry {
   errorCode: string | null;
 }
 
-/** `bots.list` (A43): every Bot's name and run state. Read-only; the only per-viewer filtering is that
- * chats the viewer cannot read are counted, not named. Self first, then by name. */
-export function botRows(chats: ChatService, viewerId: string, entries: readonly RosterEntry[]) {
+/** `bots.list` (A43): every Bot's name and run state, and its work environments when asked (A50). Read-only; the
+ * only per-viewer filtering is that chats the viewer cannot read are counted, not named. Self first, then by name. */
+export function botRows(chats: ChatService, viewerId: string, entries: readonly RosterEntry[], environment?: (botId: string) => unknown) {
   const rows = entries.map(entry => {
     const running = entry.status.status === "running";
     const visible: { id: string; type: string; title: string }[] = [];
@@ -28,7 +28,7 @@ export function botRows(chats: ChatService, viewerId: string, entries: readonly 
     return { self: entry.id === viewerId, row: { name: entry.name, ...(entry.id === viewerId ? { self: true } : {}), ...(entry.agent ? { agent: true } : {}), status: entry.status.status,
       ...(running && entry.status.activity ? { activity: entry.status.activity } : {}),
       ...(visible.length ? { chats: visible } : {}), ...(hidden ? { otherChats: hidden } : {}),
-      ...(entry.errorCode ? { error: entry.errorCode } : {}) } };
+      ...(entry.errorCode ? { error: entry.errorCode } : {}), ...(environment ? { environment: environment(entry.id) } : {}) } };
   });
   rows.sort((a, b) => Number(b.self) - Number(a.self) || a.row.name.localeCompare(b.row.name));
   return rows.map(item => item.row);

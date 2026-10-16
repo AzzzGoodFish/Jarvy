@@ -117,7 +117,7 @@ export class Bot extends Member<OutgoingMessage, Promise<SentMessage>> {
       identity: () => this.identity.snapshot(),
       model: () => this.model.current(),
       workspace: this.workspace.location(),
-      environment: () => this.workspace.environment(),
+      home: () => this.workspace.home(),
       tools: this.tools.definitions(),
       onStatus: status => this.updateState(status),
       onHistory: record => this.recordHistory(record),

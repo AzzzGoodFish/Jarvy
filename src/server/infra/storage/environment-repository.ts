@@ -66,4 +66,21 @@ export class EnvironmentRepository {
   setHome(botId: string, environmentId: string): void {
     this.db.prepare("UPDATE bots SET home_environment_id=?, current_environment_id=? WHERE id=?").run(environmentId, environmentId, botId);
   }
+  /** Moves the Bot without changing its default. */
+  setCurrent(botId: string, environmentId: string): void {
+    this.db.prepare("UPDATE bots SET current_environment_id=? WHERE id=?").run(environmentId, botId);
+  }
+  /** The environments the owner granted the Bot, oldest grant first. */
+  grants(botId: string): EnvironmentRecord[] {
+    return (this.db.prepare(`SELECT e.id, e.owner_id AS ownerId, e.kind, e.bot_id AS botId, e.connection FROM environment_grants g JOIN environments e ON e.id=g.environment_id
+      WHERE g.bot_id=? AND e.deleted_at IS NULL ORDER BY g.granted_at, e.id`).all(botId) as unknown as Row[]).map(record);
+  }
+  /** A grant lasts until it is revoked (A50); false when nothing changed. */
+  grant(environmentId: string, botId: string, by: string): boolean {
+    return Number(this.db.prepare("INSERT OR IGNORE INTO environment_grants(environment_id,bot_id,granted_by,granted_at) VALUES(?,?,?,?)")
+      .run(environmentId, botId, by, Date.now()).changes) > 0;
+  }
+  revoke(environmentId: string, botId: string): boolean {
+    return Number(this.db.prepare("DELETE FROM environment_grants WHERE environment_id=? AND bot_id=?").run(environmentId, botId).changes) > 0;
+  }
 }

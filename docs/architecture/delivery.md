@@ -22,7 +22,7 @@ what happened             ──►    routes:  who receives it, and the reason 
 type Urgency = "interrupt" | "queue" | "digest";
 type DeliveryKind = "message" | "reaction" | "note"        // note = a new notice or thread summary version
   | "onboard" | "change";                                   // to one Bot, from the agent service (A48)
-type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent";
+type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner";
 interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
 ```
 
@@ -37,6 +37,7 @@ interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: Deliv
 | note | channel members (notice) or thread followers (summary), except the editor | `member`, `follower` |
 | onboard | the agent Bot, in its DM with the owner, when it first has a model (A48) | `setup` |
 | change | a Bot the agent Bot changed, in their DM (A48) | `agent` |
+| change | a Bot whose work environment the owner changed, in their DM (A50) | `owner` |
 
 The sender is never its own recipient; each member gets at most one row per message.
 
@@ -47,8 +48,10 @@ message:  { dm: "interrupt", mention: "interrupt", reply: "interrupt", subscript
 reaction: { author: "queue" },
 note:     { member: "queue", follower: "queue" },
 onboard:  { setup: "interrupt" },
-change:   { agent: "digest" },
+change:   { agent: "digest", owner: "interrupt" },
 ```
+
+The owner's `interrupt` applies to a move (a new default, or the owner's computer taken back while the Bot is there) of a Bot that is running, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, get `digest`: there is nothing to stop, and waking it would only spend a turn.
 
 **Mute** is a per-recipient override: in a chat the recipient muted (a thread follows its channel), `interrupt` becomes `queue` unless the reason is `mention` or `reply`. It applies to people and Bots alike.
 

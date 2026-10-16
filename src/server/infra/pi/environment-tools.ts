@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { readFile as readLocal, rm } from "node:fs/promises";
 import { basename } from "node:path";
 import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, type ToolDefinition } from "@earendil-works/pi-coding-agent";
@@ -5,9 +6,12 @@ import type { WorkEnvironment } from "../../shared/environment.js";
 import { IMAGE_SNIFF_BYTES, imageKind } from "./image-kind.js";
 
 /** Pi's bash, read, write and edit with their operations on the Bot's current WorkEnvironment (A50), looked up at
- * every call, so a switch takes effect at the next one without a new session. Registered as custom tools under the
+ * every call, so a switch takes effect at the next one without a new session. One call stays in the environment it
+ * started in, so an edit never reads in one place and writes in another. Registered as custom tools under the
  * built-in names, they replace Pi's local ones; their schemas, output handling and descriptions stay Pi's. */
-export function environmentTools(current: () => WorkEnvironment): ToolDefinition[] {
+export function environmentTools(lookup: () => WorkEnvironment): ToolDefinition[] {
+  const pinned = new AsyncLocalStorage<WorkEnvironment>();
+  const current = () => pinned.getStore() ?? lookup();
   const access = async (path: string) => {
     if (!await current().exists(path)) throw Object.assign(new Error(`ENOENT: no such file or directory, access '${path}'`), { code: "ENOENT" });
   };
@@ -23,17 +27,17 @@ export function environmentTools(current: () => WorkEnvironment): ToolDefinition
     createWriteToolDefinition(cwd, { operations: { writeFile, mkdir: path => current().mkdir(path) } }),
     createEditToolDefinition(cwd, { operations: { readFile, writeFile, access } }),
   ];
-  return definitions.map(definition => inside(definition as unknown as ToolDefinition, current));
+  return definitions.map(definition => inside(definition as unknown as ToolDefinition, lookup, pinned));
 }
 
 /** Pi resolves a tool's paths against the run's working directory (`ctx.cwd`) before its own; they resolve against
- * the current environment's directory instead. */
-function inside(definition: ToolDefinition, current: () => WorkEnvironment): ToolDefinition {
+ * the directory of the environment the call runs in instead. */
+function inside(definition: ToolDefinition, lookup: () => WorkEnvironment, pinned: AsyncLocalStorage<WorkEnvironment>): ToolDefinition {
   const execute = definition.execute.bind(definition) as (...args: unknown[]) => ReturnType<ToolDefinition["execute"]>;
   return { ...definition, execute: ((...args: unknown[]) => {
-    const ctx = args[4];
-    if (ctx && typeof ctx === "object") args[4] = new Proxy(ctx, { get: (target, key) => key === "cwd" ? current().cwd : Reflect.get(target, key, target) });
-    return execute(...args);
+    const env = lookup(), ctx = args[4];
+    if (ctx && typeof ctx === "object") args[4] = new Proxy(ctx, { get: (target, key) => key === "cwd" ? env.cwd : Reflect.get(target, key, target) });
+    return pinned.run(env, () => execute(...args));
   }) as ToolDefinition["execute"] };
 }
 

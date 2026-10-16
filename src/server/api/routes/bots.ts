@@ -15,7 +15,13 @@ export function botRoutes(bots: ApiServices["bots"]) {
     // Docker is there (A50).
     return c.json(bots.create(textField(input, "name"), input.environment === undefined ? undefined : environmentKind(input.environment)), 201);
   });
-  routes.put("/:id/environment", jsonBody, async c => c.json(bots.setHome(c.req.param("id"), environmentKind((await readJson(c)).home))));
+  // Either the default environment (`home`) or whether the Bot may use the owner's computer (`hostGranted`).
+  routes.put("/:id/environment", jsonBody, async c => {
+    const input = await readJson(c), id = c.req.param("id");
+    if (input.hostGranted === undefined) return c.json(bots.setHome(id, environmentKind(input.home)));
+    if (typeof input.hostGranted !== "boolean") throw new HTTPException(400, { message: "hostGranted must be true or false" });
+    return c.json(bots.grantHost(id, input.hostGranted));
+  });
   routes.post("/:id/computer/:action", async c => {
     const action = c.req.param("action");
     if (action !== "start" && action !== "stop" && action !== "reset") throw new HTTPException(404, { message: "Not found" });

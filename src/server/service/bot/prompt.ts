@@ -44,17 +44,21 @@ When something will take a while, post a short progress note partway through, an
 `;
 }
 
-/** Where the Bot works (A50): its own computer, or its workspace on the owner's computer. */
+/** Where the Bot works (A50): its default environment, its own computer or its workspace on the owner's computer.
+ * Where it is now goes at the end of each batch instead, so a switch leaves the prompt, and the cache, as they were. */
 function workspaceSection(setup: RuntimeSetup, workspacePath: string): string {
-  const place = setup.environment();
+  const place = setup.home();
   if (place.kind === "computer") return `## Workspace
-Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your computer.
+Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your computer.
 Your workspace there is ${place.cwd}, and it is kept when your computer is reset. Keep it tidy, and put temporary files under temp and clear them out.
+${SWITCHING}
 `;
   return `## Workspace
 You have your own workspace: ${workspacePath}
 Treat it as your only base. Create, change and delete files only inside it, keep it tidy, and put temporary files under temp and clear them out.
 Leave everything else alone by default: other members' workspaces, live data directories (such as ~/.jarvy), main repository checkouts and system directories. Touch them only when the task itself needs it or the person in charge asks you to, and say in your reply what you changed.
 Shared directories and other people's files are read-only. Ask the person in charge before writing to them.
+${SWITCHING}
 `;
 }
+const SWITCHING = "This is your default work environment. Each batch of messages ends with the one you are in now. workspaces.list shows the ones you may use, and workspaces.switch moves your tools to another, like cd, until you switch back.";

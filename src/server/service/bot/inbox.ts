@@ -3,7 +3,7 @@ import { previewQuotes } from "../../shared/quotes.js";
 import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { ChatService } from "../chat/service.js";
-import { encodeChatBatch, encodeNoticeBatch, type EnvelopeNotice } from "../chat/envelope.js";
+import { encodeChatBatch, encodeNoticeBatch, type BatchWorkspace, type EnvelopeNotice } from "../chat/envelope.js";
 import type { BotNotice } from "../../infra/storage/interaction-repository.js";
 import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
@@ -11,7 +11,9 @@ import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
 /** Converts already-committed Chat input into runtime input; no SDK dependencies. */
 export class BotInbox {
-  constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles) {}
+  /** `where` is the work environment the Bot is in now, named at the end of each batch (A50). */
+  constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles,
+    private readonly where?: () => BatchWorkspace) {}
   /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. A digest delivery
    * (a change the agent Bot made, A48) is not work of its own: it rides along with the next batch. */
   pending() { return this.repository.hasPending(this.botId) || this.hasNotices(); }
@@ -28,7 +30,7 @@ export class BotInbox {
     if (!batch.inputs.length) { const pending = this.notices(); return pending && { xml: pending.xml, notices: pending.ids }; }
     const inputs = await this.files.envelope(this.botId, batch.inputs.map(input => input.messageId));
     for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "Chat access has changed.");
-    const digest = this.chats.channels.digest(this.botId);
+    const digest = { ...this.chats.channels.digest(this.botId), ...(this.where ? { workspace: this.where() } : {}) };
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const pending = this.envelope(this.chats.notices(this.botId));
     return { xml: encodeChatBatch(this.botId, inputs, digest, pending.length ? pending : undefined), notices: pending.map(notice => notice.id) };
@@ -54,7 +56,7 @@ export class BotInbox {
   notices(): { xml: string; ids: number[] } | null {
     const pending = this.chats.notices(this.botId);
     if (!pending.length) return null;
-    return { xml: encodeNoticeBatch(this.botId, this.envelope(pending)), ids: pending.map(notice => notice.id) };
+    return { xml: encodeNoticeBatch(this.botId, this.envelope(pending), this.where?.()), ids: pending.map(notice => notice.id) };
   }
   /** These notices reached the model. */
   tell(ids: readonly number[]) { this.chats.tellNotices(this.botId, ids); }

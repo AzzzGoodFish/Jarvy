@@ -10,7 +10,7 @@ const MAX_FILE = 10 * 1024 * 1024;
  * run now (A50). Files move between the chat and the Bot only through here, in the environment it works in. */
 export class Workspace implements WorkspacePort {
   private readonly local: LocalWorkspace;
-  constructor(cwd: string, private readonly current: () => WorkEnvironment) { this.local = new LocalWorkspace(cwd); }
+  constructor(cwd: string, private readonly current: () => WorkEnvironment, readonly home: () => { kind: EnvironmentKind; cwd: string }) { this.local = new LocalWorkspace(cwd); }
   prepare() { return this.local.prepare(); }
   /** A file in the temporary directory of the environment the Bot works in, by the path it sees there. */
   async writeTempFile(name: string, content: string, signal?: AbortSignal) {
@@ -49,7 +49,6 @@ export class Workspace implements WorkspacePort {
     return files;
   }
   location() { return { type: "local", cwd: this.local.cwd, tempDir: this.local.tempDir }; }
-  environment(): { kind: EnvironmentKind; cwd: string } { const env = this.current(); return { kind: env.kind, cwd: env.cwd }; }
 }
 
 /** A file name safe as one path segment. */

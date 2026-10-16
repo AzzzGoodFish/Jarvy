@@ -1,6 +1,7 @@
-/** The agent Bot (A48). What it changed about another Bot, kept as structure until that Bot is told with its next
- * batch, where the English words are put together. `value` is the new value; a persona keeps none (it is in the prompt). */
-export const CHANGE_FIELDS = ["name", "description", "persona", "model", "thinking", "run"] as const;
+/** What the agent Bot (A48) or the owner (where the Bot works, A50) changed about a Bot, kept as structure until that
+ * Bot is told with its next batch, where the English words are put together. `value` is the new value; a persona keeps
+ * none (it is in the prompt). */
+export const CHANGE_FIELDS = ["name", "description", "persona", "model", "thinking", "run", "environment", "access"] as const;
 export type ChangeField = typeof CHANGE_FIELDS[number];
 export interface BotChange { what: ChangeField; value: string | null }
 /** Interface languages the browser may report with the agent's first model (A45); the welcome is written in it. */

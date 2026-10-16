@@ -11,8 +11,10 @@ const POLICY: Record<DeliveryKind, Partial<Record<DeliveryReason, Urgency>>> = {
   note: { member: "queue", follower: "queue" },
   // The owner just gave the agent Bot its first model: it should welcome them now (A48).
   onboard: { setup: "interrupt" },
-  // What the agent Bot changed about a Bot rides along with that Bot's next batch, without waking it.
-  change: { agent: "digest" },
+  // What the agent Bot changed about a Bot rides along with that Bot's next batch, without waking it. The owner moving
+  // a Bot to another work environment stops its running turn like an @, so it doesn't go on in the old place (A50); a
+  // Bot not running, and a change of access alone, hear of it with their next batch instead (fish m1012-m1015).
+  change: { agent: "digest", owner: "interrupt" },
 };
 export function urgencyOf(kind: DeliveryKind, reason: DeliveryReason): Urgency | undefined { return POLICY[kind][reason]; }
 /** 免打扰: what would interrupt is queued instead, except being @-ed or replied to. */

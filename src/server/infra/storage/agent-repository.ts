@@ -34,7 +34,7 @@ export class AgentRepository {
     return Number(this.db.prepare("INSERT OR IGNORE INTO settings(key,value) VALUES('agent_onboarded',?)").run(String(Date.now())).changes) > 0;
   }
   /** One delivery about no message, for one Bot; the caller wakes it. */
-  notify(input: { botId: string; kind: "onboard" | "change"; reason: "setup" | "agent"; urgency: Urgency; chatId: string; actorId: string; detail: string }): void {
+  notify(input: { botId: string; kind: "onboard" | "change"; reason: "setup" | "agent" | "owner"; urgency: Urgency; chatId: string; actorId: string; detail: string }): void {
     this.db.prepare("INSERT INTO inbox(member_id,kind,reason,urgency,chat_id,actor_id,detail,created_at) VALUES(?,?,?,?,?,?,?,?)")
       .run(input.botId, input.kind, input.reason, input.urgency, input.chatId, input.actorId, input.detail, Date.now());
   }

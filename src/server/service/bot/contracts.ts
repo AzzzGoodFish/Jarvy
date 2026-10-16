@@ -39,8 +39,8 @@ export interface Workspace {
   prepare(): Promise<void>;
   location(): { type: string; cwd: string; tempDir: string };
   writeTempFile(name: string, content: string, signal?: AbortSignal): Promise<string>;
-  /** Where the Bot's tools run now (A50). */
-  environment(): { kind: EnvironmentKind; cwd: string };
+  /** The Bot's default work environment (A50), which its instructions describe; each batch names where it is now. */
+  home(): { kind: EnvironmentKind; cwd: string };
   /** Puts a chat file into that environment; returns its path there. */
   put(name: string, id: string, data: Uint8Array, path?: string): Promise<string>;
 }
@@ -75,7 +75,7 @@ export interface RuntimeSetup {
   identity: () => ReturnType<Identity["snapshot"]>;
   model: () => PreparedModel;
   workspace: ReturnType<Workspace["location"]>;
-  environment: () => ReturnType<Workspace["environment"]>;
+  home: () => ReturnType<Workspace["home"]>;
   tools: readonly ToolDefinition[];
   onStatus(status: BotStatus): void;
   onHistory(record: HistoryDraft): Promise<void>;

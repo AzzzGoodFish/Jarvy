@@ -17,6 +17,9 @@ import type { AgentOps } from "./agent.js";
 import { AgentTools } from "./agent-tools.js";
 import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
 
+/** The Bot's work environments (A50), for workspaces.list and workspaces.switch, and any Bot's for bots.list. */
+export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown }
+
 const Gateway = Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("describe"), Type.Literal("call")]),
   tool: Type.Optional(Type.String()), args: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }, { additionalProperties: false });
 export class Tools implements ToolsPort {
@@ -24,7 +27,8 @@ export class Tools implements ToolsPort {
   private readonly tools: ChatTools;
   /** The agent Bot's own tools (A48); other Bots have none. */
   private readonly agent?: AgentTools;
-  constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
+  constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
+    asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
     this.tools = new ChatTools(scope);
     if (scope.agent) this.agent = new AgentTools({ ops: scope.agent, tools: this.tools });
   }
@@ -69,7 +73,10 @@ export class Tools implements ToolsPort {
           case "chats.info":
             return chatDetail(this.scope.chats, this.scope.botId, this.tools.chat((args as { chatId: string }).chatId));
           case "members.list": return this.tools.membersList();
-          case "bots.list": return botRows(this.scope.chats, this.scope.botId, this.scope.roster());
+          case "bots.list": return botRows(this.scope.chats, this.scope.botId, this.scope.roster(),
+            (args as { environments?: boolean }).environments ? id => this.scope.places.summary(id) : undefined);
+          case "workspaces.list": return this.scope.places.list();
+          case "workspaces.switch": return this.scope.places.switch((args as { id: string }).id);
           case "chats.create": return this.tools.create(args as Parameters<ChatTools["create"]>[0]);
           case "chats.update": return this.tools.update(args as Parameters<ChatTools["update"]>[0]);
           case "chats.addMembers": return this.tools.addMembers(args as Parameters<ChatTools["addMembers"]>[0]);

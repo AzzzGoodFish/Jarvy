@@ -18,19 +18,26 @@ A work environment is where a Bot's `bash`, `read`, `write` and `edit` run. The 
 ## How the tools use it
 
 - `environmentTools(current)` builds Pi's bash, read, write and edit with their pluggable operations and registers them as custom tools under the built-in names, so they replace Pi's local ones. Schemas, output truncation, descriptions and codemode's nested calls stay Pi's.
-- Every operation asks `current()` for the Bot's environment at the time of the call, so a change of environment needs no new session.
-- Pi resolves a tool's paths against the run's working directory; the tools see the current environment's directory instead.
+- Each call asks `current()` for the Bot's environment when it starts and keeps it to the end, so a change of environment needs no new session and an edit never reads in one place and writes in another.
+- Pi resolves a tool's paths against the run's working directory; the tools see the directory of the environment the call runs in instead.
 - `read` tells pictures from their first bytes (`image-kind.ts`, Pi's own rules), wherever the file is.
 - A command gets the environment Pi built for it only on the owner's computer.
 
 ## Where a Bot works
 
-Storage (v20): `environments` rows belong to a person; a Bot has a default (`home_environment_id`) and a current environment (`current_environment_id`). NULL is the owner's computer, whose row is made when first needed, so Bots from before environments stay there. `BotEnvironments.current()` reads the current one at every tool call and opens it on first use; a move closes the old one.
+Storage (v20): `environments` rows belong to a person; a Bot has a default (`home_environment_id`) and a current environment (`current_environment_id`). NULL is the owner's computer, whose row is made when first needed, so Bots from before environments stay there. `BotEnvironments.current()` reads the current one at every tool call and opens it on first use. The one a Bot leaves closes once the operations still running there end, so a switch never cuts a command short.
 
 - **The owner's computer** (`host`): Pi Durable's `NodeExecutionEnv` in the Bot's `bots/<id>/workspace`, with the environment Pi builds for each command.
 - **Its own computer** (`computer`): a Docker container only that Bot uses (below). Commands get the container's own environment variables.
 
-A new Bot gets its own computer when this machine has Docker, unless whoever creates it asks for the owner's computer (`POST /bots {environment}`, the agent's `bots.create`); the owner can change it in Bot info or the new Bot's first setup (`PUT /bots/:id/environment {home}`). The change applies from the next tool call; the prompt's Workspace section, rebuilt every turn, describes where the Bot is.
+A new Bot gets its own computer when this machine has Docker, unless whoever creates it asks for the owner's computer (`POST /bots {environment}`, the agent's `bots.create`); the owner can change the default in Bot info or the new Bot's first setup (`PUT /bots/:id/environment {home}`), which moves the Bot there too.
+
+## Grants and switching
+
+- **May use**: a Bot may be in its own computer, its default, and what its owner granted it (`environment_grants`). So far the owner's computer is the one environment to grant: Bot info shows a switch for a Bot whose default is its own computer (`PUT /bots/:id/environment {hostGranted}`). A grant lasts until it is taken back; only the owner grants, not the agent Bot.
+- **Switching**: `workspaces.list` gives the environments the Bot may use, with ids, names, the directory its tools start in, its default and a computer's state; `workspaces.switch` moves it, like `cd`, until it switches back, starting a stopped computer first and answering with the directory and what the Bot can do there. On the owner's computer it starts in its workspace there. Bot info shows where a Bot is when it switched away from its default.
+- **Telling the Bot**: the system prompt's Workspace section describes the Bot's default and never changes with a switch, so the prompt cache survives one; each batch ends with `<workspace name directory/>`, where it is now ([envelope](envelope.md)). What the owner changes reaches the Bot as a `change` delivery ([delivery](delivery.md), A41), told once and kept in its History: a move (a new default, or taking the owner's computer back while the Bot is there) interrupts a running turn like an @, stopping its commands but not the processes it left running in the background, and starts a new one with the news; a Bot that isn't running, and a change of access alone, hear of it with their next batch.
+- `bots.list {environments: true}` adds each Bot's default, current and usable environments.
 
 ## A Bot's own computer
 

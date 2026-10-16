@@ -48,5 +48,6 @@ export interface EnvironmentRecord {
  * container; `unavailable` means this machine has no usable Docker. */
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 export interface ComputerStatus { state: ComputerState; error?: string }
-/** Where a Bot works, for the interface: its default and current environment, and its computer when it has one. */
-export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: ComputerStatus | null; docker: boolean }
+/** Where a Bot works, for the interface: its default and current environment, its computer when it has one, and
+ * whether the owner lets it use their computer (the one environment granted so far). */
+export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: ComputerStatus | null; docker: boolean; hostGranted: boolean }

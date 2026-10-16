@@ -39,12 +39,20 @@ export function EnvironmentChoice({ bot, onSaved }: { bot: Bot; onSaved: (bot: B
   </>;
 }
 
-/** Bot info's section: the choice, then its own computer's state with start, stop and reset when it has one. */
+/** Bot info's section: the choice; where it is now when it switched away; its own computer's state with start, stop
+ * and reset when it has one; and, for a Bot working on its own computer, whether it may switch to yours. */
 export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
   const [action, setAction] = useState<"start" | "stop" | "reset" | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [granting, setGranting] = useState(false);
   const [error, setError] = useState("");
-  const computer = bot.environment.computer;
+  const { computer, home, current, hostGranted } = bot.environment;
+  async function grant(on: boolean) {
+    setGranting(true); setError("");
+    try { onSaved(await api.grantHost(bot.id, on)); }
+    catch (reason) { setError(errorText(reason, "environment.accessFailed")); }
+    finally { setGranting(false); }
+  }
   async function run(what: "start" | "stop" | "reset") {
     setAction(what); setError("");
     try { onSaved(await api.computer(bot.id, what)); }
@@ -55,6 +63,9 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
   const [label, hint] = state ? STATE[state] : [null, null];
   return <section className="jv-section" aria-label={t("environment.title")}><h3 className="jv-section-title">{t("environment.title")}</h3>
     <EnvironmentChoice bot={bot} onSaved={onSaved}/>
+    {current !== home && <div className="jv-list jv-env-computer"><div className="jv-list-row jv-static-row">
+      <span className="jv-row-text"><strong>{t(current === "host" ? "environment.nowHost" : "environment.nowComputer")}</strong><span>{t("environment.nowHint")}</span></span>
+    </div></div>}
     {state && label && hint && <div className="jv-list jv-env-computer">
       <div className="jv-list-row jv-static-row">
         <span className="jv-row-text"><strong>{t("environment.its")}</strong><span>{t(hint)}</span></span>
@@ -65,6 +76,12 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
           <Button type="button" variant="ghost" size="sm" disabled={!!action || state === "preparing" || confirming} onClick={() => setConfirming(true)}>{t("environment.reset")}</Button>
         </>}
       </div>
+    </div>}
+    {home === "computer" && <div className="jv-list jv-env-computer" aria-label={t("environment.access")}>
+      <button type="button" role="switch" aria-checked={hostGranted} disabled={granting} className="jv-list-row jv-choice-row jv-env-access" onClick={() => void grant(!hostGranted)}>
+        <span className="jv-row-text"><strong>{t("environment.hostAccess")}</strong><span>{t("environment.hostAccessHint")}</span></span>
+        <span className="jv-env-switch" aria-hidden="true"/>
+      </button>
     </div>}
     {/* Asked in place: Bot info is itself a dialog. */}
     {confirming && <div className="jv-env-confirm" role="group" aria-label={t("environment.resetTitle", { name: bot.name })}>
