@@ -1,4 +1,3 @@
-import { isAbsolute } from "node:path";
 import type { MemberIdentity } from "../../shared/chat.js";
 import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../../shared/agent.js";
 
@@ -10,8 +9,10 @@ export interface EnvelopeMessage {
   content: string;
   /** The message this one replies to, quoted short. */
   replyTo?: { id: string; sender: MemberIdentity; text: string };
-  attachments: readonly { path: string; name: string }[];
+  /** What a Bot learns of a file in a message (A50): files.get and files.view open it by its id. */
+  attachments: readonly FileListing[];
 }
+export interface FileListing { id: string; name: string; type: string; size: string }
 const INVALID_XML = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ud800-\udfff\ufffe\uffff]/u;
 function escape(value: string): string {
   if (INVALID_XML.test(value)) throw new Error("Invalid XML character");
@@ -96,10 +97,8 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
     const reply = message.replyTo;
     if (reply) remember(members, reply.sender.id, `<member${attribute("id", reply.sender.id)}${attribute("name", reply.sender.name)}${attribute("kind", reply.sender.kind)}/>`);
     const quote = reply ? `<reply_to${attribute("message", reply.id)}${attribute("from", reply.sender.id)}>${escape(reply.text)}</reply_to>` : "";
-    const files = message.attachments.map(file => {
-      if (!isAbsolute(file.path)) throw new Error("Attachment path must be absolute");
-      return `<file${attribute("path", file.path)}${attribute("name", file.name)}/>`;
-    }).join("");
+    const files = message.attachments.map(file =>
+      `<file${attribute("id", file.id)}${attribute("name", file.name)}${attribute("type", file.type)}${attribute("size", file.size)}/>`).join("");
     return `<message${attributes}>${quote}${message.content ? `<text>${escape(message.content)}</text>` : ""}${files}</message>`;
   });
   // Chats already defined in the head are referenced by ID; others carry their title and type.

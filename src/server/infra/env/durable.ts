@@ -31,6 +31,12 @@ export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv
     async writeFile(path, content) { unwrap(await env.writeFile(path, content, BACKGROUND_CONTEXT)); },
     async mkdir(path) { unwrap(await env.createDir(path, { recursive: true }, BACKGROUND_CONTEXT)); },
     async exists(path) { return unwrap(await env.exists(path, BACKGROUND_CONTEXT)); },
+    async fileSize(path) {
+      const real = await env.canonicalPath(path, BACKGROUND_CONTEXT);
+      if (!real.ok) { if (real.error.code === "not_found") return null; throw fault(real.error); }
+      const info = unwrap(await env.fileInfo(real.value, BACKGROUND_CONTEXT));
+      return info.kind === "file" ? info.size : null;
+    },
     async close() { if (closed) return; closed = true; await options.close?.(); },
   };
 }

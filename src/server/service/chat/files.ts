@@ -1,13 +1,12 @@
-import { ChatError, type ChatMessage } from "../../shared/chat.js";
+import { ChatError, type Attachment, type ChatMessage } from "../../shared/chat.js";
 import { expandQuotes, replyExcerpt } from "../../shared/quotes.js";
-import { AttachmentFiles } from "../../infra/files/attachments.js";
-import type { EnvelopeMessage } from "./envelope.js";
+import type { EnvelopeMessage, FileListing } from "./envelope.js";
 import type { ChatService } from "./service.js";
 
-/** Resolves authorized Chat attachments before crossing into file infrastructure. */
+/** Files in messages as Bots see them (A50): listed by id, name, type and size, and opened only through the backend,
+ * for messages the Bot can read. No path on any machine is handed out. */
 export class ChatFiles {
-  private readonly files: AttachmentFiles;
-  constructor(dataDir: string, private readonly chats: ChatService) { this.files = new AttachmentFiles(dataDir); }
+  constructor(private readonly chats: ChatService) {}
   async envelope(botId: string, messageIds: readonly string[], signal?: AbortSignal): Promise<EnvelopeMessage[]> {
     const output: EnvelopeMessage[] = [];
     for (const id of messageIds) {
@@ -19,7 +18,8 @@ export class ChatFiles {
       const section = chat.sectionId ? this.chats.channels.sections(botId).find(item => item.id === chat.sectionId)?.name : undefined;
       output.push({ id, chat: { id: chat.id, type: chat.type, title: chat.title, ...(section ? { section } : {}),
         ...(chat.parentId ? { parent: chat.parentId } : {}), ...(chat.rootMessageId ? { root: chat.rootMessageId } : {}), ...(chat.status ? { status: chat.status } : {}) }, sender: message.sender,
-        content: expandQuotes(message.content, message.quotes, memberId => this.chats.member(memberId)?.name ?? memberId), createdAt: message.createdAt, attachments: await this.paths(botId, message, signal), ...this.reply(message) });
+        content: expandQuotes(message.content, message.quotes, memberId => this.chats.member(memberId)?.name ?? memberId), createdAt: message.createdAt,
+        attachments: listing(message), ...this.reply(message) });
     }
     return output;
   }
@@ -28,17 +28,20 @@ export class ChatFiles {
     const sender = message.replyTo ? this.chats.member(message.replyTo.senderId) : null;
     return message.replyTo && sender ? { replyTo: { id: message.replyTo.id, sender, text: replyExcerpt(message.replyTo) } } : {};
   }
-  async paths(actorId: string, message: ChatMessage, signal?: AbortSignal) {
-    const paths: { path: string; name: string }[] = [];
-    for (const item of message.attachments) {
-      signal?.throwIfAborted();
-      const attachment = this.chats.download(actorId, item.id);
-      if (!attachment) throw new ChatError(404, "Attachment not found");
-      paths.push(await this.files.materialize({ ...attachment, id: item.id, name: item.name }, signal));
-    }
-    return paths;
+  /** A file of a message the actor can read, with its contents. */
+  open(actorId: string, attachmentId: string): { file: Attachment; data: Buffer } {
+    const found = this.chats.download(actorId, attachmentId);
+    if (!found) throw new ChatError(404, "File not found, or in a message you can't read");
+    return found;
   }
-  readOutgoing(workspace: string, items: readonly { path: string; name: string }[], signal?: AbortSignal) {
-    return this.files.readOutgoing(workspace, items, signal);
-  }
+}
+
+/** A message's files as a Bot reads them. */
+export function listing(message: ChatMessage): FileListing[] {
+  return message.attachments.map(file => ({ id: file.id, name: file.name, type: file.mimeType || "application/octet-stream", size: byteSize(file.size) }));
+}
+export function byteSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }

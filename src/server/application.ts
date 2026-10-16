@@ -33,7 +33,7 @@ export class Application {
       saved: id => this.user.changed(id), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
     this.user = new User(store.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }), id => this.events.publish({ kind: "chat", id }),
       () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
-    this.files = new ChatFiles(dataDir, this.chats);
+    this.files = new ChatFiles(this.chats);
     store.runtime.recover();
     this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });

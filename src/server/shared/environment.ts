@@ -18,6 +18,8 @@ export interface WorkEnvironment {
   /** Creates the directory and any missing parents. */
   mkdir(path: string): Promise<void>;
   exists(path: string): Promise<boolean>;
+  /** The size of the regular file at the path, following links; null when there is none. */
+  fileSize(path: string): Promise<number | null>;
   /** Releases what the environment holds open (connections, processes); idempotent. */
   close(): Promise<void>;
 }

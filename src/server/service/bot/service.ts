@@ -73,7 +73,7 @@ export class BotService {
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
-      const outgoing = await files.readOutgoing(record.workspacePath, message.attachments ?? [], message.signal);
+      const outgoing = await workspace.readOutgoing(message.attachments ?? [], message.signal);
       message.signal?.throwIfAborted();
       return chats.deliver(id, message.chatId, { content: message.content, attachmentIds: [], files: outgoing, source: message.source, clientMessageId: message.clientMessageId,
         ...(message.question ? { question: message.question } : {}), ...(message.alsoToChannel ? { alsoToChannel: true } : {}),

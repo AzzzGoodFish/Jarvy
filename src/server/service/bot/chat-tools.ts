@@ -1,6 +1,6 @@
 import { ChatError, type Chat, type ChatMessage, type MemberIdentity } from "../../shared/chat.js";
 import type { ChatService } from "../chat/service.js";
-import type { ChatFiles } from "../chat/files.js";
+import { listing, type ChatFiles } from "../chat/files.js";
 import { messageRow, threadRow } from "./chat-views.js";
 
 type Scope = { botId: string; chats: ChatService; files: ChatFiles };
@@ -123,14 +123,14 @@ export class ChatTools {
     return { messages: await this.rows(page, signal), ...(messages.length > limit ? { hasMore: true } : {}) };
   }
   private async rows(messages: readonly ChatMessage[], signal?: AbortSignal) {
-    return Promise.all(messages.map(async message => messageRow(this.chats, this.bot, message, await this.scope.files.paths(this.bot, message, signal))));
+    signal?.throwIfAborted();
+    return messages.map(message => messageRow(this.chats, this.bot, message, listing(message)));
   }
   search(input: { chatId?: string; query: string; limit?: number }) {
     const found = input.chatId === undefined ? this.chats.searchAll(this.bot, input.query, input.limit ?? 30)
       : this.chats.search(this.bot, this.chat(input.chatId).id, input.query, input.limit ?? 30);
     const chats = new Map<string, Chat | null>();
     const chatOf = (id: string) => { if (!chats.has(id)) chats.set(id, this.chats.get(this.bot, id)); return chats.get(id); };
-    return found.map(message => messageRow(this.chats, this.bot, message, message.attachments.map(file => ({ name: file.name })),
-      input.chatId === undefined ? chatOf(message.chatId) : null));
+    return found.map(message => messageRow(this.chats, this.bot, message, listing(message), input.chatId === undefined ? chatOf(message.chatId) : null));
   }
 }

@@ -13,7 +13,7 @@ import { ConnectionCredentials, CurrentCredentials } from "./credentials.js";
 import { installModel } from "./model.js";
 import { configureHttp } from "./http.js";
 import { Type, type TSchema } from "typebox";
-import type { ToolDefinition } from "../../shared/tools.js";
+import { isToolMedia, type ToolDefinition } from "../../shared/tools.js";
 import type { LiveEvent } from "../../shared/live.js";
 import { LiveTranslator } from "./live.js";
 import type { WorkEnvironment } from "../../shared/environment.js";
@@ -126,6 +126,8 @@ export class PiSession implements BotSession {
           parameters: Type.Unsafe(tool.parameters as TSchema), executionMode: "sequential",
           execute: async (toolCallId, args, signal) => {
             const output = await tool.execute(args, { toolCallId, signal });
+            if (isToolMedia(output)) return { content: [{ type: "text", text: output.text },
+              ...output.images.map(image => ({ type: "image" as const, data: image.data, mimeType: image.mimeType }))], details: {} };
             return { content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output) }], details: {} };
           },
         });

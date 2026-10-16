@@ -15,7 +15,6 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
     workspace/                         Pi cwd; an ordinary folder, mounted as /workspace in the Bot's own computer
       temp/
     agent/pi/sessions/<timestamp>.jsonl   the Bot's one session file
-  attachments/<attachmentId>/<name>    readable copies of attachments, rebuilt from the database
   pi/models.json                       pi.dev's model catalog as last fetched (A49)
   computers/bin/pi-env                 the daemon Bots' own computers mount read-only (A50)
   computers/build.log                  output of the last build of their image
@@ -47,7 +46,7 @@ Pending question cards are marked ignored at startup, since no tool call outlive
 
 ## Attachments
 
-Up to 10 MB each and 5 per message. Into a Bot: the BLOB is copied to a stable path on the tool host, checked for size, name, path and completeness, and listed in the XML. Out of a Bot: `messages.send` takes `{path, name}`; the server reads the file and saves it to the target chat. Images are never inlined; PDFs, audio and so on need tools that can read them. `GET /api/attachments/:id` serves single byte ranges (206 / 416) and the file's own type only for the fixed media list in A34; anything else is `application/octet-stream`, always with `Content-Disposition: attachment`.
+Up to 10 MB each and 5 per message; the database holds them. Into a Bot: the XML lists each by id, name, type and size; `files.get` writes it into the Bot's current environment and `files.view` hands a picture or short text to the model (A50). Out of a Bot: `messages.send` takes `{path, name}` in its current environment; the server reads the file through it and saves it to the target chat. Images reach the model only when a Bot asks (`files.view`, or `read` on a file it got); PDFs, audio and so on need tools that can read them. `GET /api/attachments/:id` serves single byte ranges (206 / 416) and the file's own type only for the fixed media list in A34; anything else is `application/octet-stream`, always with `Content-Disposition: attachment`.
 
 ## Schema versions
 

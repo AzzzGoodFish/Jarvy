@@ -36,8 +36,10 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `chats.subscribe` | get every new message of a channel or thread (each one interrupts) |
 | `sections.list` / `create` / `update` | channel groups |
 | `threads.list` / `threads.follow` | threads of a channel; follow or unfollow |
-| `messages.read` | by range, `around` a message, or unread only (one chat or all); reading unread moves the read position |
-| `messages.search` | in one chat, or every chat the Bot can read |
+| `messages.read` | by range, `around` a message, or unread only (one chat or all); reading unread moves the read position. Files are listed by id, name, type and size |
+| `messages.search` | in one chat, or every chat the Bot can read; results list files the same way |
+| `files.get` | puts a file of a message the Bot can read into its current environment (`temp/files/<name>` unless a path is given) and returns its path there (A50) |
+| `files.view` | shows such a file to the model: a picture (PNG, JPEG, GIF, WebP up to 4 MB) as a picture, a UTF-8 text file up to 64 KB as text; anything else needs `files.get` |
 | `messages.send` | to a `chatId`, or `to` a member by name (DM); `thread` to reply in a message's thread (created if missing); `alsoToChannel`; `replyTo`; attachments. Returns who was notified, who was mentioned but is not in the channel, and who got it by subscription |
 | `messages.react` | add or remove an emoji mark; re-asking the same emoji takes it off and the result says which way it went (A42) |
 | `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36) |
@@ -66,7 +68,7 @@ Chat tools and the web UI go through the same ChatService; `history.read` goes t
 - The author is the bound Bot; a tool cannot pass a `senderId`.
 - Listing, reading, searching and sending are authorised. A Bot may send to any chat it can access.
 - A send succeeds when the message is committed; the result has its message ID. A Bot is never delivered its own messages.
-- Attachments are `{path, name}` on the tool host; the server checks access, path, type and size before copying them into the chat.
+- Attachments a Bot sends are `{path, name}` in its current environment; the server reads them through it, checking size and that each is a regular file, before saving them to the chat. Files a Bot receives come by id only; nothing hands out a path on any machine (A50).
 - An abort never retracts a sent message. A successful tool call is not a successful turn, and a finished turn is not a reply.
 
 ## Codemode
@@ -95,7 +97,7 @@ These instructions and the tool descriptions are in English so that every Bot re
 
 ## Chat
 The chat tool is your only way to talk to the other members. Anything you don't send through it is seen by no one.
-To pass a document, an image or another file to someone, attach its path and name when you send with the chat tool.
+Files in messages come with an ID: files.get puts one into your environment and gives you its path, and files.view shows you an image or a text file directly. To pass a file to someone, attach its path in your environment and its name when you send with the chat tool.
 Channels can be put in channel groups and have a notice. Threads have a title, a status and a summary.
 In channels and threads you only get new messages when you are @-mentioned; once you subscribe, every new message there is sent to you. DMs need no @.
 Each batch of messages ends with your unread counts and the notices and summaries that have a new version. Read them through the chat gateway when you need to.

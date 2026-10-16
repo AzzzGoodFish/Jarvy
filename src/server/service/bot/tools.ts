@@ -7,6 +7,8 @@ import type { ChatFiles } from "../chat/files.js";
 import type { Tools as ToolsPort, OutgoingMessage, SentMessage, Memory, Workspace } from "./contracts.js";
 
 import { readHistory, type HistoryReadInput } from "./history-read.js";
+import { viewFile } from "./file-view.js";
+import { byteSize } from "../chat/files.js";
 import { chatDetail, chatRows } from "./chat-views.js";
 import { ChatTools } from "./chat-tools.js";
 import { definitions, type ToolName } from "./tool-schemas.js";
@@ -87,6 +89,16 @@ export class Tools implements ToolsPort {
               reactions: message.reactions.map(group => ({ emoji: group.emoji, count: group.memberIds.length })) };
           }
           case "messages.read": return this.tools.read(args as Parameters<ChatTools["read"]>[0], signal);
+          case "files.get": {
+            const { id, path } = args as { id: string; path?: string };
+            const { file, data } = this.scope.files.open(this.scope.botId, id);
+            signal?.throwIfAborted();
+            return { path: await this.scope.workspace.put(file.name, id, data, path), name: file.name, type: file.mimeType, size: byteSize(file.size) };
+          }
+          case "files.view": {
+            const { file, data } = this.scope.files.open(this.scope.botId, (args as { id: string }).id);
+            return viewFile(file, data);
+          }
           case "messages.search": return this.tools.search(args as Parameters<ChatTools["search"]>[0]);
           case "messages.send": {
             const parsed = args as { chatId?: string; to?: string; message: string; thread?: string; replyTo?: string; alsoToChannel?: boolean; attachments?: { path: string; name: string }[] };

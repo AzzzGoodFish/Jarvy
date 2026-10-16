@@ -94,6 +94,7 @@ export class Computers {
       writeFile: (path, content) => run(env => env.writeFile(path, content)),
       mkdir: path => run(env => env.mkdir(path)),
       exists: path => run(env => env.exists(path)),
+      fileSize: path => run(env => env.fileSize(path)),
       close: () => this.disconnect(botId),
     };
   }

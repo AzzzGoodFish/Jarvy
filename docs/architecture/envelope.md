@@ -20,7 +20,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
   </message>
   <message id="m208" chat="d-1" from="u1" at="2026-10-08T08:00:02Z">
     <text>日志在附件里</text>
-    <file path="/data/attachments/9f.../run.log" name="run.log"/>
+    <file id="9f2c…" name="run.log" type="text/plain" size="18 KB"/>
   </message>
   <updates><notice chat="c-dev" version="3" by="u1" at="…"/><summary chat="t-12" version="2" by="b3" at="…"/></updates>
   <notices>
@@ -39,7 +39,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `message` | `id`, `chat`, `from`, `at` always; document order is arrival order |
 | `reply_to` | the replied-to message and its author, with the start of its text |
 | `text` | the message text, escaped; omitted for attachment-only messages. Partial quotes are expanded in place (below) |
-| `file` | one per attachment: an absolute, readable path on the tool host and the name; never base64 |
+| `file` | one per attachment: `id`, `name`, MIME `type` and a readable `size`; never a path or contents. The Bot opens it with `files.get` (into its environment) or `files.view` (A50) |
 | `updates` | new versions of notices (channels) and summaries (threads) since last told — where, version, editor, time; no content. The Bot reads them with `chats.info` |
 | `notices` | reactions to the Bot's messages, quoting the marked message, with a fixed note |
 | `changes` | what the agent Bot changed about this Bot (A48): one `change` per field — its DM with the agent, the agent, which field, when, and the new value (none for a persona) — with a fixed note |

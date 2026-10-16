@@ -41,6 +41,8 @@ export interface Workspace {
   writeTempFile(name: string, content: string, signal?: AbortSignal): Promise<string>;
   /** Where the Bot's tools run now (A50). */
   environment(): { kind: EnvironmentKind; cwd: string };
+  /** Puts a chat file into that environment; returns its path there. */
+  put(name: string, id: string, data: Uint8Array, path?: string): Promise<string>;
 }
 export interface Tools {
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>): void;

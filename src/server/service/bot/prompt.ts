@@ -28,7 +28,7 @@ These instructions and the tool descriptions are in English so that every Bot re
 
 ## Chat
 The chat tool is your only way to talk to the other members. Anything you don't send through it is seen by no one.
-To pass a document, an image or another file to someone, attach its path and name when you send with the chat tool.
+Files in messages come with an ID: files.get puts one into your environment and gives you its path, and files.view shows you an image or a text file directly. To pass a file to someone, attach its path in your environment and its name when you send with the chat tool.
 Channels can be put in channel groups and have a notice. Threads have a title, a status and a summary.
 In channels and threads you only get new messages when you are @-mentioned; once you subscribe, every new message there is sent to you. DMs need no @.
 Each batch of messages ends with your unread counts and the notices and summaries that have a new version. Read them through the chat gateway when you need to.
