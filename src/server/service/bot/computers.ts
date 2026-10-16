@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import type { Store } from "../../infra/storage/store.js";
 import {
   COMPUTER_CWD, buildImage, computerImage, containerEnvironment, containerState, containerStates, dockerAvailable, imageExists,
-  removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
+  pruneImages, removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
 } from "../../infra/env/docker.js";
 import type { ComputerStatus, EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
@@ -178,6 +178,8 @@ export class Computers {
       if (!(await imageExists(tag))) {
         this.log(`building ${tag}`);
         await buildImage(tag, this.uid, this.gid, join(this.dataDir, "computers", "build.log"));
+        // Older images go once no container uses them: each is gigabytes.
+        void pruneImages(tag).then(removed => { if (removed.length) this.log(`removed ${removed.join(", ")}`); }).catch(() => {});
       }
       return tag;
     })().catch(error => { this.image = null; throw error; });

@@ -42,6 +42,17 @@ export function computerImage(uid: number, gid: number): string {
   return `jarvy-computer:${createHash("sha256").update(`${COMPUTER_DOCKERFILE}\n${uid}:${gid}`).digest("hex").slice(0, 12)}`;
 }
 
+/** Removes the other images of Bots' computers that no container uses; Docker refuses those still in use. */
+export async function pruneImages(keep: string): Promise<string[]> {
+  const tags = (await docker(["images", "--filter", "label=jarvy.computer=1", "--format", "{{.Repository}}:{{.Tag}}"])).split("\n").filter(Boolean);
+  const removed: string[] = [];
+  for (const tag of tags) if (tag !== keep) {
+    try { await docker(["image", "rm", tag], 120_000); removed.push(tag); }
+    catch { /* a container still uses it */ }
+  }
+  return removed;
+}
+
 export async function imageExists(tag: string): Promise<boolean> {
   try { await docker(["image", "inspect", "--format", "{{.Id}}", tag]); return true; }
   catch { return false; }
