@@ -14,7 +14,7 @@ export const environment: Part<typeof en> = {
   "environment.awayHost": "现在在你的电脑上，是它自己切过去的。",
   "environment.awayComputer": "现在在它的沙箱里，是它自己切过去的。",
   "environment.details": "沙箱详情",
-  "environment.sandboxAbout": "只有它自己用的 Linux 容器，工作区就在里面。",
+  "environment.sandboxAbout": "只有它自己用的 Linux 容器，工作区就是它在里面的主目录。",
   "environment.external": "可以使用的外部环境",
   "environment.hostAbout": "运行 Jarvy 的这台电脑",
   "environment.externalHint": "打开后，任务需要时它可以自己切过去；关掉时如果它正在那里，会被送回沙箱。",

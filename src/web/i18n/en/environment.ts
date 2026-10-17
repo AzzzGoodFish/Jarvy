@@ -11,7 +11,7 @@ export const environment = {
   "environment.awayHost": "Now on your computer: it switched there itself.",
   "environment.awayComputer": "Now in its sandbox: it switched there itself.",
   "environment.details": "Sandbox details",
-  "environment.sandboxAbout": "A Linux container only it uses, with its workspace inside. ",
+  "environment.sandboxAbout": "A Linux container only it uses, with its workspace as its home there. ",
   "environment.external": "External environments it may use",
   "environment.hostAbout": "The computer running Jarvy",
   "environment.externalHint": "When on, it can switch there by itself when a task needs it; turning it off while it is there sends it back to its sandbox.",

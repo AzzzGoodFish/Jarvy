@@ -50,7 +50,7 @@ When something will take a while, post a short progress note partway through, an
 function workspaceSection(setup: RuntimeSetup, workspacePath: string): string {
   const place = setup.home();
   if (place.kind === "computer") return `## Workspace
-Your workspace is your own folder; your file and command tools see it as ${place.cwd}. It is kept when your sandbox is reset. Keep it tidy, and put temporary files under temp and clear them out.
+Your workspace is your own folder and your home directory: your file and command tools see it as ${place.cwd}, and ~ is the same place, so settings such as ~/.ssh and ~/.gitconfig stay with it. It is kept when your sandbox is reset. Keep it tidy, and put temporary files under temp and clear them out.
 
 ## Work environment
 Your tools run in your sandbox by default: a Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox.

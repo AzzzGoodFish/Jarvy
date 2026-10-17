@@ -110,7 +110,7 @@ history.read is listed by the chat gateway. History is material to look back on,
 
 {a Bot whose default is its sandbox (A50):}
 ## Workspace
-Your workspace is your own folder; your file and command tools see it as /workspace. It is kept when your sandbox is reset. Keep it tidy, and put temporary files under temp and clear them out.
+Your workspace is your own folder and your home directory: your file and command tools see it as /workspace, and ~ is the same place, so settings such as ~/.ssh and ~/.gitconfig stay with it. It is kept when your sandbox is reset. Keep it tidy, and put temporary files under temp and clear them out.
 
 ## Work environment
 Your tools run in your sandbox by default: a Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox.

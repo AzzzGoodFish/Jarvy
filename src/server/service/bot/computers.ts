@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { Store } from "../../infra/storage/store.js";
 import {
-  COMPUTER_CWD, buildImage, computerImage, containerEnvironment, containerState, containerStates, dockerAvailable, imageExists,
-  pruneImages, removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
+  COMPUTER_CWD, buildImage, computerImage, containerEnvironment, containerState, containerStates, dockerAvailable, homeAtWorkspace,
+  imageExists, pruneImages, removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
 } from "../../infra/env/docker.js";
 import type { ComputerStatus, EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
@@ -34,6 +34,8 @@ export class Computers {
   private readonly preparing = new Map<string, Promise<string>>();
   private readonly used = new Map<string, number>();
   private readonly connections = new Map<string, WorkEnvironment>();
+  /** Containers whose home was checked since Jarvy started (`homeAtWorkspace`). */
+  private readonly homes = new Map<string, Promise<void>>();
   private readonly dataDir: string;
   /** Tells this Jarvy's containers from those of other data directories on the same Docker. */
   private readonly tag: string;
@@ -100,6 +102,9 @@ export class Computers {
   }
   private async connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
     const container = await this.ensure(botId);
+    let home = this.homes.get(container);
+    if (!home) { home = homeAtWorkspace(container).catch(error => this.log(`home of ${botId} not moved: ${(error as Error).message}`)); this.homes.set(container, home); }
+    await home;
     let env = this.connections.get(botId);
     if (!env) { env = containerEnvironment(record.id, container, text => this.log(`[${botId.slice(0, 8)}] ${text}`)); this.connections.set(botId, env); }
     return env;
@@ -148,6 +153,7 @@ export class Computers {
     const computer = this.need(botId);
     await this.disconnect(botId);
     await removeContainer(computer.spec.container!);
+    this.homes.delete(computer.spec.container!);
     this.set(botId, { state: "stopped" });
   }
   /** The Bot is being deleted: its container goes with it. */
