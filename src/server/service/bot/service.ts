@@ -67,7 +67,7 @@ export class BotService {
         tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath) }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
-      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind, cwd: place.directory }; });
+      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; });
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
@@ -108,7 +108,7 @@ export class BotService {
     return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
   }
   list() { return this.deps.store.listBots().map(record => this.details(record)); }
-  /** A new Bot works on its own computer when this machine has Docker, unless asked for the owner's computer (A50). */
+  /** A new Bot works in its sandbox when this machine has Docker, unless asked for the owner's computer (A50). */
   create(name: string, environment?: EnvironmentKind) {
     const kind = environment ?? (this.computers.available ? "computer" : "host");
     if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
@@ -116,7 +116,7 @@ export class BotService {
     this.environments.setHome(record.id, kind, record.workspacePath);
     return this.details(record);
   }
-  /** The owner moves a Bot to its own computer or to their computer, as its default; the next tool call runs there. */
+  /** The owner moves a Bot to its sandbox or to their computer, as its default; the next tool call runs there. */
   setHome(id: string, kind: EnvironmentKind) {
     const moved = this.environments.setHome(id, kind, this.record(id).workspacePath);
     if (moved) this.tellOwner(id, [{ what: "environment", value: where(moved) }], true);

@@ -31,10 +31,10 @@ function remember(map: Map<string, string>, id: string, definition: string): voi
 /** Batch tail for channels (A37): the Bot's unread counts; and where its file and command tools run now (A50). */
 export interface BatchDigest {
   unread: readonly { chatId: string; title: string; type: string; count: number }[];
-  workspace?: BatchWorkspace;
+  environment?: BatchEnvironment;
 }
-export interface BatchWorkspace { name: string; directory: string }
-const workspaceLine = (place?: BatchWorkspace) => place ? `<workspace${attribute("name", place.name)}${attribute("directory", place.directory)}/>` : "";
+export interface BatchEnvironment { name: string; directory: string }
+const environmentLine = (place?: BatchEnvironment) => place ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}/>` : "";
 const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z");
 
 /** A delivery that is not a message (A39, A41): a mark on the Bot's message, or a new notice / summary version
@@ -50,11 +50,11 @@ const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just
   + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what Jarvy is and how you can help, `
   + "such as building a team of Bots for their work and running Jarvy for them. Then ask what they want to get done: a software project, writing, research or something else.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
-export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], workspace?: BatchWorkspace): string {
+export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment): string {
   if (!notices.length) throw new Error("Empty notice batch");
   const chats = new Map<string, string>(), members = new Map<string, string>();
   const list = noticeTail(notices, chats, members);
-  return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${workspaceLine(workspace)}</notice_batch>`;
+  return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${environmentLine(environment)}</notice_batch>`;
 }
 /** The tail shared by a steered notice batch and a chat batch (A39, A41): new notice / summary versions as
  * `<updates>` (the newest per chat), marks as `<notices>` quoting the start of the marked message. A chat already
@@ -83,7 +83,7 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`
       + (byAgent ? "<note>The agent Bot changed your settings, and the changes already apply. A persona change is already in your instructions. If something is unclear, ask it in that DM.</note>" : "")
-      + (byOwner ? "<note>Your owner changed where you work, and it already applies: environment is where your file and command tools run now, and access is what workspaces.switch can take you to. If you were in the middle of something, carry on where you are now.</note>" : "")
+      + (byOwner ? "<note>Your owner changed where you work, and it already applies: environment is where your file and command tools run now, and access is what environments.switch can take you to. If you were in the middle of something, carry on where you are now.</note>" : "")
       + "</changes>" : "")
     + onboard.join("");
 }
@@ -116,6 +116,6 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
   let tail = notices?.length ? noticeTail(notices, chats, members) : "";
   if (digest?.unread.length) tail += `<unread${attribute("total", String(digest.unread.reduce((sum, item) => sum + item.count, 0)))}>`
     + `${digest.unread.map(item => `<chat${ref("id", item)}${attribute("count", String(item.count))}/>`).join("")}</unread>`;
-  tail += workspaceLine(digest?.workspace);
+  tail += environmentLine(digest?.environment);
   return `<chat_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${encoded.join("")}${tail}</chat_batch>`;
 }

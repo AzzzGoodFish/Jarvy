@@ -12,11 +12,11 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
   jarvy.pid, jarvy.log                 background server (jarvy on)
   bots/<botId>/
     history.db                         the Bot's History
-    workspace/                         Pi cwd; an ordinary folder, mounted as /workspace in the Bot's own computer
+    workspace/                         Pi cwd; an ordinary folder, mounted as /workspace in the Bot's sandbox
       temp/
     agent/pi/sessions/<timestamp>.jsonl   the Bot's one session file
   pi/models.json                       pi.dev's model catalog as last fetched (A49)
-  computers/bin/pi-env                 the daemon Bots' own computers mount read-only (A50)
+  computers/bin/pi-env                 the daemon Bots' sandboxes mount read-only (A50)
   computers/build.log                  output of the last build of their image
 ```
 
@@ -67,7 +67,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v17 | `message_quotes`: a message's partial quotes by mark position — source message (cleared when it goes), its sender, the quoted text (A44) |
 | v18 | An untitled DM's title is `""` instead of the placeholder 「新对话」; the first message still names it. No column changes; titles people or first messages gave stay (A45, 0.3.0) |
 | v19 | `settings(key, value)`, first key `agent_onboarded` (set on upgrade when the agent Bot already has a model); `inbox.kind` gains `onboard` and `change`, the table rebuilt with its rows, indexes and id sequence (A48) |
-| v20 | `environments` (owner, kind `host` or `computer`, name, connection, directory, the Bot a computer belongs to; soft delete) and `environment_grants`; `bots.home_environment_id` and `current_environment_id`, NULL meaning the owner's computer, so Bots from before stay there (A50) |
+| v20 | `environments` (owner, kind `host` or `computer`, name, connection, directory, the Bot a sandbox (`computer`) belongs to; soft delete) and `environment_grants`; `bots.home_environment_id` and `current_environment_id`, NULL meaning the owner's computer, so Bots from before stay there (A50) |
 
 ## Search
 

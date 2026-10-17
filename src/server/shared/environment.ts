@@ -34,7 +34,7 @@ export interface ExecOptions {
   env?: Record<string, string>;
 }
 
-/** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's own computer, a Docker container
+/** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's sandbox, a Docker container
  * only it uses. */
 export type EnvironmentKind = "host" | "computer";
 export interface EnvironmentRecord {
@@ -44,7 +44,7 @@ export interface EnvironmentRecord {
   /** How to reach it, such as the container's name. */
   spec: Record<string, string>;
 }
-/** A Bot's own computer as people see it. `preparing` covers building the image and creating or starting the
+/** A Bot's sandbox as people see it. `preparing` covers building the image and creating or starting the
  * container; `unavailable` means this machine has no usable Docker. */
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 export interface ComputerStatus { state: ComputerState; error?: string }

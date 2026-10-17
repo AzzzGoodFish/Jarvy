@@ -1,4 +1,4 @@
-/** The image a Bot's own computer starts from (A50), built on this machine: Ubuntu 24.04 with Node, Python, git,
+/** The image a Bot's sandbox starts from (A50), built on this machine: Ubuntu 24.04 with Node, Python, git,
  * build tools and Playwright with its browsers (the package matches the browsers and any script finds it). The Bot
  * runs as `bot`, with the owner's user and group ids so files it makes in the mounted workspace are the owner's; sudo
  * lets it install software, which stays until its computer is reset. One image serves every Bot and is stored once,

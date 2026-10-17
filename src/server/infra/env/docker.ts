@@ -9,7 +9,7 @@ import type { WorkEnvironment } from "../../shared/environment.js";
 import { COMPUTER_DOCKERFILE } from "./computer-image.js";
 import { overDurable } from "./durable.js";
 
-/** Bots' own computers (A50): Docker containers from an image built on this machine, driven with the docker command
+/** Bots' sandboxes (A50): Docker containers from an image built on this machine, driven with the docker command
  * line. The tools reach a container through pi-env's daemon, started inside it by `docker exec -i`. */
 export const COMPUTER_CWD = "/workspace";
 const DAEMON_DIR = "/opt/jarvy";

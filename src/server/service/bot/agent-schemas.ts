@@ -14,9 +14,9 @@ const Settings = {
   persona: Type.Optional(Type.String({ maxLength: 16_000, description: "Its standing instructions: who it is and how it works (the Persona section of its prompt)" })),
   model: Type.Optional(Model), thinking: Type.Optional(Thinking),
 };
-/** Where a new Bot's file and command tools run (A50). */
-const Environment = Type.Union([Type.Literal("computer"), Type.Literal("host")], {
-  description: "Where its file and command tools run: computer, a Linux container of its own (the default when Docker is available), or host, the owner's computer, where you work too",
+/** Where a new Bot's file and command tools run by default (A50): its sandbox, which the code calls a computer, or the owner's computer. */
+const Environment = Type.Union([Type.Literal("sandbox"), Type.Literal("host")], {
+  description: "Where its file and command tools run by default: sandbox, a Linux container that Jarvy makes and only it uses (the default when Docker is available), or host, the owner's computer, where you work too",
 });
 /** A deletion first asks the owner on a card (A48); the agent words it in the owner's language. */
 const Confirm = {

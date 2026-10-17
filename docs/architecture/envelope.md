@@ -28,7 +28,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
     <note>These are reactions to your messages. Act on them if you need to; no reply is required.</note>
   </notices>
   <unread total="9"><chat id="c-dev" count="2"/><chat id="c-req" title="需求" type="channel" count="7"/></unread>
-  <workspace name="your own computer" directory="/workspace"/>
+  <environment name="your sandbox" directory="/workspace"/>
 </chat_batch>
 ```
 
@@ -43,10 +43,10 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `file` | one per attachment: `id`, `name`, MIME `type` and a readable `size`; never a path or contents. The Bot opens it with `files.get` (into its environment) or `files.view` (A50) |
 | `updates` | new versions of notices (channels) and summaries (threads) since last told — where, version, editor, time; no content. The Bot reads them with `chats.info` |
 | `notices` | reactions to the Bot's messages, quoting the marked message, with a fixed note |
-| `changes` | what the agent Bot changed about this Bot (A48), or the owner about where it works (A50): one `change` per field — the DM with whoever changed it, who, which field, when, and the new value (none for a persona) — with a fixed note for each. The owner's fields are `environment` (where its tools run now and the directory there) and `access` (an environment granted or taken back) |
+| `changes` | what the agent Bot changed about this Bot (A48), or the owner about where it works (A50): one `change` per field — the DM with whoever changed it, who, which field, when, and the new value (none for a persona) — with a fixed note for each. The owner's fields are `environment` (where its tools run now and the directory there) and `access` (an environment granted or taken back; `environments.switch` can take it to those granted) |
 | `onboard` | to the agent Bot only, once (A48): the owner has just given it a model; its note asks for a welcome in the owner's interface language, in the DM it names |
 | `unread` | the Bot's unread counts; chats not defined above carry `title` and `type` |
-| `workspace` | where the Bot's file and command tools run now (A50): the environment's name and the directory they start in. Last in every batch, so the system prompt need not change when the Bot switches |
+| `environment` | where the Bot's file and command tools run now (A50): the environment's name and the directory they start in. Last in every batch, so the system prompt need not change when the Bot switches |
 
 ## Partial quotes
 
@@ -64,7 +64,7 @@ The source ID is left out when that message is gone; a passage over 200 characte
 Queued deliveries steered into a running turn, or forming a turn of their own when the Bot was idle, use the same shape without messages:
 
 ```xml
-<notice_batch bot="bot_2"><chat …/><member …/><updates>…</updates><notices>…</notices><changes>…</changes><workspace …/></notice_batch>
+<notice_batch bot="bot_2"><chat …/><member …/><updates>…</updates><notices>…</notices><changes>…</changes><environment …/></notice_batch>
 ```
 
 ## Rules

@@ -67,7 +67,7 @@ function chatStep(step: LiveStep, common: Omit<ViewStep, "look" | "icon" | "titl
       title: step.state === "running" ? t("npc.step.ask.running") : answer ? t("npc.step.ask.ok", { answer }) : t(step.state === "failed" ? "npc.live.askFailed" : "npc.live.askClosed") };
   }
   // A move to another work environment (A50) is worded as one; its result says where the Bot is now.
-  if (name === "workspaces.switch") return { ...common, look: "action", icon: "tool", title: t(`npc.live.switch.${state(step)}`), detail: result };
+  if (name === "environments.switch") return { ...common, look: "action", icon: "tool", title: t(`npc.live.switch.${state(step)}`), detail: result };
   const where = chat ? chatLabel(chat) : "";
   const title: string = LOOKING.has(name) ? where ? t(`npc.live.browse.${step.state === "running" ? "running" : "ok"}`, { chat: where }) : t(`npc.live.browseAll.${step.state === "running" ? "running" : "ok"}`)
     : t(`npc.live.tool.${state(step)}`, { tool: name || "chat" });

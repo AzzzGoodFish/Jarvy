@@ -21,7 +21,7 @@ export interface ComputerDependencies {
   log?: (text: string) => void;
 }
 
-/** Bots' own computers (A50): Docker containers from an image built here, each mounting its Bot's workspace as
+/** Bots' sandboxes (A50): Docker containers from an image built here, each mounting its Bot's workspace as
  * /workspace and running as the owner's ids. Made when first used, stopped when idle, removed with the Bot; a reset
  * removes the container and what was installed in it, never the workspace. Containers keep running when Jarvy stops,
  * so background work survives a restart. */
@@ -110,7 +110,7 @@ export class Computers {
     const pending = this.preparing.get(botId);
     if (pending) return pending;
     const computer = this.deps.store.environments.computerOf(botId);
-    if (!computer) return Promise.reject(new RuntimeFault("computer_missing", "This Bot has no computer of its own.", 404));
+    if (!computer) return Promise.reject(new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404));
     const container = computer.spec.container!;
     this.used.set(botId, Date.now());
     if (this.states.get(botId)?.state === "running") return Promise.resolve(container);
@@ -130,7 +130,7 @@ export class Computers {
         this.set(botId, { state: "failed", error: error instanceof RuntimeFault ? error.code : "computer_failed" });
         this.log(`computer of ${botId} failed: ${(error as Error).message}`);
         if (error instanceof RuntimeFault) throw error;
-        throw new RuntimeFault("computer_failed", `Your computer could not start: ${(error as Error).message}`, 503);
+        throw new RuntimeFault("computer_failed", `Your sandbox could not start: ${(error as Error).message}`, 503);
       }
     })().finally(() => this.preparing.delete(botId));
     this.preparing.set(botId, task);
@@ -168,7 +168,7 @@ export class Computers {
 
   private need(botId: string): EnvironmentRecord {
     const computer = this.deps.store.environments.computerOf(botId);
-    if (!computer) throw new RuntimeFault("computer_missing", "This Bot has no computer of its own.", 404);
+    if (!computer) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
     if (!this.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
     return computer;
   }

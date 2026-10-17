@@ -17,7 +17,7 @@ import type { AgentOps } from "./agent.js";
 import { AgentTools } from "./agent-tools.js";
 import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
 
-/** The Bot's work environments (A50), for workspaces.list and workspaces.switch, and any Bot's for bots.list. */
+/** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list. */
 export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown }
 
 const Gateway = Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("describe"), Type.Literal("call")]),
@@ -75,8 +75,8 @@ export class Tools implements ToolsPort {
           case "members.list": return this.tools.membersList();
           case "bots.list": return botRows(this.scope.chats, this.scope.botId, this.scope.roster(),
             (args as { environments?: boolean }).environments ? id => this.scope.places.summary(id) : undefined);
-          case "workspaces.list": return this.scope.places.list();
-          case "workspaces.switch": return this.scope.places.switch((args as { id: string }).id);
+          case "environments.list": return this.scope.places.list();
+          case "environments.switch": return this.scope.places.switch((args as { id: string }).id);
           case "chats.create": return this.tools.create(args as Parameters<ChatTools["create"]>[0]);
           case "chats.update": return this.tools.update(args as Parameters<ChatTools["update"]>[0]);
           case "chats.addMembers": return this.tools.addMembers(args as Parameters<ChatTools["addMembers"]>[0]);

@@ -12,7 +12,7 @@ export interface Bot { id: string; name: string; description: string; systemProm
   agent: boolean;
   /** Where its file and command tools run (A50). */
   environment: BotPlacement; }
-/** `computer` is a Bot's own computer, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
+/** `computer` is a Bot's sandbox, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
 export type EnvironmentKind = "computer" | "host";
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 /** `hostGranted`: the owner lets the Bot switch to their computer (A50). */

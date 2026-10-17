@@ -11,7 +11,7 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.get("/", c => c.json({ bots: bots.list() }));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    // Names are unique (A37); a taken one is name_taken. Without `environment` a Bot gets its own computer when
+    // Names are unique (A37); a taken one is name_taken. Without `environment` a Bot gets a sandbox when
     // Docker is there (A50).
     return c.json(bots.create(textField(input, "name"), input.environment === undefined ? undefined : environmentKind(input.environment)), 201);
   });
