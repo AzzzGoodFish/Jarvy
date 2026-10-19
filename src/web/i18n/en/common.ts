@@ -18,7 +18,7 @@ export const common = {
   "login.submitting": "Signing in…",
   "login.wrong": "Wrong username or password.",
   "login.tooMany": "Too many attempts. Please try again later.",
-  "login.offline": "Can't sign in right now. Check your connection and try again.",
+  "login.offline": "Can't connect to Jarvy. Check your network and try again.",
   "login.themeLight": "Switch to the light theme",
   "login.themeDark": "Switch to the dark theme",
 
@@ -40,7 +40,7 @@ export const common = {
   "status.notConfigured": "Not set up",
 
   "account.menu": "Account menu",
-  "account.menuFor": "Account menu, {name}",
+  "account.menuFor": "Account menu for {name}",
   "account.toggleTheme": "Switch theme",
   "account.signOut": "Sign out",
 
@@ -75,7 +75,7 @@ export const common = {
   "ui.imageHidden": "external image hidden",
 
   "app.deleteChannelTitle": "Delete channel #{name}",
-  "app.deleteChannelBody": "Its messages, threads and attachments will all be deleted.",
+  "app.deleteChannelBody": "Its messages, threads and attachments will be deleted. This can't be undone.",
   "app.resizePane": "Drag to resize the side panel",
 
   "common.cancel": "Cancel",
@@ -91,7 +91,7 @@ export const common = {
   "common.member": "Member",
   "common.noMatch": "No matching members",
   "common.searchMembers": "Search members",
-  "common.attachment": "(attachment)",
+  "common.attachment": "[Attachment]",
 
   "actions.reply": "Reply to this message",
   "actions.react": "Add a reaction",
@@ -101,15 +101,15 @@ export const common = {
   "dialogs.candidates": "Members you can add",
   "dialogs.allInside": "Everyone is already in this channel",
   "dialogs.addCount": "Add ({count})",
-  "dialogs.addFailed": "Couldn't add",
+  "dialogs.addFailed": "Couldn't add members",
   "dialogs.optional": "Optional",
   "dialogs.deleteSection": "Delete the group “{name}”? Its channels move under Channels.",
-  "dialogs.deleteFailed": "Couldn't delete",
+  "dialogs.deleteFailed": "Couldn't delete. Please try again.",
   "dialogs.editSection": "Edit channel group",
   "dialogs.sectionName": "Group name",
   "dialogs.newSection": "New group",
 
-  "api.offline": "Can't reach the server. Check your connection and try again.",
+  "api.offline": "Can't connect to Jarvy. Check your network and try again.",
   "api.historyFailed": "Couldn't load the messages. Please try again.",
 
   "error.autoconfigModel": "Enter the model ID.",

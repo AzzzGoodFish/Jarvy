@@ -19,9 +19,9 @@ export const common: Part<typeof en> = {
   "login.hidePassword": "隐藏密码",
   "login.submit": "登录",
   "login.submitting": "正在登录…",
-  "login.wrong": "账号或密码不正确。",
-  "login.tooMany": "尝试次数较多，请稍后再试。",
-  "login.offline": "暂时无法登录，请检查连接后重试。",
+  "login.wrong": "用户名或密码不正确。",
+  "login.tooMany": "尝试次数过多，请稍后再试。",
+  "login.offline": "无法连接到 Jarvy，请检查网络后重试。",
   "login.themeLight": "切换为浅色主题",
   "login.themeDark": "切换为深色主题",
 
@@ -43,7 +43,7 @@ export const common: Part<typeof en> = {
   "status.notConfigured": "未配置",
 
   "account.menu": "账户菜单",
-  "account.menuFor": "账户菜单，{name}",
+  "account.menuFor": "{name} 的账户菜单",
   "account.toggleTheme": "切换主题",
   "account.signOut": "退出登录",
 
@@ -66,7 +66,7 @@ export const common: Part<typeof en> = {
   "app.connecting": "正在连接 Jarvy…",
   "app.channelDeleted": "频道已删除",
   "app.botDeleted": "{name} 已删除",
-  "app.notInChannel": { one: "{names} 不在频道中，未收到通知", other: "{names} 不在频道中，未收到通知" },
+  "app.notInChannel": { one: "{names} 不在本频道，没有收到通知", other: "{names} 不在本频道，没有收到通知" },
   "app.memberAdded": "{name} 已加入 #{channel}",
   "app.sourceGone": "原消息已不存在",
 
@@ -78,7 +78,7 @@ export const common: Part<typeof en> = {
   "ui.imageHidden": "外部图片已隐藏",
 
   "app.deleteChannelTitle": "删除频道 #{name}",
-  "app.deleteChannelBody": "频道里的消息、线程和附件都会删除。",
+  "app.deleteChannelBody": "频道里的消息、线程和附件都会被删除，且无法恢复。",
   "app.resizePane": "拖动调整侧栏宽度",
 
   "common.cancel": "取消",
@@ -94,7 +94,7 @@ export const common: Part<typeof en> = {
   "common.member": "成员",
   "common.noMatch": "没有匹配的成员",
   "common.searchMembers": "搜索成员",
-  "common.attachment": "(附件)",
+  "common.attachment": "[附件]",
 
   "actions.reply": "回复这条消息",
   "actions.react": "添加表情回应",
@@ -104,16 +104,16 @@ export const common: Part<typeof en> = {
   "dialogs.candidates": "可添加的成员",
   "dialogs.allInside": "所有成员都已在频道中",
   "dialogs.addCount": "添加（{count}）",
-  "dialogs.addFailed": "添加失败",
+  "dialogs.addFailed": "添加成员失败",
   "dialogs.optional": "可选",
   "dialogs.deleteSection": "删除分组「{name}」？其中的频道会移到「频道」下。",
-  "dialogs.deleteFailed": "删除失败",
+  "dialogs.deleteFailed": "删除失败，请重试",
   "dialogs.editSection": "编辑频道分组",
   "dialogs.sectionName": "分组名称",
   "dialogs.newSection": "新分组",
 
-  "api.offline": "无法连接服务器，请检查连接后重试。",
-  "api.historyFailed": "聊天记录读取失败，请重试。",
+  "api.offline": "无法连接到 Jarvy，请检查网络后重试。",
+  "api.historyFailed": "无法加载聊天记录，请重试。",
 
   "error.autoconfigModel": "请填写模型 ID。",
   "error.autoconfigSource": "配置来源无效。",
