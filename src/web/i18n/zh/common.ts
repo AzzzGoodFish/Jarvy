@@ -57,8 +57,8 @@ export const common: Part<typeof en> = {
   "entry.deleteBot": "删除 Bot",
   "entry.deleteChannel": "删除频道",
 
-  "hint.reaction": "{actor} 对你的消息表达了 {emoji}",
-  "hint.reactionInThread": "{actor} 对你在线程「{title}」中的消息表达了 {emoji}",
+  "hint.reaction": "{actor} 用 {emoji} 回应了你的消息",
+  "hint.reactionInThread": "{actor} 用 {emoji} 回应了你在「{title}」中的消息",
   "hint.threadSummary": "{actor} 更新了线程「{title}」的摘要",
   "hint.summary": "{actor} 更新了线程摘要",
   "hint.notice": "{actor} 更新了公告",
@@ -68,7 +68,7 @@ export const common: Part<typeof en> = {
   "app.botDeleted": "{name} 已删除",
   "app.notInChannel": { one: "{names} 不在频道中，未收到通知", other: "{names} 不在频道中，未收到通知" },
   "app.memberAdded": "{name} 已加入 #{channel}",
-  "app.sourceGone": "原消息已不在",
+  "app.sourceGone": "原消息已不存在",
 
   "ui.closeNamed": "关闭{name}",
   "ui.copied": "已复制",
@@ -92,12 +92,12 @@ export const common: Part<typeof en> = {
   "common.openNav": "打开会话列表",
   "common.you": "你",
   "common.member": "成员",
-  "common.noMatch": "无匹配成员",
+  "common.noMatch": "没有匹配的成员",
   "common.searchMembers": "搜索成员",
   "common.attachment": "(附件)",
 
   "actions.reply": "回复这条消息",
-  "actions.react": "标记表情",
+  "actions.react": "添加表情回应",
   "actions.pickEmoji": "选择表情",
   "actions.more": "更多",
 

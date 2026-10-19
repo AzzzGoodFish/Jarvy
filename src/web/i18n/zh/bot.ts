@@ -103,7 +103,7 @@ export const bot: Part<typeof en> = {
 
   "deleteBot.title": "删除 {name}",
   "deleteBot.after": "删除后：",
-  "deleteBot.chats": { one: "它的 {count} 个私聊、频道成员身份和订阅都会被删掉。", other: "它的 {count} 个私聊、频道成员身份和订阅都会被删掉。" },
+  "deleteBot.chats": { one: "它的 {count} 个私信、频道成员身份和订阅都会被删掉。", other: "它的 {count} 个私信、频道成员身份和订阅都会被删掉。" },
   "deleteBot.messages": "它在频道和线程里发过的消息会保留，发送者显示为「{name}」，名字可以重新使用。",
   "deleteBot.history": "它的会话历史和未完成的任务都会被清除。",
   "deleteBot.files": "同时删除工作区文件夹",

@@ -65,7 +65,7 @@ export const common = {
   "app.botDeleted": "{name} deleted",
   "app.notInChannel": { one: "{names} isn't in this channel, so wasn't notified", other: "{names} aren't in this channel, so weren't notified" },
   "app.memberAdded": "{name} joined #{channel}",
-  "app.sourceGone": "The original message is gone",
+  "app.sourceGone": "The original message no longer exists",
 
   "ui.closeNamed": "Close {name}",
   "ui.copied": "Copied",
