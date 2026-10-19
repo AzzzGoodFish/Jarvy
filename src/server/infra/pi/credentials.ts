@@ -16,18 +16,19 @@ export class ConnectionCredentials implements CredentialStore {
   }
   async list(options?: AuthOperationOptions) {
     options?.signal?.throwIfAborted();
-    const row = this.repository.read(this.ownerId, this.connectionId);
-    return row ? [{ providerId: this.providerName, type: row.value.type }] : [];
+    const row = this.repository.current(this.ownerId, this.connectionId);
+    return row?.value ? [{ providerId: this.providerName, type: row.value.type }] : [];
   }
   async modify(providerId: string, fn: (current: Credential | undefined) => Promise<Credential | undefined>, options?: AuthOperationOptions): Promise<Credential | undefined> {
     if (providerId !== this.providerName) throw new RuntimeFault("credential_scope", "The credential belongs to another connection.");
     return this.coordinator.exclusive(this.connectionId, async () => {
-      const prior = this.repository.read(this.ownerId, this.connectionId);
-      const next = await fn(prior?.value);
+      // An unreadable prior value (another installation's key) is replaced as if absent.
+      const prior = this.repository.current(this.ownerId, this.connectionId);
+      const next = await fn(prior?.value ?? undefined);
       // A completed remote refresh may have rotated its token: retain the result even
       // if the consuming request was cancelled while the refresh was finishing.
       if (next) this.repository.replace(this.ownerId, this.connectionId, prior?.revision ?? null, credentialValue(next));
-      return next ?? prior?.value;
+      return next ?? prior?.value ?? undefined;
     }, options?.signal);
   }
   async delete(providerId: string, options?: AuthOperationOptions): Promise<void> {

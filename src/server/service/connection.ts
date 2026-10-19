@@ -23,7 +23,7 @@ export class ConnectionService {
   /** Called once before listening: the certificate to serve, or null when Jarvy stays on this machine. */
   prepare(host: string, port: number): TlsMaterial | null {
     this.listening = { host, port };
-    this.material = isLoopbackHost(host) ? null : certificates(this.dataDir, host);
+    this.material = isLoopbackHost(host) ? null : certificates(this.dataDir, host, this.store.cipher);
     return this.material;
   }
   allowHttp(): boolean { return this.store.settings.get(ALLOW_HTTP) === "1"; }

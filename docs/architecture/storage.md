@@ -8,7 +8,7 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
 
 ```text
 <data-dir>/
-  jarvy.db                             business data and credentials (0600)
+  jarvy.db                             business data, and secrets and credentials sealed under the master key (0600)
   jarvy.pid, jarvy.log                 background server (jarvy on)
   bots/<botId>/
     history.db                         the Bot's History
@@ -18,9 +18,11 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
   pi/models.json                       pi.dev's model catalog as last fetched (A49)
   computers/bin/pi-env                 the daemon Bots' sandboxes mount read-only (A50)
   computers/build.log                  output of the last build of their image
-  tls/root.pem, root-key.pem           Jarvy's root certificate and its key (0600), made when it first listens beyond this machine (A51)
-  tls/server.pem, server-key.pem       the server certificate it signs, and its key (0600)
+  tls/root.pem, root-key.sealed        Jarvy's root certificate and its sealed key (0600), made when it first listens beyond this machine (A51)
+  tls/server.pem, server-key.sealed    the server certificate it signs, and its sealed key (0600)
 ```
+
+The master key that seals secrets, model credentials and the TLS keys is kept outside the data directory, in the user's config directory ([secrets](secrets.md)). Back it up with the data directory: without it those values can't be read, though everything else can.
 
 | Data | Owner |
 | --- | --- |
@@ -70,6 +72,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v18 | An untitled DM's title is `""` instead of the placeholder 「新对话」; the first message still names it. No column changes; titles people or first messages gave stay (A45, 0.3.0) |
 | v19 | `settings(key, value)`, first key `agent_onboarded` (set on upgrade when the agent Bot already has a model); `inbox.kind` gains `onboard` and `change`, the table rebuilt with its rows, indexes and id sequence (A48) |
 | v20 | `environments` (owner, kind `host` or `computer`, name, connection, directory, the Bot a sandbox (`computer`) belongs to; soft delete) and `environment_grants`; `bots.home_environment_id` and `current_environment_id`, NULL meaning the owner's computer, so Bots from before stay there (A50) |
+| v21 | `secrets`, `secret_grants` and `secret_uses`; `provider_credentials` sealed under the master key (A52) |
 
 ## Search
 

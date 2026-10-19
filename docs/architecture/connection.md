@@ -16,7 +16,7 @@ With any other host (`0.0.0.0`, `::`, a LAN address), Jarvy serves HTTPS with it
   - A root (ECDSA P-256, ten years, a CA that may only sign server certificates) is made the first time.
   - A server certificate signed by it (397 days) covers this machine's name and `<name>.local`, `localhost`, `127.0.0.1`, `::1`, the host given, and the addresses of its network interfaces. Interfaces of containers, VMs and proxy tunnels are left out, and so is the 198.18.0.0/15 range such tunnels use.
   - At each start the server certificate is signed again when it ends within 30 days or a name or address is missing, so a device that trusts the root never needs to trust anything new.
-  - Certificates are written with Node's crypto (`x509.ts`, a small DER writer) and checked against the root before they are used. Private keys are written 0600.
+  - Certificates are written with Node's crypto (`x509.ts`, a small DER writer) and checked against the root before they are used. Private keys are sealed under the master key ([secrets](secrets.md)) and written 0600; plain keys from before are sealed and removed at the next start.
 - **One port** (`api/server.ts`): a TCP listener reads each connection's first byte. A TLS handshake (`0x16`) goes to an HTTPS server, anything else to an HTTP server. Both share the Hono request handler. Over HTTPS the session cookie is `Secure` and has a name of its own, because a plain-HTTP page may not overwrite a Secure cookie of the same name, and signing in over HTTP after HTTPS would keep failing.
 - **Plain HTTP**:
   - A request from this machine is served, whether it comes from a loopback address or one of the machine's own addresses (a tool here that uses the LAN address).

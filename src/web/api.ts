@@ -16,6 +16,10 @@ export interface Bot { id: string; name: string; description: string; systemProm
 export type EnvironmentKind = "computer" | "host";
 /** `https`: Jarvy listens beyond this machine and serves HTTPS with its own certificate (A51). */
 export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses: string[]; fingerprint: string | null }
+/** A secret as the page sees it (A52): never its value. `readable` is false when it doesn't open under this installation's master key. */
+export interface Secret { id: string; name: string; kind: "value" | "ssh_key"; botId: string | null; description: string; fingerprint: string;
+  createdAt: number; updatedAt: number; readable: boolean; grants: { botId: string; scope: "always" | "once"; grantedAt: number }[]; uses: number; lastUsedAt: number | null }
+export interface SecretUse { id: number; secretName: string; botId: string; at: number; how: "command" | "ssh_sign"; environmentId: string | null; historyId: number | null; toolCallId: string | null; detail: string }
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 /** `hostGranted`: the owner lets the Bot switch to their computer (A50). */
 export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean }
@@ -182,6 +186,13 @@ export const api = {
   /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */
   connection: () => request<ConnectionInfo>("/connection"),
   setConnection: (allowHttp: boolean) => request<ConnectionInfo>("/connection", { method: "PUT", body: body({ allowHttp }) }),
+  /** The owner's secrets (A52); values go in and never come back. */
+  secrets: () => request<{ secrets: Secret[]; keyLocation: string }>("/secrets"),
+  createSecret: (input: { name: string; description: string; value: string }) => request<Secret>("/secrets", { method: "POST", body: body(input) }),
+  updateSecret: (id: string, input: { description?: string; value?: string }) => request<Secret>(`/secrets/${id}`, { method: "PUT", body: body(input) }),
+  deleteSecret: (id: string) => request<{ ok: boolean }>(`/secrets/${id}`, { method: "DELETE" }),
+  grantSecret: (id: string, botId: string, granted: boolean) => request<Secret>(`/secrets/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
+  secretUses: (id: string) => request<{ uses: SecretUse[] }>(`/secrets/${id}/uses`),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),

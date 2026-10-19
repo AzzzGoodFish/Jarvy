@@ -1,12 +1,13 @@
 import { X509Certificate } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { ipBytes, makeRoot, makeServer, type Issued } from "./x509.js";
+import type { Cipher } from "../vault/cipher.js";
 
 /** Jarvy's certificates in the data directory (A51): the root devices trust once, kept for ten years, and the server
  * certificate, signed again at start when it nears its end or the names it must cover changed. Private keys are
- * readable only by the owner. */
+ * sealed under the master key (A52), so a copy of the data directory alone does not carry them. */
 export interface TlsMaterial {
   key: string; cert: string;
   /** The root, for devices to install. */
@@ -44,18 +45,29 @@ const canonical = (entry: string) => ipBytes(entry)?.toString("hex") ?? entry.to
 
 function read(dir: string, file: string): string | null { const path = join(dir, file); return existsSync(path) ? readFileSync(path, "utf8") : null; }
 function write(dir: string, file: string, text: string, secret: boolean) { writeFileSync(join(dir, file), text, { mode: secret ? 0o600 : 0o644 }); }
+/** A private key: `<name>.sealed` under the master key; a plain `<name>.pem` from before A52 is sealed and removed. */
+function readKey(dir: string, name: string, cipher: Cipher, log: (text: string) => void): string | null {
+  const plain = read(dir, `${name}.pem`);
+  if (plain) { writeKey(dir, name, plain, cipher); rmSync(join(dir, `${name}.pem`)); return plain; }
+  const sealed = read(dir, `${name}.sealed`);
+  if (!sealed) return null;
+  const opened = cipher.open(sealed.trim(), `tls:${name}`);
+  if (opened === null) log(`[tls] ${name} doesn't open with this installation's master key; making a new one`);
+  return opened;
+}
+function writeKey(dir: string, name: string, pem: string, cipher: Cipher) { write(dir, `${name}.sealed`, `${cipher.seal(pem, `tls:${name}`)}\n`, true); }
 
 /** The certificate to serve when listening on `host`, making or renewing what is needed. */
-export function certificates(dataDir: string, host: string, log: (text: string) => void = console.log): TlsMaterial {
+export function certificates(dataDir: string, host: string, cipher: Cipher, log: (text: string) => void = console.log): TlsMaterial {
   const dir = join(dataDir, "tls");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   let root: Issued | null = null;
-  const rootKey = read(dir, "root-key.pem"), rootCert = read(dir, "root.pem");
+  const rootKey = readKey(dir, "root-key", cipher, log), rootCert = read(dir, "root.pem");
   if (rootKey && rootCert && new X509Certificate(rootCert).validToDate.getTime() - Date.now() > RENEW_MS) root = { keyPem: rootKey, certPem: rootCert };
   const names = coveredNames(host);
   let server: Issued | null = null;
   if (root) {
-    const key = read(dir, "server-key.pem"), cert = read(dir, "server.pem");
+    const key = readKey(dir, "server-key", cipher, log), cert = read(dir, "server.pem");
     if (key && cert) {
       const parsed = new X509Certificate(cert);
       const covers = new Set((parsed.subjectAltName ?? "").split(", ").map(entry => canonical(entry.replace(/^(DNS|IP Address):/, ""))));
@@ -64,12 +76,12 @@ export function certificates(dataDir: string, host: string, log: (text: string) 
     }
   } else {
     root = makeRoot(hostname());
-    write(dir, "root-key.pem", root.keyPem, true); write(dir, "root.pem", root.certPem, false);
+    writeKey(dir, "root-key", root.keyPem, cipher); write(dir, "root.pem", root.certPem, false);
     log("[tls] made a new root certificate; devices need to trust it once");
   }
   if (!server) {
     server = makeServer(root, names);
-    write(dir, "server-key.pem", server.keyPem, true); write(dir, "server.pem", server.certPem, false);
+    writeKey(dir, "server-key", server.keyPem, cipher); write(dir, "server.pem", server.certPem, false);
     log(`[tls] signed a server certificate for ${names.join(", ")}`);
   }
   const parsedRoot = new X509Certificate(root.certPem);

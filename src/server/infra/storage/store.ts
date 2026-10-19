@@ -13,6 +13,9 @@ import { CredentialRepository } from "./credential-repository.js";
 import { AgentRepository } from "./agent-repository.js";
 import { EnvironmentRepository } from "./environment-repository.js";
 import { SettingsRepository } from "./settings-repository.js";
+import { SecretRepository } from "./secret-repository.js";
+import { Cipher } from "../vault/cipher.js";
+import { masterKey } from "../vault/master-key.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 
 export const defaultDataDir = () => process.env.JARVY_DATA_DIR || join(homedir(), ".jarvy");
@@ -83,6 +86,9 @@ export class Store {
   readonly agent: AgentRepository;
   readonly environments: EnvironmentRepository;
   readonly settings: SettingsRepository;
+  readonly secrets: SecretRepository;
+  /** Seals secrets and model credentials under the master key (A52). */
+  readonly cipher: Cipher;
 
   constructor(dataDir = defaultDataDir()) {
     const root = resolve(dataDir);
@@ -91,14 +97,16 @@ export class Store {
     this.db = new DatabaseSync(this.path);
     chmodSync(this.path, 0o600);
     this.db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;");
-    try { migrateDatabase(this.db); }
+    this.cipher = new Cipher(() => masterKey(this.installationDeviceId()));
+    try { migrateDatabase(this.db, this.cipher); }
     catch (error) { this.db.close(); throw error; }
     this.chats = new ChatRepository(this.db);
     this.runtime = new RuntimeRepository(this.db);
-    this.credentials = new CredentialRepository(this.db);
+    this.credentials = new CredentialRepository(this.db, this.cipher);
     this.agent = new AgentRepository(this.db, () => this.userMemberId());
     this.environments = new EnvironmentRepository(this.db, () => this.userMemberId());
     this.settings = new SettingsRepository(this.db);
+    this.secrets = new SecretRepository(this.db, this.cipher, () => this.userMemberId());
     this.agent.ensure();
   }
 
@@ -183,6 +191,7 @@ export class Store {
       for (const table of ["chat_members", "chat_states", "inbox"]) this.db.prepare(`DELETE FROM ${table} WHERE member_id=?`).run(id);
       this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE bot_id=?").run(id);
+      this.db.prepare("DELETE FROM secret_grants WHERE bot_id=?").run(id);
       this.db.exec("COMMIT");
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     return true;
@@ -260,7 +269,7 @@ export class Store {
       this.db.prepare("INSERT INTO provider_connections(id,provider_name,display_name,kind,auth_type,base_url,api,created_at,updated_at,owner_id) VALUES(?,?,?,?,?,?,?,?,?,?)")
         .run(id, providerName, displayName, kind, authType, baseUrl, api, now, now, this.userMemberId());
       if (key) this.db.prepare("INSERT INTO provider_credentials(connection_id,type,credential_json,updated_at) VALUES(?,'api_key',?,?)")
-        .run(id, JSON.stringify({ type: "api_key", key }), now);
+        .run(id, this.credentials.stored(id, { type: "api_key", key }), now);
       this.db.exec("COMMIT");
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     return this.getModelConnection(id)!;
@@ -297,7 +306,7 @@ export class Store {
       const key = requireText(input.apiKey, "API Key", 8192);
       this.db.prepare(`INSERT INTO provider_credentials(connection_id,type,credential_json,updated_at) VALUES(?,'api_key',?,?)
         ON CONFLICT(connection_id) DO UPDATE SET type='api_key',credential_json=excluded.credential_json,updated_at=excluded.updated_at`)
-        .run(id, JSON.stringify({ type: "api_key", key }), Date.now());
+        .run(id, this.credentials.stored(id, { type: "api_key", key }), Date.now());
     }
     return this.getModelConnection(id);
   }

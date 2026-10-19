@@ -275,3 +275,17 @@ Jarvy serves HTTPS itself whenever it listens beyond this machine. Plain HTTP fr
 - **Only on this machine** (the default `127.0.0.1`): nothing changes; no certificate is made.
 
 Why: encrypting only a secret inside the page protects nothing against someone who can change the page, and browsers give plain-HTTP LAN pages no WebCrypto, clipboard or notifications. A reverse proxy stays possible, but most owners won't set one up, so the default has to be safe.
+
+## A52 Secrets
+
+Secrets are the owner's assets, like model connections and environments: kept in Settings, granted to Bots, never shown in plain text again, and used without their values reaching the model (fish m449–m546, m1071–m1107). They are built in steps; this records what is in place.
+
+- **Kinds**: *values*, such as tokens and passwords, named `UPPER_SNAKE` so Bots can refer to them; and *SSH keys*, one per Bot (the kind exists in the schema; keys come later).
+- **Master key**: a random 256-bit key in a file readable only by the owner, in the user's config directory (`$XDG_CONFIG_HOME/jarvy` or `~/.config/jarvy`, `%APPDATA%\jarvy` on Windows), named by the installation. It sits outside the data directory, so a copy or backup of the database or the data directory doesn't carry it, and Settings shows where it is so it can be backed up. It is made the first time something is sealed. A system keychain can hold it later; the machines Jarvy runs on today have none to rely on.
+- **Sealing**: AES-256-GCM, a fresh IV per value, bound to where the value is stored (`secret:<id>`, `credential:<connection id>`, `tls:<key name>`), so a sealed value copied to another row doesn't open. People and logs see an 8-hex-digit HMAC fingerprint instead of a hash anyone could test guesses against.
+- **What is sealed**: secret values; model credentials (`provider_credentials`, which migration v21 seals in place); and the private keys of Jarvy's TLS certificates (A51), sealed and the plain files removed at the next start.
+- **Storage (v21)**: `secrets` (owner, name, kind, the Bot an SSH key belongs to, description, sealed value, fingerprint, times), `secret_grants` (secret, Bot, `always` or `once` with its run, who granted it) and `secret_uses` (secret, its name, Bot, time, how — `command` or `ssh_sign` — environment, History id and tool call, and what ran with placeholders). Uses outlive the secret. Deleting a Bot removes its grants.
+- **Settings → Secrets**: add a secret (the value is masked unless shown), change its description or replace its value (never shown again), choose which Bots can use it, see its recent uses, delete it after confirming in place. A value that doesn't open under this installation's key is marked and has to be entered again; so do model credentials, whose connection then reports it.
+- **Limits**: a Bot whose tools run on the owner's computer shares the owner's user and could read the key file; only sandboxed Bots are kept out. Losing the key file loses the secrets and model credentials, not the rest of the data.
+
+Why: Bots need tokens and keys for real work (git hosts, registries, APIs). Pasting them into chat put them in messages, sessions, History, logs and every later model call, and the model API keys lay in the database in plain text.

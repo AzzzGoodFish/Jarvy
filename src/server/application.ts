@@ -14,6 +14,7 @@ import { Changes } from "./service/events.js";
 import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
 import { ConnectionService } from "./service/connection.js";
+import { SecretService } from "./service/secrets.js";
 import { RuntimeFault } from "./shared/runtime.js";
 import type { SessionFactory } from "./infra/pi/session.js";
 
@@ -28,6 +29,7 @@ export class Application {
   readonly account: AccountService;
   readonly models: ModelService;
   readonly connection: ConnectionService;
+  readonly secrets: SecretService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
     this.chats = new ChatService(store.chats, {
@@ -41,6 +43,7 @@ export class Application {
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);
+    this.secrets = new SecretService(store);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
     this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), new ModelCatalog(dataDir));
   }

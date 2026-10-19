@@ -1,0 +1,73 @@
+import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
+import { ConflictError, ValidationError } from "../../shared/errors.js";
+import { SECRET_NAME, type GrantScope, type SecretRecord, type SecretUse } from "../../shared/secret.js";
+import type { Cipher } from "../vault/cipher.js";
+
+type Row = { id: string; name: string; kind: SecretRecord["kind"]; botId: string | null; description: string; value: string; fingerprint: string;
+  createdAt: number; updatedAt: number; uses: number; lastUsedAt: number | null };
+const COLUMNS = `s.id, s.name, s.kind, s.bot_id AS botId, s.description, s.value, s.fingerprint, s.created_at AS createdAt, s.updated_at AS updatedAt,
+  (SELECT count(*) FROM secret_uses u WHERE u.secret_id=s.id) AS uses, (SELECT max(at) FROM secret_uses u WHERE u.secret_id=s.id) AS lastUsedAt`;
+const MAX_VALUE = 16 * 1024;
+
+/** Secrets, their grants and their uses (v21, A52). Values are sealed under the master key, bound to the secret's id. */
+export class SecretRepository {
+  constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
+  private record(row: Row): SecretRecord {
+    const grants = (this.db.prepare("SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM secret_grants WHERE secret_id=? ORDER BY granted_at")
+      .all(row.id) as unknown as SecretRecord["grants"]).map(grant => ({ ...grant }));
+    const { value, ...rest } = row;
+    return { ...rest, readable: this.cipher.open(value, `secret:${row.id}`) !== null, grants };
+  }
+  list(): SecretRecord[] {
+    return (this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.owner_id=? ORDER BY s.kind, lower(s.name)`).all(this.ownerId()) as unknown as Row[]).map(row => this.record(row));
+  }
+  get(id: string): SecretRecord | null {
+    const row = this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.id=? AND s.owner_id=?`).get(id, this.ownerId()) as unknown as Row | undefined;
+    return row ? this.record(row) : null;
+  }
+  private checkValue(value: unknown): string {
+    if (typeof value !== "string" || !value) throw new ValidationError("A secret needs a value", "secret_value_missing");
+    if (value.length > MAX_VALUE) throw new ValidationError("The value is too long", "secret_value_too_long");
+    return value;
+  }
+  private checkDescription(value: unknown): string {
+    if (value === undefined || value === null) return "";
+    if (typeof value !== "string" || value.length > 200 || /[\n\r]/.test(value)) throw new ValidationError("The description must be one line of up to 200 characters", "secret_description_invalid");
+    return value.trim();
+  }
+  create(input: { name: unknown; description?: unknown; value: unknown }): SecretRecord {
+    if (typeof input.name !== "string" || !SECRET_NAME.test(input.name)) throw new ValidationError("Names use capital letters, digits and underscores, and start with a letter", "secret_name_invalid");
+    const description = this.checkDescription(input.description), value = this.checkValue(input.value);
+    if (this.db.prepare("SELECT 1 FROM secrets WHERE owner_id=? AND kind='value' AND name=?").get(this.ownerId(), input.name)) throw new ConflictError("Another secret has this name", "secret_name_taken");
+    const id = randomUUID(), now = Date.now();
+    this.db.prepare("INSERT INTO secrets(id,owner_id,name,kind,bot_id,description,value,fingerprint,created_at,updated_at) VALUES(?,?,?,'value',NULL,?,?,?,?,?)")
+      .run(id, this.ownerId(), input.name, description, this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), now, now);
+    return this.get(id)!;
+  }
+  update(id: string, input: { description?: unknown; value?: unknown }): SecretRecord | null {
+    if (!this.get(id)) return null;
+    if (input.description !== undefined) this.db.prepare("UPDATE secrets SET description=?, updated_at=? WHERE id=?").run(this.checkDescription(input.description), Date.now(), id);
+    if (input.value !== undefined) {
+      const value = this.checkValue(input.value);
+      this.db.prepare("UPDATE secrets SET value=?, fingerprint=?, updated_at=? WHERE id=?").run(this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), Date.now(), id);
+    }
+    return this.get(id);
+  }
+  /** The grants go with it; its uses stay, under its name. */
+  delete(id: string): boolean { return Number(this.db.prepare("DELETE FROM secrets WHERE id=? AND owner_id=?").run(id, this.ownerId()).changes) > 0; }
+  grant(id: string, botId: string, scope: GrantScope, runId: string | null): void {
+    this.db.prepare(`INSERT INTO secret_grants(secret_id,bot_id,scope,run_id,granted_by,granted_at) VALUES(?,?,?,?,?,?)
+      ON CONFLICT(secret_id,bot_id) DO UPDATE SET scope=excluded.scope, run_id=excluded.run_id, granted_at=excluded.granted_at`).run(id, botId, scope, runId, this.ownerId(), Date.now());
+  }
+  revoke(id: string, botId: string): boolean { return Number(this.db.prepare("DELETE FROM secret_grants WHERE secret_id=? AND bot_id=?").run(id, botId).changes) > 0; }
+  uses(id: string, limit = 100): SecretUse[] {
+    return (this.db.prepare(`SELECT id, secret_name AS secretName, bot_id AS botId, at, how, environment_id AS environmentId, history_id AS historyId,
+      tool_call_id AS toolCallId, detail FROM secret_uses WHERE secret_id=? ORDER BY at DESC, id DESC LIMIT ?`).all(id, limit) as unknown as SecretUse[]).map(use => ({ ...use }));
+  }
+  /** The plain value, for a command that uses it (A52 step 3); null when it does not open. */
+  value(id: string): string | null {
+    const row = this.db.prepare("SELECT value FROM secrets WHERE id=?").get(id) as { value: string } | undefined;
+    return row ? this.cipher.open(row.value, `secret:${id}`) : null;
+  }
+}
