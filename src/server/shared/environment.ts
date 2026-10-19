@@ -32,6 +32,8 @@ export interface ExecOptions {
   timeout?: number;
   /** The environment Pi built for the command. Only an environment on this machine passes it on; others keep their own. */
   env?: Record<string, string>;
+  /** Secret values the command's placeholders need (A52): added to its environment wherever it runs, never to its text. */
+  secrets?: Record<string, string>;
 }
 
 /** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's sandbox, a Docker container

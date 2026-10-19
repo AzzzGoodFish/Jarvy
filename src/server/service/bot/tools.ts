@@ -28,6 +28,8 @@ export class Tools implements ToolsPort {
   /** The agent Bot's own tools (A48); other Bots have none. */
   private readonly agent?: AgentTools;
   constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
+    /** The secrets this Bot may use (A52), never their values. */
+    secrets: { list(): unknown };
     asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
     this.tools = new ChatTools(scope);
     if (scope.agent) this.agent = new AgentTools({ ops: scope.agent, tools: this.tools });
@@ -77,6 +79,7 @@ export class Tools implements ToolsPort {
             (args as { environments?: boolean }).environments ? id => this.scope.places.summary(id) : undefined);
           case "environments.list": return this.scope.places.list();
           case "environments.switch": return this.scope.places.switch((args as { id: string }).id);
+          case "secrets.list": return this.scope.secrets.list();
           case "chats.create": return this.tools.create(args as Parameters<ChatTools["create"]>[0]);
           case "chats.update": return this.tools.update(args as Parameters<ChatTools["update"]>[0]);
           case "chats.addMembers": return this.tools.addMembers(args as Parameters<ChatTools["addMembers"]>[0]);

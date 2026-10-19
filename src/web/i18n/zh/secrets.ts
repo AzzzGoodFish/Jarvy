@@ -16,6 +16,7 @@ export const secrets: Part<typeof en> = {
   "secrets.newValuePlaceholder": "留空则保持不变",
   "secrets.showValue": "显示值",
   "secrets.hideValue": "隐藏值",
+  "secrets.shortValue": "这个值太短，出现在 Bot 看到的内容里时可能不会被隐藏。建议使用 8 个字符以上的值。",
   "secrets.noDescription": "无说明",
   "secrets.grantCount": { one: "{count} 个 Bot", other: "{count} 个 Bot" },
   "secrets.notGranted": "未授权",

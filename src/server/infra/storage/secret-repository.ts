@@ -13,18 +13,18 @@ const MAX_VALUE = 16 * 1024;
 /** Secrets, their grants and their uses (v21, A52). Values are sealed under the master key, bound to the secret's id. */
 export class SecretRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
-  private record(row: Row): SecretRecord {
+  private toRecord(row: Row): SecretRecord {
     const grants = (this.db.prepare("SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM secret_grants WHERE secret_id=? ORDER BY granted_at")
       .all(row.id) as unknown as SecretRecord["grants"]).map(grant => ({ ...grant }));
     const { value, ...rest } = row;
     return { ...rest, readable: this.cipher.open(value, `secret:${row.id}`) !== null, grants };
   }
   list(): SecretRecord[] {
-    return (this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.owner_id=? ORDER BY s.kind, lower(s.name)`).all(this.ownerId()) as unknown as Row[]).map(row => this.record(row));
+    return (this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.owner_id=? ORDER BY s.kind, lower(s.name)`).all(this.ownerId()) as unknown as Row[]).map(row => this.toRecord(row));
   }
   get(id: string): SecretRecord | null {
     const row = this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.id=? AND s.owner_id=?`).get(id, this.ownerId()) as unknown as Row | undefined;
-    return row ? this.record(row) : null;
+    return row ? this.toRecord(row) : null;
   }
   private checkValue(value: unknown): string {
     if (typeof value !== "string" || !value) throw new ValidationError("A secret needs a value", "secret_value_missing");
@@ -65,7 +65,21 @@ export class SecretRepository {
     return (this.db.prepare(`SELECT id, secret_name AS secretName, bot_id AS botId, at, how, environment_id AS environmentId, history_id AS historyId,
       tool_call_id AS toolCallId, detail FROM secret_uses WHERE secret_id=? ORDER BY at DESC, id DESC LIMIT ?`).all(id, limit) as unknown as SecretUse[]).map(use => ({ ...use }));
   }
-  /** The plain value, for a command that uses it (A52 step 3); null when it does not open. */
+  /** Every value the owner keeps that opens, for masking. */
+  values(): { name: string; value: string }[] {
+    return (this.db.prepare("SELECT id, name, value FROM secrets WHERE owner_id=? AND kind='value'").all(this.ownerId()) as { id: string; name: string; value: string }[])
+      .map(row => ({ name: row.name, value: this.cipher.open(row.value, `secret:${row.id}`) })).filter((row): row is { name: string; value: string } => row.value !== null);
+  }
+  /** The secrets a Bot may use until revoked. */
+  grantedTo(botId: string): { id: string; name: string; description: string }[] {
+    return (this.db.prepare(`SELECT s.id, s.name, s.description FROM secrets s JOIN secret_grants g ON g.secret_id=s.id
+      WHERE g.bot_id=? AND g.scope='always' AND s.owner_id=? AND s.kind='value' ORDER BY s.name`).all(botId, this.ownerId()) as { id: string; name: string; description: string }[]).map(row => ({ ...row }));
+  }
+  record(use: { secretId: string; name: string; botId: string; how: "command" | "ssh_sign"; environmentId: string | null; toolCallId: string | null; detail: string }): void {
+    this.db.prepare("INSERT INTO secret_uses(secret_id,secret_name,bot_id,at,how,environment_id,tool_call_id,detail) VALUES(?,?,?,?,?,?,?,?)")
+      .run(use.secretId, use.name, use.botId, Date.now(), use.how, use.environmentId, use.toolCallId, use.detail.slice(0, 4000));
+  }
+  /** The plain value, for a command that uses it; null when it does not open. */
   value(id: string): string | null {
     const row = this.db.prepare("SELECT value FROM secrets WHERE id=?").get(id) as { value: string } | undefined;
     return row ? this.cipher.open(row.value, `secret:${id}`) : null;

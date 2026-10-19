@@ -13,6 +13,7 @@ export const secrets = {
   "secrets.newValuePlaceholder": "Leave empty to keep the current value",
   "secrets.showValue": "Show value",
   "secrets.hideValue": "Hide value",
+  "secrets.shortValue": "This value is short and may not be hidden when it appears in what Bots see. Use at least 8 characters.",
   "secrets.noDescription": "No description",
   "secrets.grantCount": { one: "{count} Bot", other: "{count} Bots" },
   "secrets.notGranted": "Not granted",

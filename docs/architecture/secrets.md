@@ -24,6 +24,26 @@ The owner's tokens, passwords and keys (A52). Values go in once, through Setting
 - `secret_grants`: secret, Bot, scope `always` or `once` (with its run), who granted it and when. Deleted with the secret, and with the Bot.
 - `secret_uses`: secret (NULL once deleted), its name, Bot, time, how (`command`, `ssh_sign`), environment, History id, tool call, and what ran with placeholders.
 
+## Using a secret
+
+- `secrets.list` (chat gateway) gives the Bot the names, placeholders and descriptions of the secrets granted to it until revoked; never values.
+- In a `bash` command the model writes `{{secret:NAME}}`. Before the command runs (`infra/pi/secret-placeholders.ts`), each becomes `${JARVY_SECRET_NAME}`: kept as is inside double quotes, wrapped in double quotes when unquoted, and closed out of single quotes (`'…'"${…}"'…'`, and the same for `$'…'`). In an unquoted heredoc it expands as written; in a quoted one (`<<'EOF'`) it would stay literal, so the call fails. Placeholders in comments are left alone.
+- The values go into that command's environment only (`ExecOptions.secrets`), on the owner's computer and in a sandbox alike; the command text keeps the variables. Programs the command starts see the expanded value in their arguments, so the prompt prefers handing it over through the environment (`GH_TOKEN={{secret:…}} gh …`).
+- A name the Bot has no grant for, or whose value doesn't open, fails the call before anything runs, naming `secrets.list`.
+- Each command that uses secrets writes one `secret_uses` row per secret: Bot, time, environment, tool call and the command as written (with placeholders, up to 4,000 characters).
+- `write` and `edit` content is never filled in.
+
+## Masking
+
+`Masker` (`shared/secret-mask.ts`) replaces every value the owner keeps (4 characters or longer) with its placeholder, and also its JSON-escaped, URL-encoded and XML-escaped forms and the base64 of it at all three byte alignments, standard and URL-safe (fragments of 8 characters or more). The service rebuilds it after any change to a secret. It is applied:
+
+- to every tool result before Pi keeps it or the model sees it (Pi's `tool_result` hook), nested codemode calls included;
+- to command output as it streams (`StreamMask` holds back the last few characters so a value split between chunks is still caught), so the live view and Pi's full-output file are masked too, and to the output a finished tool shows live;
+- to every batch and notice the Bot receives, so a value a person pasted into the chat reaches the Bot masked; the person's own message is stored as written;
+- to the arguments of the Bot's Jarvy tools, so its messages, notices and titles never carry a value.
+
+What the model itself writes is kept as written. Images can't be masked, and a value a Bot transforms on purpose isn't caught; the use log is the answer to that.
+
 ## API and Settings
 
 - `GET /api/secrets` lists secrets without values, with grants, use count and last use, and where the master key is. `POST` adds one; `PUT /:id` changes the description and/or replaces the value; `DELETE /:id` deletes it; `PUT /:id/grants/:botId {granted}` grants or revokes; `GET /:id/uses` lists the last 100 uses.

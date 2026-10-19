@@ -3,15 +3,19 @@ import { readFile as readLocal, rm } from "node:fs/promises";
 import { basename } from "node:path";
 import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { WorkEnvironment } from "../../shared/environment.js";
+import type { SecretAccess } from "../../shared/secret.js";
+import { StreamMask } from "../../shared/secret-mask.js";
 import { IMAGE_SNIFF_BYTES, imageKind } from "./image-kind.js";
+import { rewritePlaceholders, secretVariable } from "./secret-placeholders.js";
 
 /** Pi's bash, read, write and edit with their operations on the Bot's current WorkEnvironment (A50), looked up at
  * every call, so a switch takes effect at the next one without a new session. One call stays in the environment it
  * started in, so an edit never reads in one place and writes in another. Registered as custom tools under the
- * built-in names, they replace Pi's local ones; their schemas, output handling and descriptions stay Pi's. */
-export function environmentTools(lookup: () => WorkEnvironment): ToolDefinition[] {
-  const pinned = new AsyncLocalStorage<WorkEnvironment>();
-  const current = () => pinned.getStore() ?? lookup();
+ * built-in names, they replace Pi's local ones; their schemas, output handling and descriptions stay Pi's. A bash
+ * command's secret placeholders are filled from its environment, and its output is masked as it streams (A52). */
+export function environmentTools(lookup: () => WorkEnvironment, secrets?: SecretAccess): ToolDefinition[] {
+  const pinned = new AsyncLocalStorage<Call>();
+  const current = () => pinned.getStore()?.env ?? lookup();
   const access = async (path: string) => {
     if (!await current().exists(path)) throw Object.assign(new Error(`ENOENT: no such file or directory, access '${path}'`), { code: "ENOENT" });
   };
@@ -19,8 +23,15 @@ export function environmentTools(lookup: () => WorkEnvironment): ToolDefinition[
   const cwd = current().cwd;
   const definitions = [
     relocated(createBashToolDefinition(cwd, { operations: {
-      exec: (command, dir, { onData, signal, timeout, env }) => current().exec(command, { cwd: dir, onData,
-        ...(signal ? { signal } : {}), ...(timeout ? { timeout } : {}), ...(env ? { env: defined(env) } : {}) }),
+      exec: async (command, dir, { onData, signal, timeout, env }) => {
+        const where = current(), prepared = withSecrets(command, secrets);
+        if (prepared.names.length) secrets!.record(prepared.names, { environmentId: where.id, toolCallId: pinned.getStore()?.toolCallId ?? null, detail: command });
+        const masker = secrets?.masker(), stream = masker && !masker.empty ? new StreamMask(masker, onData) : null;
+        try {
+          return await where.exec(prepared.command, { cwd: dir, onData: stream ? chunk => stream.push(chunk) : onData,
+            ...(signal ? { signal } : {}), ...(timeout ? { timeout } : {}), ...(env ? { env: defined(env) } : {}), ...(prepared.values ? { secrets: prepared.values } : {}) });
+        } finally { stream?.end(); }
+      },
     } }) as unknown as ToolDefinition, current),
     // Pictures go to the model as pictures; the kind comes from a file's first bytes, as Pi's local read does.
     createReadToolDefinition(cwd, { operations: { readFile, access, detectImageMimeType: async path => imageKind(await current().head(path, IMAGE_SNIFF_BYTES)) } }),
@@ -32,13 +43,25 @@ export function environmentTools(lookup: () => WorkEnvironment): ToolDefinition[
 
 /** Pi resolves a tool's paths against the run's working directory (`ctx.cwd`) before its own; they resolve against
  * the directory of the environment the call runs in instead. */
-function inside(definition: ToolDefinition, lookup: () => WorkEnvironment, pinned: AsyncLocalStorage<WorkEnvironment>): ToolDefinition {
+function inside(definition: ToolDefinition, lookup: () => WorkEnvironment, pinned: AsyncLocalStorage<Call>): ToolDefinition {
   const execute = definition.execute.bind(definition) as (...args: unknown[]) => ReturnType<ToolDefinition["execute"]>;
   return { ...definition, execute: ((...args: unknown[]) => {
     const env = lookup(), ctx = args[4];
     if (ctx && typeof ctx === "object") args[4] = new Proxy(ctx, { get: (target, key) => key === "cwd" ? env.cwd : Reflect.get(target, key, target) });
-    return pinned.run(env, () => execute(...args));
+    return pinned.run({ env, toolCallId: typeof args[0] === "string" ? args[0] : null }, () => execute(...args));
   }) as ToolDefinition["execute"] };
+}
+type Call = { env: WorkEnvironment; toolCallId: string | null };
+
+/** The command to run, with placeholders turned into variables, and the values those variables take. A placeholder
+ * the Bot may not use fails the call before anything runs. */
+function withSecrets(command: string, secrets: SecretAccess | undefined): { command: string; names: string[]; values?: Record<string, string> } {
+  const rewritten = rewritePlaceholders(command);
+  if ("error" in rewritten) throw new Error(rewritten.error);
+  if (!rewritten.names.length) return { command, names: [] };
+  const resolved = secrets?.resolve(rewritten.names) ?? { refused: rewritten.names };
+  if ("refused" in resolved) throw new Error(`You have no secret named ${resolved.refused.join(", ")}. secrets.list in the chat gateway shows the ones you may use. If you need another, ask your owner to add it in Settings → Secrets and grant it to you; never ask for its value in the chat.`);
+  return { command: rewritten.command, names: rewritten.names, values: Object.fromEntries(Object.entries(resolved.values).map(([name, value]) => [secretVariable(name), value])) };
 }
 
 type Output = { content: { type: string; text?: string }[]; details?: { fullOutputPath?: unknown }; structuredContent?: Record<string, unknown> };

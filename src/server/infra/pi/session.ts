@@ -18,6 +18,7 @@ import type { LiveEvent } from "../../shared/live.js";
 import { LiveTranslator } from "./live.js";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import { environmentTools } from "./environment-tools.js";
+import type { SecretAccess } from "../../shared/secret.js";
 
 export interface SessionOptions {
   store: Store; bot: Bot; selection: ModelSelection; reference: SessionRef;
@@ -28,6 +29,8 @@ export interface SessionOptions {
   live?: (event: LiveEvent) => void;
   /** Where bash, read, write and edit run (A50): the Bot's current environment, asked at every tool call. */
   environment: () => WorkEnvironment;
+  /** The Bot's secrets (A52): placeholders in bash, and masking of what reaches the model and the chat. */
+  secrets?: SecretAccess;
 }
 /** The longest we wait for one provider request (Pi's default is five minutes). */
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
@@ -125,18 +128,33 @@ export class PiSession implements BotSession {
           name: tool.name, label: tool.name, description: tool.description,
           parameters: Type.Unsafe(tool.parameters as TSchema), executionMode: "sequential",
           execute: async (toolCallId, args, signal) => {
-            const output = await tool.execute(args, { toolCallId, signal });
+            // What a Bot writes into Jarvy (messages, notices, titles) never carries a secret's value.
+            const output = await tool.execute(options.secrets ? options.secrets.masker().maskDeep(args) : args, { toolCallId, signal });
             if (isToolMedia(output)) return { content: [{ type: "text", text: output.text },
               ...output.images.map(image => ({ type: "image" as const, data: image.data, mimeType: image.mimeType }))], details: {} };
             return { content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output) }], details: {} };
           },
         });
         api.on("before_agent_start", () => ({ systemPrompt: options.systemPrompt() }));
+        // Every tool result, nested codemode calls included, is masked before Pi keeps it or the model sees it.
+        api.on("tool_result", event => {
+          const masker = options.secrets?.masker();
+          if (!masker || masker.empty) return undefined;
+          let changed = false;
+          const content = event.content.map(part => {
+            if (part.type !== "text") return part;
+            const text = masker.mask(part.text);
+            if (text === part.text) return part;
+            changed = true; return { ...part, text };
+          });
+          if (!changed) return undefined;
+          return { content, ...(event.structuredContent !== undefined ? { structuredContent: masker.maskDeep(event.structuredContent) } : {}) };
+        });
       }],
     });
     await resourceLoader.reload();
     const result = await createAgentSession({ cwd: bot.workspacePath, agentDir, sessionManager, settingsManager, resourceLoader, modelRuntime: models, model,
-      thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools, customTools: environmentTools(options.environment) });
+      thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools, customTools: environmentTools(options.environment, options.secrets) });
     adapter.session = result.session; adapter.settings = settingsManager;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
       adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");
@@ -162,6 +180,8 @@ export class PiSession implements BotSession {
     adapter.signature = JSON.stringify([{ connectionId: selection.connectionId, modelId: selection.modelId }, connection.providerName, connection.api, connection.baseUrl, configured, store.modelHeaders(connection.id, configured.id)]);
     return adapter;
   }
+  /** A batch never carries a secret's value, even one a person pasted into the chat. */
+  private masked(xml: string): string { return this.options.secrets?.masker().mask(xml) ?? xml; }
   private onEvent(event: AgentSessionEvent): void {
     if (event.type === "agent_start") { this.started = true; this.settled = false; this.options.activity("dispatching"); }
     if (event.type === "agent_settled") { this.settled = true; this.settledResolve?.(); }
@@ -177,7 +197,8 @@ export class PiSession implements BotSession {
       { botId: this.options.bot.id, reason: event.reason, aborted: event.aborted, tokensBefore: event.result?.tokensBefore,
         tokensAfter: event.result?.estimatedTokensAfter, error: event.errorMessage });
     if (event.type === "message_end" && event.message.role === "assistant") this.result = this.classify(event.message);
-    if (this.options.live) for (const live of this.translator.translate(event)) this.options.live(live);
+    if (this.options.live) for (const live of this.translator.translate(event))
+      this.options.live(live.type === "tool_end" && this.options.secrets ? { ...live, output: this.options.secrets.masker().mask(live.output) } : live);
     this.maybeAbort();
   }
   /** The last assistant message decides the prompt (a later retry success replaces an earlier error).
@@ -198,7 +219,7 @@ export class PiSession implements BotSession {
    * notice steered just before a new message interrupts the turn is delivered at the start of the next one. */
   steer(xml: string): boolean {
     if (!this.promptActive || this.session.isIdle) return false;
-    void this.session.steer(xml, undefined, { source: "extension" }).catch(error => {
+    void this.session.steer(this.masked(xml), undefined, { source: "extension" }).catch(error => {
       console.error("[pi] steer failed", { botId: this.options.bot.id, error: error instanceof Error ? error.message : String(error) });
     });
     return true;
@@ -211,7 +232,7 @@ export class PiSession implements BotSession {
     let outcome: PromptResult["outcome"] = "failed";
     try {
       try {
-        await this.session.prompt(xml, { expandPromptTemplates: false });
+        await this.session.prompt(this.masked(xml), { expandPromptTemplates: false });
       } finally {
         await this.session.waitForIdle();
         if (this.started && !this.settled) await settled;

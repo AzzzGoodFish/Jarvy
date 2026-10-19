@@ -12,7 +12,7 @@ export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv
     async exec(command: string, exec: ExecOptions) {
       const result = await env.exec(command, {
         cwd: exec.cwd,
-        ...(options.passEnv && exec.env ? { env: exec.env, inheritEnv: false } : { inheritEnv: true }),
+        ...(options.passEnv && exec.env ? { env: { ...exec.env, ...exec.secrets }, inheritEnv: false } : { ...(exec.secrets ? { env: exec.secrets } : {}), inheritEnv: true }),
         ...(exec.timeout ? { timeout: exec.timeout } : {}),
         onOutput: text => exec.onData(Buffer.from(text)),
       }, context(exec.signal));

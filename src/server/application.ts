@@ -39,11 +39,11 @@ export class Application {
       () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
-    this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials,
+    this.secrets = new SecretService(store);
+    this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials, secrets: this.secrets,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);
-    this.secrets = new SecretService(store);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
     this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), new ModelCatalog(dataDir));
   }
