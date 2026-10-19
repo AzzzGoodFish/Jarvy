@@ -2,6 +2,32 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.6.0 — 2026-10-19
+
+Upgrading moves the database from schema v19 to v20 on first start: environments and their grants are added, and each Bot gains its default and current environment. Existing Bots keep working on your computer. A v20 database cannot be opened by 0.5.0; keep a copy if you may need to go back.
+
+### Added
+
+- **Sandboxes.** A Bot can work in its own sandbox: a Linux container only it uses, which Jarvy makes with Docker. It comes with Node, Python, git, build tools, CJK fonts and Playwright with its browsers, and the Bot can install more with sudo. Its workspace is mounted as `/workspace` and is its home directory there, so settings such as `~/.ssh` and `~/.gitconfig` stay with it. Choose a sandbox or your computer when you create a Bot (the agent Bot can too), or change it later in Bot info under 工作环境 / Work environment. A sandbox keeps running until you stop it, and it survives a Jarvy restart. Stop closes what the Bot left running there, and Reset removes what it installed but never the workspace; both ask first. Without Docker, Bots work on your computer as before. (A50)
+- **Letting a sandboxed Bot use your computer.** In Bot info, a switch under the external environments it may use lets a sandboxed Bot use your computer. It moves there and back by itself when a task needs it, like `cd`, and each batch tells it where it is now. Turning the switch off sends a Bot that is there back to its sandbox. A command that is already running finishes where it started.
+- **Files go through Jarvy.** Attachments no longer point at a path on your computer. A Bot fetches one into wherever it is working, and sends files from there, so files work the same in a sandbox.
+
+### Changed
+
+- Pi 1.2.0, and the model catalogue takes pi.dev's newer entries. (A49)
+- The live cat's thinking and murmurs show all of a step's text and scroll, up to 12 lines (6 on a phone).
+
+### Fixed
+
+- Files sent together in one message keep the order they were given in. This applies to messages sent before the upgrade too.
+- The transcript stays at the bottom when rows grow after opening, instead of stopping a little above the newest message.
+
+### Known limits
+
+- The sandbox image is built on your machine the first time one is needed: a few minutes, about 3 GB. There is no GPU in it.
+- A sandbox keeps the image it was made from until you reset it. Older images are removed after a new one is built.
+- Being able to use Docker is equivalent to root on the machine running Jarvy.
+
 ## 0.5.0 — 2026-10-14
 
 Upgrading moves the database from schema v18 to v19 on first start: a settings table is added and the inbox table is rebuilt with all its rows. A v19 database cannot be opened by 0.4.0; keep a copy if you may need to go back. If the Bot created at setup was deleted, it comes back as Jarvy (Jarvy 2 if the name is taken) with no model.

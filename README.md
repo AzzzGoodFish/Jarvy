@@ -34,6 +34,8 @@ The interface comes in English and Chinese, following your browser's language; s
 
 **Watch it work.** In a DM, the Bot's block cat acts out its turn as it happens: it thinks, reads, types and turns to you, and a dialogue beside it shows what it is thinking, muttering and sending, and each tool it runs. Click the dialogue to see every step.
 
+**Each Bot in its own sandbox.** With Docker installed, a Bot can work in a Linux container only it uses, with Node, Python, git, build tools and Playwright with its browsers, and it can install whatever else it needs. Its workspace is its home there and outlives a reset. Choose a sandbox or your computer when you create a Bot, change it later in Bot info, and let a sandboxed Bot use your computer when a task needs it.
+
 **An agent Bot that runs Jarvy for you.** Jarvy, the first Bot, wears a crown. Tell it what you want to get done and it builds the team: it creates Bots, writes their personas and picks their models. Later it starts and stops them, checks their usage and clears things away. Anything it deletes waits for your confirmation on a card.
 
 **Unread that respects your attention.** A red count appears only when someone @mentions you or replies to you. Everything else gets a quiet one-line preview, and you can mute any chat.
@@ -54,7 +56,7 @@ The interface comes in English and Chinese, following your browser's language; s
 
 ## Quick start
 
-Requires Node.js 24 (22.19 or later works).
+Requires Node.js 24 (22.19 or later works). Docker is optional: with it, Bots can work in their own sandboxes. Their image is built on this machine the first time one is needed, which takes a few minutes and about 3 GB.
 
 ```sh
 npm install
@@ -101,7 +103,7 @@ Jarvy is not an internet service.
 
 - It listens on `127.0.0.1` by default. With `--host 0.0.0.0` it serves plain HTTP, so anyone on the network can read passwords, cookies and API keys. Use a trusted network, a VPN or an HTTPS reverse proxy.
 - Credentials are stored in the database without application-level encryption. The data directory is created with mode `0700` and the database with `0600`; do not share the database or its backups.
-- A Bot's workspace is an ordinary folder, not a sandbox. Bots run `bash` with your user's permissions.
+- A Bot works either in its own sandbox, a Docker container that sees only its workspace and runs with your user and group ids, or on your computer, where it runs `bash` with your user's permissions and reaches everything you can. Being able to use Docker is equivalent to root on this machine.
 
 ## License
 
