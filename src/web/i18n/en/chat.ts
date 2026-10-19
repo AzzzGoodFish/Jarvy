@@ -149,7 +149,7 @@ export const chat = {
   "files.widen": "Widen the preview",
   "files.closePreview": "Close the preview",
   "files.running": "Scripts are running in isolation: they can reach the network but can't read Jarvy's data.",
-  "files.scripts": { one: "This HTML has {count} script{hosts}. It's shown without running it. Once run, it can reach the network but can't read Jarvy's data.", other: "This HTML has {count} scripts{hosts}. They're shown without running. Once run, they can reach the network but can't read Jarvy's data." },
+  "files.scripts": { one: "This HTML has {count} script{hosts}. It isn't running. Once run, it can reach the network but can't read Jarvy's data.", other: "This HTML has {count} scripts{hosts}. They aren't running. Once run, they can reach the network but can't read Jarvy's data." },
   "files.scriptHosts": " (loading {hosts})",
   "files.andMore": " and more",
   "files.stop": "Stop scripts",
