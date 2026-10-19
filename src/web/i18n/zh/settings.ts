@@ -7,6 +7,7 @@ export const settings: Part<typeof en> = {
   "settings.sections": "设置分类",
   "settings.general": "通用",
   "settings.models": "模型",
+  "settings.network": "网络",
   "settings.about": "关于",
 
   "group.custom": "自定义 API",

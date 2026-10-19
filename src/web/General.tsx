@@ -2,11 +2,9 @@ import { useState } from "react";
 import { CheckIcon } from "lucide-react";
 import { LOCALES, getLocale, localeLabel, setLocale, t } from "./i18n";
 import { applyTheme } from "./ui";
-import { LanAccess } from "./connection/LanAccess";
 
 /** Settings → General: the interface language (each named in itself, so it can be found from either) and the theme,
- * both remembered in this browser, and LAN access when Jarvy listens beyond this machine (A51). The account menu's theme
- * switch stays as a shortcut. */
+ * both remembered in this browser. The account menu's theme switch stays as a shortcut. */
 export function General() {
   const [dark, setDark] = useState(document.documentElement.classList.contains("dark"));
   const theme = (next: boolean) => { applyTheme(next ? "dark" : "light"); setDark(next); };
@@ -20,6 +18,5 @@ export function General() {
     <section className="jv-section" aria-labelledby="general-theme"><h3 id="general-theme" className="jv-section-title">{t("general.theme")}</h3>
       <div className="jv-list" role="radiogroup" aria-labelledby="general-theme">
         {option("light", t("general.light"), !dark, () => theme(false))}{option("dark", t("general.dark"), dark, () => theme(true))}</div></section>
-    <LanAccess/>
   </div>;
 }

@@ -4,6 +4,7 @@ export const settings = {
   "settings.sections": "Settings sections",
   "settings.general": "General",
   "settings.models": "Models",
+  "settings.network": "Network",
   "settings.about": "About",
 
   "group.custom": "Custom API",

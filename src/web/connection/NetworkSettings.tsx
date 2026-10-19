@@ -1,26 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon, CopyIcon, DownloadIcon } from "lucide-react";
 import { api, type ConnectionInfo } from "../api";
-import { t } from "../i18n";
+import { rich, t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { copyText } from "../ui";
 import "../styles/connection.css";
 
-/** Settings → General → LAN access (A51): the HTTPS addresses other devices open, Jarvy's certificate to install once
- * on each, and whether plain HTTP from other machines is allowed. Shown only when Jarvy listens beyond this machine. */
-export function LanAccess() {
+/** Settings → Network (A51, fish m1121): LAN access. When Jarvy listens beyond this machine, the HTTPS addresses other
+ * devices open, Jarvy's certificate to install once on each, and whether plain HTTP from other machines is allowed;
+ * otherwise how to open it to the network. */
+export function NetworkSettings() {
   const [info, setInfo] = useState<ConnectionInfo | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [steps, setSteps] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  useEffect(() => { void api.connection().then(setInfo).catch(() => setInfo(null)); }, []);
-  if (!info?.https) return null;
+  useEffect(() => { void api.connection().then(setInfo).catch(() => setFailed(true)); }, []);
+  const page = (body: ReactNode) => <div className="jv-page">
+    <header className="jv-page-header"><div><h2>{t("settings.network")}</h2></div></header>
+    <section className="jv-section" aria-labelledby="network-lan"><h3 id="network-lan" className="jv-section-title">{t("connection.lan")}</h3>{body}</section>
+    {failed && <p className="jv-note-error" role="alert">{t("common.failed")}</p>}
+  </div>;
+  if (!info) return page(null);
+  if (!info.https) return page(<div className="jv-list"><div className="jv-list-row jv-static-row jv-conn-local">
+    <span className="jv-row-text"><strong>{t("connection.localOnly")}</strong><span>{rich("connection.localOnlyHint", { flag: <code>--host 0.0.0.0</code> })}</span></span>
+  </div></div>);
   const toggle = async () => {
     setBusy(true); setFailed(false);
     try { setInfo(await api.setConnection(!info.allowHttp)); } catch { setFailed(true); } finally { setBusy(false); }
   };
-  return <section className="jv-section" aria-labelledby="general-lan"><h3 id="general-lan" className="jv-section-title">{t("connection.lan")}</h3>
+  return page(<>
     <p className="jv-hint jv-conn-intro">{t("connection.lanHint")}</p>
     <div className="jv-list" role="group" aria-label={t("connection.addresses")}>
       {info.addresses.map(address => <div key={address} className="jv-list-row jv-static-row">
@@ -49,6 +58,5 @@ export function LanAccess() {
         <span className="jv-conn-switch" aria-hidden="true"/>
       </button>
     </div>
-    {failed && <p className="jv-note-error" role="alert">{t("common.failed")}</p>}
-  </section>;
+  </>);
 }

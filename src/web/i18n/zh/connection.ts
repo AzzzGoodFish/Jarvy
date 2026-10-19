@@ -4,6 +4,8 @@ import type { connection as en } from "../en/connection";
 /** 中文：怎么访问 Jarvy (A51)。 */
 export const connection: Part<typeof en> = {
   "connection.lan": "局域网访问",
+  "connection.localOnly": "仅限本机",
+  "connection.localOnlyHint": "Jarvy 目前只接受这台电脑上的访问。如需在局域网内的其他设备上使用，请以 {flag} 启动。",
   "connection.lanHint": "局域网内的其他设备可以通过以下地址访问 Jarvy。",
   "connection.addresses": "访问地址",
   "connection.copy": "复制地址",

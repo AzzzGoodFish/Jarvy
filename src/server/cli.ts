@@ -59,8 +59,8 @@ async function initialize(store: Store): Promise<void> {
 function reachNotes(host: string, port: number, allowHttp: boolean): { info: string[]; warning: string | null } {
   if (isLoopbackHost(host)) return { info: [], warning: null };
   const info = lanAddresses(host).map(address => `On your network: https://${address.includes(":") ? `[${address}]` : address}:${port}`);
-  info.push("To trust Jarvy on other devices, install its certificate from Settings → General → LAN access.");
-  return { info, warning: allowHttp ? "WARNING: HTTP access is allowed in Settings → General → LAN access, so passwords and conversations reach other devices unencrypted." : null };
+  info.push("To trust Jarvy on other devices, install its certificate from Settings → Network.");
+  return { info, warning: allowHttp ? "WARNING: HTTP access is allowed in Settings → Network, so passwords and conversations reach other devices unencrypted." : null };
 }
 function listenOptions(args: string[]) {
   const host = option(args, "--host", "127.0.0.1");

@@ -1,6 +1,8 @@
-/** English: how Jarvy is reached (A51) — Settings → General → LAN access, and the banner of a plain-HTTP page. A part of the reference dictionary (./index.ts). */
+/** English: how Jarvy is reached (A51) — Settings → Network, and the banner of a plain-HTTP page. A part of the reference dictionary (./index.ts). */
 export const connection = {
   "connection.lan": "LAN access",
+  "connection.localOnly": "This computer only",
+  "connection.localOnlyHint": "Jarvy accepts connections from this computer only. To use it from other devices on your network, start it with {flag}.",
   "connection.lanHint": "Other devices on your local network can open Jarvy at these addresses.",
   "connection.addresses": "Addresses",
   "connection.copy": "Copy address",

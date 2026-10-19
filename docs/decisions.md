@@ -269,9 +269,9 @@ Jarvy serves HTTPS itself whenever it listens beyond this machine. Plain HTTP fr
 - **One port, both protocols**: the first byte of a connection tells a TLS handshake from plain HTTP, so addresses and bookmarks keep their port. The HTTPS session cookie is `Secure` and named apart from the plain one, which browsers would otherwise refuse to set.
 - **Plain HTTP**:
   - From this machine, by any of its addresses, it is always served. Browsers count `localhost` as a secure context, the upgrade scripts and `jarvy on` talk to it there, and tools here that use the LAN address keep working.
-  - From another machine it gets a 308 to HTTPS, unless the owner turns on "Allow HTTP access" in Settings → General → LAN access (stored as the `allow_http` setting, effective at once).
+  - From another machine it gets a 308 to HTTPS, unless the owner turns on "Allow HTTP access" in Settings → Network (stored as the `allow_http` setting, effective at once).
 - **Warning**: any page that is not a secure context shows a lasting banner above the login page and the app, with a link to HTTPS. TLS added by a reverse proxy counts as secure.
-- **Trust**: Settings → General → LAN access lists the HTTPS addresses, offers the root (also public at `/api/connection/root.crt`) with its SHA-256 fingerprint, and gives steps for Mac, Windows, iPhone and iPad (install the profile, then turn on full trust) and Android. A device without it gets the browser's warning once.
+- **Trust**: Settings → Network (its own tab, fish m1121) lists the HTTPS addresses, offers the root (also public at `/api/connection/root.crt`) with its SHA-256 fingerprint, and gives steps for Mac, Windows, iPhone and iPad (install the profile, then turn on full trust) and Android. A device without it gets the browser's warning once.
 - **Only on this machine** (the default `127.0.0.1`): nothing changes; no certificate is made.
 
 Why: encrypting only a secret inside the page protects nothing against someone who can change the page, and browsers give plain-HTTP LAN pages no WebCrypto, clipboard or notifications. A reverse proxy stays possible, but most owners won't set one up, so the default has to be safe.

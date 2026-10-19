@@ -101,7 +101,7 @@ npm run dev:web                   # Vite on 127.0.0.1:5173, proxies /api to 8080
 
 Jarvy is not an internet service.
 
-- It listens on `127.0.0.1` by default. With `--host 0.0.0.0` (or any address other devices can reach) it serves HTTPS with a certificate it makes itself, and sends plain HTTP from other machines to HTTPS. Install that certificate once on each device (Settings → General → LAN access), or accept the browser's warning once. Plain HTTP from other machines can be allowed there; the page then warns that passwords, API keys and conversations cross the network unencrypted.
+- It listens on `127.0.0.1` by default. With `--host 0.0.0.0` (or any address other devices can reach) it serves HTTPS with a certificate it makes itself, and sends plain HTTP from other machines to HTTPS. Install that certificate once on each device (Settings → Network), or accept the browser's warning once. Plain HTTP from other machines can be allowed there; the page then warns that passwords, API keys and conversations cross the network unencrypted.
 - Credentials are stored in the database without application-level encryption. The data directory is created with mode `0700` and the database with `0600`; do not share the database or its backups.
 - A Bot works either in its own sandbox, a Docker container that sees only its workspace and runs with your user and group ids, or on your computer, where it runs `bash` with your user's permissions and reaches everything you can. Being able to use Docker is equivalent to root on this machine.
 

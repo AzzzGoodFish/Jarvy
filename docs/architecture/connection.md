@@ -21,9 +21,9 @@ With any other host (`0.0.0.0`, `::`, a LAN address), Jarvy serves HTTPS with it
 - **Plain HTTP**:
   - A request from this machine is served, whether it comes from a loopback address or one of the machine's own addresses (a tool here that uses the LAN address).
   - A request from another machine gets a 308 to the same host, path and query over HTTPS, unless the owner allows plain HTTP.
-  - That choice is the `allow_http` setting (Settings → General → LAN access, "Allow HTTP access", `PUT /api/connection {allowHttp}`). It applies to the next request, with no restart.
+  - That choice is the `allow_http` setting (Settings → Network, "Allow HTTP access", `PUT /api/connection {allowHttp}`). It applies to the next request, with no restart.
 - **The root for devices**: `GET /api/connection/root.crt` serves it as DER (`application/x-x509-ca-cert`) without login, because a public certificate is not a secret. `GET /api/connection` gives the HTTPS addresses, the root's SHA-256 fingerprint and the setting.
 - **The interface**:
-  - Settings → General → LAN access appears only when Jarvy serves HTTPS. It lists the addresses with a copy button, the certificate with a download and its fingerprint, install steps for Mac, Windows, iPhone and iPad, and Android, and the "Allow HTTP access" switch.
+  - Settings → Network shows "This computer only" with how to open Jarvy to the network when it does not serve HTTPS. When it does, it lists the addresses with a copy button, the certificate with a download and its fingerprint, install steps for Mac, Windows, iPhone and iPad, and Android, and the "Allow HTTP access" switch.
   - Whenever the page is not a secure context (`window.isSecureContext` is false), a warning sits above everything, the login page included, and links to the same page over HTTPS. A reverse proxy that adds TLS gives a secure context, so it shows no warning.
 - **The command line**: `jarvy on` and `jarvy run` print the HTTPS addresses. They add a warning when plain HTTP is allowed.
