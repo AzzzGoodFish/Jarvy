@@ -55,7 +55,7 @@ export const chat: Part<typeof en> = {
   "members.count": { one: "{count} 位成员", other: "{count} 位成员" },
   "members.people": "用户",
   "members.removeTitle": "把 {name} 移出 #{channel}",
-  "members.removeBody": "移出后，对方将不再收到这个频道的消息。",
+  "members.removeBody": "移出后，对方将无法再收到此频道的消息。",
   "members.removeConfirm": "移出",
 
   "chat.area": "对话区域",
@@ -151,7 +151,7 @@ export const chat: Part<typeof en> = {
   "files.narrow": "收起预览",
   "files.widen": "扩大预览",
   "files.closePreview": "关闭附件预览",
-  "files.running": "脚本正在隔离环境中运行：可以联网，但读不到 Jarvy 的数据。",
+  "files.running": "脚本正在隔离环境中运行：可以联网，但无法读取 Jarvy 的数据。",
   "files.scripts": { one: "这个 HTML 含有 {count} 段脚本{hosts}，现在显示的是不运行脚本的效果。运行后脚本可以联网，但读不到 Jarvy 的数据。", other: "这个 HTML 含有 {count} 段脚本{hosts}，现在显示的是不运行脚本的效果。运行后脚本可以联网，但读不到 Jarvy 的数据。" },
   "files.scriptHosts": "（引用 {hosts}）",
   "files.andMore": " 等",
