@@ -102,7 +102,7 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
   const pending = drafts.some(item => item.auto?.status === "pending");
   return <form className="jv-editor" onChange={() => setNotice("")} onSubmit={event => void save(event)}>
     <header className="jv-editor-header"><Button type="button" variant="ghost" size="icon-sm" className="jv-back" disabled={busy} onClick={onBack} aria-label={t("editor.back")}><ArrowLeftIcon/></Button>
-      <ProviderMark name={title}/>
+      <ProviderMark name={title} provider={connection ? connection.kind === "builtin" ? connection.providerName : undefined : preset?.id}/>
       <div className="jv-row-text"><strong>{title}</strong><span>{custom ? "OpenAI / Anthropic compatible" : t(authType === "oauth" ? "group.subscription" : "group.apiKey")}</span></div>
       {status && <span className="jv-status" data-ok={status.ok || undefined}>{status.label}</span>}
       {connection && <Button type="button" variant="ghost" size="icon-sm" className="jv-danger-icon" disabled={busy} onClick={() => void remove()} aria-label={t("editor.delete")}><Trash2Icon/></Button>}

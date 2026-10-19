@@ -33,7 +33,7 @@ export function ProviderPicker({ onBack, onSelect }: { onBack: () => void; onSel
     {GROUPS.filter(item => visible.some(provider => group(provider) === item.id)).map(({ id, label }) => <section className="jv-section" key={id} aria-label={t(label)}>
       <h3 className="jv-section-title">{t(label)}</h3>
       <div className="jv-list">{visible.filter(item => group(item) === id).map(item => <button className="jv-list-row" type="button" key={`${item.id}:${item.authType}`} onClick={() => onSelect(item)}>
-        <ProviderMark name={item.id === "custom" ? "+" : item.name}/>
+        <ProviderMark name={item.id === "custom" ? "+" : item.name} provider={item.id}/>
         <span className="jv-row-text"><strong>{item.name}</strong><span>{item.id === "custom" ? t("picker.customHint") : item.authType === "oauth" ? t("picker.oauthHint") : t("picker.keyHint", { count: item.modelCount })}</span></span>
         <ChevronRightIcon className="jv-row-chevron"/>
       </button>)}</div>

@@ -101,6 +101,8 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
 .jv-row-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--jv-field); color: var(--jv-muted); }
 .jv-row-icon svg { width: 16px; height: 16px; }
 .jv-provider-mark { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; background: var(--jv-field); border: 1px solid var(--jv-line); color: var(--jv-muted); font-size: 14px; font-weight: 600; }
+.jv-provider-mark[data-logo] { color: var(--jv-text); }
+.jv-provider-mark[data-logo] svg { width: 20px; height: 20px; }
 .jv-status { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px; background: var(--jv-field); color: var(--jv-muted); font-size: 12px; white-space: nowrap; }
 .jv-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--jv-dim); }
 .jv-status[data-ok]::before { background: var(--ui-fill-success, #2fa66a); }

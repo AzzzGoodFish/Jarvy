@@ -4,6 +4,7 @@
 
 - **shadcn/ui** — `src/web/components/ui/` holds local copies of `badge`, `button`, `card`, `dialog`, `input`, `input-group`, `label`, `scroll-area`, `select` and `textarea` from shadcn/ui (`apps/v4/registry/new-york-v4/ui/`, commit `98a1fe67b439324ddc857f47fbdce056600a4329`), adapted to local imports. © shadcn, MIT; license at `licenses/SHADCN-UI-MIT.txt`.
 - **Bossmode** — `src/web/styles/login.css` adapts the login page layout of Bossmode 0.29.0 (commit `84e742f`, `web/src/styles/login.css`), now on Jarvy's own colours. The attachment preview in `src/web/files/` was reimplemented after Bossmode 0.29.1's file viewer behaviour (static HTML rendering, kinds, navigation). Apache-2.0; license at `licenses/BOSSMODE-APACHE-2.0.txt`.
+- **lobe-icons** — `src/web/provider-logos/` holds provider logos copied from `@lobehub/icons-static-svg` 1.95.1 (the colour version where a brand has one), with their size, inline style and title removed. © 2023 LobeHub, MIT; license at `licenses/LOBE-ICONS-MIT.txt`. The logos are the trademarks of their owners and only name the provider.
 
 Jarvy's design tokens (`src/web/styles/tokens.css`) and the remaining styles are its own. Icons are [Lucide](https://lucide.dev) (ISC, via `lucide-react`).
 

@@ -28,7 +28,7 @@ export function ModelSettings({ connections, onChanged }: { connections: ModelCo
       <div className="jv-list">{connections.filter(item => group(item) === id).map(connection => {
         const status = connectionStatus(connection);
         return <button type="button" key={connection.id} className="jv-list-row" onClick={() => { setId(connection.id); setPreset(undefined); setPage("editor"); }}>
-          <ProviderMark name={connection.displayName}/>
+          <ProviderMark name={connection.displayName} provider={connection.kind === "builtin" ? connection.providerName : undefined}/>
           <span className="jv-row-text"><strong>{connection.displayName}</strong><span>{connection.models.length ? t("models.count", { count: connection.models.length }) : t("models.none")}</span></span>
           <span className="jv-status" data-ok={status.ok || undefined}>{status.label}</span><ChevronRightIcon className="jv-row-chevron"/>
         </button>;
