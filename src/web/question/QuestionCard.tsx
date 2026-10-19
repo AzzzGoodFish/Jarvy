@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { CheckIcon, MinusIcon, XIcon } from "lucide-react";
+import { CheckIcon, MessageCircleQuestionMarkIcon, MinusIcon, XIcon } from "lucide-react";
 import { api, type ChatMessage, type Question } from "../api";
 import { rich, t } from "../i18n";
 import "../styles/question.css";
@@ -10,8 +10,8 @@ const letter = (index: number) => String.fromCharCode(65 + index);
 const editable = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
   || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
 
-/** A Bot's question (messages.ask, A36), set under the Bot's message like its text: no card of its own, the options
- * as light rounded rows like the message bubbles. While pending, the Bot's tool call is waiting: picking (single),
+/** A Bot's question (messages.ask, A36): a panel under the Bot's message — the question in its header, the options as
+ * rows in its body, a custom answer and 确定 in its footer — like the request for a secret. While pending, the Bot's tool call is waiting: picking (single),
  * ticking + 确定 (multiple), typing a custom answer or × settle it. A settled question folds to one line
  * (「已选：…」 or 「已忽略」, then the question). A–F pick options when this is the latest pending question and focus
  * is not in a field. */
@@ -60,10 +60,11 @@ function OptionsQuestion({ message, keyboard, onSettled }: { message: ChatMessag
   }
   return <div className="jv-question" role="group" aria-labelledby={titleId} aria-busy={busy || undefined}>
     <div className="jv-question-head">
+      <span className="jv-question-icon"><MessageCircleQuestionMarkIcon aria-hidden="true"/></span>
       <div className="jv-question-heading"><p id={titleId} className="jv-question-title">{question.question}</p>{question.detail && <p className="jv-question-detail">{question.detail}</p>}</div>
       <button type="button" className="jv-question-dismiss" aria-label={t("question.dismissLabel")} title={t("question.dismiss")} disabled={busy} onClick={() => void settle({ action: "dismiss" })}><XIcon aria-hidden="true"/></button>
     </div>
-    <div className="jv-question-options" role={question.multiple ? "group" : undefined} aria-label={question.multiple ? t("question.multiple") : undefined}>
+    <div className="jv-question-body"><div className="jv-question-options" role={question.multiple ? "group" : undefined} aria-label={question.multiple ? t("question.multiple") : undefined}>
       {question.options.map((option, index) => {
         const on = ticked.includes(index);
         return <button key={option.label} type="button" className="jv-question-option" data-style={option.style} data-on={on || undefined}
@@ -74,12 +75,12 @@ function OptionsQuestion({ message, keyboard, onSettled }: { message: ChatMessag
         </button>;
       })}
     </div>
+    {error && <p className="jv-question-error" role="alert">{error}</p>}</div>
     {(question.allowCustom || question.multiple) && <div className="jv-question-foot">
       {question.allowCustom && <input className="jv-question-custom" value={custom} maxLength={2000} placeholder={t(question.multiple ? "question.note" : "question.own")} aria-label={t("question.ownLabel")}
         disabled={busy} onChange={event => setCustom(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); submitCustom(); } }}/>}
-      {question.multiple ? <button type="button" className="ui-button jv-question-submit" disabled={busy || (!ticked.length && !custom.trim())} onClick={confirm}>{ticked.length ? t("question.confirmCount", { count: ticked.length }) : t("question.confirm")}</button>
-        : <button type="button" className="ui-button jv-question-submit" disabled={busy || !custom.trim()} onClick={submitCustom}>{t("question.send")}</button>}
+      {question.multiple ? <button type="button" className="ui-button ui-primary jv-question-submit" disabled={busy || (!ticked.length && !custom.trim())} onClick={confirm}>{ticked.length ? t("question.confirmCount", { count: ticked.length }) : t("question.confirm")}</button>
+        : <button type="button" className="ui-button ui-primary jv-question-submit" disabled={busy || !custom.trim()} onClick={submitCustom}>{t("question.send")}</button>}
     </div>}
-    {error && <p className="jv-question-error" role="alert">{error}</p>}
   </div>;
 }

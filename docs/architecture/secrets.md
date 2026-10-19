@@ -27,7 +27,7 @@ The owner's tokens, passwords and keys (A52). Values go in once, through Setting
 ## Asking for one
 
 - `secrets.request {chatId, name, purpose}` posts a question card (A36) whose spec carries `secret: {name, purpose, exists, needsValue}`, and waits the same way; the Bot's activity is `asking`. When the Bot may already use a readable secret by that name, it returns at once.
-- The card (`src/web/secrets/SecretRequestCard.tsx`) asks for a value when there is none or it doesn't open (`needsValue`), and offers to replace a saved one otherwise. The owner picks "Keep allowing" (until revoked in Settings) or "This time only", or declines. The value field is masked unless shown; the card warns when the page isn't a secure context and when a value is shorter than 8 characters.
+- The card (`src/web/secrets/SecretRequestCard.tsx`, in the question panel) asks for a value when there is none or it doesn't open (`needsValue`), and offers to replace a saved one otherwise. The owner picks "Keep allowing" (until revoked in Settings) or "This time only", or declines. The value field is masked unless shown; the card warns when the page isn't a secure context and when a value is shorter than 8 characters.
 - Allowing goes to `POST /api/secrets/requests/:chatId/:messageId {value?, scope}`, never to the message: the secret is created (its description is the purpose) or its value replaced, granted to the Bot that asked, and only then the card is settled with the chosen scope. Declining dismisses the card. A card whose call stopped waiting (a new message, a stop, a restart) can't be answered and saves nothing.
 - "This time only" is a grant tied to the Bot's run in progress (`secret_grants.run_id`); it counts only while that run is open and is removed once it has ended.
 

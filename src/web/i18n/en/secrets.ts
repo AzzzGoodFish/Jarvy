@@ -46,6 +46,7 @@ export const secrets = {
   "secrets.keyFile": "Location",
   "secrets.keyHint": "Secrets and model API keys are encrypted with this key. Keep it with your backups when you back up or move Jarvy; without it they can't be decrypted.",
   "secretCard.title": "Asks to use the secret {name}",
+  "secretCard.valuePlaceholder": "Paste or type the value",
   "secretCard.insecure": "This page isn't on HTTPS, so the value would cross the network unencrypted. Switch to HTTPS before entering it.",
   "secretCard.exists": "You already keep this secret in Settings → Secrets.",
   "secretCard.replace": "Replace value",

@@ -49,6 +49,7 @@ export const secrets: Part<typeof en> = {
   "secrets.keyFile": "保存位置",
   "secrets.keyHint": "密钥和模型 API key 都用它加密。备份或迁移 Jarvy 时请一并保留，否则将无法解密。",
   "secretCard.title": "请求使用密钥 {name}",
+  "secretCard.valuePlaceholder": "粘贴或输入值",
   "secretCard.insecure": "当前页面没有使用 HTTPS，值会以明文经过网络。请先切换到 HTTPS 再填写。",
   "secretCard.exists": "「设置 › 密钥」里已有这个密钥。",
   "secretCard.replace": "更换值",

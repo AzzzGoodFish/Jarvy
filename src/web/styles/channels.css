@@ -74,7 +74,6 @@
 .jv-row-head strong { font-size: 14px; font-weight: 650; }
 .jv-row-head time { font-size: 11px; color: var(--ui-text-tertiary); }
 .jv-role { padding: 0 5px; border-radius: 4px; background: var(--ui-fill-secondary); font-size: 10px; line-height: 16px; color: var(--ui-text-secondary); }
-.jv-row .ui-question { margin-top: 4px; }
 .jv-mention { padding: 0 2px; border-radius: 4px; background: var(--ui-fill-accent-subtle); color: var(--ui-text-accent, var(--ui-text-primary)); font-weight: 500; }
 .jv-mention[data-me] { background: var(--ui-fill-warning-subtle); color: var(--ui-text-primary); font-weight: 650; }
 .jv-divider { display: flex; align-items: center; gap: 8px; margin: 10px 8px; font-size: 11px; color: var(--ui-text-danger); font-weight: 600; }
