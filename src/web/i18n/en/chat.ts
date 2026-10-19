@@ -116,7 +116,7 @@ export const chat = {
   "quote.copy": "Copy",
   "quote.quote": "Quote in reply",
 
-  "composer.busy": "Still uploading. Add more when it's done.",
+  "composer.busy": "Still uploading. Add more once it's done.",
   "composer.tooMany": "A message can have up to {count} attachments.",
   "composer.size": "Attachments can't be empty or larger than 10 MB.",
   "composer.pasted": "pasted-image",
@@ -131,7 +131,7 @@ export const chat = {
 
   "files.preview": "Preview {name}",
   "files.download": "Download {name}",
-  "files.gone": "Can't find this attachment. It may have been deleted.",
+  "files.gone": "This attachment doesn't exist or was deleted",
   "files.readFailed": "Couldn't open the file ({status})",
   "files.readError": "Couldn't open the file",
   "files.kindImage": "Image",
@@ -156,7 +156,7 @@ export const chat = {
   "files.run": "Run scripts",
   "files.downloadToView": "Download this file to view it",
   "files.tooLarge": "Files over 1 MB can't be previewed. Download it to view.",
-  "files.unsupported": "This file type can't be previewed. Download it to view.",
+  "files.unsupported": "This file can't be previewed here.",
   "files.reading": "Reading the file…",
   "files.runningTitle": "{name} (running)",
   "files.previous": "Previous attachment",

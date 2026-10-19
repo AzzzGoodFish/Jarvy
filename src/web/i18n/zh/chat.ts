@@ -119,7 +119,7 @@ export const chat: Part<typeof en> = {
   "quote.copy": "复制",
   "quote.quote": "在回复中引用",
 
-  "composer.busy": "附件还在上传，完成后再添加。",
+  "composer.busy": "附件上传中，请稍后再添加。",
   "composer.tooMany": "每条消息最多添加 {count} 个附件。",
   "composer.size": "附件不能为空，也不能超过 10 MB。",
   "composer.pasted": "粘贴图片",
@@ -134,7 +134,7 @@ export const chat: Part<typeof en> = {
 
   "files.preview": "预览 {name}",
   "files.download": "下载 {name}",
-  "files.gone": "找不到这个附件，可能已被删除",
+  "files.gone": "附件不存在或已被删除",
   "files.readFailed": "无法打开文件（{status}）",
   "files.readError": "无法打开文件",
   "files.kindImage": "图片",
@@ -159,7 +159,7 @@ export const chat: Part<typeof en> = {
   "files.run": "运行脚本",
   "files.downloadToView": "此文件请下载后查看",
   "files.tooLarge": "文件超过 1 MB，请下载后查看。",
-  "files.unsupported": "这种文件无法预览，请下载后查看。",
+  "files.unsupported": "此文件不支持在页面内预览。",
   "files.reading": "正在读取文件…",
   "files.runningTitle": "{name}（运行中）",
   "files.previous": "上一个附件",
