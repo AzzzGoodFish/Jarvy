@@ -45,7 +45,8 @@ export function EnvironmentChoice({ bot, onSaved }: { bot: Bot; onSaved: (bot: B
 export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
   const [busy, setBusy] = useState<"move" | "grant" | "start" | "stop" | "reset" | null>(null);
   const [open, setOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  /** Stopping and resetting are destructive (fish m1090, m1094): both ask in place first. */
+  const [confirming, setConfirming] = useState<"stop" | "reset" | null>(null);
   const [error, setError] = useState("");
   const details = useId();
   const { computer, home, current, hostGranted, docker } = bot.environment;
@@ -78,15 +79,15 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
         {open && <div id={details} className="jv-list-row jv-static-row jv-env-details">
           <p>{t("environment.sandboxAbout")}{t(hint)}</p>
           {state !== "unavailable" && !confirming && <div className="jv-env-actions">
-            <Button type="button" variant="outline" size="sm" disabled={!!busy || state === "preparing"} onClick={() => run(state === "running" ? "stop" : "start")}>
+            <Button type="button" variant="outline" size="sm" disabled={!!busy || state === "preparing"} onClick={() => state === "running" ? setConfirming("stop") : run("start")}>
               {t(busy === "start" ? "environment.starting" : busy === "stop" ? "environment.stopping" : state === "running" ? "environment.stop" : "environment.start")}</Button>
-            <Button type="button" variant="ghost" size="sm" disabled={!!busy || state === "preparing"} onClick={() => setConfirming(true)}>{t("environment.reset")}</Button>
+            <Button type="button" variant="ghost" size="sm" disabled={!!busy || state === "preparing"} onClick={() => setConfirming("reset")}>{t("environment.reset")}</Button>
           </div>}
           {/* Asked in place: Bot info is itself a dialog. */}
-          {confirming && <div className="jv-env-confirm" role="group" aria-label={t("environment.resetTitle", { name: bot.name })}>
-            <strong>{t("environment.resetTitle", { name: bot.name })}</strong><p>{t("environment.resetBody")}</p>
-            <div className="jv-env-confirm-actions"><Button type="button" variant="ghost" size="sm" onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
-              <Button type="button" className="jv-primary" size="sm" onClick={() => { setConfirming(false); run("reset"); }}>{t("environment.resetConfirm")}</Button></div>
+          {confirming && <div className="jv-env-confirm" role="group" aria-label={t(`environment.${confirming}Title`, { name: bot.name })}>
+            <strong>{t(`environment.${confirming}Title`, { name: bot.name })}</strong><p>{t(`environment.${confirming}Body`)}</p>
+            <div className="jv-env-confirm-actions"><Button type="button" variant="ghost" size="sm" onClick={() => setConfirming(null)}>{t("common.cancel")}</Button>
+              <Button type="button" className="jv-primary" size="sm" onClick={() => { const what = confirming; setConfirming(null); run(what); }}>{t(`environment.${confirming}Confirm`)}</Button></div>
           </div>}
         </div>}
       </>}

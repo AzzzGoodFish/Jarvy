@@ -43,7 +43,7 @@ A new Bot gets a sandbox when this machine has Docker, unless whoever creates it
 
 The section has two parts (fish m1046):
 
-- **Where it works**: its default, picked with a two-way switch between the sandbox and the owner's computer, and a line saying where it is now when it switched away. When the default is the sandbox, its details open below: what it is, its state, Start or Stop, and Reset, which asks in place since Bot info is itself a dialog.
+- **Where it works**: its default, picked with a two-way switch between the sandbox and the owner's computer, and a line saying where it is now when it switched away. When the default is the sandbox, its details open below: what it is, its state, Start or Stop, and Reset. Stopping closes what the Bot left running and resetting removes what it installed, so both ask in place first (Bot info is itself a dialog; fish m1094).
 - **External environments it may use**: one switch each, a grant. So far that is the owner's computer, shown for a Bot whose default is its sandbox; SSH hosts the owner adds in Settings will join it.
 
 A new Bot's first setup offers the same two defaults as a list with a sentence each.
