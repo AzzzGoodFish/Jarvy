@@ -22,7 +22,7 @@ export const environment = {
   "environment.state.failed": "Failed",
   "environment.state.unavailable": "No Docker",
   "environment.hint.preparing": "The first sandbox takes a few minutes: the image is built on this machine.",
-  "environment.hint.running": "Stops by itself after an hour without use.",
+  "environment.hint.running": "Keeps running until you stop it.",
   "environment.hint.stopped": "Starts by itself when the Bot needs it.",
   "environment.hint.failed": "It didn't start. Try again.",
   "environment.hint.unavailable": "Docker isn't available on the computer running Jarvy.",

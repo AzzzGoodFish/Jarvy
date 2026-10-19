@@ -25,7 +25,7 @@ export const environment: Part<typeof en> = {
   "environment.state.failed": "出错了",
   "environment.state.unavailable": "没有 Docker",
   "environment.hint.preparing": "第一个沙箱要几分钟：镜像在这台机器上构建。",
-  "environment.hint.running": "闲置一小时后会自己停下。",
+  "environment.hint.running": "一直开着，直到你停止它。",
   "environment.hint.stopped": "Bot 用到时会自己启动。",
   "environment.hint.failed": "没能启动，可以再试一次。",
   "environment.hint.unavailable": "运行 Jarvy 的电脑上没有可用的 Docker。",

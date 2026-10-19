@@ -8,23 +8,20 @@ import {
 import type { ComputerStatus, EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
-/** A computer nobody used for this long is stopped; the next tool call starts it again. */
-const IDLE_MS = 60 * 60_000;
 const SWEEP_MS = 60_000;
 
 export interface ComputerDependencies {
   store: Store;
   /** A computer's state changed: the owner's page reloads the Bots. */
   changed: () => void;
-  /** Whether the Bot is in a turn, when its computer must not be stopped for idling. */
-  busy: (botId: string) => boolean;
   log?: (text: string) => void;
 }
 
 /** Bots' sandboxes (A50): Docker containers from an image built here, each mounting its Bot's workspace as
- * /workspace and running as the owner's ids. Made when first used, stopped when idle, removed with the Bot; a reset
- * removes the container and what was installed in it, never the workspace. Containers keep running when Jarvy stops,
- * so background work survives a restart. */
+ * /workspace and running as the owner's ids. Made when first used and kept running until the owner stops it, since
+ * stopping closes what the Bot left running (fish m1090–m1096); removed with the Bot; a reset removes the container
+ * and what was installed in it, never the workspace. Containers keep running when Jarvy stops, so background work
+ * survives a restart. */
 export class Computers {
   private docker: boolean | null = null;
   private probing: Promise<void> | null = null;
@@ -32,7 +29,6 @@ export class Computers {
   private timer: NodeJS.Timeout | null = null;
   private readonly states = new Map<string, ComputerStatus>();
   private readonly preparing = new Map<string, Promise<string>>();
-  private readonly used = new Map<string, number>();
   private readonly connections = new Map<string, WorkEnvironment>();
   /** Containers whose home was checked since Jarvy started (`homeAtWorkspace`). */
   private readonly homes = new Map<string, Promise<void>>();
@@ -117,7 +113,6 @@ export class Computers {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) return Promise.reject(new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404));
     const container = computer.spec.container!;
-    this.used.set(botId, Date.now());
     if (this.states.get(botId)?.state === "running") return Promise.resolve(container);
     if (this.docker !== false) this.set(botId, { state: "preparing" });
     const task = (async () => {
@@ -163,7 +158,7 @@ export class Computers {
     await this.disconnect(botId);
     if (this.available) await removeContainer(computer.spec.container!);
     this.deps.store.environments.dropComputer(botId);
-    this.states.delete(botId); this.used.delete(botId);
+    this.states.delete(botId);
   }
   /** Closes the connections; containers keep running. */
   async close(): Promise<void> {
@@ -201,11 +196,11 @@ export class Computers {
     this.states.set(botId, status);
     if (before?.state !== status.state || before?.error !== status.error) this.deps.changed();
   }
-  /** Learns what happened to containers outside Jarvy, stops computers left idle, and removes containers of this
-   * Jarvy that no Bot has any more (a Bot deleted while Docker was out of reach). */
+  /** Learns what happened to containers outside Jarvy, and removes containers of this Jarvy that no Bot has any more
+   * (a Bot deleted while Docker was out of reach). */
   private async sweep(): Promise<void> {
     const states = await containerStates(`jarvy.data=${this.tag}`);
-    const now = Date.now(), computers = this.deps.store.environments.computers();
+    const computers = this.deps.store.environments.computers();
     const owned = new Set(computers.map(computer => computer.spec.container));
     for (const name of states.keys()) if (!owned.has(name)) {
       this.log(`removing ${name}, which no Bot has`);
@@ -216,11 +211,7 @@ export class Computers {
       if (this.preparing.has(botId)) continue;
       const running = states.get(computer.spec.container!) === "running";
       if (!running) { if (this.states.get(botId)?.state !== "failed") this.set(botId, { state: "stopped" }); await this.disconnect(botId); continue; }
-      if (!this.used.has(botId)) this.used.set(botId, now);
-      if (now - this.used.get(botId)! > IDLE_MS && !this.deps.busy(botId)) {
-        this.log(`stopping the idle computer of ${botId}`);
-        await this.stop(botId).catch(error => this.log(`stopping ${botId} failed: ${(error as Error).message}`));
-      } else this.set(botId, { state: "running" });
+      this.set(botId, { state: "running" });
     }
   }
   private log(text: string): void { (this.deps.log ?? console.log)(`[computers] ${text}`); }

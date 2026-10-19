@@ -50,7 +50,7 @@ export class BotService {
   readonly agent: AgentOps;
   constructor(private readonly deps: BotDependencies) {
     this.agent = new AgentOps(this, deps.store, deps.chats);
-    this.computers = new Computers({ store: deps.store, changed: () => this.listChanged(), busy: id => this.bots.get(id)?.status().status === "running" });
+    this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
     this.environments = new BotEnvironments(deps.store, this.computers);
   }
   listChanged() { this.deps.listChanged?.(); }
