@@ -14,6 +14,8 @@ export interface Bot { id: string; name: string; description: string; systemProm
   environment: BotPlacement; }
 /** `computer` is a Bot's sandbox, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
 export type EnvironmentKind = "computer" | "host";
+/** `https`: Jarvy listens beyond this machine and serves HTTPS with its own certificate (A51). */
+export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses: string[]; fingerprint: string | null }
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 /** `hostGranted`: the owner lets the Bot switch to their computer (A50). */
 export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean }
@@ -177,6 +179,9 @@ export const api = {
   setBotEnvironment: (id: string, home: EnvironmentKind) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ home }) }),
   grantHost: (id: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ hostGranted: granted }) }),
   computer: (id: string, action: "start" | "stop" | "reset") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),
+  /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */
+  connection: () => request<ConnectionInfo>("/connection"),
+  setConnection: (allowHttp: boolean) => request<ConnectionInfo>("/connection", { method: "PUT", body: body({ allowHttp }) }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),

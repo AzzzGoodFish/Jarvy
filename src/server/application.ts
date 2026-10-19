@@ -13,6 +13,7 @@ import { ChatFiles } from "./service/chat/files.js";
 import { Changes } from "./service/events.js";
 import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
+import { ConnectionService } from "./service/connection.js";
 import { RuntimeFault } from "./shared/runtime.js";
 import type { SessionFactory } from "./infra/pi/session.js";
 
@@ -26,6 +27,7 @@ export class Application {
   readonly auth: CredentialLogins;
   readonly account: AccountService;
   readonly models: ModelService;
+  readonly connection: ConnectionService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
     this.chats = new ChatService(store.chats, {
@@ -38,6 +40,7 @@ export class Application {
     this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
+    this.connection = new ConnectionService(store, dataDir);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
     this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), new ModelCatalog(dataDir));
   }

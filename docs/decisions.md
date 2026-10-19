@@ -260,3 +260,18 @@ A work environment is where a Bot's file and command tools (`bash`, `read`, `wri
 - **Postponed**: credentials beyond `~/.ssh/config`, isolation strength (the docker group is root-equivalent), VMs, quotas.
 
 Why: Bots shared the owner's identity and every file it can reach, and interfered with each other through packages, ports and disk; work on other machines needs the same tools there. The trial (fish m918–m923) ran a Bot's tools in a container over one pi-env connection: 2 ms a command against 47 ms for a fresh `docker exec`, twenty commands at once in 1.05 s, ~600 MB/s for large files with small requests still answered in milliseconds. Pi's tools already take pluggable operations, and with Pi 1.2.0 (A49) pi-env adds 18 MB. Built in steps; step 1 puts every Bot's tools on the interface, on the owner's computer.
+
+## A51 HTTPS beyond this machine
+
+Jarvy serves HTTPS itself whenever it listens beyond this machine. Plain HTTP from another machine is an opt-in that the interface warns about (fish m1097–m1105). It is the first step of the secrets work: a value typed into a card must not cross the LAN in plain text, and neither should the login password, model API keys and conversations, which did so far.
+
+- **Certificates**: Jarvy makes its own root the first time (ECDSA P-256, ten years, may only sign server certificates). The root signs a server certificate for 397 days, the most Apple and browsers accept. That certificate covers this machine's name and `<name>.local`, `localhost`, the loopback addresses, the host given and the LAN interfaces' addresses, leaving out containers, VMs and proxy tunnels. It is signed again at start when it nears its end or misses an address, so devices trust the root once. Written with Node's crypto, so there is no new dependency. The keys are 0600 files in the data directory; they will be encrypted with the secrets' master key when that exists.
+- **One port, both protocols**: the first byte of a connection tells a TLS handshake from plain HTTP, so addresses and bookmarks keep their port. The HTTPS session cookie is `Secure` and named apart from the plain one, which browsers would otherwise refuse to set.
+- **Plain HTTP**:
+  - From this machine, by any of its addresses, it is always served. Browsers count `localhost` as a secure context, the upgrade scripts and `jarvy on` talk to it there, and tools here that use the LAN address keep working.
+  - From another machine it gets a 308 to HTTPS, unless the owner turns on "Allow HTTP access" in Settings → General → LAN access (stored as the `allow_http` setting, effective at once).
+- **Warning**: any page that is not a secure context shows a lasting banner above the login page and the app, with a link to HTTPS. TLS added by a reverse proxy counts as secure.
+- **Trust**: Settings → General → LAN access lists the HTTPS addresses, offers the root (also public at `/api/connection/root.crt`) with its SHA-256 fingerprint, and gives steps for Mac, Windows, iPhone and iPad (install the profile, then turn on full trust) and Android. A device without it gets the browser's warning once.
+- **Only on this machine** (the default `127.0.0.1`): nothing changes; no certificate is made.
+
+Why: encrypting only a secret inside the page protects nothing against someone who can change the page, and browsers give plain-HTTP LAN pages no WebCrypto, clipboard or notifications. A reverse proxy stays possible, but most owners won't set one up, so the default has to be safe.

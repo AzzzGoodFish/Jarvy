@@ -18,6 +18,8 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
   pi/models.json                       pi.dev's model catalog as last fetched (A49)
   computers/bin/pi-env                 the daemon Bots' sandboxes mount read-only (A50)
   computers/build.log                  output of the last build of their image
+  tls/root.pem, root-key.pem           Jarvy's root certificate and its key (0600), made when it first listens beyond this machine (A51)
+  tls/server.pem, server-key.pem       the server certificate it signs, and its key (0600)
 ```
 
 | Data | Owner |

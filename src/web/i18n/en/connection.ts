@@ -1,0 +1,20 @@
+/** English: how Jarvy is reached (A51) — Settings → General → LAN access, and the banner of a plain-HTTP page. A part of the reference dictionary (./index.ts). */
+export const connection = {
+  "connection.lan": "LAN access",
+  "connection.lanHint": "Other devices on your local network can open Jarvy at these addresses.",
+  "connection.addresses": "Addresses",
+  "connection.copy": "Copy address",
+  "connection.root": "Security certificate",
+  "connection.rootHint": "Install it on your other devices so their browsers trust Jarvy without security warnings.",
+  "connection.download": "Download certificate",
+  "connection.fingerprint": "SHA-256 fingerprint",
+  "connection.howTo": "Installation instructions",
+  "connection.howMac": "Mac: Open the certificate, then set it to Always Trust in Keychain Access.",
+  "connection.howWindows": "Windows: Open the certificate and install it in Trusted Root Certification Authorities.",
+  "connection.howIos": "iPhone and iPad: Download it in Safari, install it in Settings › General › VPN & Device Management, then turn on full trust in Settings › General › About › Certificate Trust Settings.",
+  "connection.howAndroid": "Android: Download it, then go to Settings › Security › Encryption & credentials › Install a certificate › CA certificate.",
+  "connection.allowHttp": "Allow HTTP access",
+  "connection.allowHttpHint": "Lets other devices connect over unencrypted HTTP. Passwords and conversations are sent in plain text, so turn this on only for a network you trust.",
+  "connection.insecure": "This connection isn't encrypted. Passwords and conversations can be seen by others on the network.",
+  "connection.useHttps": "Switch to HTTPS",
+} as const;

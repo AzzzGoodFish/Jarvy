@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJarvyServer } from "./api/server.js";
 import { defaultDataDir, type Store } from "./infra/storage/store.js";
+import { isLoopbackHost, lanAddresses } from "./infra/tls/certificates.js";
 import { Application } from "./application.js";
 import { logPath, removePidFile, runningServer, signalReady, startBackground, stopServer, writePidFile } from "./daemon.js";
 
@@ -53,30 +54,37 @@ async function initialize(store: Store): Promise<void> {
   console.log(`Account ${username} initialized.`);
 }
 
-function bindWarning(host: string): string | null {
-  if (host === "0.0.0.0" || host === "::") return "WARNING: public bind over plain HTTP exposes passwords and API keys on untrusted networks. Use a trusted LAN or TLS reverse proxy.";
-  if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") return "WARNING: plain HTTP does not encrypt passwords or API keys. Use TLS for remote access.";
-  return null;
+/** Beyond this machine Jarvy serves HTTPS with its own certificate (A51); plain HTTP from other machines only when the
+ * owner allows it in Settings. */
+function reachNotes(host: string, port: number, allowHttp: boolean): { info: string[]; warning: string | null } {
+  if (isLoopbackHost(host)) return { info: [], warning: null };
+  const info = lanAddresses(host).map(address => `On your network: https://${address.includes(":") ? `[${address}]` : address}:${port}`);
+  info.push("To trust Jarvy on other devices, install its certificate from Settings → General → LAN access.");
+  return { info, warning: allowHttp ? "WARNING: HTTP access is allowed in Settings → General → LAN access, so passwords and conversations reach other devices unencrypted." : null };
 }
 function listenOptions(args: string[]) {
   const host = option(args, "--host", "127.0.0.1");
   const port = Number(option(args, "--port", "8080"));
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Port must be between 1 and 65535");
-  return { host, port, url: `http://${host === "0.0.0.0" || host === "::" ? "localhost" : host}:${port}` };
+  const wildcard = host === "0.0.0.0" || host === "::";
+  // Plain HTTP stays open to this machine, so a wildcard bind is shown as localhost; a named host is reached over HTTPS.
+  return { host, port, url: wildcard || isLoopbackHost(host) ? `http://${wildcard ? "localhost" : host}:${port}` : `https://${host}:${port}` };
 }
 /** `on`: account setup stays in the terminal, then the server runs detached until `off`. */
 async function startDetached(args: string[], dir: string): Promise<void> {
-  const { host } = listenOptions(args);
+  const { host, port } = listenOptions(args);
   const running = runningServer(dir);
   const offCommand = `jarvy off${dir === defaultDataDir() ? "" : ` --data-dir ${dir}`}`;
   if (running) { console.log(`Jarvy is already running at ${running.url} (pid ${running.pid}). Stop it with: ${offCommand}`); return; }
   const app = await Application.open(dir);
-  try { if (!app.store.isInitialized()) await initialize(app.store); } finally { await app.close(); }
+  let allowHttp = false;
+  try { if (!app.store.isInitialized()) await initialize(app.store); allowHttp = app.connection.allowHttp(); } finally { await app.close(); }
   const started = await startBackground(process.argv[1]!, args.slice(1), dir);
   console.log(`Jarvy running in background at ${started.url} (pid ${started.pid}, listening on ${host})`);
+  const notes = reachNotes(host, port, allowHttp);
+  for (const line of notes.info) console.log(line);
   console.log(`Log: ${logPath(dir)}\nStop with: ${offCommand}`);
-  const warning = bindWarning(host);
-  if (warning) console.warn(warning);
+  if (notes.warning) console.warn(notes.warning);
 }
 async function stopDetached(dir: string): Promise<void> {
   const result = await stopServer(dir);
@@ -112,24 +120,22 @@ async function main(): Promise<void> {
     const { host, port, url } = listenOptions(args);
     const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../web");
     if (!existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");
-    const server = createJarvyServer(app, webRoot);
-    closeHttp = () => { server.close(); server.closeAllConnections(); };
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(port, host, () => { server.off("error", reject); resolve(); });
-    });
+    const server = createJarvyServer(app, webRoot, app.connection.prepare(host, port));
+    closeHttp = () => server.close();
+    await server.listen(port, host);
     app.start();
     writePidFile(dir, url);
     console.log(`Jarvy running at ${url} (listening on ${host}, pid ${process.pid})`);
+    const notes = reachNotes(host, port, app.connection.allowHttp());
+    for (const line of notes.info) console.log(line);
     console.log(`Data: ${store.path}`);
-    const warning = bindWarning(host);
-    if (warning) console.warn(warning);
+    if (notes.warning) console.warn(notes.warning);
     signalReady(url);
     let shuttingDown = false;
     const shutdown = () => {
       if (shuttingDown) return;
       shuttingDown = true;
-      server.close(); server.closeAllConnections();
+      server.close();
       void app.close().then(() => { removePidFile(dir); console.log("Jarvy stopped."); })
         .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; });
     };

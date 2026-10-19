@@ -6,6 +6,7 @@ import { threads } from "./threads";
 import { bot } from "./bot";
 import { npc } from "./npc";
 import { environment } from "./environment";
+import { connection } from "./connection";
 
 /** 中文 (A45): the parts of the English reference, put together the same way. */
-export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment };
+export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection };

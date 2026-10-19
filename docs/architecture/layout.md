@@ -8,13 +8,13 @@ Frontend → API → Service (business objects such as Chat and Bot) → Infra. 
 src/
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
-    activity/ usage/ avatar/ files/ question/ bot/ styles/ theme/ components/ui/
+    activity/ usage/ avatar/ files/ question/ bot/ environment/ connection/ styles/ theme/ components/ui/
       avatar/               the 3D Bot (figure.ts; the agent Bot's crown, crown.ts), its DM layer (npc/) and colours
   server/
     api/
       app.ts                 Hono app and route registration
-      server.ts              Node HTTP adapter
-      routes/                account, bots, chats, channels, models, history, activity, events and live (SSE)
+      server.ts              Node HTTP adapter; HTTP and HTTPS on one port beyond this machine (A51)
+      routes/                account, bots, chats, channels, models, history, activity, events, live (SSE) and connection
       middleware/            same-origin and security headers, request bodies, error mapping
       views/                 HTTP projections
     service/
@@ -25,10 +25,12 @@ src/
       account/               login and its rate limit
       member.ts              Member / User
       events.ts              committed business changes (no HTTP/SSE here)
+      connection.ts          how Jarvy is reached: its certificate, LAN addresses, whether plain HTTP is allowed (A51)
     infra/
       storage/               Store, repositories, migrations/
       pi/                    Pi session, models, credentials, History and live-event conversion, HTTP dispatcher
       env/                   work environments: where a Bot's file and command tools run (pi-env, Pi Durable)
+      tls/                   Jarvy's own root and server certificates (A51)
       credentials/           per-connection credential serialisation
       files/                 workspace and attachment file I/O
       models/                model-list discovery over the network

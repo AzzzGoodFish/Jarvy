@@ -12,6 +12,7 @@ import { modelApis } from "../pi/catalog.js";
 import { CredentialRepository } from "./credential-repository.js";
 import { AgentRepository } from "./agent-repository.js";
 import { EnvironmentRepository } from "./environment-repository.js";
+import { SettingsRepository } from "./settings-repository.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 
 export const defaultDataDir = () => process.env.JARVY_DATA_DIR || join(homedir(), ".jarvy");
@@ -81,6 +82,7 @@ export class Store {
   readonly credentials: CredentialRepository;
   readonly agent: AgentRepository;
   readonly environments: EnvironmentRepository;
+  readonly settings: SettingsRepository;
 
   constructor(dataDir = defaultDataDir()) {
     const root = resolve(dataDir);
@@ -96,6 +98,7 @@ export class Store {
     this.credentials = new CredentialRepository(this.db);
     this.agent = new AgentRepository(this.db, () => this.userMemberId());
     this.environments = new EnvironmentRepository(this.db, () => this.userMemberId());
+    this.settings = new SettingsRepository(this.db);
     this.agent.ensure();
   }
 

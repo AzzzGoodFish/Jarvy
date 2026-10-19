@@ -84,7 +84,7 @@ To install your own build instead: `npm run build && npm pack --pack-destination
 | `jarvy on` | Run in the background (output goes to `<data-dir>/jarvy.log`). Sets up the account first if needed. |
 | `jarvy off` | Stop the background server, waiting up to 30 seconds. |
 
-Options: `--host` (default `127.0.0.1`), `--port` (default `8080`), `--data-dir` (default `~/.jarvy`, or `JARVY_DATA_DIR`). Use the same `--data-dir` for `on` and `off`.
+Options: `--host` (default `127.0.0.1`; any other host also serves HTTPS on the same port), `--port` (default `8080`), `--data-dir` (default `~/.jarvy`, or `JARVY_DATA_DIR`). Use the same `--data-dir` for `on` and `off`.
 
 ## Development
 
@@ -101,7 +101,7 @@ npm run dev:web                   # Vite on 127.0.0.1:5173, proxies /api to 8080
 
 Jarvy is not an internet service.
 
-- It listens on `127.0.0.1` by default. With `--host 0.0.0.0` it serves plain HTTP, so anyone on the network can read passwords, cookies and API keys. Use a trusted network, a VPN or an HTTPS reverse proxy.
+- It listens on `127.0.0.1` by default. With `--host 0.0.0.0` (or any address other devices can reach) it serves HTTPS with a certificate it makes itself, and sends plain HTTP from other machines to HTTPS. Install that certificate once on each device (Settings → General → LAN access), or accept the browser's warning once. Plain HTTP from other machines can be allowed there; the page then warns that passwords, API keys and conversations cross the network unencrypted.
 - Credentials are stored in the database without application-level encryption. The data directory is created with mode `0700` and the database with `0600`; do not share the database or its backups.
 - A Bot works either in its own sandbox, a Docker container that sees only its workspace and runs with your user and group ids, or on your computer, where it runs `bash` with your user's permissions and reaches everything you can. Being able to use Docker is equivalent to root on this machine.
 

@@ -34,6 +34,7 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 | [Memory](architecture/memory.md) | Chat history and Bot History; `history.read`; the activity timeline |
 | [Channels and threads](architecture/channels.md) | Channel groups, channels, threads, unread, mentions, the sidebar |
 | [Storage](architecture/storage.md) | Data directory, SQLite schema versions, recovery, attachments |
+| [Connection](architecture/connection.md) | HTTP on this machine, HTTPS with Jarvy's own certificate beyond it (A51) |
 | [Decisions (ADR)](decisions.md) | Why things are the way they are, and what each decision replaced |
 
 ## Not built yet
