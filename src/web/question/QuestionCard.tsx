@@ -4,6 +4,7 @@ import { api, type ChatMessage, type Question } from "../api";
 import { rich, t } from "../i18n";
 import "../styles/question.css";
 import { errorText } from "../errors";
+import { SecretRequestCard } from "../secrets/SecretRequestCard";
 
 const letter = (index: number) => String.fromCharCode(65 + index);
 const editable = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
@@ -14,7 +15,12 @@ const editable = (target: EventTarget | null) => target instanceof HTMLInputElem
  * ticking + 确定 (multiple), typing a custom answer or × settle it. A settled question folds to one line
  * (「已选：…」 or 「已忽略」, then the question). A–F pick options when this is the latest pending question and focus
  * is not in a field. */
-export function QuestionCard({ message, keyboard, onSettled }: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
+export function QuestionCard(props: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
+  const { message } = props, secret = message.question.secret;
+  // A request for a secret (secrets.request, A52) has its own card.
+  return secret ? <SecretRequestCard message={{ ...message, question: { ...message.question, secret } }} onSettled={props.onSettled}/> : <OptionsQuestion {...props}/>;
+}
+function OptionsQuestion({ message, keyboard, onSettled }: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
   const question = message.question, pending = question.state === "pending", titleId = useId();
   const [ticked, setTicked] = useState<number[]>([]), [custom, setCustom] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
   async function settle(body: Parameters<typeof api.answerQuestion>[2]) {

@@ -16,6 +16,7 @@ import { botRows, type RosterEntry } from "./roster.js";
 import type { AgentOps } from "./agent.js";
 import { AgentTools } from "./agent-tools.js";
 import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
+import { placeholder } from "../../shared/secret-mask.js";
 
 /** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list. */
 export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown }
@@ -28,8 +29,8 @@ export class Tools implements ToolsPort {
   /** The agent Bot's own tools (A48); other Bots have none. */
   private readonly agent?: AgentTools;
   constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
-    /** The secrets this Bot may use (A52), never their values. */
-    secrets: { list(): unknown };
+    /** The secrets this Bot may use (A52), never their values, and the card that asks the owner for one. */
+    secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
     asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
     this.tools = new ChatTools(scope);
     if (scope.agent) this.agent = new AgentTools({ ops: scope.agent, tools: this.tools });
@@ -80,6 +81,16 @@ export class Tools implements ToolsPort {
           case "environments.list": return this.scope.places.list();
           case "environments.switch": return this.scope.places.switch((args as { id: string }).id);
           case "secrets.list": return this.scope.secrets.list();
+          case "secrets.request": {
+            const parsed = args as { chatId: string; name: string; purpose: string };
+            if (!this.tools.chat(parsed.chatId).memberIds.some(id => this.scope.chats.member(id)?.kind === "user")) throw new ChatError(400, "No person in this chat to answer; ask in a chat with your owner");
+            const prepared = this.scope.secrets.prepare(parsed.name, parsed.purpose.trim());
+            if ("granted" in prepared) return { status: "granted", name: parsed.name, placeholder: placeholder(parsed.name), note: "You may already use it" };
+            const result = await this.ask(parsed.chatId, prepared.question, toolCallId, signal);
+            if (result.status !== "answered") return { messageId: result.messageId, status: "declined", note: "Your owner declined. Don't ask for the value in the chat; go on without it, or ask what they would like instead." };
+            return { messageId: result.messageId, status: "granted", name: parsed.name, placeholder: placeholder(parsed.name),
+              until: result.selected[0]?.value === "once" ? "this run ends" : "your owner revokes it" };
+          }
           case "chats.create": return this.tools.create(args as Parameters<ChatTools["create"]>[0]);
           case "chats.update": return this.tools.update(args as Parameters<ChatTools["update"]>[0]);
           case "chats.addMembers": return this.tools.addMembers(args as Parameters<ChatTools["addMembers"]>[0]);

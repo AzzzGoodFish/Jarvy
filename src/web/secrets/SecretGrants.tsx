@@ -14,6 +14,7 @@ export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots
   const [picking, setPicking] = useState(false), [query, setQuery] = useState(""), [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const granted = secret.grants.map(grant => bots.find(bot => bot.id === grant.botId)).filter((bot): bot is Bot => !!bot);
+  const once = new Set(secret.grants.filter(grant => grant.scope === "once").map(grant => grant.botId));
   const candidates = bots.filter(bot => !secret.grants.some(grant => grant.botId === bot.id));
   const shown = candidates.filter(bot => bot.name.toLowerCase().includes(query.trim().toLowerCase()));
   const close = () => { setPicking(false); setQuery(""); setPicked([]); };
@@ -32,6 +33,7 @@ export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots
       {!picking && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setPicking(true)}><PlusIcon/>{t("secrets.addBots")}</Button>}</div>
     {granted.length > 0 ? <ul className="jv-secret-granted">{granted.map(bot => <li key={bot.id}>
       <BotAvatar color={bot.color} mood={bot.mood} size={24} crown={bot.agent}/><span className="jv-secret-bot-name">{bot.name}</span>
+      {once.has(bot.id) && <span className="jv-secret-once">{t("secrets.onceTag")}</span>}
       <Button type="button" variant="ghost" size="icon-sm" className="jv-secret-revoke" disabled={busy} aria-label={t("secrets.revoke", { name: bot.name })}
         onClick={() => void run(async () => onChanged(await api.grantSecret(secret.id, bot.id, false)))}><XIcon/></Button>
     </li>)}</ul> : !picking && <p className="jv-hint">{t("secrets.noGrants")}</p>}

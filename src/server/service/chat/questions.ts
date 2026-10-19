@@ -1,4 +1,4 @@
-import { ChatError, type ChatMessage, type Question, type QuestionAnswer, type QuestionSpec } from "../../shared/chat.js";
+import { ChatError, type ChatMessage, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../shared/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -21,7 +21,14 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
   });
   if (new Set(parsed.map(option => option.label)).size !== parsed.length) throw new ChatError(400, "Question options must have distinct labels");
   return { question: (input.question as string).trim(), ...(input.detail === undefined ? {} : { detail: (input.detail as string).trim() }),
-    options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true };
+    options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true, ...(input.secret === undefined ? {} : { secret: secretAsk(input.secret) }) };
+}
+/** A secret request (secrets.request, A52), as built by the secrets service. */
+function secretAsk(value: unknown): SecretAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || typeof ask.name !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(ask.name) || !text(ask.purpose, 300)
+    || typeof ask.exists !== "boolean" || typeof ask.needsValue !== "boolean") throw new ChatError(400, "Invalid secret request");
+  return { name: ask.name, purpose: (ask.purpose as string).trim(), exists: ask.exists, needsValue: ask.needsValue };
 }
 function answerOf(question: Question, input: Record<string, unknown>): QuestionAnswer {
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;
@@ -61,6 +68,8 @@ export class ChatQuestions {
       this.waiting.set(message.id, result => { signal?.removeEventListener("abort", stop); resolve(result); });
     });
   }
+  /** Whether the asking tool call still waits for this card. */
+  waitingFor(messageId: string): boolean { return this.waiting.has(messageId); }
   respond(actorId: string, chatId: string, messageId: string, input: Record<string, unknown>): ChatMessage {
     const message = this.repository.message(actorId, messageId);
     if (!message || message.chatId !== chatId || !message.question) throw new ChatError(404, "Question not found");

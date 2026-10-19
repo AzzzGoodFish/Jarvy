@@ -41,6 +41,7 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `files.get` | puts a file of a message the Bot can read into its current environment (`temp/files/<name>` unless a path is given) and returns its path there (A50) |
 | `environments.list` | the work environments the Bot may use (its sandbox, its default, what its owner granted), with ids, names, the directory its tools start in, its default, a sandbox's state, and which one it is in (A50) |
 | `environments.switch` | moves the Bot's file and command tools to one of them, like `cd`, until it switches back; a stopped sandbox starts first; commands already running finish where they started |
+| `secrets.request` | posts a card asking the owner for a secret by name and purpose, in a chat with a person, and waits like `messages.ask`; returns granted (with its placeholder and until when) or declined, at once when the Bot may already use it ([secrets](secrets.md), A52) |
 | `secrets.list` | the secrets the owner granted the Bot: name, placeholder and description, never a value; a note on how to get one when there are none ([secrets](secrets.md), A52) |
 | `files.view` | shows such a file to the model: a picture (PNG, JPEG, GIF, WebP up to 4 MB) as a picture, a UTF-8 text file up to 64 KB as text; anything else needs `files.get` |
 | `messages.send` | to a `chatId`, or `to` a member by name (DM); `thread` to reply in a message's thread (created if missing); `alsoToChannel`; `replyTo`; attachments. Returns who was notified, who was mentioned but is not in the channel, and who got it by subscription |
@@ -112,7 +113,7 @@ history.read is listed by the chat gateway. History is material to look back on,
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
 secrets.list in the chat gateway shows the secrets your owner lets you use. To use one, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
-Secret values are masked in everything you see. If you need one you don't have, ask your owner to add it in Settings → Secrets and grant it to you.
+Secret values are masked in everything you see. If you need one you don't have, call secrets.request: your owner enters it on a card, and you wait for the answer.
 
 {a Bot whose default is its sandbox (A50):}
 ## Workspace

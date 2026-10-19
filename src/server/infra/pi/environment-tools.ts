@@ -60,7 +60,7 @@ function withSecrets(command: string, secrets: SecretAccess | undefined): { comm
   if ("error" in rewritten) throw new Error(rewritten.error);
   if (!rewritten.names.length) return { command, names: [] };
   const resolved = secrets?.resolve(rewritten.names) ?? { refused: rewritten.names };
-  if ("refused" in resolved) throw new Error(`You have no secret named ${resolved.refused.join(", ")}. secrets.list in the chat gateway shows the ones you may use. If you need another, ask your owner to add it in Settings → Secrets and grant it to you; never ask for its value in the chat.`);
+  if ("refused" in resolved) throw new Error(`You have no secret named ${resolved.refused.join(", ")}. secrets.list in the chat gateway shows the ones you may use. If you need another, use secrets.request; never ask for a value in the chat.`);
   return { command: rewritten.command, names: rewritten.names, values: Object.fromEntries(Object.entries(resolved.values).map(([name, value]) => [secretVariable(name), value])) };
 }
 

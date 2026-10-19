@@ -14,12 +14,14 @@ const MAX_VALUE = 16 * 1024;
 export class SecretRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
   private toRecord(row: Row): SecretRecord {
-    const grants = (this.db.prepare("SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM secret_grants WHERE secret_id=? ORDER BY granted_at")
+    const grants = (this.db.prepare(`SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM secret_grants g WHERE secret_id=?
+      AND (scope='always' OR EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=g.run_id AND r.ended_at IS NULL)) ORDER BY granted_at`)
       .all(row.id) as unknown as SecretRecord["grants"]).map(grant => ({ ...grant }));
     const { value, ...rest } = row;
     return { ...rest, readable: this.cipher.open(value, `secret:${row.id}`) !== null, grants };
   }
   list(): SecretRecord[] {
+    this.purge();
     return (this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.owner_id=? ORDER BY s.kind, lower(s.name)`).all(this.ownerId()) as unknown as Row[]).map(row => this.toRecord(row));
   }
   get(id: string): SecretRecord | null {
@@ -70,10 +72,23 @@ export class SecretRepository {
     return (this.db.prepare("SELECT id, name, value FROM secrets WHERE owner_id=? AND kind='value'").all(this.ownerId()) as { id: string; name: string; value: string }[])
       .map(row => ({ name: row.name, value: this.cipher.open(row.value, `secret:${row.id}`) })).filter((row): row is { name: string; value: string } => row.value !== null);
   }
-  /** The secrets a Bot may use until revoked. */
-  grantedTo(botId: string): { id: string; name: string; description: string }[] {
-    return (this.db.prepare(`SELECT s.id, s.name, s.description FROM secrets s JOIN secret_grants g ON g.secret_id=s.id
-      WHERE g.bot_id=? AND g.scope='always' AND s.owner_id=? AND s.kind='value' ORDER BY s.name`).all(botId, this.ownerId()) as { id: string; name: string; description: string }[]).map(row => ({ ...row }));
+  /** The secrets a Bot may use: granted until revoked, or for the run that is still going. */
+  grantedTo(botId: string): { id: string; name: string; description: string; scope: GrantScope }[] {
+    return (this.db.prepare(`SELECT s.id, s.name, s.description, g.scope FROM secrets s JOIN secret_grants g ON g.secret_id=s.id
+      WHERE g.bot_id=? AND s.owner_id=? AND s.kind='value' AND (g.scope='always' OR EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=g.run_id AND r.ended_at IS NULL))
+      ORDER BY s.name`).all(botId, this.ownerId()) as { id: string; name: string; description: string; scope: GrantScope }[]).map(row => ({ ...row }));
+  }
+  /** The Bot's run in progress, which a "this time only" grant lasts for. */
+  currentRun(botId: string): string | null {
+    return (this.db.prepare("SELECT id FROM bot_runs WHERE bot_id=? AND ended_at IS NULL ORDER BY created_at DESC LIMIT 1").get(botId) as { id: string } | undefined)?.id ?? null;
+  }
+  byName(name: string): SecretRecord | null {
+    const row = this.db.prepare("SELECT id FROM secrets WHERE owner_id=? AND kind='value' AND name=?").get(this.ownerId(), name) as { id: string } | undefined;
+    return row ? this.get(row.id) : null;
+  }
+  /** "This time only" grants whose run has ended. */
+  private purge(): void {
+    this.db.prepare("DELETE FROM secret_grants WHERE scope='once' AND NOT EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=secret_grants.run_id AND r.ended_at IS NULL)").run();
   }
   record(use: { secretId: string; name: string; botId: string; how: "command" | "ssh_sign"; environmentId: string | null; toolCallId: string | null; detail: string }): void {
     this.db.prepare("INSERT INTO secret_uses(secret_id,secret_name,bot_id,at,how,environment_id,tool_call_id,detail) VALUES(?,?,?,?,?,?,?,?)")

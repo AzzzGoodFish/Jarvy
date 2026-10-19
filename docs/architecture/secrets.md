@@ -24,12 +24,19 @@ The owner's tokens, passwords and keys (A52). Values go in once, through Setting
 - `secret_grants`: secret, Bot, scope `always` or `once` (with its run), who granted it and when. Deleted with the secret, and with the Bot.
 - `secret_uses`: secret (NULL once deleted), its name, Bot, time, how (`command`, `ssh_sign`), environment, History id, tool call, and what ran with placeholders.
 
+## Asking for one
+
+- `secrets.request {chatId, name, purpose}` posts a question card (A36) whose spec carries `secret: {name, purpose, exists, needsValue}`, and waits the same way; the Bot's activity is `asking`. When the Bot may already use a readable secret by that name, it returns at once.
+- The card (`src/web/secrets/SecretRequestCard.tsx`) asks for a value when there is none or it doesn't open (`needsValue`), and offers to replace a saved one otherwise. The owner picks "Keep allowing" (until revoked in Settings) or "This time only", or declines. The value field is masked unless shown; the card warns when the page isn't a secure context and when a value is shorter than 8 characters.
+- Allowing goes to `POST /api/secrets/requests/:chatId/:messageId {value?, scope}`, never to the message: the secret is created (its description is the purpose) or its value replaced, granted to the Bot that asked, and only then the card is settled with the chosen scope. Declining dismisses the card. A card whose call stopped waiting (a new message, a stop, a restart) can't be answered and saves nothing.
+- "This time only" is a grant tied to the Bot's run in progress (`secret_grants.run_id`); it counts only while that run is open and is removed once it has ended.
+
 ## Using a secret
 
 - `secrets.list` (chat gateway) gives the Bot the names, placeholders and descriptions of the secrets granted to it until revoked; never values.
 - In a `bash` command the model writes `{{secret:NAME}}`. Before the command runs (`infra/pi/secret-placeholders.ts`), each becomes `${JARVY_SECRET_NAME}`: kept as is inside double quotes, wrapped in double quotes when unquoted, and closed out of single quotes (`'…'"${…}"'…'`, and the same for `$'…'`). In an unquoted heredoc it expands as written; in a quoted one (`<<'EOF'`) it would stay literal, so the call fails. Placeholders in comments are left alone.
 - The values go into that command's environment only (`ExecOptions.secrets`), on the owner's computer and in a sandbox alike; the command text keeps the variables. Programs the command starts see the expanded value in their arguments, so the prompt prefers handing it over through the environment (`GH_TOKEN={{secret:…}} gh …`).
-- A name the Bot has no grant for, or whose value doesn't open, fails the call before anything runs, naming `secrets.list`.
+- A name the Bot has no grant for, or whose value doesn't open, fails the call before anything runs, naming `secrets.list` and `secrets.request`.
 - Each command that uses secrets writes one `secret_uses` row per secret: Bot, time, environment, tool call and the command as written (with placeholders, up to 4,000 characters).
 - `write` and `edit` content is never filled in.
 

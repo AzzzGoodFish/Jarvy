@@ -38,7 +38,12 @@ export interface Attachment { id: string; name: string; mimeType: string; size: 
 export interface MessageSource { historyId: number; toolCallId: string; }
 /** A Bot's question card (messages.ask, A36). The Bot's tool call waits for it to settle. */
 export interface QuestionOption { label: string; value?: string; description?: string; style?: "default" | "primary" | "danger"; }
-export interface QuestionSpec { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean; }
+export interface QuestionSpec { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean;
+  /** A request for a secret (secrets.request, A52): the card takes the value through its own endpoint, never into the chat. */
+  secret?: SecretAsk; }
+/** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
+ * doesn't open under this installation's key). */
+export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
 /** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
 export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";
 export interface QuestionAnswer { selected: number[]; custom: string | null; }

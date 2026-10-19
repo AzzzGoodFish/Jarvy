@@ -63,7 +63,9 @@ export interface ThreadInfo { id: string; title: string; status: "open" | "done"
 export interface Attachment { id: string; name: string; mimeType: string; size: number; }
 export interface QuestionOption { label: string; value?: string; description?: string; style?: "default" | "primary" | "danger"; }
 /** A Bot's question card (messages.ask, A36); pending while the Bot's tool call waits. */
-export interface Question { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean;
+/** A Bot's request for a secret (A52), shown as its own card. */
+export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
+export interface Question { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean; secret?: SecretAsk;
   state: "pending" | "answered" | "dismissed" | "ignored"; answer: { selected: number[]; custom: string | null } | null; settledAt: number | null; }
 export interface Reaction { emoji: string; memberIds: string[]; }
 /** What the search box found: chats only when searching everywhere. */
@@ -193,6 +195,9 @@ export const api = {
   deleteSecret: (id: string) => request<{ ok: boolean }>(`/secrets/${id}`, { method: "DELETE" }),
   grantSecret: (id: string, botId: string, granted: boolean) => request<Secret>(`/secrets/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   secretUses: (id: string) => request<{ uses: SecretUse[] }>(`/secrets/${id}/uses`),
+  /** Answers a request card: the value goes here, never into a message. */
+  fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once" }) =>
+    request<ChatMessage>(`/secrets/requests/${chatId}/${messageId}`, { method: "POST", body: body(input) }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),

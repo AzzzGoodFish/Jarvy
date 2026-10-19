@@ -39,7 +39,7 @@ export class Application {
       () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
-    this.secrets = new SecretService(store);
+    this.secrets = new SecretService(store, this.chats);
     this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials, secrets: this.secrets,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));

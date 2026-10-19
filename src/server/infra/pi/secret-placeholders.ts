@@ -55,7 +55,7 @@ export function rewritePlaceholders(command: string): Rewritten {
           const end = command.indexOf("\n", i), stop = end < 0 ? command.length : end;
           const line = command.slice(i, stop), next = end < 0 ? command.length : end + 1;
           if ((doc.tabs ? line.replace(/^\t+/, "") : line) === doc.delimiter) { out += command.slice(i, next); i = next; break; }
-          if (doc.quoted && line.includes("{{secret:")) return { error: `A placeholder in a quoted heredoc (<<'${doc.delimiter}') stays literal. Use an unquoted heredoc, or pass the value another way` };
+          if (doc.quoted && /\{\{secret:[A-Za-z0-9_]{1,64}\}\}/.test(line)) return { error: `A placeholder in a quoted heredoc (<<'${doc.delimiter}') stays literal. Use an unquoted heredoc, or pass the value another way. To write the placeholder itself into a file, use write or edit, which keep it as written.` };
           out += line.replace(/\{\{secret:([A-Za-z0-9_]{1,64})\}\}/g, (_, name: string) => { names.add(name); return `\${${secretVariable(name)}}`; }) + command.slice(stop, next);
           i = next;
         }
