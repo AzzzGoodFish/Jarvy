@@ -68,7 +68,7 @@ export const secrets: Part<typeof en> = {
   "secretCard.allowedAlways": "已允许使用 {name}，可以在「设置 › 密钥」中移除",
   "secretCard.allowedOnce": "已允许本次使用 {name}",
   "secretCard.declined": "已拒绝提供 {name}",
-  "secretCard.ignored": "{name} 的请求跳过了，因为你发了新消息",
+  "secretCard.ignored": "已忽略 {name} 的请求",
   "error.secretNameInvalid": "名称只能包含大写字母、数字和下划线，且以字母开头。",
   "error.secretNameTaken": "已有同名的密钥。",
   "error.secretValueMissing": "请输入值。",

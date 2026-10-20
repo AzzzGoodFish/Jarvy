@@ -65,7 +65,7 @@ export const secrets = {
   "secretCard.allowedAlways": "Allowed {name}. You can remove it in Settings › Secrets",
   "secretCard.allowedOnce": "Allowed {name} this time only",
   "secretCard.declined": "Declined {name}",
-  "secretCard.ignored": "Skipped the request for {name} because you sent a new message",
+  "secretCard.ignored": "Ignored the request for {name}",
   "error.secretNameInvalid": "Use capital letters, digits and underscores, starting with a letter.",
   "error.secretNameTaken": "Another secret already has this name.",
   "error.secretValueMissing": "Enter a value.",
