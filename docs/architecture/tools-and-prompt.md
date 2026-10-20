@@ -44,9 +44,9 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `secrets.request` | posts a card asking the owner for a secret by name and purpose, in a chat with a person, and waits like `messages.ask`; returns granted (with its placeholder and until when) or declined, at once when the Bot may already use it ([secrets](secrets.md), A52) |
 | `secrets.list` | the secrets the owner granted the Bot: name, placeholder and description, never a value; a note on how to get one when there are none ([secrets](secrets.md), A52) |
 | `files.view` | shows such a file to the model: a picture (PNG, JPEG, GIF, WebP up to 4 MB) as a picture, a UTF-8 text file up to 64 KB as text; anything else needs `files.get` |
-| `messages.send` | to a `chatId`, or `to` a member by name (DM); `thread` to reply in a message's thread (created if missing); `alsoToChannel`; `replyTo`; attachments. Returns who was notified, who was mentioned but is not in the channel, and who got it by subscription |
+| `messages.send` | to a `chatId`, or `to` a member by name (DM); `thread` to reply in a message's thread (created if missing); `alsoToChannel`; `replyTo`; attachments. Returns who was notified, who was mentioned but is not in the channel, and who got it by subscription; and, when the chat had messages the Bot hadn't read, their count with a note on where to read them (A53) |
 | `messages.react` | add or remove an emoji mark; re-asking the same emoji takes it off and the result says which way it went (A42) |
-| `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36) |
+| `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36); the result counts unread messages like `messages.send`, including those that came in while it waited (A53) |
 | `history.read` | the Bot's own History by ID ([memory](memory.md)) |
 
 Removing members and deleting channels or groups are left to people (A38), and to the agent Bot once the owner confirms (below). `messages.ask` needs a person in the chat.
