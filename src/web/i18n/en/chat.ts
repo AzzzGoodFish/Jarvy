@@ -155,7 +155,7 @@ export const chat = {
   "files.stop": "Stop scripts",
   "files.run": "Run scripts",
   "files.downloadToView": "Download this file to view it",
-  "files.tooLarge": "Files over 1 MB can't be previewed. Download it to view.",
+  "files.tooLarge": "This file is over 1 MB, too large to preview here.",
   "files.unsupported": "This file can't be previewed here.",
   "files.reading": "Reading the file…",
   "files.runningTitle": "{name} (running)",

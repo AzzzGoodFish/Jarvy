@@ -158,7 +158,7 @@ export const chat: Part<typeof en> = {
   "files.stop": "停止脚本",
   "files.run": "运行脚本",
   "files.downloadToView": "此文件请下载后查看",
-  "files.tooLarge": "文件超过 1 MB，请下载后查看。",
+  "files.tooLarge": "文件超过 1 MB，无法在页面内预览。",
   "files.unsupported": "此文件不支持在页面内预览。",
   "files.reading": "正在读取文件…",
   "files.runningTitle": "{name}（运行中）",

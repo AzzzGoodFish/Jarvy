@@ -139,7 +139,7 @@ export const common: Part<typeof en> = {
   "error.invalidRun": "Bot 的状态刚刚变化，请刷新后重试。",
   "error.loginInput": "请填写授权码或回调地址。",
   "error.loginOption": "请选择登录方式。",
-  "error.loginStep": "登录流程已过期，请重新开始。",
+  "error.loginStep": "登录步骤已变化，请重新开始。",
   "error.loginFailed": "登录操作失败，请刷新后重试。",
   "error.messageMissing": "找不到这条消息，它可能已被删除。",
   "error.modelIncomplete": "请补全模型的上下文窗口和最大输出。",

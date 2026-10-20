@@ -136,7 +136,7 @@ export const common = {
   "error.invalidRun": "The Bot's state just changed. Refresh and try again.",
   "error.loginInput": "Enter the authorization code or the redirect URL.",
   "error.loginOption": "Pick a sign-in method.",
-  "error.loginStep": "The sign-in has expired. Please start again.",
+  "error.loginStep": "The sign-in step has changed. Please start again.",
   "error.loginFailed": "Sign-in failed. Refresh and try again.",
   "error.messageMissing": "Can't find this message. It may have been deleted.",
   "error.modelIncomplete": "Fill in the model's context window and max output.",

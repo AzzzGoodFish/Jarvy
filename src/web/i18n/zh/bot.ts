@@ -70,7 +70,7 @@ export const bot: Part<typeof en> = {
   "bot.workspace": "工作区",
   "bot.copyWorkspace": "复制工作区路径",
   "bot.activity": "活动历史",
-  "bot.activityHint": "发言和 History 记录",
+  "bot.activityHint": "消息和 History 记录",
   "bot.usageHint": "按模型统计 token 和费用",
   "bot.subscriptions": "订阅",
   "bot.noSubscriptions": "暂无订阅",
