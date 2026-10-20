@@ -45,6 +45,17 @@ export class Tools implements ToolsPort {
     try { return { messageId: sent.id, ...await this.scope.chats.questions.wait(this.scope.chats.message(this.scope.botId, sent.id)!, signal) }; }
     finally { if (!signal?.aborted) this.scope.asking?.(false); }
   }
+  /** Where the Bot had read up to in a chat, and how many messages it hadn't, before it writes there (A53). Sending
+   * moves its read position past them, so this is taken first. A thread counts only itself. */
+  private readState(chatId: string) {
+    const chat = this.scope.chats.get(this.scope.botId, chatId);
+    return { unread: chat?.unread ?? 0, after: chat?.readSequence ?? 0 };
+  }
+  /** Others' messages it hadn't read (delivered ones arrive in its batches anyway), and where to read them from. */
+  private unreadHint(count: number, after: number) {
+    return count ? { unread: count, note: `${count} message${count === 1 ? "" : "s"} here you hadn't read. `
+      + `Read them with messages.read (chatId, after=${after}) and follow up if they change what you said.` } : {};
+  }
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>) { this.send = send; }
   definitions(): readonly ToolDefinition[] {
     return [{
@@ -132,17 +143,18 @@ export class Tools implements ToolsPort {
               if (!root || root.chatId !== chatId) throw new ChatError(404, "Message not found in this channel");
               chatId = this.scope.chats.threads.open(this.scope.botId, parsed.thread).id;
             }
+            const before = this.readState(chatId);
             const sent = await this.send!(chatId, { content: parsed.message, attachments: parsed.attachments, ...(parsed.replyTo ? { replyTo: parsed.replyTo } : {}),
               ...(parsed.alsoToChannel ? { alsoToChannel: true } : {}), toolCallId, signal });
             const chat = this.scope.chats.get(this.scope.botId, chatId);
-            if (!chat || chat.type === "dm") return { messageId: sent.id, chatId: sent.chatId, sequence: sent.sequence };
+            if (!chat || chat.type === "dm") return { messageId: sent.id, chatId: sent.chatId, sequence: sent.sequence, ...this.unreadHint(before.unread, before.after) };
             const report = this.scope.chats.channels.mentionReport(this.scope.botId, chatId, parsed.message);
             // Saved mentions include the author of a replied-to message, not only the @ in the text.
             const notified = sent.mentions.map(id => this.scope.chats.member(id)?.name).filter((name): name is string => !!name);
             const subscribers = this.scope.chats.channels.subscribers(this.scope.botId, chatId).map(member => member.name)
               .filter(name => name !== this.scope.chats.member(this.scope.botId)?.name && !notified.includes(name));
             return { messageId: sent.id, chatId: sent.chatId, sequence: sent.sequence, notified,
-              ...(subscribers.length ? { subscribers } : {}), ...(report.notInChannel.length ? { notInChannel: report.notInChannel } : {}) };
+              ...(subscribers.length ? { subscribers } : {}), ...(report.notInChannel.length ? { notInChannel: report.notInChannel } : {}), ...this.unreadHint(before.unread, before.after) };
           }
           case "messages.ask": {
             const parsed = args as { chatId: string; question: string; detail?: string; options: QuestionSpec["options"]; multiple?: boolean; allowCustom?: boolean };
@@ -150,7 +162,10 @@ export class Tools implements ToolsPort {
             if (!this.tools.chat(parsed.chatId).memberIds.some(id => this.scope.chats.member(id)?.kind === "user")) throw new ChatError(400, "No person in this chat to answer; use messages.send");
             const question: QuestionSpec = { question: parsed.question, ...(parsed.detail ? { detail: parsed.detail } : {}), options: parsed.options,
               multiple: parsed.multiple === true, allowCustom: parsed.allowCustom === true };
-            return this.ask(parsed.chatId, question, toolCallId, signal);
+            // Unread before the card, plus what came in while it waited.
+            const chatId = this.tools.chat(parsed.chatId).id, before = this.readState(chatId);
+            const answer = await this.ask(chatId, question, toolCallId, signal);
+            return { ...answer, ...this.unreadHint(before.unread + this.readState(chatId).unread, before.after) };
           }
         }
       },

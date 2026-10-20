@@ -293,3 +293,15 @@ Secrets are the owner's assets, like model connections and environments: kept in
 - **Limits**: a Bot whose tools run on the owner's computer shares the owner's user and could read the key file; only sandboxed Bots are kept out. Losing the key file loses the secrets and model credentials, not the rest of the data. Masking stops accidents, not a Bot that transforms a value on purpose; an expanded value shows in the arguments of programs a command starts.
 
 Why: Bots need tokens and keys for real work (git hosts, registries, APIs). Pasting them into chat put them in messages, sessions, History, logs and every later model call, and the model API keys lay in the database in plain text.
+
+## A53 Unread in send results
+
+`messages.send` and `messages.ask` tell the Bot when the chat it just wrote to has messages it hasn't read (fish m885, m1269). Only @-mentions, replies, DMs and subscriptions are delivered (A37, A41); everything else in a channel or thread the Bot sees only if it reads, so it could answer past what had just been said there.
+
+- **What counts**: the chat's unread count for the Bot (A37): others' messages after its read position that were not delivered to it. Delivered messages arrive in a batch anyway, so they are not counted twice.
+- **Taken before sending**: posting moves the sender's read position to its own message, so the count is taken just before; afterwards `unread=true` would find nothing. The note therefore points to `messages.read` with `after`, the read position from before.
+- **Where**: the result gets `unread` (the count) and that note, only when the count is above zero. No message text, so results stay small. `messages.ask` adds what came in while the card waited.
+- **Threads count themselves**: a thread reply reports the thread, not its channel; the channel's unread comes with the next batch's tail.
+- **A reminder, not a block**: sending still succeeds. Bots often send twice in a row (progress, then the result), and a refusal would only add a read before every resend.
+
+Why: the Bot learns about the gap at the moment it acts in that chat, at the cost of one count per send.
