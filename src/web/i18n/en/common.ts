@@ -147,7 +147,7 @@ export const common = {
   "error.nameTaken": "Another member already has this name.",
   "error.providerNameTaken": "A provider with this name already exists.",
   "error.questionClosed": "This question is already settled.",
-  "error.questionExpired": "This question no longer needs an answer.",
+  "error.questionExpired": "This question was ignored. The Bot is no longer waiting for an answer.",
   "error.runtimeFailed": "The Bot's run failed. Check its model settings and try again.",
   "error.sessionCorrupt": "The Bot couldn't start (the session file can't be read).",
   "error.sessionMismatch": "The Bot couldn't start (the session file doesn't match).",
