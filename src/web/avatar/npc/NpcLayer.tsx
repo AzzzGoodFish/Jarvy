@@ -42,16 +42,16 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
   // The panel closes when the first step changes: another turn, or none.
   const first = view.steps[0]?.id;
   useEffect(() => { setOpen(false); }, [first]);
-  // While the pointer is on the dialogue or its text is scrolled back, it keeps the step it shows (fish m909): the
+  // While the pointer is on the dialogue or its text is scrolled back, it keeps the step it shows: the
   // step still updates, the next one waits.
   const [hover, setHover] = useState(false), [reading, setReading] = useState(false), [pin, setPin] = useState<string | null>(null);
   const holding = hover || reading;
   useEffect(() => { setPin(holding ? view.shown?.id ?? null : null); }, [holding]);
   const shown = (pin && view.steps.find(step => step.id === pin)) || view.shown, look = shown ? shown.look : view.done ? "action" : null;
   let line: ReactNode = null;
-  // Every line is typed out (`Typed`, fish m808): streamed words as they come, a tool's line or a message that comes in
+  // Every line is typed out (`Typed`): streamed words as they come, a tool's line or a message that comes in
   // one piece over a moment. A new step types from the start. Thinking and murmurs show all of the step's text, its
-  // paragraphs a blank line apart, scrolling (`Tail`, fish m898, m909).
+  // paragraphs a blank line apart, scrolling (`Tail`).
   if (shown?.look === "thought" || shown?.look === "mutter") {
     const whole = (shown.line ?? "").replace(/\n\s*\n\s*/g, "\n\n").trim();
     const typed = <Typed key={shown.id} text={whole} limit={300} streaming={shown.look === "thought" && shown.state === "running"}/>;

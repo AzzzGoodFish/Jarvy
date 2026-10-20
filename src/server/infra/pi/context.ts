@@ -1,5 +1,5 @@
 /** How full a Bot's context is, from what the model itself reported — never Pi's characters-÷-4 estimate, which reads
- * about half the real size for Chinese, code and JSON (fish m1270). */
+ * about half the real size for Chinese, code and JSON. */
 
 /** The parts of a Pi session entry this reads. */
 export interface ContextEntry {

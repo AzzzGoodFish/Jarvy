@@ -208,7 +208,7 @@ export class ChatRepository {
     return rows.map(({ historyId, toolCallId, ...row }) => ({ ...row, source: historyId === null ? null : { historyId, toolCallId: toolCallId! } }));
   }
   private messageFromRow(row: MessageRow): ChatMessage {
-    // A Bot's files share the message's created_at; rowid keeps the order they were given in (fish m1070).
+    // A Bot's files share the message's created_at; rowid keeps the order they were given in.
     const attachments = this.db.prepare("SELECT id,name,mime_type AS mimeType,size FROM attachments WHERE message_id=? ORDER BY created_at,rowid")
       .all(row.id) as unknown as Attachment[];
     return { id: row.id, chatId: row.chatId, sequence: row.sequence, sender: this.member(row.senderId)!,

@@ -17,7 +17,7 @@ function Thumbnail({ file, onSize }: { file: Attachment; onSize: (size: Size) =>
     onLoad={event => { const { naturalWidth: width, naturalHeight: height } = event.currentTarget; if (width && height) onSize({ width, height }); }}/> : <Icon name="image"/>;
 }
 /** One attachment: a picture shows its thumbnail above the name — at the picture's own proportions once it has loaded
- * (fish m815; attachments.css), at a fixed height until then — other files show an icon card. The card opens the
+ * (attachments.css), at a fixed height until then — other files show an icon card. The card opens the
  * preview; the side button downloads. */
 function FileCard({ file, onOpen }: { file: Attachment; onOpen: () => void }) {
   const [size, setSize] = useState<Size>();

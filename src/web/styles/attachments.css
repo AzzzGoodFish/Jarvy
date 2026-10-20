@@ -42,7 +42,7 @@ a.ui-button, a.ui-iconbtn { color: inherit; text-decoration: none; }
   border-radius: var(--ui-radius-base); background: var(--ui-fill-secondary); color: var(--ui-text-secondary);
 }
 .ui-image-frame .ui-broken-image { width: 100%; height: 100%; }
-/* Once loaded, a picture keeps its own proportions (fish m815): as wide as it is, up to the card's width, no taller than
+/* Once loaded, a picture keeps its own proportions: as wide as it is, up to the card's width, no taller than
    --image-max-h, never enlarged. The card narrows to it, but not below a width that keeps its name readable; a very tall
    or tiny picture then sits in the middle of its frame. Until it loads, the frame keeps the fixed height above. */
 .ui-message-image[data-sized] { --image-max-h: 320px; align-self: flex-start;

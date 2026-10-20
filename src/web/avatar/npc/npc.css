@@ -1,7 +1,7 @@
 /* NPC prototype (avatar/npc/, `?npc=demo`): the dialogue beside the DM's cat in its four looks, its live panel, the toolbar. */
 /* place.ts sets a collapsed box's widest (the room on its side, capped) and hangs it from the edge next to the cat, so it
    is as wide as its text and grows away from the cat. Its place is not eased: it is set in the same frame as the cat's,
-   so the box keeps up while the cat is dragged (fish m798). */
+   so the box keeps up while the cat is dragged. */
 .jv-npc { position: absolute; z-index: 6; max-width: min(300px, calc(100% - 24px)); padding: 10px 12px; overflow: visible;
   border: 2px solid var(--ui-border-strong); border-radius: 12px; background: var(--ui-bg-elevated); color: var(--ui-text-primary);
   box-shadow: var(--ui-shadow-md); font-size: 13px; line-height: 1.55; opacity: 1; transition: opacity .5s ease; }
@@ -39,7 +39,7 @@ div.jv-npc-line:not([role=button]) { cursor: default; }
 .jv-npc[data-look=thought][data-side=above]::before { bottom: -15px; left: calc(var(--npc-tail, 24px) - 5px); }
 .jv-npc[data-look=thought][data-side=above]::after { bottom: -24px; left: calc(var(--npc-tail, 24px) + 4px); }
 .jv-npc-thought { display: block; color: var(--ui-text-tertiary); font-style: italic; animation: jv-npc-subtitle .3s var(--ui-ease-out); }
-/* Thinking and murmurs show all their text (fish m898, m901, m909), up to 12 lines (6 on a phone); longer, they scroll,
+/* Thinking and murmurs show all their text, up to 12 lines (6 on a phone); longer, they scroll,
    following the newest words unless scrolled back (typed.tsx), and the top fades while there is more above. */
 .jv-npc-tail { display: block; max-height: 12lh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; white-space: pre-line; }
 .jv-npc-tail > span { display: block; }

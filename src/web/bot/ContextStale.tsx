@@ -3,7 +3,7 @@ import { Popover } from "radix-ui";
 import { TriangleAlertIcon } from "lucide-react";
 import { t } from "../i18n";
 
-/** The warning beside Bot info's context figure after a failed request was dropped (fish m1270, m1287): the
+/** The warning beside Bot info's context figure after a failed request was dropped: the
  * explanation opens on hover, and on a tap where there is no hover. `title=""` keeps the row's own hint from showing on top. */
 export function ContextStale() {
   const [open, setOpen] = useState(false);

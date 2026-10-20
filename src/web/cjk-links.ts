@@ -1,5 +1,5 @@
 /** GFM's autolinks end only at whitespace, so a URL followed by Chinese punctuation swallowed it and the words after it
- * (a URL, a full-width comma and a few more words linked as one; fish m814). This remark step ends a bare URL at the
+ * (a URL, a full-width comma and a few more words linked as one). This remark step ends a bare URL at the
  * first CJK or full-width punctuation mark and gives the rest back as text, linking any further bare URL in it. Chinese
  * letters inside a URL stay (a Wikipedia article in Chinese); only links written as bare URLs are touched, never
  * [text](url). */

@@ -1,4 +1,4 @@
-/** Provider logos (fish m1018): SVGs from LobeHub's lobe-icons (MIT, see licenses/LOBE-ICONS-MIT.txt), copied as files
+/** Provider logos: SVGs from LobeHub's lobe-icons (MIT, see licenses/LOBE-ICONS-MIT.txt), copied as files
  * with their size, style and title removed. A brand's colour version where it has one; single-colour logos fill with
  * currentColor, so they follow the theme. Each is a trusted local file, inlined as markup. */
 const FILES = import.meta.glob<string>("./*.svg", { query: "?raw", import: "default", eager: true });

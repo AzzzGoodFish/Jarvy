@@ -1,9 +1,9 @@
 /** The image a Bot's sandbox starts from (A50), built on this machine: Ubuntu 24.04 with Node, Python, git,
  * build tools and Playwright with its browsers (the package matches the browsers and any script finds it). The Bot
  * runs as `bot`, with the owner's user and group ids so files it makes in the mounted workspace are the owner's, and
- * the workspace is its home, so its settings (~/.ssh, ~/.gitconfig, caches) stay with it (fish m1084–m1090); sudo
+ * the workspace is its home, so its settings (~/.ssh, ~/.gitconfig, caches) stay with it; sudo
  * lets it install software, which stays until its sandbox is reset. One image serves every Bot and is stored once,
- * so what most Bots need belongs here and the rest is theirs to install (fish m992–m994). */
+ * so what most Bots need belongs here and the rest is theirs to install. */
 export const COMPUTER_DOCKERFILE = `FROM mcr.microsoft.com/playwright:v1.61.1-noble
 ARG UID=1000
 ARG GID=1000

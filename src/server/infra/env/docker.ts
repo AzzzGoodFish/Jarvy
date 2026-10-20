@@ -103,7 +103,7 @@ export async function runContainer(spec: ContainerSpec): Promise<void> {
     spec.image, "sleep", "infinity"], 120_000);
 }
 export async function startContainer(name: string): Promise<void> { await docker(["start", name], 60_000); }
-/** Makes the workspace the `bot` user's home, as images are built since fish m1090: a container from an older image
+/** Makes the workspace the `bot` user's home, as current images are built: a container from an older image
  * is changed in place, so what was installed in it stays. */
 export async function homeAtWorkspace(name: string): Promise<void> {
   const home = await docker(["exec", name, "sh", "-c", "getent passwd bot | cut -d: -f6"], 30_000);

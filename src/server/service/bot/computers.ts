@@ -19,7 +19,7 @@ export interface ComputerDependencies {
 
 /** Bots' sandboxes (A50): Docker containers from an image built here, each mounting its Bot's workspace as
  * /workspace and running as the owner's ids. Made when first used and kept running until the owner stops it, since
- * stopping closes what the Bot left running (fish m1090–m1096); removed with the Bot; a reset removes the container
+ * stopping closes what the Bot left running; removed with the Bot; a reset removes the container
  * and what was installed in it, never the workspace. Containers keep running when Jarvy stops, so background work
  * survives a restart. */
 export class Computers {

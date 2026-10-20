@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { errorText } from "../errors";
 
-/** The Bots that can use a secret, kept like a channel's members (fish m1139): a list with remove, and Add opening a
+/** The Bots that can use a secret, kept like a channel's members: a list with remove, and Add opening a
  * search to pick one or more. The picker opens in place, since Settings is itself a dialog. Removing takes effect at
  * once; it can be added back. */
 export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots: Bot[]; onChanged: (secret: Secret) => void }) {

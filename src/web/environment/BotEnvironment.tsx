@@ -39,13 +39,13 @@ export function EnvironmentChoice({ bot, onSaved }: { bot: Bot; onSaved: (bot: B
   </>;
 }
 
-/** Bot info's section (A50, fish m1046), in two parts. Where the Bot works: its default, the sandbox or the owner's
+/** Bot info's section (A50), in two parts. Where the Bot works: its default, the sandbox or the owner's
  * computer, with the sandbox's details to open when that is the default. Then the external environments it may
  * switch to; so far the owner's computer, for a Bot whose default is its sandbox. */
 export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
   const [busy, setBusy] = useState<"move" | "grant" | "start" | "stop" | "reset" | null>(null);
   const [open, setOpen] = useState(false);
-  /** Stopping and resetting are destructive (fish m1090, m1094): both ask in place first. */
+  /** Stopping and resetting are destructive: both ask in place first. */
   const [confirming, setConfirming] = useState<"stop" | "reset" | null>(null);
   const [error, setError] = useState("");
   const details = useId();

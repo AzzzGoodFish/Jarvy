@@ -1,7 +1,7 @@
 /* A Bot's question (question/QuestionCard.tsx, A36) and its request for a secret (secrets/SecretRequestCard.tsx):
    one panel under the Bot's message, lined up with its bubble — a header with an icon and the question, a body with
    the options or fields, a footer with the actions — so it reads as one thing to answer, not as more of the Bot's
-   text (fish m1176, m1194). A settled one folds to one line. */
+   text. A settled one folds to one line. */
 .jv-question { width: min(520px, 100%); display: flex; flex-direction: column; color: var(--ui-text-primary); border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-xl); background: var(--ui-bg-elevated); box-shadow: var(--ui-shadow-sm); overflow: hidden; }
 .jv-row-body > .jv-question { margin-top: 4px; }

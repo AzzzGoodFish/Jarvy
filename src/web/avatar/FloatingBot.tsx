@@ -59,7 +59,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     return { minX: MARGIN, minY: MARGIN, maxX, maxY };
   }
   /** Which way the cat turns, and so the side the dialogue comes out of: +1 to the right when it sits at the left of the
-   * chat area, −1 to the left at the right, 0 straight at you in the middle (fish m749). */
+   * chat area, −1 to the left at the right, 0 straight at you in the middle. */
   function facing() {
     const box = area.current?.getBoundingClientRect(), el = button.current;
     if (!box || !el) return 0;
@@ -123,7 +123,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
           input.current.lookY = target ? Math.max(-1, Math.min(1, (target.y - box.top - box.height / 2) / 320)) : 0;
           input.current.reduced = reduced.matches;
           // The cat turns towards the middle of the chat (the dialogue takes that side whenever the cat is placed). Not
-          // working, it keeps its turn while it is carried, and asleep until it wakes (fish m808); the first frame
+          // working, it keeps its turn while it is carried, and asleep until it wakes; the first frame
           // always takes it from where the cat is.
           const motion = input.current.motion, carried = !!drag.current?.moved && (motion === "idle" || motion === "groom" || motion === "stretch");
           if (input.current.faceX === undefined || !(carried || motion === "sleep")) input.current.faceX = facing();

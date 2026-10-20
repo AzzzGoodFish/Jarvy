@@ -136,7 +136,7 @@ export class BotService {
   }
   /** Tells a Bot what its owner changed about where it works (A41, A50). A move interrupts a running turn, as an
    * @-mention does, so the Bot doesn't go on in the old place; a Bot not running, or a change of access alone, is
-   * told with its next batch (fish m1012–m1015). */
+   * told with its next batch. */
   private tellOwner(id: string, changes: readonly BotChange[], move: boolean) {
     // A Bot still being set up (no model yet, its first-setup card) has nothing to be told.
     if (!this.record(id).connectionId) return;

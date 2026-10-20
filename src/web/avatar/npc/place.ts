@@ -6,7 +6,7 @@ type Side = "left" | "right" | "below" | "above";
  * (the demo toolbar) when it would cross it — all relative to the area.
  *
  * A collapsed dialogue (`data-fit`, set by NpcLayer) is as wide as its text, up to the room on its side and to `cap`
- * (40% of the chat, at least 300 px; fish m800). It hangs from the edge next to the cat, so a short line sits by the cat
+ * (40% of the chat, at least 300 px). It hangs from the edge next to the cat, so a short line sits by the cat
  * and longer text grows away from it; that edge, and the side, stay put while the text streams. A panel keeps its own
  * width. The side taken is kept while it fits and the other one is not `slack` roomier, so the box does not flip back
  * and forth while the cat sits near the middle. The tail points at the cat. */

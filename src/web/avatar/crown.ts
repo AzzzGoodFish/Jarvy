@@ -5,7 +5,7 @@ const POINTS = 5, BAND = 0.08, TALL = 0.15, RADIUS = 0.2, HEIGHT = BAND + TALL;
 /** Where the crown hovers over the head, its tip towards you, how fast it turns and bobs. */
 const HOVER = 0.76, TIP = 0.22, SPIN = 1.1, BOB = 0.02, REST_SPIN = 0.3;
 
-/** The agent Bot's crown (A48, fish m858/m862): a small gold ring crown, five points with a pearl on each, red and
+/** The agent Bot's crown (A48): a small gold ring crown, five points with a pearl on each, red and
  * blue stones round the band. It hovers over the middle of the head, level whatever the head does, turning slowly
  * and bobbing; still avatars and reduced motion hold it at one angle. */
 export class Crown {

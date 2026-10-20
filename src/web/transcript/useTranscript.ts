@@ -71,7 +71,7 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
     if (!el) return;
     // A row can grow after it is on screen (an image or file card finishing its layout), and the transcript itself
     // can shrink (a restored draft makes the composer taller). If we were at the bottom, stay there instead of leaving
-    // a gap under the newest message (fish m887). The transcript's children come and go with loading and paging, so
+    // a gap under the newest message. The transcript's children come and go with loading and paging, so
     // every one of them is watched, not only the first.
     const grown = new ResizeObserver(() => {
       if (!settled.current || !atBottom.current) return;

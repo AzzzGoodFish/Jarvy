@@ -49,7 +49,7 @@ When something will take a while, post a short progress note partway through, an
 `;
 }
 
-/** The Bot's workspace, its own folder, and its default work environment, where its tools run (A50, fish m1034–m1036):
+/** The Bot's workspace, its own folder, and its default work environment, where its tools run (A50):
  * its sandbox or the owner's computer. Where it is now goes at the end of each batch instead, so a switch leaves
  * the prompt, and the cache, as they were. */
 function workspaceSection(setup: RuntimeSetup, workspacePath: string): string {

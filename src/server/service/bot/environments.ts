@@ -6,7 +6,7 @@ import type { BotPlacement, EnvironmentKind, EnvironmentRecord, WorkEnvironment 
 import type { Computers } from "./computers.js";
 
 /** An environment as a Bot is told of it (A50): what to call it and the directory its tools start in there. */
-/** An environment as the Bot reads it: a sandbox is what the code calls a `computer` (fish m1040–m1042). */
+/** An environment as the Bot reads it: a sandbox is what the code calls a `computer`. */
 export interface Place { id: string; kind: "sandbox" | "host"; name: string; directory: string }
 /** What an owner's change did to where the Bot works; the service tells the Bot (A41). */
 export interface Moved { from: Place; to: Place }

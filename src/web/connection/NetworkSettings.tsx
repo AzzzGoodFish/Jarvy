@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { copyText } from "../ui";
 import "../styles/connection.css";
 
-/** Settings → Network (A51, fish m1121): LAN access. When Jarvy listens beyond this machine, the HTTPS addresses other
+/** Settings → Network (A51): LAN access. When Jarvy listens beyond this machine, the HTTPS addresses other
  * devices open, Jarvy's certificate to install once on each, and whether plain HTTP from other machines is allowed;
  * otherwise how to open it to the network. */
 export function NetworkSettings() {
