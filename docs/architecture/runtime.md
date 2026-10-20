@@ -30,7 +30,9 @@ Bot state is **stop / idle / running**. While running, activity is `reasoning`, 
 - A prompt can fail before `agent_start`; the caller's `catch` / `finally` closes it out.
 - Interrupting calls Pi's `session.abort()`; Pi cancels the request, retries and compaction.
 - A turn ends as **interrupted** when Pi's run signal was aborted, otherwise as **failed** with Pi's error message, shown as 「模型请求失败：<reason>」 (A31). History keeps Pi's original record.
-- `getContextUsage()` may be unknown; it is never shown as 0 %.
+- Context usage is the size the model reported with its latest reply (`infra/pi/context.ts`), never Pi's characters-÷-4 estimate, which reads about half the real size for Chinese, code and JSON. Only the window comes from `getContextUsage()`.
+  - Unknown (never shown as 0 %) before the first reply and after a compaction, until the model reports again.
+  - **Stale** when Pi dropped a failed request from the context (a `context_edit`, before it retries or compacts after a refusal) after that reply: the figure stays, and a warning icon beside it in Bot info explains, on hover or tap, that the latest request failed and this is the usage from the last successful one.
 - Compaction start and end (tokens before and after, or the failure) are logged.
 - While a turn runs, its steps are kept in memory and sent to the Bot's DM page ([the live turn](live.md), A47).
 

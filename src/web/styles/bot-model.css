@@ -46,6 +46,11 @@
 .jv-bot-identity > span { font-size: 13px; color: var(--jv-muted); overflow-wrap: anywhere; }
 .jv-context { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid var(--jv-line); }
 .jv-context-label { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--jv-muted); font-variant-numeric: tabular-nums; }
+.jv-context-label [data-stale] { display: inline-flex; align-items: center; gap: 4px; color: var(--ui-text-warning); }
+.jv-context-stale { display: inline-grid; place-items: center; width: 18px; height: 18px; margin: -2px 0; padding: 0; border: 0; border-radius: 5px; background: none; color: inherit; cursor: help; }
+.jv-context-stale:hover, .jv-context-stale[data-state="open"] { background: color-mix(in srgb, var(--ui-text-warning) 14%, transparent); }
+.jv-context-stale svg { width: 13px; height: 13px; }
+.jv-context-tip { z-index: 100; max-width: min(280px, calc(100vw - 24px)); padding: 8px 10px; background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: 8px; box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: 12px; line-height: 1.5; }
 .jv-context-bar { height: 4px; border-radius: 999px; background: var(--jv-field); overflow: hidden; }
 .jv-context-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--jv-muted); }
 .jv-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }

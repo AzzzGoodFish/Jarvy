@@ -4,7 +4,8 @@ export type RunState = "claimed" | "submitted" | "completed" | "failed" | "inter
 export interface BotRun { id: string; botId: string; state: RunState; selection: ModelSelection; createdAt: number; endedAt: number | null; errorCode: string | null; }
 export interface SessionRef { botId: string; file: string; sessionId: string | null; persisted: boolean; }
 export type BotPhase = "stopped" | "starting" | "idle" | "dispatching" | "thinking" | "texting" | "tool" | "asking" | "compacting" | "retrying" | "aborting" | "error";
-export interface ContextUsage { tokens: number | null; contextWindow: number; percent: number | null; }
+/** tokens: what the model reported with its latest reply. stale: a failed request was dropped from the context since. */
+export interface ContextUsage { tokens: number | null; contextWindow: number; percent: number | null; stale: boolean; }
 export interface BotStatus { context?: ContextUsage; botId: string; phase: BotPhase; runId: string | null; errorCode: string | null; error: string | null; errorParams?: ErrorParams; }
 export class RuntimeFault extends Error {
   constructor(readonly code: string, message: string, readonly status = 409, readonly params?: ErrorParams) { super(message); }

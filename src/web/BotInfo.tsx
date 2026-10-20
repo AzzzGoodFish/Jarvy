@@ -8,6 +8,7 @@ import { BotAvatar } from "./avatar/BotAvatar";
 import { BOT_COLORS, colorHex, type BotColor } from "./avatar/palette";
 import { BotModelControls } from "./BotModelControls";
 import { BotEnvironment } from "./environment/BotEnvironment";
+import { ContextStale } from "./bot/ContextStale";
 import { copyText } from "./ui";
 import { formatNumber, t } from "./i18n";
 import { Button } from "./components/ui/button";
@@ -90,7 +91,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
           <div className="jv-panel">
             <BotModelControls bot={bot} connections={connections} onSaved={onSaved} onManage={onManageModels}/>
             {context && <div className="jv-context" title={t("bot.contextHint")}>
-              <div className="jv-context-label"><span>{t("bot.context")}</span><span>{context.tokens === null ? t("bot.unknown") : t("bot.tokens", { used: formatNumber(context.tokens), window: formatNumber(context.contextWindow) })}</span></div>
+              <div className="jv-context-label"><span>{t("bot.context")}</span><span data-stale={(context.stale && context.tokens !== null) || undefined}>{context.stale && context.tokens !== null && <ContextStale/>}{context.tokens === null ? t("bot.unknown") : t("bot.tokens", { used: formatNumber(context.tokens), window: formatNumber(context.contextWindow) })}</span></div>
               {context.tokens !== null && <div className="jv-context-bar"><span style={{ width: `${Math.min(100, Math.max(1, (context.tokens / context.contextWindow) * 100))}%` }}/></div>}
             </div>}
           </div>

@@ -7,5 +7,5 @@ export function botStatusView(status: ReturnType<BotService["status"]>): BotStat
     : status.activity === "reasoning" ? "thinking" : status.activity === "texting" ? "texting" : status.activity === "tool_calling" ? "tool" : status.activity === "asking" ? "asking" : "dispatching";
   return { botId: status.botId, phase, status: status.status, activity: status.activity, runId: status.runId,
     errorCode: status.error?.code ?? null, error: status.error?.message ?? null, ...(status.error?.params ? { errorParams: status.error.params } : {}),
-    ...(status.context ? { context: { tokens: status.context.tokens, contextWindow: status.context.limit, percent: status.context.tokens === null ? null : status.context.tokens / status.context.limit * 100 } } : {}) };
+    ...(status.context ? { context: { tokens: status.context.tokens, contextWindow: status.context.limit, percent: status.context.tokens === null ? null : status.context.tokens / status.context.limit * 100, stale: status.context.stale } } : {}) };
 }
