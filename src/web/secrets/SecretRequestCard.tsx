@@ -18,7 +18,7 @@ export function SecretRequestCard({ message, onSettled }: { message: ChatMessage
   if (question.state !== "pending") {
     const chosen = question.answer?.selected[0] === 1 ? "once" : "always";
     const text = question.state === "answered" ? t(chosen === "once" ? "secretCard.allowedOnce" : "secretCard.allowedAlways", { name: ask.name })
-      : t(question.state === "dismissed" ? "secretCard.declined" : "secretCard.expired", { name: ask.name });
+      : t(question.state === "dismissed" ? "secretCard.declined" : "secretCard.ignored", { name: ask.name });
     return <p className="jv-question-done" data-state={question.state} title={`${text}\n${ask.purpose}`}>
       {question.state === "answered" ? <CheckIcon aria-hidden="true"/> : <MinusIcon aria-hidden="true"/>}
       <span className="jv-question-answer">{text}</span><span className="jv-question-asked">{ask.purpose}</span>

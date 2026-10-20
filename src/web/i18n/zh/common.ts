@@ -150,7 +150,7 @@ export const common: Part<typeof en> = {
   "error.nameTaken": "名称已被其他成员使用。",
   "error.providerNameTaken": "已有同名的 Provider。",
   "error.questionClosed": "问题已结束。",
-  "error.questionExpired": "问题已失效。",
+  "error.questionExpired": "这个问题已经不用回答了。",
   "error.runtimeFailed": "Bot 运行失败，请检查它的模型设置后重试。",
   "error.sessionCorrupt": "Bot 启动失败（会话文件无法读取）。",
   "error.sessionMismatch": "Bot 启动失败（会话文件不匹配）。",

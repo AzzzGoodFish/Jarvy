@@ -296,7 +296,7 @@ Why: Bots need tokens and keys for real work (git hosts, registries, APIs). Past
 
 ## A53 Unread in send results
 
-`messages.send` and `messages.ask` tell the Bot when the chat it just wrote to has messages it hasn't read (fish m885, m1269). Only @-mentions, replies, DMs and subscriptions are delivered (A37, A41); everything else in a channel or thread the Bot sees only if it reads, so it could answer past what had just been said there.
+`messages.send` and `messages.ask` tell the Bot when the chat it just wrote to has messages it hasn't read (A53). Only @-mentions, replies, DMs and subscriptions are delivered (A37, A41); everything else in a channel or thread the Bot sees only if it reads, so it could answer past what had just been said there.
 
 - **What counts**: the chat's unread count for the Bot (A37): others' messages after its read position that were not delivered to it. Delivered messages arrive in a batch anyway, so they are not counted twice.
 - **Taken before sending**: posting moves the sender's read position to its own message, so the count is taken just before; afterwards `unread=true` would find nothing. The note therefore points to `messages.read` with `after`, the read position from before.
