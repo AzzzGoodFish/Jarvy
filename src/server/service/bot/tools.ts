@@ -53,8 +53,9 @@ export class Tools implements ToolsPort {
   }
   /** Others' messages it hadn't read (delivered ones arrive in its batches anyway), and where to read them from. */
   private unreadHint(count: number, after: number) {
-    return count ? { unread: count, note: `${count} message${count === 1 ? "" : "s"} here you hadn't read. `
-      + `Read them with messages.read (chatId, after=${after}) and follow up if they change what you said.` } : {};
+    const one = count === 1;
+    return count ? { unread: count, note: `${count} message${one ? "" : "s"} here you hadn't read. Read ${one ? "it" : "them"} with messages.read `
+      + `(chatId, after=${after}), which may also bring back messages you already have, and follow up if ${one ? "it changes" : "they change"} where things stand.` } : {};
   }
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>) { this.send = send; }
   definitions(): readonly ToolDefinition[] {
