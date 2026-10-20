@@ -27,7 +27,7 @@ export class AgentRuntime implements RuntimePort {
   get activeRunId() { return this.runId; }
   private update(patch: Partial<BotStatus>) {
     const context = this.session?.context;
-    this.status = { ...this.status, ...patch, context: context ? { tokens: context.tokens, limit: context.contextWindow } : null };
+    this.status = { ...this.status, ...patch, context: context ? { tokens: context.tokens, limit: context.contextWindow, stale: context.stale } : null };
     this.setup?.onStatus(this.status);
   }
   private activity(phase: BotPhase) {

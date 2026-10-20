@@ -88,7 +88,8 @@ export interface BotStatus {
   status: "stop" | "idle" | "running";
   /** asking: a messages.ask call is waiting for the user (A36). */
   activity: "reasoning" | "texting" | "tool_calling" | "asking" | null;
-  context: { tokens: number | null; limit: number } | null;
+  /** stale: a failed request was dropped from the context after the reply that reported `tokens`. */
+  context: { tokens: number | null; limit: number; stale: boolean } | null;
   error: { code: string; message: string; params?: ErrorParams } | null;
 }
 export interface OutgoingMessage {

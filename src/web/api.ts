@@ -1,7 +1,7 @@
 import type { BotColor, BotMood } from "./avatar/palette";
 import { t } from "./i18n";
 export interface ProviderOption { id: string; name: string; authType: "oauth" | "api_key"; api: string; modelCount: number; }
-export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null; phase: string; runId?: string | null; error: string | null; errorCode: string | null; errorParams?: Record<string, string | number>; context?: { tokens: number | null; contextWindow: number; percent: number | null }; }
+export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null; phase: string; runId?: string | null; error: string | null; errorCode: string | null; errorParams?: Record<string, string | number>; context?: { tokens: number | null; contextWindow: number; percent: number | null; stale?: boolean }; }
 export interface CredentialState {
   phase: "idle" | "running" | "completed" | "cancelled" | "error";
   prompt?: { id: string; type: "select" | "text" | "secret" | "manual_code"; message: string; placeholder?: string; options?: { id: string; label: string; description?: string }[] };

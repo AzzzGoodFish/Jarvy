@@ -7,6 +7,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { createAgentSession, createCodemodeExtension, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, type AgentSession, type AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { Store } from "../storage/store.js";
 import type { Bot } from "../../shared/models.js";
+import { reportedContext, type ContextEntry } from "./context.js";
 import { RuntimeFault, type BotPhase, type ContextUsage, type ModelSelection, type SessionRef } from "../../shared/runtime.js";
 import { CredentialCoordinator } from "../credentials/coordinator.js";
 import { ConnectionCredentials, CurrentCredentials } from "./credentials.js";
@@ -77,8 +78,11 @@ export class PiSession implements BotSession {
   private readonly translator = new LiveTranslator();
   private constructor(private readonly options: SessionOptions, private readonly models: ModelRuntime, private readonly credentials: CurrentCredentials) {}
   get context(): ContextUsage | undefined {
+    // Pi's own figure is used only for the window; the size is what the model reported (context.ts).
     const usage = this.session.getContextUsage();
-    return usage ? { tokens: usage.tokens, contextWindow: usage.contextWindow, percent: usage.percent } : undefined;
+    if (!usage) return undefined;
+    const { tokens, stale } = reportedContext(this.session.sessionManager.getBranch() as readonly ContextEntry[]);
+    return { tokens, contextWindow: usage.contextWindow, percent: tokens === null ? null : tokens / usage.contextWindow * 100, stale };
   }
   get thinkingLevel() { return this.session.thinkingLevel; }
   get sessionId() { return this.session.sessionId; }

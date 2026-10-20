@@ -305,3 +305,12 @@ Why: Bots need tokens and keys for real work (git hosts, registries, APIs). Past
 - **A reminder, not a block**: sending still succeeds. Bots often send twice in a row (progress, then the result), and a refusal would only add a read before every resend.
 
 Why: the Bot learns about the gap at the moment it acts in that chat, at the cost of one count per send.
+
+## A54 Context usage from the model
+
+Bot info's context figure is the size the model itself reported with its latest reply (`infra/pi/context.ts`, the `usage` of the last assistant message on the session's current branch), not Pi's `getContextUsage()`, which estimates characters divided by four and reads about half the real size for Chinese, code and JSON (Ezra, PR #7).
+
+- **Unknown, not zero**: before the first reply, and after a compaction until the model reports again, the figure is unknown; it is never shown as 0 %.
+- **Stale**: Pi records a `context_edit` when it drops a failed request before retrying or compacting. After that the figure stays from the last successful reply, with a warning icon in Bot info that explains on hover or tap.
+- **The window** still comes from `getContextUsage()`; only the size is reported usage.
+- **Errors and aborts** are skipped when looking for a reply to report, so an error reply's usage never becomes the figure.
