@@ -314,3 +314,14 @@ Bot info's context figure is the size the model itself reported with its latest 
 - **Stale**: Pi records a `context_edit` when it drops a failed request before retrying or compacting. After that the figure stays from the last successful reply, with a warning icon in Bot info that explains on hover or tap.
 - **The window** still comes from `getContextUsage()`; only the size is reported usage.
 - **Errors and aborts** are skipped when looking for a reply to report, so an error reply's usage never becomes the figure.
+
+## A55 Skills for the agent Bot
+
+Jarvy ships skills: guides for a kind of work the agent Bot (A48) helps the owner with. The first, `dev-team`, is how to run software development with a team of Bots in Jarvy — forming the team, splitting roles, organizing channels, using threads and keeping channel notices.
+
+- **Files**: one folder per skill under the package's `skills/`, each with a `SKILL.md` that starts with `name` (lowercase words joined by hyphens, the folder's name) and `description` between `---` markers. A file without both is skipped with a warning (`infra/files/skills.ts`).
+- **In the workspace**: each time the agent Bot starts, Jarvy writes them into its workspace as `skills/<name>/SKILL.md`, replacing what is there, so an upgrade brings the new text and edits don't last. Its tools read them there in any work environment, the sandbox included, where the workspace is the Bot's home.
+- **In the prompt**: the agent Bot's prompt lists each skill's name, description and file, and says to read the file before such work and to propose plans from it for the owner to confirm. The text itself is read only when the work calls for it.
+- **Not Pi's skills**: Pi's skill discovery and its prompt section stay off (`noSkills`, A49); nothing on the machine is picked up. Other Bots have no skills; the owner can't add any yet.
+
+Why: a guide that is read only when needed keeps the prompt short, and a file in the workspace reaches the Bot wherever its tools run, without a tool of its own. Plans stay with the owner because a team and its channels are theirs to decide.

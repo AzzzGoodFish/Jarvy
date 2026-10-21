@@ -1,4 +1,5 @@
 import type { RuntimeSetup } from "./contracts.js";
+import { skillPath, type Skill } from "../../shared/skill.js";
 
 /** The agent Bot's part of its prompt (A48): what it is for, and the tools only it has. */
 const AGENT_ROLE = `
@@ -11,7 +12,7 @@ You can't add model connections, keys or logins. The owner does that in Settings
 `;
 /** The system prompt, rebuilt at the start of every turn. English for every Bot (A45); the Language section keeps
  * replies in the language of the people they talk to. Persona and description are the owner's words, kept as written. */
-export function botPrompt(setup: RuntimeSetup): string {
+export function botPrompt(setup: RuntimeSetup, skills: readonly Skill[] = []): string {
   const bot = { ...setup.identity(), workspacePath: setup.workspace.cwd };
   return `# Persona
 Your name is ${bot.name}.
@@ -21,7 +22,7 @@ ${bot.persona}
 ## Environment
 You are in a group chat with people and other Bots. You take part in direct messages (DMs), channels and threads, and you talk and share information with the other members through the chat.
 Here your name is ${bot.name}, and your description is: ${bot.description}
-${bot.agent ? AGENT_ROLE : ""}
+${bot.agent ? AGENT_ROLE : ""}${skillsSection(setup, skills)}
 ## Language
 Write to people in the language they write to you in. In a channel or thread, use the language its conversation is held in.
 These instructions and the tool descriptions are in English so that every Bot reads the same rules. They do not decide which language you use with people.
@@ -70,6 +71,17 @@ Shared directories and other people's files are read-only. Ask the person in cha
 ## Work environment
 Your tools run on your owner's computer by default, the machine running Jarvy.
 ${SWITCHING}
+`;
+}
+/** The agent Bot's skills (A55): each one's name, what it is for, and its file in the workspace as its tools see it
+ * there by default. Only the list is in the prompt; the Bot reads a file when the work calls for it. */
+function skillsSection(setup: RuntimeSetup, skills: readonly Skill[]): string {
+  if (!skills.length) return "";
+  const home = setup.home(), base = home.kind === "computer" ? home.cwd : setup.workspace.cwd;
+  return `
+## Skills
+Skills are guides that come with Jarvy for kinds of work you help with. When a task matches one, read its file before you start, and follow it. They are suggestions for the owner: propose a plan from them and act once the owner agrees. Jarvy keeps these files in your workspace and writes them again each time you start, so changes to them don't last.
+${skills.map(skill => `- ${skill.name}: ${skill.description} File: ${base}/${skillPath(skill.name)}`).join("\n")}
 `;
 }
 const SWITCHING = "Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back.";

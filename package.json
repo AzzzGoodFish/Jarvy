@@ -31,6 +31,7 @@
     "dist/server",
     "dist/web",
     "licenses",
+    "skills",
     "THIRD_PARTY_NOTICE.md",
     "CHANGELOG.md",
     "LICENSE"

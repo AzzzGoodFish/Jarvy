@@ -25,6 +25,8 @@ import { Tools } from "./tools.js";
 import { AgentRuntime } from "./agent-runtime.js";
 import { BotInbox } from "./inbox.js";
 import { botPrompt } from "./prompt.js";
+import { builtinSkills } from "../../infra/files/skills.js";
+import type { Skill } from "../../shared/skill.js";
 import type { RosterEntry } from "./roster.js";
 import { LiveTurns } from "./live.js";
 import { AgentOps } from "./agent.js";
@@ -51,6 +53,8 @@ export class BotService {
   private started = false;
   /** What only the agent Bot does (A48). */
   readonly agent: AgentOps;
+  /** The skills that ship with Jarvy, for the agent Bot (A55). */
+  private readonly skills: readonly Skill[] = builtinSkills();
   constructor(private readonly deps: BotDependencies) {
     this.agent = new AgentOps(this, deps.store, deps.chats);
     this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
@@ -63,14 +67,14 @@ export class BotService {
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     let bot = this.bots.get(id);
     if (bot) return bot;
-    const { store, chats, files, credentials } = this.deps, live = this.live(id);
+    const { store, chats, files, credentials } = this.deps, live = this.live(id), skills = id === AGENT_BOT_ID ? this.skills : [];
     const here = () => { const place = this.environments.here(id, record.workspacePath); return { name: place.name, directory: place.directory }; };
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
-        tools: setup.tools, systemPrompt: () => botPrompt(setup), onHistory: setup.onHistory, activity, live: event => live.event(event),
+        tools: setup.tools, systemPrompt: () => botPrompt(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id) }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
-      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; });
+      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),

@@ -34,13 +34,15 @@ src/
       tls/                   Jarvy's own root and server certificates (A51)
       vault/                 the master key and sealing under it (A52)
       credentials/           per-connection credential serialisation
-      files/                 workspace and attachment file I/O
+      files/                 workspace and attachment file I/O; the skills that ship with Jarvy (A55)
       models/                model-list discovery over the network
     shared/                  plain data and call contracts, no business logic
     application.ts           wiring, exclusive data directory, ordered shutdown
     cli.ts                   command line
     daemon.ts                jarvy on / off: background start, pid file, stop
 ```
+
+The skills that ship with Jarvy are in `skills/` at the package root, one folder per skill (A55).
 
 `tsconfig.json` and `tsconfig.web.json` type-check the server and the frontend; `vite.config.ts` builds the frontend into `dist/web/`, and `scripts/bundle-server.mjs` bundles the server with esbuild into one `dist/server/cli.js` (npm dependencies stay external). The CLI finds the frontend at `../web` next to itself.
 
