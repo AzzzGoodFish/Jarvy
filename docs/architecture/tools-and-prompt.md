@@ -81,7 +81,9 @@ The Pi codemode extension is loaded in its default mode. `chat(...)` and `await 
 
 ## System prompt (`service/bot/prompt.ts`)
 
-The prompt is in English, like the tool descriptions and every fixed text a Bot reads (A45); its Language section keeps replies in the language of the people the Bot talks to. Persona and description are the owner's words and stay as written. It has no product name, no tool schemas and no fixed source chat, and it is rebuilt at the start of every turn.
+The prompt is in English, like the tool descriptions and every fixed text a Bot reads (A45); its Language section keeps replies in the language of the people the Bot talks to. Persona and description are the owner's words and stay as written. It has no product name, no tool schemas and no fixed source chat. It is built in named parts (Persona, Environment, Your role, Skills, Rules, Workspace, Responding) that, joined, are the prompt.
+
+A session does not take up a changed prompt as soon as it changes (A56): a new system prompt would make the model read the whole conversation again at full price. The session (`infra/pi/prompt-change.ts`) keeps the prompt it has and, with the next batch, tells the model which parts changed and how, once. It takes up the live prompt when it starts (a new session or a restart), when the model changes, and after a compaction.
 
 ```text
 # Persona

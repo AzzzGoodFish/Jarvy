@@ -325,3 +325,17 @@ Jarvy ships skills: guides for a kind of work the agent Bot (A48) helps the owne
 - **Not Pi's skills**: Pi's skill discovery and its prompt section stay off (`noSkills`, A49); nothing on the machine is picked up. Other Bots have no skills; the owner can't add any yet.
 
 Why: a guide that is read only when needed keeps the prompt short, and a file in the workspace reaches the Bot wherever its tools run, without a tool of its own. Plans stay with the owner because a team and its channels are theirs to decide.
+
+## A56 A changed system prompt is told, not swapped in
+
+Changing a Bot's name, description or persona, its skills or its workspace changes its system prompt. A system prompt that changes mid-session makes the model read the whole conversation again at full price, since providers cache a prompt from its start. So a running session keeps the system prompt it has and is told what changed (Ezra).
+
+- **Parts**: the prompt is built in named parts (`service/bot/prompt.ts`), so a change can say where it is.
+- **Told once**: before each batch the session compares the live prompt with the newest version the model knows. A difference goes into the batch as `instructions_changed`: the changed parts and, per part, the changed lines with two lines of context, at most 40 lines; a longer change is told as the changed parts' new text. At most 8000 characters either way. The next change is measured from what was told.
+- **Taken up**: the live prompt goes out when a session starts (a new session, a restart of Jarvy), after the model or connection changes, and after a compaction. In each case the provider has nothing cached for this conversation anyway.
+- **Not by time**: a provider's cache also expires after minutes without requests, but providers don't report when, so idle time doesn't count.
+- **In memory**: what the model knows is kept in memory only. After a restart the session starts from the live prompt.
+- **Not covered**: tool definitions and the skill files themselves are outside the prompt text; changes to them are not handled here.
+
+Why: a persona edit should cost a few lines in the next batch, not a full-price read of the conversation, and the model should know the change at once instead of finding it in an unannounced new prompt.
+

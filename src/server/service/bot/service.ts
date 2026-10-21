@@ -24,7 +24,7 @@ import { BotState } from "./state.js";
 import { Tools } from "./tools.js";
 import { AgentRuntime } from "./agent-runtime.js";
 import { BotInbox } from "./inbox.js";
-import { botPrompt } from "./prompt.js";
+import { botPromptParts } from "./prompt.js";
 import { builtinSkills } from "../../infra/files/skills.js";
 import type { Skill } from "../../shared/skill.js";
 import type { RosterEntry } from "./roster.js";
@@ -71,7 +71,7 @@ export class BotService {
     const here = () => { const place = this.environments.here(id, record.workspacePath); return { name: place.name, directory: place.directory }; };
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
-        tools: setup.tools, systemPrompt: () => botPrompt(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
+        tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id) }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);

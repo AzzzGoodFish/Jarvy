@@ -8,6 +8,8 @@ import { createAgentSession, createCodemodeExtension, DefaultResourceLoader, Mod
 import type { Store } from "../storage/store.js";
 import type { Bot } from "../../shared/models.js";
 import { reportedContext, type ContextEntry } from "./context.js";
+import { PromptLog, type PromptChange } from "./prompt-change.js";
+import type { PromptPart } from "../../shared/prompt.js";
 import { RuntimeFault, type BotPhase, type ContextUsage, type ModelSelection, type SessionRef } from "../../shared/runtime.js";
 import { CredentialCoordinator } from "../credentials/coordinator.js";
 import { ConnectionCredentials, CurrentCredentials } from "./credentials.js";
@@ -23,7 +25,9 @@ import type { SecretAccess } from "../../shared/secret.js";
 
 export interface SessionOptions {
   store: Store; bot: Bot; selection: ModelSelection; reference: SessionRef;
-  credentials: CredentialCoordinator; tools: readonly ToolDefinition[]; systemPrompt: () => string;
+  credentials: CredentialCoordinator; tools: readonly ToolDefinition[];
+  /** The live system prompt in parts; the session goes on with the one it has and tells changes (A56). */
+  systemPrompt: () => readonly PromptPart[];
   onHistory?: (message: HistoryDraft) => void | Promise<void>;
   activity: (phase: BotPhase) => void;
   /** The turn as it happens, step by step (A47). */
@@ -56,6 +60,10 @@ export interface BotSession {
   steer(xml: string): boolean;
   requestAbort(): void;
   configure(selection: ModelSelection): Promise<string>;
+  /** How the live system prompt differs from the newest one the model knows (A56); null when it doesn't. */
+  promptChange(): PromptChange | null;
+  /** That change went to the model with a batch. */
+  promptTold(change: PromptChange): void;
   dispose(): Promise<void>;
 }
 export type SessionFactory = (options: SessionOptions) => Promise<BotSession>;
@@ -76,6 +84,7 @@ export class PiSession implements BotSession {
   private result: PromptResult = { outcome: "completed" };
   private signature = "";
   private readonly translator = new LiveTranslator();
+  private prompts!: PromptLog;
   private constructor(private readonly options: SessionOptions, private readonly models: ModelRuntime, private readonly credentials: CurrentCredentials) {}
   get context(): ContextUsage | undefined {
     // Pi's own figure is used only for the window; the size is what the model reported (context.ts).
@@ -116,6 +125,7 @@ export class PiSession implements BotSession {
     const model = installModel(models, connection, configured, store.modelHeaders(connection.id, configured.id));
     const sessionManager = SessionManager.open(reference.file, sessionsDir, bot.workspacePath);
     const adapter = new PiSession(options, models, credentials);
+    adapter.prompts = new PromptLog(options.systemPrompt);
     // The idle timeout is raised (A40) because a cold prefill of several hundred thousand tokens regularly
     // takes longer than Pi's 5-minute default (observed: a ~490k-token request timing out at 300s).
     // Compaction follows the model's window, with more room for its summary than Pi's default (compactionReserve).
@@ -126,7 +136,7 @@ export class PiSession implements BotSession {
     const tools = ["bash", "read", "edit", "write", "codemode", ...options.tools.map(tool => tool.name)];
     const resourceLoader = new DefaultResourceLoader({ cwd: bot.workspacePath, agentDir, settingsManager,
       noExtensions: true, noSkills: true, noPromptTemplates: true, noContextFiles: true,
-      systemPromptOverride: options.systemPrompt, appendSystemPromptOverride: () => [],
+      systemPromptOverride: () => adapter.prompts.current, appendSystemPromptOverride: () => [],
       extensionFactories: [createCodemodeExtension(), api => {
         for (const tool of options.tools) api.registerTool({
           name: tool.name, label: tool.name, description: tool.description,
@@ -139,7 +149,8 @@ export class PiSession implements BotSession {
             return { content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output) }], details: {} };
           },
         });
-        api.on("before_agent_start", () => ({ systemPrompt: options.systemPrompt() }));
+        // The prompt the session has, not the live one: a change is told in the batch, so the cache stays (A56).
+        api.on("before_agent_start", () => ({ systemPrompt: adapter.prompts.current }));
         // Every tool result, nested codemode calls included, is masked before Pi keeps it or the model sees it.
         api.on("tool_result", event => {
           const masker = options.secrets?.masker();
@@ -197,6 +208,8 @@ export class PiSession implements BotSession {
     if (event.type === "auto_retry_start") this.options.activity("retrying");
     if (event.type === "tool_execution_start") this.options.activity("tool");
     if (event.type === "compaction_start") { this.options.activity("compacting"); console.log("[pi] compaction started", { botId: this.options.bot.id, reason: event.reason }); }
+    // A compaction rewrote the conversation, so nothing cached is left to keep: take up the live prompt (A56).
+    if (event.type === "compaction_end" && event.result && !event.aborted && !event.errorMessage) this.prompts.take(this.options.systemPrompt);
     if (event.type === "compaction_end") console.log(event.errorMessage ? "[pi] compaction failed" : "[pi] compaction finished",
       { botId: this.options.bot.id, reason: event.reason, aborted: event.aborted, tokensBefore: event.result?.tokensBefore,
         tokensAfter: event.result?.estimatedTokensAfter, error: event.errorMessage });
@@ -269,12 +282,16 @@ export class PiSession implements BotSession {
       this.settings.applyOverrides({ compaction: { reserveTokens: compactionReserve(model.contextWindow) } });
       this.session.setThinkingLevel(resolveThinking(model, selection.thinkingLevel), { persist: false });
       this.signature = signature;
+      // Another model caches nothing of this one's: its first request goes with the live prompt (A56).
+      this.prompts.take(this.options.systemPrompt);
       return this.session.thinkingLevel;
     } catch {
       this.credentials.current = previous;
       throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.", 409);
     }
   }
+  promptChange(): PromptChange | null { return this.prompts.pending(this.options.systemPrompt); }
+  promptTold(change: PromptChange): void { this.prompts.sent(change); }
   async dispose(): Promise<void> {
     this.requestAbort();
     await this.abortTask;
