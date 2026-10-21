@@ -263,7 +263,8 @@ export function App() {
     const chat = chatListRef.current.find(item => item.id === id), outside = chat?.type === "channel"
       ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !chat.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
     if (outside.length) setNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
-    await Promise.all([refreshTranscript(id), refreshChats()]);
+    // Sent once the server has it: catching up the transcript and the list must not hold the composer or undo the send.
+    void Promise.all([refreshTranscript(id), refreshChats()]).catch(handleError);
   }
   /** Adds someone picked from the @ menu to the channel (or the thread's channel). */
   function invite(channelId: string, member: Member) {
