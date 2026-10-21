@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
 import { api, type Bot, type Member } from "../api";
 import { useMentionMenu } from "../channel/MentionMenu";
-import { useDraft, type DraftStore } from "./drafts";
+import { putBack, useDraft, type DraftStore } from "./drafts";
 import { QuoteTags } from "../channel/quotes";
 import { t } from "../i18n";
 import { Icon } from "../ui";
@@ -22,7 +22,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   /** The transcript above: its scroll position is kept while the input resizes. */
   scrollRef?: RefObject<HTMLElement | null>;
   /** Saves the message (`replyTo`: the quoted message; `quotes`: the passages its [[qN]] markers stand for); throwing
-   * keeps the draft and the send key for a retry. */
+   * puts it back in the input with its send key, for a retry. Resolves once the server has it. */
   onSend: (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) => Promise<void>;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
 }) {
@@ -79,7 +79,9 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     if (!disabled) void attach([...event.dataTransfer.files]);
   }
   /** Sending is tracked per chat: another chat can send meanwhile, and coming back cannot send the same draft twice.
-   * The key is saved with the draft, so a retry (even after a reload) reuses it and the server keeps one message. */
+   * The draft leaves the input at once — a message is in flight, and what is typed meanwhile is the next one — and comes
+   * back if the send fails. The key is saved with the draft, so a retry (even after a reload) reuses it and the server
+   * keeps one message. */
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const target = chatId, current = drafts.get(target), text = (current.text ?? initialText ?? "").trim(), attachments = current.files, quoted = current.quote;
@@ -88,16 +90,16 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     if ((!content && !attachments.length) || current.sending || uploading || disabled) return;
     const signature = JSON.stringify([content, attachments.map(file => file.id), quoted?.id ?? null, passages]);
     const key = current.signature === signature && current.key ? current.key : newKey();
-    drafts.update(target, { key, signature, sending: true });
+    const outgoing = { text, files: attachments, quote: quoted, passages };
+    drafts.update(target, { text: "", files: [], quote: null, passages: [], key, signature, outgoing, sending: true });
     try {
       await onSend(content, attachments.map(file => file.id), key, quoted?.id, passages.map(({ messageId, text: passage }) => ({ messageId, text: passage })));
-      drafts.update(target, after => ({
-        text: (after.text ?? initialText ?? "").trim() === text ? "" : after.text,
-        passages: after.passages.filter(passage => !passages.includes(passage)),
-        files: after.files.filter(file => !attachments.some(sent => sent.id === file.id)),
-        quote: after.quote?.id === quoted?.id ? null : after.quote, key: null, signature: null,
-      }));
-    } catch (error) { onError(error); }
+      drafts.update(target, { key: null, signature: null, outgoing: null });
+    } catch (error) {
+      // The key stays: sent again unchanged, the server keeps one message even if the first one did arrive.
+      drafts.update(target, after => putBack(after, outgoing));
+      onError(error);
+    }
     finally { drafts.update(target, { sending: false }); }
   }
   // Grow with the content (CSS max-height caps it, then it scrolls). Measuring via "auto" briefly enlarges the

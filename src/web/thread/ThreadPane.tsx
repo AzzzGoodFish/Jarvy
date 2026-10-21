@@ -127,8 +127,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
     const outside = channel ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
     if (outside.length) onNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
-    const [loaded, list] = await Promise.all([api.chat(threadId), api.messages(threadId)]);
-    setChat(loaded); setMessages(list.messages); onChanged(loaded);
+    // As in the main chat: the refresh runs on its own, its failure is not the send's.
+    void Promise.all([api.chat(threadId), api.messages(threadId)]).then(([loaded, list]) => { setChat(loaded); setMessages(list.messages); onChanged(loaded); }).catch(onError);
   };
   const channelName = channel?.title ?? t("search.channel"), rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
