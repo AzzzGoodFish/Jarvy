@@ -74,7 +74,7 @@ export class AgentRuntime implements RuntimePort {
     if (!this.prompting) { this.wake(); return; }
     // Serialised so two quick deliveries cannot both read the same pending rows.
     this.notices = this.notices.catch(() => {}).then(async () => {
-      const pending = this.inbox.notices();
+      const pending = this.inbox.notices(true);
       if (!pending || this.stopping) return;
       if (this.prompting && this.session?.steer(pending.xml)) this.inbox.tell(pending.ids);
       else this.wake();

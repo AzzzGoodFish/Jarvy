@@ -44,7 +44,9 @@ export type EnvelopeNotice =
   | { kind: "reaction"; id: number; chat: NoticeChat; message: { id: string; text: string }; actor: MemberIdentity; emoji: string; createdAt: number }
   | { kind: "note"; id: number; chat: NoticeChat; actor: MemberIdentity; version: number; createdAt: number }
   | { kind: "onboard"; id: number; chat: NoticeChat; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
-  | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number };
+  | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number }
+  /** One of the Bot's scheduled tasks is due (A56): what to do, and when it was meant to run. */
+  | { kind: "task"; id: number; chat: NoticeChat; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model, in the DM named on the element. */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up Jarvy and picked your model. You are their agent Bot. `
   + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what Jarvy is and how you can help, `
@@ -56,11 +58,13 @@ export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotic
   const list = noticeTail(notices, chats, members);
   return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${environmentLine(environment)}</notice_batch>`;
 }
-/** The tail shared by a steered notice batch and a chat batch (A39, A41): new notice / summary versions as
+/** The tail shared by a steered notice batch and a chat batch (A39, A41). Tasks come first, so the Bot reads what it
+ * is meant to do before anything else in the batch. New notice / summary versions as
  * `<updates>` (the newest per chat), marks as `<notices>` quoting the start of the marked message. A chat already
  * described by a message keeps that (fuller) definition. */
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
+    if (notice.kind === "task") continue;
     // A DM without messages yet is untitled (v18).
     if (!chats.has(notice.chat.id)) chats.set(notice.chat.id, `<chat${attribute("id", notice.chat.id)}${attribute("type", notice.chat.type)}${notice.chat.title ? attribute("title", notice.chat.title) : ""}/>`);
     remember(members, notice.actor.id, `<member${attribute("id", notice.actor.id)}${attribute("name", notice.actor.name)}${attribute("kind", notice.actor.kind)}/>`);
@@ -79,7 +83,11 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
   const byAgent = changed.some(notice => notice.actor.kind === "bot"), byOwner = changed.some(notice => notice.actor.kind === "user");
   const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("chat", notice.chat.id)}${attribute("by", notice.actor.id)}`
     + `${attribute("at", iso(notice.createdAt))}><note>${escape(welcome(notice.actor.name, notice.language))}</note></onboard>`]).slice(-1);
-  return (updates.length ? `<updates>${updates.join("")}</updates>` : "")
+  const tasks = notices.flatMap(notice => notice.kind !== "task" ? [] : [`<task${attribute("id", notice.task.id)}${attribute("chat", notice.chat.id)}`
+    + `${attribute("name", notice.task.name)}${attribute("every", notice.task.schedule)}${attribute("due", iso(notice.due))}>${escape(notice.task.instruction)}</task>`]);
+  return (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
+    + "then send what is worth sending; if nothing is, do nothing.</note></tasks>" : "")
+    + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`
       + (byAgent ? "<note>The agent Bot changed your settings, and the changes already apply. A persona change is already in your instructions. If something is unclear, ask it in that DM.</note>" : "")

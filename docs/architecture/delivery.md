@@ -21,8 +21,9 @@ what happened             ──►    routes:  who receives it, and the reason 
 ```ts
 type Urgency = "interrupt" | "queue" | "digest";
 type DeliveryKind = "message" | "reaction" | "note"        // note = a new notice or thread summary version
-  | "onboard" | "change";                                   // to one Bot, from the agent service (A48)
-type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner";
+  | "onboard" | "change"                                    // to one Bot, from the agent service (A48)
+  | "task";                                                 // to one Bot, from the scheduler (A56)
+type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "schedule";
 interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
 ```
 
@@ -38,6 +39,7 @@ interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: Deliv
 | onboard | the agent Bot, in its DM with the owner, when it first has a model (A48) | `setup` |
 | change | a Bot the agent Bot changed, in their DM (A48) | `agent` |
 | change | a Bot whose work environment the owner changed, in their DM (A50) | `owner` |
+| task | the Bot whose scheduled task is due, in the task's chat (A56) | `schedule` |
 
 The sender is never its own recipient; each member gets at most one row per message.
 
@@ -49,6 +51,7 @@ reaction: { author: "queue" },
 note:     { member: "queue", follower: "queue" },
 onboard:  { setup: "interrupt" },
 change:   { agent: "digest", owner: "interrupt" },
+task:     { schedule: "queue" },
 ```
 
 The owner's `interrupt` applies to a move (a new default, or the owner's computer taken back while the Bot is there) of a Bot that is running, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, get `digest`: there is nothing to stop, and waking it would only spend a turn.
@@ -70,7 +73,7 @@ One table, `inbox`, holds every delivery: member, kind, reason, urgency, chat, m
 `AgentRuntime.deliver(urgency)`:
 
 - **interrupt** — abort the running turn (Pi `abort`) and start a new one with everything pending (A05).
-- **queue** — if a turn is running, steer the pending reactions and notes into it as a `<notice_batch>` (Pi `session.steer`); otherwise wake the Bot for a turn of its own.
+- **queue** — if a turn is running, steer the pending reactions and notes into it as a `<notice_batch>` (Pi `session.steer`); otherwise wake the Bot for a turn of its own. A due task is never steered: it waits for the running turn to end and comes in the next one (A56).
 - **digest** — nothing now; it goes with the next batch.
 
 One pump per Bot claims everything pending at that moment: messages become `<message>` elements of one `<chat_batch>` prompt, untold reactions are appended as `<notices>`, new note versions as `<updates>`, and the batch ends with `<unread>` ([format](envelope.md)). Each queued item is told once. At startup, Bots with pending rows are woken, the most urgent first. Queued messages (from muted chats) are handled after the current turn rather than steered in.

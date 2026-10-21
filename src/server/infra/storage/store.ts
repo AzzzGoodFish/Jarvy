@@ -14,6 +14,7 @@ import { AgentRepository } from "./agent-repository.js";
 import { EnvironmentRepository } from "./environment-repository.js";
 import { SettingsRepository } from "./settings-repository.js";
 import { SecretRepository } from "./secret-repository.js";
+import { TaskRepository } from "./task-repository.js";
 import { Cipher } from "../vault/cipher.js";
 import { masterKey } from "../vault/master-key.js";
 import type { ModelSelection } from "../../shared/runtime.js";
@@ -86,6 +87,8 @@ export class Store {
   readonly agent: AgentRepository;
   readonly environments: EnvironmentRepository;
   readonly settings: SettingsRepository;
+  /** Scheduled tasks (A56). */
+  readonly tasks: TaskRepository;
   readonly secrets: SecretRepository;
   /** Seals secrets and model credentials under the master key (A52). */
   readonly cipher: Cipher;
@@ -106,6 +109,7 @@ export class Store {
     this.agent = new AgentRepository(this.db, () => this.userMemberId());
     this.environments = new EnvironmentRepository(this.db, () => this.userMemberId());
     this.settings = new SettingsRepository(this.db);
+    this.tasks = new TaskRepository(this.db);
     this.secrets = new SecretRepository(this.db, this.cipher, () => this.userMemberId());
     this.agent.ensure();
   }

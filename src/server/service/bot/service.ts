@@ -34,11 +34,14 @@ import { urgencyOf } from "../delivery/policy.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 import type { SecretService } from "../secrets.js";
+import type { TaskService } from "../tasks.js";
 
 export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
   /** The owner's secrets (A52): each Bot's runs fill placeholders and mask values through it. */
   secrets: SecretService;
+  /** Scheduled tasks (A56): each Bot manages its own with the tasks tools. */
+  tasks: TaskService;
   changed: (botId: string) => void; factory?: SessionFactory;
   /** Bots were created, renamed or deleted by the agent Bot (A48): the owner's page reloads them. */
   listChanged?: () => void;
@@ -69,7 +72,7 @@ export class BotService {
     if (bot) return bot;
     const { store, chats, files, credentials } = this.deps, live = this.live(id), skills = id === AGENT_BOT_ID ? this.skills : [];
     const here = () => { const place = this.environments.here(id, record.workspacePath); return { name: place.name, directory: place.directory }; };
-    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, here), (setup, model, reference, activity) =>
+    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPrompt(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id) }));
@@ -83,6 +86,7 @@ export class BotService {
         places: { list: () => this.environments.list(id, record.workspacePath), switch: environmentId => this.environments.switch(id, environmentId, record.workspacePath),
           summary: botId => this.environments.summary(botId) },
         secrets: { list: () => this.deps.secrets.listFor(id), prepare: (name, purpose) => this.deps.secrets.prepareRequest(id, name, purpose) },
+        tasks: this.deps.tasks,
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
