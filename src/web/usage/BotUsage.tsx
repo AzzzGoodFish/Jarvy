@@ -8,12 +8,14 @@ import type { Key } from "../i18n/keys";
 import "./usage.css";
 import { errorText } from "../errors";
 
-type Range = "today" | "7d" | "30d";
-const RANGES: Range[] = ["today", "7d", "30d"];
-const rangeLabel = (range: Range) => range === "today" ? t("usage.today") : t("usage.days", { count: range === "7d" ? 7 : 30 });
+type Range = "today" | "7d" | "30d" | "all";
+const RANGES: Range[] = ["today", "7d", "30d", "all"];
+const rangeLabel = (range: Range) => range === "today" ? t("usage.today") : range === "all" ? t("usage.all") : t("usage.days", { count: range === "7d" ? 7 : 30 });
 const METRICS = [["calls", "usage.calls"], ["input", "usage.input"], ["output", "usage.output"], ["cacheRead", "usage.cacheRead"], ["cacheWrite", "usage.cacheWrite"]] as const satisfies readonly (readonly [string, Key])[];
-/** Start of the range in the browser's own time zone: today from local midnight, 7 / 30 days including today. */
+/** Start of the range in the browser's own time zone: today from local midnight, 7 / 30 days including today, and 0 for
+ * everything. No History row is before 1970, so 0 needs no special case on the server. */
 function since(range: Range): number {
+  if (range === "all") return 0;
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - (range === "7d" ? 6 : range === "30d" ? 29 : 0));

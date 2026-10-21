@@ -5,6 +5,7 @@ export const bot = {
   "usage.range": "Time range",
   "usage.today": "Today",
   "usage.days": "{count} days",
+  "usage.all": "All",
   "usage.refresh": "Refresh",
   "usage.refreshLabel": "Refresh usage",
   "usage.retry": "Retry",

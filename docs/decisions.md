@@ -196,7 +196,7 @@ Jarvy is for people in any language. The interface comes in Chinese and English,
 
 ## A46 Bot usage
 
-Bot info gains 用量: token use and cost per model for one Bot, for today, 7 days or 30 days.
+Bot info gains 用量: token use and cost per model for one Bot, for today, 7 days, 30 days or all of it.
 
 - No new capture: Pi's per-call `usage` (tokens and cost from the model's configured price) is already in History, and the page sums it on request. On the largest History so far a 30-day sum takes about 11 ms, well under the 200 ms at which a summary table would be worth a schema change.
 - One row per provider and model: calls, input, output, cache read, cache write, cost; a total below when there is more than one model.

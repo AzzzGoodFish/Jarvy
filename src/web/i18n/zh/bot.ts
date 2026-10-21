@@ -8,6 +8,7 @@ export const bot: Part<typeof en> = {
   "usage.range": "时间范围",
   "usage.today": "今天",
   "usage.days": "{count} 天",
+  "usage.all": "全部",
   "usage.refresh": "刷新",
   "usage.refreshLabel": "刷新用量",
   "usage.retry": "重试",
