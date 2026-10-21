@@ -2,6 +2,30 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.7.0 — 2026-10-21
+
+Upgrading moves the database from schema v20 to v21 on first start: secrets, their grants and their uses are added, and the credentials you have already saved are encrypted under a new master key. Keep the master key file if you may need to go back, and keep a copy of the database too: a v21 database cannot be opened by 0.6.0.
+
+### Added
+
+- **HTTPS beyond this machine.** Jarvy can now be reached at `https://` from other devices on your network, with a certificate it makes for itself. One port serves both HTTPS and plain HTTP, and plain HTTP from another machine is redirected to HTTPS. Settings › Network has a switch for LAN access, the addresses to use, and, while it is off, says that Jarvy is open to this computer only. A browser shows a warning once, until you trust Jarvy's certificate; Settings has the steps for each system. From this machine nothing changes, and `localhost` keeps working as a secure context. (A51)
+- **Secrets.** A Bot can use a token, password or key without the value passing through the chat. Settings › Secrets holds them, encrypted under a master key that lives outside your data directory, and you choose which Bots may use each one, always or for one run. In a command a Bot writes a placeholder such as `{{secret:GITHUB_TOKEN}}`, filled in for that command only; values are masked in everything the model sees. When a Bot needs one it does not have, it asks on a card: it names the secret and its purpose, you paste the value or decline, and the card asks how long the grant lasts. A use log shows what was used, by which Bot, where and when. The credentials you saved for model connections are sealed under the same key. (A52)
+- **Skills for the agent Bot.** Jarvy now ships skills: guides for a kind of work, which the agent Bot follows when the work calls for it. The first is `dev-team`, on running software development with a team of Bots: forming the team, splitting roles, organizing channels, using threads, keeping channel notices, and a development flow from a request to a release. The agent Bot's prompt lists each skill; the text is read only when it is needed, and plans built from it go to you to confirm. (A55)
+- **Provider logos.** In Settings › Models the provider picker shows each brand's logo instead of its initial. The icons come from LobeHub's lobe-icons (MIT), with the notice in `THIRD_PARTY_NOTICE.md`.
+
+### Changed
+
+- **Bot info's context usage is what the model reported**, not an estimate. Until a Bot's first reply it is unknown, and after a compaction it is unknown again until the model reports; when a request fails and Pi drops it from the context, the figure from the last successful reply stays, with a warning that says why. (A54)
+- **Bots are told about unread messages.** When a Bot sends a message or asks a question, the result tells it how many messages in that chat it had not read, and how to read them, so it can catch up before it acts. (A53)
+- **Question cards are one panel.** A question and a secret request are drawn the same way: a framed panel under the Bot's message, with the options, the custom answer and the buttons; a settled card folds to one line. A card that is no longer waiting for an answer reads as ignored rather than expired.
+- **Interface text**, in both languages: errors say what happened and what to do, settings describe what each option does, and wording is consistent across screens.
+
+### Known limits
+
+- The master key sits in a file in Jarvy's configuration directory, readable by your user; anything that can read your files can read it.
+- A secret is granted to a Bot, not to a particular run of work.
+- Skills belong to the agent Bot alone, cannot be added by you yet, and are written again each time it starts, so changes to those files do not last.
+
 ## 0.6.0 — 2026-10-19
 
 Upgrading moves the database from schema v19 to v20 on first start: environments and their grants are added, and each Bot gains its default and current environment. Existing Bots keep working on your computer. A v20 database cannot be opened by 0.5.0; keep a copy if you may need to go back.
