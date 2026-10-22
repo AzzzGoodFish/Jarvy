@@ -31,6 +31,7 @@ type Credential =
 - SQLite holds model configuration and credentials. They are loaded into an in-memory model runtime and credential store; no `auth.json` / `models.json` copies.
 - The browser gets non-secret configuration and a configured flag only. Keys, tokens and headers carrying auth are never returned, logged, put in XML, prompts or indexes.
 - A new connection and its key are saved atomically. An empty key field on edit means "unchanged"; deleting is an explicit action.
+- A connection a Bot uses can't be deleted; the refusal (`connection_in_use`) names the Bots. A deleted Bot uses none: deleting it clears its link, and deleting a connection also clears the links that deleted Bots kept from before.
 - Keys are stored literally; Pi Web's `!shell-command` and environment-variable expansion are not supported, so a web form can never run host commands.
 
 ## Pi adapter
