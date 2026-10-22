@@ -19,7 +19,7 @@ export interface SshMachine { id: string; name: string; host: string; port: numb
 /** A host's keys from a scan: what the owner checks, and what gets saved when they accept. */
 export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** `https`: Jarvy listens beyond this machine and serves HTTPS with its own certificate (A51). */
-export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses: string[]; fingerprint: string | null }
+export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses: string[]; fingerprint: string | null; fingerprintSha1: string | null }
 /** A secret as the page sees it (A52): never its value. `readable` is false when it doesn't open under this installation's master key. */
 export interface Secret { id: string; name: string; kind: "value" | "ssh_key"; botId: string | null; description: string; fingerprint: string;
   createdAt: number; updatedAt: number; readable: boolean; grants: { botId: string; scope: "always" | "once"; grantedAt: number }[]; uses: number; lastUsedAt: number | null }

@@ -3,8 +3,7 @@
 .jv-conn-cert { margin-top: 10px; }
 .jv-conn-root .jv-row-text > span, .jv-conn-http .jv-row-text > span, .jv-conn-local .jv-row-text > span { white-space: normal; }
 .jv-conn-root > a { flex: none; }
-.jv-list .jv-list-row.jv-conn-print { gap: 10px; min-height: 0; padding-top: 0; border-top: 0; font-size: 12px; color: var(--jv-dim); }
-.jv-conn-print > span { flex: none; }
+.jv-list .jv-list-row.jv-conn-print { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: 6px 10px; min-height: 0; padding-top: 0; border-top: 0; font-size: 12px; color: var(--jv-dim); }
 .jv-conn-print > code { min-width: 0; font-size: 11px; line-height: 1.5; }
 .jv-conn-disclosure { justify-content: space-between; }
 .jv-conn-disclosure > svg { color: var(--jv-dim); transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
