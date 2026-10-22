@@ -328,7 +328,7 @@ Why: a guide that is read only when needed keeps the prompt short, and a file in
 
 ## A56 A changed system prompt is told, not swapped in
 
-Changing a Bot's name, description or persona, its skills or its workspace changes its system prompt. A system prompt that changes mid-session makes the model read the whole conversation again at full price, since providers cache a prompt from its start. So a running session keeps the system prompt it has and is told what changed (Ezra).
+Changing a Bot's name, description or persona, its skills or its workspace changes its system prompt. A system prompt that changes mid-session makes the model read the whole conversation again at full price, since providers cache a prompt from its start. So a running session keeps the system prompt it has and is told what changed.
 
 - **Parts**: the prompt is built in named parts (`service/bot/prompt.ts`), so a change can say where it is.
 - **Told once**: before each batch the session compares the live prompt with the newest version the model knows. A difference goes into the batch as `instructions_changed`: the changed parts and, per part, the changed lines with two lines of context, at most 40 lines; a longer change is told as the changed parts' new text. At most 8000 characters either way. The next change is measured from what was told.
