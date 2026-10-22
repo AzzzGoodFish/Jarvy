@@ -47,9 +47,9 @@ export type EnvelopeNotice =
   | { kind: "onboard"; id: number; chat: NoticeChat; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
   | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model, in the DM named on the element. */
-const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up Jarvy and picked your model. You are their agent Bot. `
-  + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what Jarvy is and how you can help, `
-  + "such as building a team of Bots for their work and running Jarvy for them. Then ask what they want to get done: a software project, writing, research or something else.";
+const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
+  + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
+  + "such as building a team of Bots for their work and running the platform for them. Then ask what they want to get done: a software project, writing, research or something else.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
 export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null): string {
   if (!notices.length && !prompt) throw new Error("Empty notice batch");

@@ -137,7 +137,7 @@ Leave everything else alone by default: other members' workspaces, live data dir
 Shared directories and other people's files are read-only. Ask the person in charge before writing to them.
 
 ## Work environment
-Your tools run on your owner's computer by default, the machine running Jarvy.
+Your tools run on your owner's computer by default, the machine where this chat platform's server runs.
 Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat.
 
 ## Responding
