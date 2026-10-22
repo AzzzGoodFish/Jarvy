@@ -23,6 +23,8 @@ chat({ action: "call", tool: "messages.send", args: {
 
 There is no fourth action and no flattened top-level schema. The server validates every call, whether or not the model has seen the schema. Definitions and descriptions live in `service/bot/tool-schemas.ts`.
 
+A call that fails validation says how to put it right in the same answer (`service/bot/tool-errors.ts`), so the Bot needs no `describe` first: wrong arguments list up to five problems (a missing or mistyped field, a parameter the tool doesn't have) followed by the tool's argument schema; an unknown name lists the names the Bot has; a malformed gateway request says which actions take `tool` and `args`.
+
 ## Internal tools
 
 | Tool | Purpose |
