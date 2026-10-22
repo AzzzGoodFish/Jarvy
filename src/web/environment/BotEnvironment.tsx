@@ -41,7 +41,7 @@ export function EnvironmentChoice({ bot, onSaved }: { bot: Bot; onSaved: (bot: B
 
 /** Bot info's section (A50), in two parts. Where the Bot works: its default, the sandbox or the owner's
  * computer, with the sandbox's details to open when that is the default. Then the external environments it may
- * switch to; so far the owner's computer, for a Bot whose default is its sandbox. */
+ * switch to: the owner's computer, for a Bot whose default is its sandbox, and each SSH machine (A57). */
 export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
   const [busy, setBusy] = useState<"move" | "grant" | "start" | "stop" | "reset" | null>(null);
   const [open, setOpen] = useState(false);
@@ -49,7 +49,7 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
   const [confirming, setConfirming] = useState<"stop" | "reset" | null>(null);
   const [error, setError] = useState("");
   const details = useId();
-  const { computer, home, current, hostGranted, docker } = bot.environment;
+  const { computer, home, current, currentName, hostGranted, docker, machines = [] } = bot.environment;
   async function act(what: NonNullable<typeof busy>, work: () => Promise<Bot>, fallback: Parameters<typeof errorText>[1]) {
     setBusy(what); setError("");
     try { onSaved(await work()); }
@@ -60,7 +60,8 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
   const run = (what: "start" | "stop" | "reset") => void act(what, () => api.computer(bot.id, what), "common.failed");
   const state = computer?.state;
   const [label, hint] = state ? STATE[state] : [null, null];
-  const away = current !== home ? t(current === "host" ? "environment.awayHost" : "environment.awayComputer") : null;
+  const away = current === home ? null : current === "ssh" ? t("environment.awayMachine", { name: currentName ?? "" })
+    : t(current === "host" ? "environment.awayHost" : "environment.awayComputer");
   return <section className="jv-section" aria-label={t("environment.title")}><h3 className="jv-section-title">{t("environment.title")}</h3>
     <div className="jv-list">
       <div className="jv-list-row jv-static-row">
@@ -92,13 +93,18 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
         </div>}
       </>}
     </div>
-    {home === "computer" && <>
+    {(home === "computer" || machines.length > 0) && <>
       <h4 className="jv-env-heading">{t("environment.external")}</h4>
       <div className="jv-list" role="group" aria-label={t("environment.external")}>
-        <button type="button" role="switch" aria-checked={hostGranted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access" onClick={() => void act("grant", () => api.grantHost(bot.id, !hostGranted), "environment.accessFailed")}>
+        {home === "computer" && <button type="button" role="switch" aria-checked={hostGranted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access" onClick={() => void act("grant", () => api.grantHost(bot.id, !hostGranted), "environment.accessFailed")}>
           <span className="jv-row-text"><strong>{t("environment.host")}</strong><span>{t("environment.hostAbout")}</span></span>
           <span className="jv-env-switch" aria-hidden="true"/>
-        </button>
+        </button>}
+        {machines.map(machine => <button key={machine.id} type="button" role="switch" aria-checked={machine.granted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access"
+          onClick={() => void act("grant", () => api.grantBotMachine(bot.id, machine.id, !machine.granted), "environment.accessFailed")}>
+          <span className="jv-row-text"><strong>{machine.name}</strong></span>
+          <span className="jv-env-switch" aria-hidden="true"/>
+        </button>)}
       </div>
       <p className="jv-hint jv-env-note">{t("environment.externalHint")}</p>
     </>}

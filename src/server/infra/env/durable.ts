@@ -5,10 +5,10 @@ import type { EnvironmentKind, ExecOptions, WorkEnvironment } from "../../shared
 /** A WorkEnvironment over one of Pi Durable's execution environments: the host's `NodeExecutionEnv` or pi-env's
  * `RemoteExecutionEnv`, which behaves like it on the far side. `passEnv` says whether the command gets the environment
  * Pi built for it (only on this machine). */
-export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv, options: { passEnv: boolean; close?: () => void | Promise<void> }): WorkEnvironment {
+export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv, options: { passEnv: boolean; temp?: string; close?: () => void | Promise<void> }): WorkEnvironment {
   let closed = false;
   return {
-    id, kind, cwd: env.cwd,
+    id, kind, cwd: env.cwd, ...(options.temp ? { temp: options.temp } : {}),
     async exec(command: string, exec: ExecOptions) {
       const result = await env.exec(command, {
         cwd: exec.cwd,

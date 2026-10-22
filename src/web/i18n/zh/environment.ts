@@ -17,7 +17,7 @@ export const environment: Part<typeof en> = {
   "environment.sandboxAbout": "只供这个 Bot 使用的 Linux 容器，工作区是它在其中的主目录。",
   "environment.external": "可以使用的外部环境",
   "environment.hostAbout": "运行 Jarvy 的这台电脑",
-  "environment.externalHint": "开启后，Bot 可以在需要时自行切换过去；关闭时如果它正在使用，会被切回沙箱。",
+  "environment.externalHint": "开启后，Bot 可以在需要时自行切换过去；关闭时如果它正在使用，会被切回默认环境。",
   "environment.accessFailed": "无法修改可使用的环境",
   "environment.state.preparing": "准备中",
   "environment.state.running": "运行中",

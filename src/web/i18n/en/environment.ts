@@ -14,7 +14,7 @@ export const environment = {
   "environment.sandboxAbout": "A Linux container only this Bot uses, with its workspace as its home directory.",
   "environment.external": "External environments it may use",
   "environment.hostAbout": "The computer running Jarvy",
-  "environment.externalHint": "When on, the Bot can switch there itself when it needs to. Turning it off while the Bot is there switches it back to its sandbox.",
+  "environment.externalHint": "When on, the Bot can switch there itself when it needs to. Turning it off while the Bot is there switches it back to its default environment.",
   "environment.accessFailed": "Couldn't change the environments it may use",
   "environment.state.preparing": "Preparing",
   "environment.state.running": "Running",

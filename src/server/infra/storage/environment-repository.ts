@@ -1,15 +1,21 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type { EnvironmentKind, EnvironmentRecord } from "../../shared/environment.js";
+import type { EnvironmentKind, EnvironmentRecord, HostKeys } from "../../shared/environment.js";
+import type { Cipher } from "../vault/cipher.js";
 
-interface Row { id: string; ownerId: string; kind: EnvironmentKind; botId: string | null; connection: string }
-const COLUMNS = "id, owner_id AS ownerId, kind, bot_id AS botId, connection";
-const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.ownerId, kind: row.kind, botId: row.botId, spec: JSON.parse(row.connection) as Record<string, string> });
+interface Row { id: string; ownerId: string; kind: EnvironmentKind; botId: string | null; name: string; directory: string | null; connection: string }
+const FIELDS = (table: string) => ["id", "owner_id AS ownerId", "kind", "bot_id AS botId", "name", "directory", "connection"].map(column => `${table}${column}`).join(", ");
+const COLUMNS = FIELDS("");
+const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.ownerId, kind: row.kind, botId: row.botId, name: row.name, directory: row.directory,
+  spec: JSON.parse(row.connection) as Record<string, string> });
+/** What a new SSH machine is saved with (A57). */
+export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; hostKeys: HostKeys; privateKey: string }
 
 /** Work environments and where each Bot works (v20, A50). A Bot's home or current environment left NULL is its
- * owner's computer, whose row is made when first needed. */
+ * owner's computer, whose row is made when first needed. SSH machines (v22, A57) keep their key sealed under the
+ * master key. */
 export class EnvironmentRepository {
-  constructor(private readonly db: DatabaseSync, private readonly ownerId: () => string) {}
+  constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
 
   get(id: string): EnvironmentRecord | null {
     const row = this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE id=? AND deleted_at IS NULL`).get(id) as Row | undefined;
@@ -30,7 +36,7 @@ export class EnvironmentRepository {
   }
   /** Every live Bot's computer. */
   computers(): EnvironmentRecord[] {
-    return (this.db.prepare(`SELECT e.id, e.owner_id AS ownerId, e.kind, e.bot_id AS botId, e.connection FROM environments e JOIN bots b ON b.id=e.bot_id
+    return (this.db.prepare(`SELECT ${FIELDS("e.")} FROM environments e JOIN bots b ON b.id=e.bot_id
       WHERE e.kind='computer' AND e.deleted_at IS NULL AND b.deleted_at IS NULL`).all() as unknown as Row[]).map(record);
   }
   /** Gives the Bot a computer, reached by the container's name. */
@@ -72,7 +78,7 @@ export class EnvironmentRepository {
   }
   /** The environments the owner granted the Bot, oldest grant first. */
   grants(botId: string): EnvironmentRecord[] {
-    return (this.db.prepare(`SELECT e.id, e.owner_id AS ownerId, e.kind, e.bot_id AS botId, e.connection FROM environment_grants g JOIN environments e ON e.id=g.environment_id
+    return (this.db.prepare(`SELECT ${FIELDS("e.")} FROM environment_grants g JOIN environments e ON e.id=g.environment_id
       WHERE g.bot_id=? AND e.deleted_at IS NULL ORDER BY g.granted_at, e.id`).all(botId) as unknown as Row[]).map(record);
   }
   /** A grant lasts until it is revoked (A50); false when nothing changed. */
@@ -82,5 +88,44 @@ export class EnvironmentRepository {
   }
   revoke(environmentId: string, botId: string): boolean {
     return Number(this.db.prepare("DELETE FROM environment_grants WHERE environment_id=? AND bot_id=?").run(environmentId, botId).changes) > 0;
+  }
+  /** The SSH machines, oldest first. */
+  sshMachines(): EnvironmentRecord[] {
+    return (this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE kind='ssh' AND deleted_at IS NULL ORDER BY created_at, id`).all() as unknown as Row[]).map(record);
+  }
+  addSsh(input: NewSshMachine, id: string = randomUUID()): EnvironmentRecord {
+    const { host, port, user, home, platform } = input;
+    this.db.prepare("INSERT INTO environments(id,owner_id,kind,name,connection,directory,key,host_keys,created_at) VALUES(?,?,'ssh',?,?,?,?,?,?)")
+      .run(id, this.ownerId(), input.name, JSON.stringify({ host, port: String(port), user, home, platform }), input.directory,
+        this.cipher.seal(input.privateKey, `environment:${id}`), JSON.stringify(input.hostKeys), Date.now());
+    return this.get(id)!;
+  }
+  updateSsh(id: string, input: { name?: string; directory?: string; hostKeys?: HostKeys }): void {
+    if (input.name !== undefined) this.db.prepare("UPDATE environments SET name=? WHERE id=? AND kind='ssh'").run(input.name, id);
+    if (input.directory !== undefined) this.db.prepare("UPDATE environments SET directory=? WHERE id=? AND kind='ssh'").run(input.directory, id);
+    if (input.hostKeys !== undefined) this.db.prepare("UPDATE environments SET host_keys=? WHERE id=? AND kind='ssh'").run(JSON.stringify(input.hostKeys), id);
+  }
+  /** The machine's private key (null when it doesn't open under this installation's key) and accepted host keys. */
+  sshSecrets(id: string): { privateKey: string | null; hostKeys: HostKeys } | null {
+    const row = this.db.prepare("SELECT key, host_keys AS hostKeys FROM environments WHERE id=? AND kind='ssh' AND deleted_at IS NULL").get(id) as { key: string | null; hostKeys: string | null } | undefined;
+    if (!row) return null;
+    return { privateKey: row.key ? this.cipher.open(row.key, `environment:${id}`) : null, hostKeys: row.hostKeys ? JSON.parse(row.hostKeys) as HostKeys : { keys: [], fingerprints: [] } };
+  }
+  /** The Bots that may use an environment. */
+  grantees(environmentId: string): string[] {
+    return (this.db.prepare("SELECT g.bot_id AS botId FROM environment_grants g JOIN bots b ON b.id=g.bot_id WHERE g.environment_id=? AND b.deleted_at IS NULL ORDER BY g.granted_at")
+      .all(environmentId) as { botId: string }[]).map(row => row.botId);
+  }
+  /** Deletes an SSH machine with its key: Bots working there are back in their default. Returns those Bots. */
+  dropSsh(id: string): string[] {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const moved = (this.db.prepare("SELECT id FROM bots WHERE current_environment_id=?").all(id) as { id: string }[]).map(row => row.id);
+      this.db.prepare("UPDATE bots SET current_environment_id=home_environment_id WHERE current_environment_id=?").run(id);
+      this.db.prepare("DELETE FROM environment_grants WHERE environment_id=?").run(id);
+      this.db.prepare("UPDATE environments SET deleted_at=?, key=NULL WHERE id=? AND kind='ssh'").run(Date.now(), id);
+      this.db.exec("COMMIT");
+      return moved;
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
   }
 }

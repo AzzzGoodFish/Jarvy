@@ -15,9 +15,14 @@ export function botRoutes(bots: ApiServices["bots"]) {
     // Docker is there (A50).
     return c.json(bots.create(textField(input, "name"), input.environment === undefined ? undefined : environmentKind(input.environment)), 201);
   });
-  // Either the default environment (`home`) or whether the Bot may use the owner's computer (`hostGranted`).
+  // The default environment (`home`), whether the Bot may use the owner's computer (`hostGranted`), or an SSH
+  // machine (`machineId` with `granted`, A57).
   routes.put("/:id/environment", jsonBody, async c => {
     const input = await readJson(c), id = c.req.param("id");
+    if (input.machineId !== undefined) {
+      if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
+      return c.json(bots.grantMachine(id, input.machineId, input.granted));
+    }
     if (input.hostGranted === undefined) return c.json(bots.setHome(id, environmentKind(input.home)));
     if (typeof input.hostGranted !== "boolean") throw new HTTPException(400, { message: "hostGranted must be true or false" });
     return c.json(bots.grantHost(id, input.hostGranted));

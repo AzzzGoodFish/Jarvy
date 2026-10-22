@@ -7,15 +7,21 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { errorText } from "../errors";
 
-/** The Bots that can use a secret, kept like a channel's members: a list with remove, and Add opening a
- * search to pick one or more. The picker opens in place, since Settings is itself a dialog. Removing takes effect at
- * once; it can be added back. */
+/** The Bots that can use a secret (A52). */
 export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots: Bot[]; onChanged: (secret: Secret) => void }) {
+  return <BotGrants grantedIds={secret.grants.map(grant => grant.botId)} onceIds={new Set(secret.grants.filter(grant => grant.scope === "once").map(grant => grant.botId))}
+    bots={bots} onGrant={async (ids, granted) => { let saved = secret; for (const id of ids) saved = await api.grantSecret(secret.id, id, granted); onChanged(saved); }}/>;
+}
+
+/** The Bots that can use something the owner keeps (a secret, an SSH machine), kept like a channel's members: a list
+ * with remove, and Add opening a search to pick one or more. The picker opens in place, since Settings is itself a
+ * dialog. Removing takes effect at once; it can be added back. */
+export function BotGrants({ grantedIds, onceIds, bots, onGrant }: { grantedIds: string[]; onceIds?: Set<string>; bots: Bot[]; onGrant: (botIds: string[], granted: boolean) => Promise<void> }) {
   const [picking, setPicking] = useState(false), [query, setQuery] = useState(""), [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
-  const granted = secret.grants.map(grant => bots.find(bot => bot.id === grant.botId)).filter((bot): bot is Bot => !!bot);
-  const once = new Set(secret.grants.filter(grant => grant.scope === "once").map(grant => grant.botId));
-  const candidates = bots.filter(bot => !secret.grants.some(grant => grant.botId === bot.id));
+  const granted = grantedIds.map(id => bots.find(bot => bot.id === id)).filter((bot): bot is Bot => !!bot);
+  const once = onceIds ?? new Set<string>();
+  const candidates = bots.filter(bot => !grantedIds.includes(bot.id));
   const shown = candidates.filter(bot => bot.name.toLowerCase().includes(query.trim().toLowerCase()));
   const close = () => { setPicking(false); setQuery(""); setPicked([]); };
   const toggle = (id: string) => setPicked(list => list.includes(id) ? list.filter(item => item !== id) : [...list, id]);
@@ -23,11 +29,7 @@ export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots
     setBusy(true); setError(null);
     try { await action(); } catch (reason) { setError(errorText(reason)); } finally { setBusy(false); }
   };
-  const add = () => run(async () => {
-    let saved = secret;
-    for (const id of picked) saved = await api.grantSecret(secret.id, id, true);
-    onChanged(saved); close();
-  });
+  const add = () => run(async () => { await onGrant(picked, true); close(); });
   return <section className="jv-secret-grants" aria-label={t("secrets.grants")}>
     <div className="jv-secret-grants-head"><h4 className="jv-secret-heading">{t("secrets.grants")}{granted.length > 0 && <span> · {granted.length}</span>}</h4>
       {!picking && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setPicking(true)}><PlusIcon/>{t("secrets.addBots")}</Button>}</div>
@@ -35,7 +37,7 @@ export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots
       <BotAvatar color={bot.color} mood={bot.mood} size={24} crown={bot.agent}/><span className="jv-secret-bot-name">{bot.name}</span>
       {once.has(bot.id) && <span className="jv-secret-once">{t("secrets.onceTag")}</span>}
       <Button type="button" variant="ghost" size="icon-sm" className="jv-secret-revoke" disabled={busy} aria-label={t("secrets.revoke", { name: bot.name })}
-        onClick={() => void run(async () => onChanged(await api.grantSecret(secret.id, bot.id, false)))}><XIcon/></Button>
+        onClick={() => void run(() => onGrant([bot.id], false))}><XIcon/></Button>
     </li>)}</ul> : !picking && <p className="jv-hint">{t("secrets.noGrants")}</p>}
     {picking && <div className="jv-secret-picker">
       <Input type="search" autoFocus value={query} placeholder={t("secrets.searchBots")} aria-label={t("secrets.searchBots")} onChange={event => setQuery(event.target.value)}

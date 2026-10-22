@@ -1,0 +1,22 @@
+/* Settings → Environments: SSH machines (A57). Rows, grants and confirmations share secrets.css. */
+.jv-machine-form { max-width: 560px; }
+.jv-machine-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.jv-machine-fields .jv-machine-host { grid-column: 1; }
+.jv-machine-fields .jv-machine-port { grid-column: 2; max-width: 120px; }
+.jv-machine-fields .jv-machine-wide { grid-column: 1 / -1; }
+.jv-machine-where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; font-size: 13px; }
+.jv-machine-where code { font-size: 12px; color: var(--jv-muted); }
+.jv-machine-prints { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--jv-line); border-radius: 8px; background: var(--jv-field); }
+.jv-machine-prints code { font-size: 12px; color: var(--jv-text); overflow-wrap: anywhere; }
+.jv-machine-prints code[data-new] { color: var(--ui-text-warning); }
+.jv-secret-grants > .jv-hint { margin: 0; }
+.jv-secret-grants > .jv-hint[data-warn] { color: var(--ui-text-warning); }
+@media (max-width: 600px) {
+  .jv-machine-fields { grid-template-columns: 1fr; }
+  .jv-machine-fields .jv-machine-port { grid-column: 1; max-width: none; }
+}
+/* The request card (environment/MachineRequestCard.tsx); the panel is question.css, the password field secret-request.css. */
+.jv-machine-card-field { display: grid; gap: 4px; }
+.jv-machine-card-field > span { font-size: 12px; color: var(--ui-text-secondary); }
+.jv-machine-card-field .jv-machine-prints { border: 0; background: var(--ui-fill-control-track); }
+.jv-machine-card-field > small { font-size: 12px; line-height: 17px; color: var(--ui-text-tertiary); }

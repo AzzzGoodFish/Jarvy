@@ -1,3 +1,4 @@
+import type { HostKeys } from "./environment.js";
 import type { ErrorParams } from "./errors.js";
 import type { MessageQuote } from "./quotes.js";
 export interface MemberIdentity { id: string; kind: "user" | "bot"; name: string; /** A deleted Bot (its old messages stay, v15). */ deleted?: boolean; }
@@ -40,10 +41,16 @@ export interface MessageSource { historyId: number; toolCallId: string; }
 export interface QuestionOption { label: string; value?: string; description?: string; style?: "default" | "primary" | "danger"; }
 export interface QuestionSpec { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean;
   /** A request for a secret (secrets.request, A52): the card takes the value through its own endpoint, never into the chat. */
-  secret?: SecretAsk; }
+  secret?: SecretAsk;
+  /** A request for an SSH machine (environments.request, A57): the card takes the password through its own endpoint. */
+  machine?: MachineAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */
 export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
+/** The machine a Bot asks for, with the host keys scanned when it asked; `existing` when the owner already added a
+ * machine at this address, so the card only grants it. */
+export interface MachineAsk { name: string; host: string; port: number; user: string; directory: string | null; purpose: string;
+  hostKeys: HostKeys; existing: { id: string; name: string } | null }
 /** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
 export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";
 export interface QuestionAnswer { selected: number[]; custom: string | null; }

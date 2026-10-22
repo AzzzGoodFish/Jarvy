@@ -29,7 +29,7 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 | [Bot runtime](architecture/runtime.md) | Pi session setup, lifecycle, states, model switching, timeouts |
 | [The live turn](architecture/live.md) | The running turn in memory, `GET /api/bots/:id/live`, what the cat does (A47) |
 | [Tools and prompt](architecture/tools-and-prompt.md) | The `chat` gateway, internal tools, codemode, the system prompt |
-| [Work environments](architecture/environments.md) | Where a Bot's file and command tools run; the interface and its adapters (A50) |
+| [Work environments](architecture/environments.md) | Where a Bot's file and command tools run; the interface and its adapters; SSH machines (A50, A57) |
 | [Models and credentials](architecture/models.md) | Connections, credentials, model catalog and auto-configuration |
 | [Memory](architecture/memory.md) | Chat history and Bot History; `history.read`; the activity timeline |
 | [Channels and threads](architecture/channels.md) | Channel groups, channels, threads, unread, mentions, the sidebar |
