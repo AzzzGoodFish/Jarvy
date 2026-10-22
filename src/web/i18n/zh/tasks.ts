@@ -6,7 +6,6 @@ export const tasks: Part<typeof en> = {
   "tasks.title": "定时任务",
   "tasks.empty": "暂无定时任务",
   "tasks.add": "新建任务",
-  "tasks.hint": "到时间后，Bot 会在你选的聊天里收到要做的事；它手上有事时会先做完再处理。Jarvy 没在运行时错过的不补。",
   "tasks.edit": "编辑",
   "tasks.delete": "删除",
   "tasks.deleteTitle": "删除「{name}」？",

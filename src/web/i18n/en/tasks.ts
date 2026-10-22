@@ -3,7 +3,6 @@ export const tasks = {
   "tasks.title": "Scheduled tasks",
   "tasks.empty": "No scheduled tasks",
   "tasks.add": "New task",
-  "tasks.hint": "At its time the Bot is told what to do, in the chat you pick. It waits for the Bot to finish what it is doing. Runs missed while Jarvy isn't running are skipped.",
   "tasks.edit": "Edit",
   "tasks.delete": "Delete",
   "tasks.deleteTitle": "Delete “{name}”?",

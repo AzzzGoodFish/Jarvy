@@ -58,7 +58,6 @@ export function TaskEditor({ task, chats, botName, busy, error, onSave, onDelete
   }
   const chatLabel = (chat: Chat) => chat.type === "dm" ? t("tasks.chatDm", { name: botName }) : `# ${chat.title}`;
   return <form className="jv-panel jv-task-editor" onSubmit={submit} aria-label={t(task ? "tasks.editTitle" : "tasks.newTitle")}>
-    <strong className="jv-task-editor-title">{task ? task.name : t("tasks.newTitle")}</strong>
     <label className="jv-field"><span>{t("tasks.name")}</span>
       <Input required maxLength={80} value={name} placeholder={t("tasks.namePlaceholder")} onChange={event => setName(event.target.value)}/></label>
     <label className="jv-field"><span>{t("tasks.instruction")}</span>

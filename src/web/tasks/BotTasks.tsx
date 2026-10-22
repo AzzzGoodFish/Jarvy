@@ -69,7 +69,6 @@ export function BotTasks({ bot, chats, runs }: { bot: Bot; chats: Chat[]; runs: 
               className="jv-env-access jv-task-switch" onClick={() => void toggle(task)}><span className="jv-env-switch" aria-hidden="true"/></button>}
           </div>)}
       </div>}
-    {!open && <p className="jv-hint jv-env-note">{t("tasks.hint")}</p>}
     {error && <p className="jv-note-error" role="alert">{error}</p>}
   </section>;
 }
