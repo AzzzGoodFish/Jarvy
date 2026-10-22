@@ -73,7 +73,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v19 | `settings(key, value)`, first key `agent_onboarded` (set on upgrade when the agent Bot already has a model); `inbox.kind` gains `onboard` and `change`, the table rebuilt with its rows, indexes and id sequence (A48) |
 | v20 | `environments` (owner, kind `host` or `computer`, name, connection, directory, the Bot a sandbox (`computer`) belongs to; soft delete) and `environment_grants`; `bots.home_environment_id` and `current_environment_id`, NULL meaning the owner's computer, so Bots from before stay there (A50) |
 | v21 | `secrets`, `secret_grants` and `secret_uses`; `provider_credentials` sealed under the master key (A52) |
-| v22 | `tasks`; `inbox.kind` gains `task` (A56) |
+| v22 | `tasks`; `inbox.kind` gains `task` (A57) |
 
 ## Search
 

@@ -24,7 +24,7 @@ import { BotState } from "./state.js";
 import { Tools } from "./tools.js";
 import { AgentRuntime } from "./agent-runtime.js";
 import { BotInbox } from "./inbox.js";
-import { botPrompt } from "./prompt.js";
+import { botPromptParts } from "./prompt.js";
 import { builtinSkills } from "../../infra/files/skills.js";
 import type { Skill } from "../../shared/skill.js";
 import type { RosterEntry } from "./roster.js";
@@ -40,7 +40,7 @@ export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
   /** The owner's secrets (A52): each Bot's runs fill placeholders and mask values through it. */
   secrets: SecretService;
-  /** Scheduled tasks (A56): each Bot manages its own with the tasks tools. */
+  /** Scheduled tasks (A57): each Bot manages its own with the tasks tools. */
   tasks: TaskService;
   changed: (botId: string) => void; factory?: SessionFactory;
   /** Bots were created, renamed or deleted by the agent Bot (A48): the owner's page reloads them. */
@@ -74,7 +74,7 @@ export class BotService {
     const here = () => { const place = this.environments.here(id, record.workspacePath); return { name: place.name, directory: place.directory }; };
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
-        tools: setup.tools, systemPrompt: () => botPrompt(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
+        tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id) }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);

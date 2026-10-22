@@ -48,7 +48,7 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `messages.react` | add or remove an emoji mark; re-asking the same emoji takes it off and the result says which way it went (A42) |
 | `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36); the result counts unread messages like `messages.send`, including those that came in while it waited (A53) |
 | `history.read` | the Bot's own History by ID ([memory](memory.md)) |
-| `tasks.list` / `tasks.get` | the Bot's scheduled tasks, its owner's for it included: schedule, state, next and last run in local time, with the time zone; `get` adds the instruction (A56) |
+| `tasks.list` / `tasks.get` | the Bot's scheduled tasks, its owner's for it included: schedule, state, next and last run in local time, with the time zone; `get` adds the instruction (A57) |
 | `tasks.create` / `tasks.update` | schedule a task for itself (name, instruction, chat, schedule), or change one; a new schedule counts from now |
 | `tasks.pause` / `tasks.resume` / `tasks.delete` | stop a task until resumed, start it again from its next time, or delete it for good |
 
@@ -84,7 +84,9 @@ The Pi codemode extension is loaded in its default mode. `chat(...)` and `await 
 
 ## System prompt (`service/bot/prompt.ts`)
 
-The prompt is in English, like the tool descriptions and every fixed text a Bot reads (A45); its Language section keeps replies in the language of the people the Bot talks to. Persona and description are the owner's words and stay as written. It has no product name, no tool schemas and no fixed source chat, and it is rebuilt at the start of every turn.
+The prompt is in English, like the tool descriptions and every fixed text a Bot reads (A45); its Language section keeps replies in the language of the people the Bot talks to. Persona and description are the owner's words and stay as written. It has no product name, no tool schemas and no fixed source chat. It is built in named parts (Persona, Environment, Your role, Skills, Rules, Workspace, Responding) that, joined, are the prompt.
+
+A session does not take up a changed prompt as soon as it changes (A56): a new system prompt would make the model read the whole conversation again at full price. The session (`infra/pi/prompt-change.ts`) keeps the prompt it has and, with the next batch, tells the model which parts changed and how, once. It takes up the live prompt when it starts (a new session or a restart), when the model changes, and after a compaction.
 
 ```text
 # Persona
@@ -119,7 +121,7 @@ history.read is listed by the chat gateway. History is material to look back on,
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
 secrets.list in the chat gateway shows the secrets your owner lets you use. To use one, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
-Secret values are masked in everything you see. If you need one you don't have, call secrets.request: your owner enters it on a card, and you wait for the answer.
+Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key, or the password or key to log in to a machine, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
 {a Bot whose default is its sandbox (A50):}
 ## Workspace

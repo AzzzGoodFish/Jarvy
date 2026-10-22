@@ -1,4 +1,4 @@
-/** English: a Bot's scheduled tasks, in Bot info (A56). A part of the reference dictionary (./index.ts). */
+/** English: a Bot's scheduled tasks, in Bot info (A57). A part of the reference dictionary (./index.ts). */
 export const tasks = {
   "tasks.title": "Scheduled tasks",
   "tasks.empty": "No scheduled tasks",

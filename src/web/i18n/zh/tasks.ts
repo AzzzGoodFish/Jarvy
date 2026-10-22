@@ -1,7 +1,7 @@
 import type { Part } from "../keys";
 import type { tasks as en } from "../en/tasks";
 
-/** 中文：Bot 信息里的定时任务 (A56)。 */
+/** 中文：Bot 信息里的定时任务 (A57)。 */
 export const tasks: Part<typeof en> = {
   "tasks.title": "定时任务",
   "tasks.empty": "暂无定时任务",

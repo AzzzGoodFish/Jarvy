@@ -20,7 +20,7 @@ export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses:
 export interface Secret { id: string; name: string; kind: "value" | "ssh_key"; botId: string | null; description: string; fingerprint: string;
   createdAt: number; updatedAt: number; readable: boolean; grants: { botId: string; scope: "always" | "once"; grantedAt: number }[]; uses: number; lastUsedAt: number | null }
 export interface SecretUse { id: number; secretName: string; botId: string; at: number; how: "command" | "ssh_sign"; environmentId: string | null; historyId: number | null; toolCallId: string | null; detail: string }
-/** A Bot's scheduled task (A56); times are ms, schedules in this machine's local time. */
+/** A Bot's scheduled task (A57); times are ms, schedules in this machine's local time. */
 export type TaskSchedule = { kind: "once"; at: number } | { kind: "every"; minutes: number } | { kind: "daily"; hour: number; minute: number }
   | { kind: "weekly"; weekday: number; hour: number; minute: number };
 export interface Task { id: string; botId: string; chatId: string; name: string; instruction: string; schedule: TaskSchedule;

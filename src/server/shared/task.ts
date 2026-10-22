@@ -1,4 +1,4 @@
-/** A Bot's scheduled task (A56): at its time Jarvy delivers `<task>` to the Bot, which is how any Bot is woken.
+/** A Bot's scheduled task (A57): at its time Jarvy delivers `<task>` to the Bot, which is how any Bot is woken.
  * The owner makes tasks in Bot info; a Bot makes them with `tasks.create` for itself. Names and instructions are
  * the owner's or the Bot's words, kept as written. */
 export type TaskSchedule =

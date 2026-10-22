@@ -7,7 +7,7 @@ import type { ChatRepository } from "./chat-repository.js";
  * notice / summary (`detail` = version, no message), or for a Bot from the agent service (A48) the request to welcome
  * the owner (`detail` = interface language) or a change the agent made to it (`detail` = JSON {what, value}). */
 export interface BotNotice { id: number; kind: "reaction" | "note" | "onboard" | "change" | "task"; urgency: Urgency; chatId: string; chatTitle: string; chatType: string; messageId: string | null;
-  /** Who did it; none for a task, which the scheduler delivers (A56, `detail` = JSON {task, due}). */
+  /** Who did it; none for a task, which the scheduler delivers (A57, `detail` = JSON {task, due}). */
   actor: MemberIdentity | null; detail: string; createdAt: number; }
 
 function inTransaction<T>(db: DatabaseSync, work: () => T): T {

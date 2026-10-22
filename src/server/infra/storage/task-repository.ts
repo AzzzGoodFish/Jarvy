@@ -33,7 +33,7 @@ function scheduleColumns(schedule: TaskSchedule) {
     weekday: schedule.kind === "weekly" ? schedule.weekday : null };
 }
 
-/** Scheduled tasks (v22, A56). The Bot that runs one, the chat it is told in, and the schedule; the scheduler
+/** Scheduled tasks (v22, A57). The Bot that runs one, the chat it is told in, and the schedule; the scheduler
  * asks for what is due and writes the inbox row in the same transaction that moves the task on. */
 export class TaskRepository {
   constructor(private readonly db: DatabaseSync) {}

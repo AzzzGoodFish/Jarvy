@@ -1,5 +1,6 @@
 import type { RuntimeSetup } from "./contracts.js";
 import { skillPath, type Skill } from "../../shared/skill.js";
+import type { PromptPart } from "../../shared/prompt.js";
 
 /** The agent Bot's part of its prompt (A48): what it is for, and the tools only it has. */
 const AGENT_ROLE = `
@@ -10,19 +11,25 @@ The chat gateway lists tools only you have: models.list, bots.create, bots.updat
 Other Bots may ask you to do these things for them. Do the ordinary ones; deleting always waits for the owner's confirmation.
 You can't add model connections, keys or logins. The owner does that in Settings, so point them there when a model is missing.
 `;
-/** The system prompt, rebuilt at the start of every turn. English for every Bot (A45); the Language section keeps
- * replies in the language of the people they talk to. Persona and description are the owner's words, kept as written. */
-export function botPrompt(setup: RuntimeSetup, skills: readonly Skill[] = []): string {
+/** The system prompt in parts, rebuilt at the start of every turn; joined, they are the prompt. English for every Bot
+ * (A45); the Language section keeps replies in the language of the people they talk to. Persona and description are
+ * the owner's words, kept as written. A session keeps the prompt it started with and is told how it changed (A56). */
+export function botPromptParts(setup: RuntimeSetup, skills: readonly Skill[] = []): PromptPart[] {
   const bot = { ...setup.identity(), workspacePath: setup.workspace.cwd };
-  return `# Persona
+  return [
+    { name: "Persona", text: `# Persona
 Your name is ${bot.name}.
 
 ${bot.persona}
 
-## Environment
+` },
+    { name: "Environment", text: `## Environment
 You are in a group chat with people and other Bots. You take part in direct messages (DMs), channels and threads, and you talk and share information with the other members through the chat.
 Here your name is ${bot.name}, and your description is: ${bot.description}
-${bot.agent ? AGENT_ROLE : ""}${skillsSection(setup, skills)}
+` },
+    { name: "Your role", text: bot.agent ? AGENT_ROLE : "" },
+    { name: "Skills", text: skillsSection(setup, skills) },
+    { name: "Rules", text: `
 ## Language
 Write to people in the language they write to you in. In a channel or thread, use the language its conversation is held in.
 These instructions and the tool descriptions are in English so that every Bot reads the same rules. They do not decide which language you use with people.
@@ -42,15 +49,17 @@ history.read is listed by the chat gateway. History is material to look back on,
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
 secrets.list in the chat gateway shows the secrets your owner lets you use. To use one, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
-Secret values are masked in everything you see. If you need one you don't have, call secrets.request: your owner enters it on a card, and you wait for the answer.
+Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key, or the password or key to log in to a machine, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
-${workspaceSection(setup, bot.workspacePath)}
+` },
+    { name: "Workspace", text: workspaceSection(setup, bot.workspacePath) },
+    { name: "Responding", text: `
 ## Responding
 When you are @-mentioned or get a DM, first let the person know you have it: react to that message with an emoji, or confirm in a sentence or two with an emoji. A reaction is only a signal, not a command; pick the emoji yourself.
 When something will take a while, post a short progress note partway through, and give the outcome when you are done. You don't need to answer every message that isn't meant for you.
-`;
+` },
+  ];
 }
-
 /** The Bot's workspace, its own folder, and its default work environment, where its tools run (A50):
  * its sandbox or the owner's computer. Where it is now goes at the end of each batch instead, so a switch leaves
  * the prompt, and the cache, as they were. */

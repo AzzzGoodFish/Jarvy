@@ -8,7 +8,7 @@ import { TaskEditor } from "./TaskEditor";
 import { moment, scheduleText } from "./schedule";
 import "../styles/tasks.css";
 
-/** Bot info's scheduled tasks (A56), laid out like an alarm list: each task is a row with its switch, and touching
+/** Bot info's scheduled tasks (A57), laid out like an alarm list: each task is a row with its switch, and touching
  * the row opens its details, where it is changed, saved or deleted. The Bot's own tasks and the owner's for it are
  * here alike. `runs` changes when the Bot starts or ends a turn, which is when it may have run or changed a task, so
  * the list reloads then. */

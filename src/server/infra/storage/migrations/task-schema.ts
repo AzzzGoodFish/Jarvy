@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-/** v22 (A56): scheduled tasks. `tasks` holds one Bot's tasks: its name and instruction, the schedule as
+/** v22 (A57): scheduled tasks. `tasks` holds one Bot's tasks: its name and instruction, the schedule as
  * `schedule_kind` plus the one field that kind uses, its state, and when it next runs and last ran. `inbox.kind`
  * gains `task` (the task was due); SQLite can't change a CHECK in place, so the table is rebuilt with its rows,
  * indexes and id sequence, as v19 did. `chat_id` must be a chat the Bot can read; the caller checks.

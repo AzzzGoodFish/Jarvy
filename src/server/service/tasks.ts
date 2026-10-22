@@ -5,7 +5,7 @@ import { ValidationError } from "../shared/errors.js";
 import { TASK_MINUTES_MIN, type Task, type TaskSchedule } from "../shared/task.js";
 
 const MAX_WAIT_MS = 60_000;
-/** Task schedules and the owner's list of them (A56). Making one is checked here, not in the Bot or the page:
+/** Task schedules and the owner's list of them (A57). Making one is checked here, not in the Bot or the page:
  * the chat has to be one the Bot can read, and a schedule has to be one it can compute. */
 export class TaskService {
   private timer?: ReturnType<typeof setTimeout>;
@@ -86,7 +86,7 @@ export class TaskService {
     this.tick();
   }
 
-  /** Starts the timer. Runs missed while Jarvy was not running are skipped, not made up (A56): each task moves on to
+  /** Starts the timer. Runs missed while Jarvy was not running are skipped, not made up (A57): each task moves on to
    * its next time after now, and a one-off already past is done. */
   start(): void {
     this.stopped = false;

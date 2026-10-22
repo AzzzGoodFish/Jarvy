@@ -35,7 +35,7 @@ function scheduleOf(kind: Kind, draft: Draft): TaskSchedule | null {
   return kind === "daily" ? { kind, ...clock } : { kind, weekday: Number(draft.weekday), ...clock };
 }
 
-/** One task's details, open in place inside Bot info (A56): what an alarm's screen does — the fields to change, then
+/** One task's details, open in place inside Bot info (A57): what an alarm's screen does — the fields to change, then
  * save, and delete for a task that already exists. `chats` are where the Bot can be told: its DM with the owner
  * first, then the channels it is in. */
 export function TaskEditor({ task, chats, botName, busy, error, onSave, onDelete, onCancel }: {

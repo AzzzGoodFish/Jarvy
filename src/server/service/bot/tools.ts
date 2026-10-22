@@ -33,7 +33,7 @@ export class Tools implements ToolsPort {
   constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
     /** The secrets this Bot may use (A52), never their values, and the card that asks the owner for one. */
     secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
-    /** Scheduled tasks (A56): the Bot manages its own. */
+    /** Scheduled tasks (A57): the Bot manages its own. */
     tasks: TaskService;
     asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
     this.tools = new ChatTools(scope);

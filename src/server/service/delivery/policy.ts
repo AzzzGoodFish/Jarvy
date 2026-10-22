@@ -16,7 +16,7 @@ const POLICY: Record<DeliveryKind, Partial<Record<DeliveryReason, Urgency>>> = {
   // Bot not running, and a change of access alone, hear of it with their next batch instead.
   change: { agent: "digest", owner: "interrupt" },
   // A task that is due wakes its Bot but never interrupts it, and is not steered into a running turn: it waits for
-  // the turn to end (A56).
+  // the turn to end (A57).
   task: { schedule: "queue" },
 };
 export function urgencyOf(kind: DeliveryKind, reason: DeliveryReason): Urgency | undefined { return POLICY[kind][reason]; }

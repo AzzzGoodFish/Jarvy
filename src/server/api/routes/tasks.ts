@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
 
-/** A Bot's scheduled tasks, for its owner in Bot info (A56). The Bot manages the same tasks with its tasks tools. */
+/** A Bot's scheduled tasks, for its owner in Bot info (A57). The Bot manages the same tasks with its tasks tools. */
 export function taskRoutes(services: Pick<ApiServices, "bots" | "tasks">) {
   const routes = new Hono<ApiEnv>();
   // The Bot must exist and be the owner's; describe throws 404 otherwise.

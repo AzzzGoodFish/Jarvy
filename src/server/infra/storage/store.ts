@@ -87,7 +87,7 @@ export class Store {
   readonly agent: AgentRepository;
   readonly environments: EnvironmentRepository;
   readonly settings: SettingsRepository;
-  /** Scheduled tasks (A56). */
+  /** Scheduled tasks (A57). */
   readonly tasks: TaskRepository;
   readonly secrets: SecretRepository;
   /** Seals secrets and model credentials under the master key (A52). */

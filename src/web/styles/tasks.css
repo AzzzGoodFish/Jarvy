@@ -1,4 +1,4 @@
-/* A Bot's scheduled tasks in Bot info (A56), like an alarm list: a row opens the task's details, its switch turns it
+/* A Bot's scheduled tasks in Bot info (A57), like an alarm list: a row opens the task's details, its switch turns it
    on or off. */
 .jv-task-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .jv-task-head .ui-button svg { width: 14px; height: 14px; }

@@ -18,7 +18,7 @@ const Fields = {
 };
 const ByID = Type.Object({ id: Id }, { additionalProperties: false });
 
-/** The tasks tools (A56): each Bot manages its own scheduled tasks, including those its owner made for it. */
+/** The tasks tools (A57): each Bot manages its own scheduled tasks, including those its owner made for it. */
 export const taskDefinitions = {
   "tasks.list": { description: "List your scheduled tasks: each one's id, name, schedule, state (active, paused or done), next and last run, and chat. Times are this machine's local time, which timeZone names.",
     schema: Type.Object({}, { additionalProperties: false }) },

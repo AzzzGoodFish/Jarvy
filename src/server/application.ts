@@ -32,7 +32,7 @@ export class Application {
   readonly models: ModelService;
   readonly connection: ConnectionService;
   readonly secrets: SecretService;
-  /** Scheduled tasks and their timer (A56). */
+  /** Scheduled tasks and their timer (A57). */
   readonly tasks: TaskService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
@@ -44,7 +44,7 @@ export class Application {
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
     this.secrets = new SecretService(store, this.chats);
-    // The scheduler wakes a Bot through the same delivery any message uses (A56).
+    // The scheduler wakes a Bot through the same delivery any message uses (A57).
     this.tasks = new TaskService(store, this.chats, botId => this.bots.deliver(botId, urgencyOf("task", "schedule")!));
     this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
