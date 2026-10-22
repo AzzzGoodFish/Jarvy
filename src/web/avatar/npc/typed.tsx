@@ -24,7 +24,11 @@ export function Typed({ text, limit, streaming = false }: { text: string; limit:
 
 /** Thinking or a murmur: all of it, up to 12 lines (6 on a phone, npc.css), scrolling. It follows the
  * newest words until it is scrolled back, and again once scrolled to the end; `onReading` says when it is scrolled
- * back. The top fades while there is more above. */
+ * back. The top fades while there is more above.
+ *
+ * Only scrolling up stops the following: up from where it last put the text itself. Its own scroll to the end raises a
+ * scroll event too, and the text may have grown again before that event is handled; then it is not at the end though
+ * nobody scrolled, and it goes to the end again rather than stopping. */
 export function Tail({ className, children, onReading }: { className: string; children: ReactNode; onReading: (reading: boolean) => void }) {
   const outer = useRef<HTMLSpanElement>(null), inner = useRef<HTMLSpanElement>(null), told = useRef(onReading);
   const [above, setAbove] = useState(false);
@@ -32,12 +36,16 @@ export function Tail({ className, children, onReading }: { className: string; ch
   useEffect(() => {
     const box = outer.current, text = inner.current;
     if (!box || !text) return;
-    let following = true;
+    let following = true, placed = 0;
+    const toEnd = () => { box.scrollTop = box.scrollHeight; placed = box.scrollTop; };
     // The text grows as it is typed, without this rendering again: watch its size.
-    const grow = () => { if (following) box.scrollTop = box.scrollHeight; setAbove(box.scrollTop > 1); };
+    const grow = () => { if (following) toEnd(); setAbove(box.scrollTop > 1); };
     const scroll = () => {
       const end = box.scrollHeight - box.scrollTop - box.clientHeight < 4;
-      if (end !== following) { following = end; told.current(!end); }
+      if (end && !following) { following = true; placed = box.scrollTop; told.current(false); }
+      else if (!end && following) {
+        if (box.scrollTop < placed - 1) { following = false; told.current(true); } else toEnd();
+      }
       setAbove(box.scrollTop > 1);
     };
     const observer = new ResizeObserver(grow); observer.observe(text); observer.observe(box); grow();
