@@ -18,6 +18,7 @@ import { AgentTools } from "./agent-tools.js";
 import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
 import { placeholder } from "../../shared/secret-mask.js";
 import type { EnvironmentRecord } from "../../shared/environment.js";
+import { argumentProblems, invalidArguments, unknownTool } from "./tool-errors.js";
 
 /** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list;
  * environments.request asks the owner for an SSH machine (A57) on a card, and finds it once added. */
@@ -68,20 +69,21 @@ export class Tools implements ToolsPort {
       description: "Gateway to the chat and to your own History. Use list to see the tools, describe to check a tool's parameters, then call to run it. Only what messages.send or messages.ask sends successfully is visible in the chat.",
       parameters: Gateway,
       execute: async (raw, { toolCallId, signal }) => {
-        if (!Value.Check(Gateway, raw)) throw new ChatError(400, "Invalid chat tool request");
+        if (!Value.Check(Gateway, raw)) throw new ChatError(400, ["Invalid chat tool request:", ...argumentProblems(Gateway, raw).map(line => `- ${line}`),
+          'It takes {action: "list" | "describe" | "call", tool, args}: list takes neither, describe takes tool, call takes both.'].join("\n"));
         signal?.throwIfAborted();
         if (raw.action === "list") {
           if (raw.tool !== undefined || raw.args !== undefined) throw new ChatError(400, "list does not accept tool or args");
           return Object.entries(this.catalog).map(([name, tool]) => ({ name, description: tool.description }));
         }
-        if (!raw.tool || !Object.hasOwn(this.catalog, raw.tool)) throw new ChatError(400, "Unknown chat tool; use list first");
+        if (!raw.tool || !Object.hasOwn(this.catalog, raw.tool)) throw new ChatError(400, unknownTool(raw.tool, Object.keys(this.catalog)));
         const name = raw.tool as ToolName, definition = this.catalog[name]!;
         if (raw.action === "describe") {
           if (raw.args !== undefined) throw new ChatError(400, "describe does not accept args");
           return { name, description: definition.description, parameters: definition.schema };
         }
         const args = raw.args;
-        if (!args || !Value.Check(definition.schema, args)) throw new ChatError(400, "Invalid tool arguments; use describe for the parameter schema");
+        if (!args || !Value.Check(definition.schema, args)) throw new ChatError(400, invalidArguments(name, definition.schema, args));
         if (this.agent && Object.hasOwn(agentDefinitions, name))
           return this.agent.call(name as unknown as AgentToolName, args, (chatId, question) => this.ask(chatId, question, toolCallId, signal));
         switch (name) {
