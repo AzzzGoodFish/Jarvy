@@ -296,7 +296,8 @@ export class Store {
   /** Deleted Bots keep their row (deleteBot) but use nothing: their link to the connection is cleared with it. */
   deleteModelConnection(id: string): boolean {
     if (!this.getModelConnection(id)) return false;
-    if (this.db.prepare("SELECT 1 FROM bots WHERE connection_id=? AND deleted_at IS NULL LIMIT 1").get(id)) throw new ConflictError("A Bot is using this connection");
+    const users = (this.db.prepare("SELECT name FROM bots WHERE connection_id=? AND deleted_at IS NULL ORDER BY name").all(id) as { name: string }[]).map(row => row.name);
+    if (users.length) throw new ConflictError(`In use by ${users.join(", ")}`, "connection_in_use", { bots: users.join(", "), count: users.length });
     this.db.exec("BEGIN IMMEDIATE");
     try {
       this.db.prepare("UPDATE bots SET connection_id=NULL WHERE connection_id=? AND deleted_at IS NOT NULL").run(id);

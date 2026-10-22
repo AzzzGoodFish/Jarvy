@@ -7,7 +7,7 @@ const ERROR_KEYS: Record<string, Key> = {
   agent_undeletable: "error.agentUndeletable", autoconfig_model: "error.autoconfigModel", autoconfig_source: "error.autoconfigSource",
   bot_missing: "error.botMissing", chat_access_changed: "error.chatAccessChanged",
   computer_failed: "error.computerFailed", computer_missing: "error.computerMissing", docker_unavailable: "error.dockerUnavailable",
-  connection_missing: "error.connectionMissing", credential_changed: "error.credentialChanged", credential_unreadable: "error.credentialUnreadable", credential_scope: "error.credentialScope",
+  connection_in_use: "error.connectionInUse", connection_missing: "error.connectionMissing", credential_changed: "error.credentialChanged", credential_unreadable: "error.credentialUnreadable", credential_scope: "error.credentialScope",
   credentials_missing: "error.credentialsMissing", data_locked: "error.dataLocked",
   discovery_format: "error.discoveryFormat", discovery_http: "error.discoveryHttp", discovery_key: "error.discoveryKey",
   discovery_protocol: "error.discoveryProtocol", discovery_url: "error.discoveryUrl", discovery_url_missing: "error.discoveryUrlMissing", discovery_unreachable: "error.discoveryUnreachable",
