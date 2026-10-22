@@ -338,5 +338,6 @@ A Bot can have scheduled tasks: work it does once at a time or on a schedule, su
 - **Timer**: one timer sleeps until the soonest task, at most a minute, so a changed clock is noticed.
 - **Storage (v22)**: `tasks`; `inbox.kind` gains `task`.
 - **Prompt**: one line in the Chat section says the tasks tools exist and that a due task comes as a `<task>`.
+- **Bot info**: a "Scheduled tasks" section lists them with their schedule, next run or state, an on/off switch, and editing and deleting in place; the list reloads when the Bot starts or ends a turn. Giving a one-off that ran a new time turns it back on.
 
 Why: Bots were only ever woken by someone writing to them; recurring work needed a person to ask each time. Making "due" an ordinary delivery reuses the runtime, the inbox, History and the activity timeline as they are.

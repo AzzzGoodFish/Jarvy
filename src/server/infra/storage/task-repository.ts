@@ -57,17 +57,18 @@ export class TaskRepository {
       .run(id, input.botId, input.chatId, input.name, input.instruction, columns.kind, columns.at, columns.minutes, columns.hour, columns.minute, columns.weekday, at, now, now);
     return this.get(input.botId, id)!;
   }
-  /** Replaces what is given; a new schedule recomputes the next run from now. */
+  /** Replaces what is given; a new schedule recomputes the next run from now, and turns a one-off that already ran back on. */
   update(botId: string, id: string, input: { chatId?: string; name?: string; instruction?: string; schedule?: TaskSchedule }): Task | null {
     const task = this.get(botId, id);
     if (!task) return null;
     const now = Date.now(), schedule = input.schedule ?? task.schedule, columns = scheduleColumns(schedule);
-    const next = input.schedule ? nextAfter(schedule, now) : task.state === "active" ? task.nextRunAt : null;
-    if (input.schedule && next === null) throw new ValidationError("A one-off task has to be in the future", "task_time_past");
+    if (input.schedule && nextAfter(schedule, now) === null) throw new ValidationError("A one-off task has to be in the future", "task_time_past");
+    const state = input.schedule && task.state === "done" ? "active" : task.state;
+    const next = state !== "active" ? null : input.schedule ? nextAfter(schedule, now) : task.nextRunAt;
     this.db.prepare(`UPDATE tasks SET chat_id=?,name=?,instruction=?,schedule_kind=?,schedule_at=?,schedule_minutes=?,schedule_hour=?,schedule_minute=?,
-      schedule_weekday=?,next_run_at=?,updated_at=? WHERE id=? AND bot_id=?`)
+      schedule_weekday=?,state=?,next_run_at=?,updated_at=? WHERE id=? AND bot_id=?`)
       .run(input.chatId ?? task.chatId, input.name ?? task.name, input.instruction ?? task.instruction, columns.kind, columns.at, columns.minutes,
-        columns.hour, columns.minute, columns.weekday, next, now, id, botId);
+        columns.hour, columns.minute, columns.weekday, state, next, now, id, botId);
     return this.get(botId, id);
   }
   /** Pauses or resumes it; resuming a one-off already past fails, as making one in the past does. */

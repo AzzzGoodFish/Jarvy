@@ -20,6 +20,12 @@ export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses:
 export interface Secret { id: string; name: string; kind: "value" | "ssh_key"; botId: string | null; description: string; fingerprint: string;
   createdAt: number; updatedAt: number; readable: boolean; grants: { botId: string; scope: "always" | "once"; grantedAt: number }[]; uses: number; lastUsedAt: number | null }
 export interface SecretUse { id: number; secretName: string; botId: string; at: number; how: "command" | "ssh_sign"; environmentId: string | null; historyId: number | null; toolCallId: string | null; detail: string }
+/** A Bot's scheduled task (A56); times are ms, schedules in this machine's local time. */
+export type TaskSchedule = { kind: "once"; at: number } | { kind: "every"; minutes: number } | { kind: "daily"; hour: number; minute: number }
+  | { kind: "weekly"; weekday: number; hour: number; minute: number };
+export interface Task { id: string; botId: string; chatId: string; name: string; instruction: string; schedule: TaskSchedule;
+  state: "active" | "paused" | "done"; nextRunAt: number | null; lastRunAt: number | null; createdAt: number; updatedAt: number }
+export type TaskInput = { name: string; instruction: string; chatId: string; schedule: TaskSchedule };
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 /** `hostGranted`: the owner lets the Bot switch to their computer (A50). */
 export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean }
@@ -180,6 +186,11 @@ export const api = {
   follow: (id: string, following: boolean) => request<Chat>(`/chats/${id}/follow`, { method: "PUT", body: body({ following }) }),
   /** A Bot's DMs with other Bots (read-only) and the channels / threads it subscribed to. */
   botDirects: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/dms`),
+  tasks: (botId: string) => request<{ tasks: Task[] }>(`/bots/${botId}/tasks`),
+  createTask: (botId: string, input: TaskInput) => request<Task>(`/bots/${botId}/tasks`, { method: "POST", body: body(input) }),
+  updateTask: (botId: string, id: string, input: TaskInput) => request<Task>(`/bots/${botId}/tasks/${id}`, { method: "PUT", body: body(input) }),
+  setTaskOn: (botId: string, id: string, on: boolean) => request<Task>(`/bots/${botId}/tasks/${id}/${on ? "resume" : "pause"}`, { method: "POST" }),
+  deleteTask: (botId: string, id: string) => request<{ ok: true }>(`/bots/${botId}/tasks/${id}`, { method: "DELETE" }),
   botSubscriptions: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/subscriptions`),
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
   setBotEnvironment: (id: string, home: EnvironmentKind) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ home }) }),

@@ -1,0 +1,23 @@
+/* A Bot's scheduled tasks in Bot info (A56): rows with edit, delete and an on/off switch; the editor in place. */
+.jv-task-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jv-task-head .ui-button svg { width: 14px; height: 14px; }
+.jv-task-row { gap: 4px; }
+.jv-task-row .jv-row-text { margin-right: 8px; }
+.jv-task-row .jv-row-text > span { white-space: normal; }
+.jv-task-row[data-state="paused"] .jv-row-text > strong, .jv-task-row[data-state="done"] .jv-row-text > strong { color: var(--jv-dim); }
+.jv-task-switch { display: inline-flex; align-items: center; flex: none; width: auto; min-height: 0; padding: 4px 0 4px 8px; border: 0; background: transparent; cursor: pointer; }
+.jv-task-switch:hover { background: transparent; }
+.jv-task-switch[aria-checked="true"] .jv-env-switch { background: var(--ui-fill-control-checked); box-shadow: none; }
+.jv-task-switch[aria-checked="true"] .jv-env-switch::after { transform: translateX(14px); }
+.jv-task-row .jv-task-confirm { margin-top: 0; flex: 1 1 100%; }
+.jv-list .jv-list-row.jv-task-row:has(.jv-task-confirm) { flex-wrap: wrap; }
+.jv-task-editor { display: flex; flex-direction: column; gap: 12px; }
+.jv-task-editor-title { font-size: 13px; color: var(--jv-text); }
+.jv-task-kinds { align-self: flex-start; margin-bottom: 8px; }
+.jv-task-when { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.jv-task-when > input { width: auto; min-width: 0; }
+.jv-task-when[data-kind="once"] > input { flex: 1 1 220px; }
+.jv-task-when input[type="number"] { width: 84px; }
+.jv-task-when [data-slot="select-trigger"] { width: auto; min-width: 110px; }
+.jv-task-label { font-size: 13px; color: var(--jv-dim); }
+.jv-task-editor-actions { display: flex; gap: 8px; }
