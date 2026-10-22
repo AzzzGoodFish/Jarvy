@@ -20,7 +20,7 @@ export class Workspace implements WorkspacePort {
   async writeTempFile(name: string, content: string, signal?: AbortSignal) {
     const env = this.current();
     if (env.kind === "host") return this.local.writeTempFile(name, content, signal);
-    const path = `${env.cwd}/temp/${name}`;
+    const path = `${tempOf(env)}/${name}`;
     await env.writeFile(path, content);
     return path;
   }
@@ -28,10 +28,10 @@ export class Workspace implements WorkspacePort {
    * id when another file has that name). Returns where it went. */
   async put(name: string, id: string, data: Uint8Array, path?: string): Promise<string> {
     const env = this.current();
-    let target = path ? posix.resolve(env.cwd, path) : `${env.cwd}/temp/files/${plain(name)}`;
+    let target = path ? posix.resolve(env.cwd, path) : `${tempOf(env)}/files/${plain(name)}`;
     if (!path && await env.exists(target)) {
       const dot = plain(name).lastIndexOf("."), stem = dot > 0 ? plain(name).slice(0, dot) : plain(name), extension = dot > 0 ? plain(name).slice(dot) : "";
-      target = `${env.cwd}/temp/files/${stem}-${id.slice(0, 8)}${extension}`;
+      target = `${tempOf(env)}/files/${stem}-${id.slice(0, 8)}${extension}`;
     }
     await env.mkdir(posix.dirname(target));
     await env.writeFile(target, data);
@@ -60,3 +60,6 @@ function plain(name: string): string {
   const cleaned = name.replace(/[/\\\0]/g, "_").trim();
   return cleaned && cleaned !== "." && cleaned !== ".." ? cleaned : "file";
 }
+
+/** Where Jarvy puts files for the Bot in its environment. */
+const tempOf = (env: WorkEnvironment) => env.temp ?? `${env.cwd}/temp`;

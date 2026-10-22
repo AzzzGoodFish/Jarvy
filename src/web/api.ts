@@ -14,6 +14,10 @@ export interface Bot { id: string; name: string; description: string; systemProm
   environment: BotPlacement; }
 /** `computer` is a Bot's sandbox, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
 export type EnvironmentKind = "computer" | "host";
+/** A machine the owner added over SSH (A57): never its key. */
+export interface SshMachine { id: string; name: string; host: string; port: number; user: string; directory: string; home: string; platform: string; fingerprints: string[]; botIds: string[] }
+/** A host's keys from a scan: what the owner checks, and what gets saved when they accept. */
+export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** `https`: Jarvy listens beyond this machine and serves HTTPS with its own certificate (A51). */
 export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses: string[]; fingerprint: string | null }
 /** A secret as the page sees it (A52): never its value. `readable` is false when it doesn't open under this installation's master key. */
@@ -21,8 +25,9 @@ export interface Secret { id: string; name: string; kind: "value" | "ssh_key"; b
   createdAt: number; updatedAt: number; readable: boolean; grants: { botId: string; scope: "always" | "once"; grantedAt: number }[]; uses: number; lastUsedAt: number | null }
 export interface SecretUse { id: number; secretName: string; botId: string; at: number; how: "command" | "ssh_sign"; environmentId: string | null; historyId: number | null; toolCallId: string | null; detail: string }
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
-/** `hostGranted`: the owner lets the Bot switch to their computer (A50). */
-export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean }
+/** `hostGranted`: the owner lets the Bot switch to their computer (A50); `machines`: each SSH machine and whether it may use it (A57). */
+export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind | "ssh"; currentName?: string; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean;
+  machines: { id: string; name: string; granted: boolean }[] }
 export interface ConfiguredModel { api?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
 export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }
 export type AutoconfigFields = Pick<ConfiguredModel, "reasoning" | "input" | "contextWindow" | "maxTokens" | "cost" | "thinkingLevelMap" | "thinkingFormat" | "compat">;
@@ -65,7 +70,9 @@ export interface QuestionOption { label: string; value?: string; description?: s
 /** A Bot's question card (messages.ask, A36); pending while the Bot's tool call waits. */
 /** A Bot's request for a secret (A52), shown as its own card. */
 export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
-export interface Question { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean; secret?: SecretAsk;
+/** A Bot's request for an SSH machine (A57), shown as its own card; `existing` when it only needs a grant. */
+export interface MachineAsk { name: string; host: string; port: number; user: string; directory: string | null; purpose: string; hostKeys: HostKeys; existing: { id: string; name: string } | null }
+export interface Question { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean; secret?: SecretAsk; machine?: MachineAsk;
   state: "pending" | "answered" | "dismissed" | "ignored"; answer: { selected: number[]; custom: string | null } | null; settledAt: number | null; }
 export interface Reaction { emoji: string; memberIds: string[]; }
 /** What the search box found: chats only when searching everywhere. */
@@ -184,6 +191,19 @@ export const api = {
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
   setBotEnvironment: (id: string, home: EnvironmentKind) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ home }) }),
   grantHost: (id: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ hostGranted: granted }) }),
+  grantBotMachine: (id: string, machineId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ machineId, granted }) }),
+  /** The owner's SSH machines (A57); a password goes in once, keys never come back. */
+  machines: () => request<{ machines: SshMachine[] }>("/environments"),
+  scanMachine: (input: { host: string; port: number; user: string }) => request<HostKeys>("/environments/scan", { method: "POST", body: body(input) }),
+  addMachine: (input: { name: string; host: string; port: number; user: string; directory: string; password: string; hostKeys: HostKeys }) =>
+    request<SshMachine>("/environments", { method: "POST", body: body(input) }),
+  updateMachine: (id: string, input: { name?: string; directory?: string }) => request<SshMachine>(`/environments/${id}`, { method: "PUT", body: body(input) }),
+  checkMachine: (id: string) => request<{ hostKeys: HostKeys; changed: boolean }>(`/environments/${id}/check`, { method: "POST" }),
+  trustMachine: (id: string, fingerprints: string[]) => request<SshMachine>(`/environments/${id}/trust`, { method: "POST", body: body({ fingerprints }) }),
+  deleteMachine: (id: string, force = false) => request<{ ok: boolean }>(`/environments/${id}${force ? "?force=1" : ""}`, { method: "DELETE" }),
+  grantMachine: (id: string, botId: string, granted: boolean) => request<SshMachine>(`/environments/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
+  fulfilMachine: (chatId: string, messageId: string, password: string) =>
+    request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body({ password }) }),
   computer: (id: string, action: "start" | "stop" | "reset") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),
   /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */
   connection: () => request<ConnectionInfo>("/connection"),

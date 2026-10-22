@@ -17,9 +17,13 @@ import type { AgentOps } from "./agent.js";
 import { AgentTools } from "./agent-tools.js";
 import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
 import { placeholder } from "../../shared/secret-mask.js";
+import type { EnvironmentRecord } from "../../shared/environment.js";
 
-/** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list. */
-export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown }
+/** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list;
+ * environments.request asks the owner for an SSH machine (A57) on a card, and finds it once added. */
+export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown;
+  request(input: MachineRequest): Promise<{ granted: EnvironmentRecord } | { question: QuestionSpec }>; found(input: MachineRequest): EnvironmentRecord | null }
+type MachineRequest = { host: string; user: string; port?: number; directory?: string; name?: string; purpose: string };
 
 const Gateway = Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("describe"), Type.Literal("call")]),
   tool: Type.Optional(Type.String()), args: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }, { additionalProperties: false });
@@ -102,6 +106,16 @@ export class Tools implements ToolsPort {
             if (result.status !== "answered") return { messageId: result.messageId, status: "declined", note: "Your owner declined. Don't ask for the value in the chat; go on without it, or ask what they would like instead." };
             return { messageId: result.messageId, status: "granted", name: parsed.name, placeholder: placeholder(parsed.name),
               until: result.selected[0]?.value === "once" ? "this run ends" : "your owner revokes it" };
+          }
+          case "environments.request": {
+            const parsed = args as MachineRequest & { chatId: string };
+            if (!this.tools.chat(parsed.chatId).memberIds.some(id => this.scope.chats.member(id)?.kind === "user")) throw new ChatError(400, "No person in this chat to answer; ask in a chat with your owner");
+            const input = { ...parsed, purpose: parsed.purpose.trim() }, prepared = await this.scope.places.request(input);
+            const added = (record: EnvironmentRecord) => ({ id: record.id, name: record.name, note: "environments.switch with this id moves your tools there" });
+            if ("granted" in prepared) return { status: "granted", ...added(prepared.granted), note: "You may already use it; environments.switch with this id moves your tools there" };
+            const result = await this.ask(parsed.chatId, prepared.question, toolCallId, signal), found = this.scope.places.found(input);
+            if (result.status !== "answered" || !found) return { messageId: result.messageId, status: "declined", note: "Your owner declined. Don't ask for its password in the chat; go on without it, or ask what they would like instead." };
+            return { messageId: result.messageId, status: prepared.question.machine?.existing ? "granted" : "added", ...added(found) };
           }
           case "chats.create": return this.tools.create(args as Parameters<ChatTools["create"]>[0]);
           case "chats.update": return this.tools.update(args as Parameters<ChatTools["update"]>[0]);

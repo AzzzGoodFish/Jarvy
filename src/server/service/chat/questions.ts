@@ -1,4 +1,4 @@
-import { ChatError, type ChatMessage, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../shared/chat.js";
+import { ChatError, type ChatMessage, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../shared/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -21,7 +21,8 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
   });
   if (new Set(parsed.map(option => option.label)).size !== parsed.length) throw new ChatError(400, "Question options must have distinct labels");
   return { question: (input.question as string).trim(), ...(input.detail === undefined ? {} : { detail: (input.detail as string).trim() }),
-    options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true, ...(input.secret === undefined ? {} : { secret: secretAsk(input.secret) }) };
+    options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true, ...(input.secret === undefined ? {} : { secret: secretAsk(input.secret) }),
+    ...(input.machine === undefined ? {} : { machine: machineAsk(input.machine) }) };
 }
 /** A secret request (secrets.request, A52), as built by the secrets service. */
 function secretAsk(value: unknown): SecretAsk {
@@ -29,6 +30,17 @@ function secretAsk(value: unknown): SecretAsk {
   if (!ask || typeof ask !== "object" || typeof ask.name !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(ask.name) || !text(ask.purpose, 300)
     || typeof ask.exists !== "boolean" || typeof ask.needsValue !== "boolean") throw new ChatError(400, "Invalid secret request");
   return { name: ask.name, purpose: (ask.purpose as string).trim(), exists: ask.exists, needsValue: ask.needsValue };
+}
+/** A machine request (environments.request, A57), as built by the machines service. */
+function machineAsk(value: unknown): MachineAsk {
+  const ask = value as Record<string, unknown> | null, keys = ask?.hostKeys as Record<string, unknown> | undefined;
+  const strings = (list: unknown) => Array.isArray(list) && list.length <= 20 && list.every(item => text(item, 2000));
+  if (!ask || typeof ask !== "object" || !text(ask.name, 40) || !text(ask.host, 253) || !text(ask.user, 64) || !Number.isInteger(ask.port) || !text(ask.purpose, 300)
+    || (ask.directory !== null && !text(ask.directory, 1000)) || !keys || !strings(keys.keys) || !strings(keys.fingerprints)) throw new ChatError(400, "Invalid machine request");
+  const existing = ask.existing as { id?: unknown; name?: unknown } | null;
+  return { name: ask.name as string, host: ask.host as string, port: ask.port as number, user: ask.user as string, directory: ask.directory as string | null,
+    purpose: (ask.purpose as string).trim(), hostKeys: { keys: keys.keys as string[], fingerprints: keys.fingerprints as string[] },
+    existing: existing && typeof existing.id === "string" && typeof existing.name === "string" ? { id: existing.id, name: existing.name } : null };
 }
 function answerOf(question: Question, input: Record<string, unknown>): QuestionAnswer {
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;

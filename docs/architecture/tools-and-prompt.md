@@ -40,7 +40,8 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `messages.search` | in one chat, or every chat the Bot can read; results list files the same way |
 | `files.get` | puts a file of a message the Bot can read into its current environment (`temp/files/<name>` unless a path is given) and returns its path there (A50) |
 | `environments.list` | the work environments the Bot may use (its sandbox, its default, what its owner granted), with ids, names, the directory its tools start in, its default, a sandbox's state, and which one it is in (A50) |
-| `environments.switch` | moves the Bot's file and command tools to one of them, like `cd`, until it switches back; a stopped sandbox starts first; commands already running finish where they started |
+| `environments.switch` | moves the Bot's file and command tools to one of them, like `cd`, until it switches back; a stopped sandbox starts first, an SSH machine is connected first (the Bot stays where it was if that fails); commands already running finish where they started |
+| `environments.request` | posts a card asking the owner to add an SSH machine (host, user, port, start directory, name, purpose), in a chat with a person, and waits like `messages.ask`; the card shows the host's fingerprints and takes the password once; returns added or granted with the machine's id, or declined, at once when the Bot may already use it ([environments](environments.md), A57) |
 | `secrets.request` | posts a card asking the owner for a secret by name and purpose, in a chat with a person, and waits like `messages.ask`; returns granted (with its placeholder and until when) or declined, at once when the Bot may already use it ([secrets](secrets.md), A52) |
 | `secrets.list` | the secrets the owner granted the Bot: name, placeholder and description, never a value; a note on how to get one when there are none ([secrets](secrets.md), A52) |
 | `files.view` | shows such a file to the model: a picture (PNG, JPEG, GIF, WebP up to 4 MB) as a picture, a UTF-8 text file up to 64 KB as text; anything else needs `files.get` |
@@ -117,7 +118,7 @@ history.read is listed by the chat gateway. History is material to look back on,
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
 secrets.list in the chat gateway shows the secrets your owner lets you use. To use one, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
-Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key, or the password or key to log in to a machine, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
+Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key or a password, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
 {a Bot whose default is its sandbox (A50):}
 ## Workspace
@@ -125,7 +126,7 @@ Your workspace is your own folder and your home directory: your file and command
 
 ## Work environment
 Your tools run in your sandbox by default: a Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox.
-Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back.
+Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat.
 {a Bot whose default is the owner's computer:}
 ## Workspace
 You have your own workspace: {workspacePath}
@@ -135,7 +136,7 @@ Shared directories and other people's files are read-only. Ask the person in cha
 
 ## Work environment
 Your tools run on your owner's computer by default, the machine running Jarvy.
-Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back.
+Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat.
 
 ## Responding
 When you are @-mentioned or get a DM, first let the person know you have it: react to that message with an emoji, or confirm in a sentence or two with an emoji. A reaction is only a signal, not a command; pick the emoji yourself.

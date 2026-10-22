@@ -5,6 +5,7 @@ import { rich, t } from "../i18n";
 import "../styles/question.css";
 import { errorText } from "../errors";
 import { SecretRequestCard } from "../secrets/SecretRequestCard";
+import { MachineRequestCard } from "../environment/MachineRequestCard";
 
 const letter = (index: number) => String.fromCharCode(65 + index);
 const editable = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
@@ -16,9 +17,11 @@ const editable = (target: EventTarget | null) => target instanceof HTMLInputElem
  * (「已选：…」 or 「已忽略」, then the question). A–F pick options when this is the latest pending question and focus
  * is not in a field. */
 export function QuestionCard(props: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
-  const { message } = props, secret = message.question.secret;
-  // A request for a secret (secrets.request, A52) has its own card.
-  return secret ? <SecretRequestCard message={{ ...message, question: { ...message.question, secret } }} onSettled={props.onSettled}/> : <OptionsQuestion {...props}/>;
+  const { message } = props, { secret, machine } = message.question;
+  // A request for a secret (secrets.request, A52) or an SSH machine (environments.request, A57) has its own card.
+  if (secret) return <SecretRequestCard message={{ ...message, question: { ...message.question, secret } }} onSettled={props.onSettled}/>;
+  if (machine) return <MachineRequestCard message={{ ...message, question: { ...message.question, machine } }} onSettled={props.onSettled}/>;
+  return <OptionsQuestion {...props}/>;
 }
 function OptionsQuestion({ message, keyboard, onSettled }: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
   const question = message.question, pending = question.state === "pending", titleId = useId();

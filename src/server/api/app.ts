@@ -13,6 +13,7 @@ import { channelRoutes } from "./routes/channels.js";
 import { liveRoutes } from "./routes/live.js";
 import { connectionRoutes, rootCertificateRoute } from "./routes/connection.js";
 import { secretRoutes } from "./routes/secrets.js";
+import { environmentRoutes } from "./routes/environments.js";
 
 export function createHttpApp(services: ApiServices, webRoot: string) {
   const app = new Hono<ApiEnv>();
@@ -32,6 +33,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   api.route("/", liveRoutes(services));
   api.route("/", connectionRoutes(services.connection));
   api.route("/secrets", secretRoutes(services.secrets));
+  api.route("/environments", environmentRoutes(services.bots));
   api.all("*", () => { throw new HTTPException(404, { message: "API route not found" }); });
   app.route("/api", api);
 

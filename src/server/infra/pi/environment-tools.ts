@@ -89,7 +89,7 @@ function relocated(definition: ToolDefinition, current: () => WorkEnvironment): 
   }) as unknown as ToolDefinition["execute"] };
 }
 async function moveOut(path: string, env: WorkEnvironment): Promise<string> {
-  const target = `${env.cwd}/temp/${basename(path)}`;
+  const target = `${env.temp ?? `${env.cwd}/temp`}/${basename(path)}`;
   await env.writeFile(target, await readLocal(path));
   await rm(path, { force: true });
   return target;

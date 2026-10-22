@@ -48,7 +48,7 @@ history.read is listed by the chat gateway. History is material to look back on,
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
 secrets.list in the chat gateway shows the secrets your owner lets you use. To use one, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
-Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key, or the password or key to log in to a machine, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
+Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key or a password, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
 ` },
     { name: "Workspace", text: workspaceSection(setup, bot.workspacePath) },
@@ -93,4 +93,4 @@ Skills are guides that come with Jarvy for kinds of work you help with. When a t
 ${skills.map(skill => `- ${skill.name}: ${skill.description} File: ${base}/${skillPath(skill.name)}`).join("\n")}
 `;
 }
-const SWITCHING = "Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back.";
+const SWITCHING = "Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat.";

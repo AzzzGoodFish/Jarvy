@@ -7,6 +7,8 @@ export interface WorkEnvironment {
   readonly kind: EnvironmentKind;
   /** The directory the tools start in. */
   readonly cwd: string;
+  /** Where Jarvy puts files for the Bot there (long outputs, files from the chat); `cwd`/temp when unset. */
+  readonly temp?: string;
   /** Runs a shell command, streaming its output. A non-zero exit is a result, not an error; a timeout throws
    * `timeout:<seconds>` and an abort throws `aborted`, as Pi's bash tool expects. */
   exec(command: string, options: ExecOptions): Promise<{ exitCode: number | null }>;
@@ -37,19 +39,39 @@ export interface ExecOptions {
 }
 
 /** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's sandbox, a Docker container
- * only it uses. */
-export type EnvironmentKind = "host" | "computer";
+ * only it uses; `ssh` a machine the owner added, reached over SSH (A57). */
+export type EnvironmentKind = "host" | "computer" | "ssh";
+/** What can be a Bot's default: never an SSH machine, which is a place a Bot is granted and switches to. */
+export type HomeKind = "host" | "computer";
 export interface EnvironmentRecord {
   id: string; ownerId: string; kind: EnvironmentKind;
   /** The Bot a computer belongs to. */
   botId: string | null;
-  /** How to reach it, such as the container's name. */
+  /** What the owner calls it (SSH machines). */
+  name: string;
+  /** Where the tools start, when it isn't fixed by the kind (SSH machines). */
+  directory: string | null;
+  /** How to reach it: a container's name; an SSH machine's host, port, user, home and system. */
   spec: Record<string, string>;
 }
+/** An SSH machine (A57) as Settings shows it: never its key. */
+export interface SshMachine {
+  id: string; name: string; host: string; port: number; user: string;
+  /** Where tools start there; its home unless the owner chose another. */
+  directory: string; home: string; platform: string;
+  /** The host keys the owner accepted, as `ssh-keygen -l` words them. */
+  fingerprints: string[];
+  /** The Bots that may switch to it. */
+  botIds: string[];
+}
+/** A host's keys as a scan found them: `type base64` lines, and their fingerprints to show the owner. */
+export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** A Bot's sandbox as people see it. `preparing` covers building the image and creating or starting the
  * container; `unavailable` means this machine has no usable Docker. */
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 export interface ComputerStatus { state: ComputerState; error?: string }
-/** Where a Bot works, for the interface: its default and current environment, its computer when it has one, and
- * whether the owner lets it use their computer (the one environment granted so far). */
-export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind; computer: ComputerStatus | null; docker: boolean; hostGranted: boolean }
+/** Where a Bot works, for the interface: its default and current environment (and the SSH machine's name when it is
+ * on one), its computer when it has one, whether the owner lets it use their computer, and each SSH machine with
+ * whether the Bot may use it. */
+export interface BotPlacement { home: HomeKind; current: EnvironmentKind; currentName?: string; computer: ComputerStatus | null; docker: boolean;
+  hostGranted: boolean; machines: { id: string; name: string; granted: boolean }[] }

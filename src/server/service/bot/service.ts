@@ -13,7 +13,8 @@ import type { CredentialCoordinator } from "../../infra/credentials/coordinator.
 import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
 import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
-import type { EnvironmentKind } from "../../shared/environment.js";
+import type { HomeKind } from "../../shared/environment.js";
+import { SshMachines } from "./machines.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
 import { Bot } from "./bot.js";
@@ -49,6 +50,8 @@ export class BotService {
   private readonly lives = new Map<string, LiveTurns>();
   private readonly computers: Computers;
   private readonly environments: BotEnvironments;
+  /** The owner's SSH machines (A57). */
+  readonly machines: SshMachines;
   private closed = false;
   private started = false;
   /** What only the agent Bot does (A48). */
@@ -58,7 +61,8 @@ export class BotService {
   constructor(private readonly deps: BotDependencies) {
     this.agent = new AgentOps(this, deps.store, deps.chats);
     this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
-    this.environments = new BotEnvironments(deps.store, this.computers);
+    this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
+    this.environments = new BotEnvironments(deps.store, this.computers, this.machines);
   }
   listChanged() { this.deps.listChanged?.(); }
   get(id: string): Bot {
@@ -81,7 +85,7 @@ export class BotService {
       workspace, memory,
       tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster(),
         places: { list: () => this.environments.list(id, record.workspacePath), switch: environmentId => this.environments.switch(id, environmentId, record.workspacePath),
-          summary: botId => this.environments.summary(botId) },
+          summary: botId => this.environments.summary(botId), request: input => this.machines.prepareRequest(id, input), found: input => this.machines.find(id, input) },
         secrets: { list: () => this.deps.secrets.listFor(id), prepare: (name, purpose) => this.deps.secrets.prepareRequest(id, name, purpose) },
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
@@ -117,7 +121,7 @@ export class BotService {
   }
   list() { return this.deps.store.listBots().map(record => this.details(record)); }
   /** A new Bot works in its sandbox when this machine has Docker, unless asked for the owner's computer (A50). */
-  create(name: string, environment?: EnvironmentKind) {
+  create(name: string, environment?: HomeKind) {
     const kind = environment ?? (this.computers.available ? "computer" : "host");
     if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
     const record = this.deps.store.createBot(name);
@@ -125,17 +129,32 @@ export class BotService {
     return this.details(record);
   }
   /** The owner moves a Bot to its sandbox or to their computer, as its default; the next tool call runs there. */
-  setHome(id: string, kind: EnvironmentKind) {
+  setHome(id: string, kind: HomeKind) {
     const moved = this.environments.setHome(id, kind, this.record(id).workspacePath);
     if (moved) this.tellOwner(id, [{ what: "environment", value: where(moved) }], true);
     return this.describe(id);
   }
   /** The owner lets a Bot use their computer, or takes it back; taking it back while the Bot is there sends it home. */
-  grantHost(id: string, granted: boolean) {
-    const { changed, moved } = this.environments.grantHost(id, granted, this.deps.store.userMemberId(), this.record(id).workspacePath);
-    const changes: BotChange[] = changed ? [{ what: "access", value: `your owner's computer: ${granted ? "you may switch to it" : "taken back"}` }] : [];
+  grantHost(id: string, granted: boolean) { return this.grant(id, "host", granted); }
+  /** The owner lets a Bot use an SSH machine (A57), or takes it back, the same way. */
+  grantMachine(id: string, machineId: string, granted: boolean) { this.machines.get(machineId); return this.grant(id, machineId, granted); }
+  /** The owner deletes an SSH machine: Bots working there are back in their default, and told. */
+  async removeMachine(machineId: string, force: boolean): Promise<void> {
+    const name = this.machines.get(machineId).name, granted = this.machines.get(machineId).botIds;
+    const moved = await this.machines.remove(machineId, force);
+    for (const id of new Set([...granted, ...moved])) {
+      if (!this.deps.store.getBot(id)) continue;
+      const changes: BotChange[] = [{ what: "access", value: `${name}: removed` }];
+      if (moved.includes(id)) { const to = this.environments.here(id, this.record(id).workspacePath); changes.push({ what: "environment", value: `${to.name}, in ${to.directory}` }); }
+      this.tellOwner(id, changes, moved.includes(id));
+    }
+  }
+  private grant(id: string, environmentId: string | "host", granted: boolean) {
+    const { changed, moved, name } = this.environments.grant(id, environmentId, granted, this.deps.store.userMemberId(), this.record(id).workspacePath);
+    const changes: BotChange[] = changed ? [{ what: "access", value: `${name}: ${granted ? "you may switch to it" : "taken back"}` }] : [];
     if (moved) changes.push({ what: "environment", value: where(moved) });
     if (changes.length) this.tellOwner(id, changes, !!moved);
+    if (changed && environmentId !== "host") this.listChanged();
     return this.describe(id);
   }
   /** Tells a Bot what its owner changed about where it works (A41, A50). A move interrupts a running turn, as an

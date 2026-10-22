@@ -104,7 +104,7 @@ export class Store {
     this.runtime = new RuntimeRepository(this.db);
     this.credentials = new CredentialRepository(this.db, this.cipher);
     this.agent = new AgentRepository(this.db, () => this.userMemberId());
-    this.environments = new EnvironmentRepository(this.db, () => this.userMemberId());
+    this.environments = new EnvironmentRepository(this.db, this.cipher, () => this.userMemberId());
     this.settings = new SettingsRepository(this.db);
     this.secrets = new SecretRepository(this.db, this.cipher, () => this.userMemberId());
     this.agent.ensure();
