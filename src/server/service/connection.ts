@@ -12,6 +12,8 @@ export interface ConnectionInfo {
   addresses: string[];
   /** The root certificate's SHA-256, colon-separated hex; null without HTTPS. */
   fingerprint: string | null;
+  /** Its SHA-1, as Windows' certificate window shows it; null without HTTPS. */
+  fingerprintSha1: string | null;
 }
 const ALLOW_HTTP = "allow_http";
 
@@ -31,7 +33,7 @@ export class ConnectionService {
   info(): ConnectionInfo {
     const listening = this.listening, material = this.material;
     const addresses = listening && material ? lanAddresses(listening.host).map(address => `https://${address.includes(":") ? `[${address}]` : address}:${listening.port}`) : [];
-    return { https: !!material, allowHttp: this.allowHttp(), addresses, fingerprint: material?.fingerprint ?? null };
+    return { https: !!material, allowHttp: this.allowHttp(), addresses, fingerprint: material?.fingerprint ?? null, fingerprintSha1: material?.fingerprintSha1 ?? null };
   }
   /** The root certificate (DER) for devices to install, when serving HTTPS. */
   rootCertificate(): Buffer | null { return this.material?.rootDer ?? null; }

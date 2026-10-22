@@ -44,12 +44,16 @@ export function NetworkSettings() {
         {/* A plain link: iOS offers to install a certificate it navigates to, and saves one marked for download. */}
         <Button asChild variant="outline" size="sm"><a href="/api/connection/root.crt"><DownloadIcon/>{t("connection.download")}</a></Button>
       </div>
-      <div className="jv-list-row jv-static-row jv-conn-print"><span>{t("connection.fingerprint")}</span><code>{/* Lines break between the pairs only. */info.fingerprint?.replaceAll(":", ":\u200b")}</code></div>
+      {/* Both fingerprints in one grid, so their values line up; lines break between the pairs only. */}
+      <div className="jv-list-row jv-static-row jv-conn-print">
+        <span>{t("connection.fingerprint")}</span><code>{info.fingerprint?.replaceAll(":", ":\u200b")}</code>
+        {info.fingerprintSha1 && <><span>{t("connection.fingerprintSha1")}</span><code>{info.fingerprintSha1.replaceAll(":", ":\u200b")}</code></>}
+      </div>
       <button type="button" className="jv-list-row jv-conn-disclosure" aria-expanded={steps} onClick={() => setSteps(!steps)}>
         <span className="jv-row-text"><strong>{t("connection.howTo")}</strong></span><ChevronDownIcon aria-hidden="true"/>
       </button>
       {steps && <div className="jv-list-row jv-static-row jv-conn-steps"><ul>
-        <li>{t("connection.howMac")}</li><li>{t("connection.howWindows")}</li><li>{t("connection.howIos")}</li><li>{t("connection.howAndroid")}</li>
+        <li>{t("connection.howMac")}</li><li>{t("connection.howWindows")}</li><li>{t("connection.howIos")}</li><li>{t("connection.howAndroid")}</li><li>{t("connection.howRestart")}</li>
       </ul></div>}
     </div>
     <div className="jv-list">

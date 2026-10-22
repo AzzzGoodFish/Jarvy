@@ -14,6 +14,8 @@ export interface TlsMaterial {
   rootDer: Buffer;
   /** SHA-256 of the root as browsers show it, colon-separated hex. */
   fingerprint: string;
+  /** SHA-1 of the root: the only fingerprint Windows' certificate window shows ("Thumbprint"). */
+  fingerprintSha1: string;
   names: string[];
 }
 const RENEW_MS = 30 * 24 * 3600_000;
@@ -85,5 +87,5 @@ export function certificates(dataDir: string, host: string, cipher: Cipher, log:
     log(`[tls] signed a server certificate for ${names.join(", ")}`);
   }
   const parsedRoot = new X509Certificate(root.certPem);
-  return { key: server.keyPem, cert: server.certPem, rootDer: parsedRoot.raw, fingerprint: parsedRoot.fingerprint256, names };
+  return { key: server.keyPem, cert: server.certPem, rootDer: parsedRoot.raw, fingerprint: parsedRoot.fingerprint256, fingerprintSha1: parsedRoot.fingerprint, names };
 }
