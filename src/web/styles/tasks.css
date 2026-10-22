@@ -1,0 +1,28 @@
+/* A Bot's scheduled tasks in Bot info (A56), like an alarm list: a row opens the task's details, its switch turns it
+   on or off. */
+.jv-task-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jv-task-head .ui-button svg { width: 14px; height: 14px; }
+/* The row is the button that opens it, with the switch beside it in the same rounded panel. */
+.jv-task-row { display: flex; align-items: center; gap: 4px; }
+.jv-task-row + .jv-task-row { border-top: 1px solid var(--jv-line); }
+.jv-list .jv-task-row .jv-task-open { min-width: 0; }
+.jv-task-open .jv-row-text { margin-right: 4px; }
+.jv-task-open .jv-row-text > span { white-space: normal; }
+.jv-task-row[data-state="paused"] .jv-row-text > strong, .jv-task-row[data-state="done"] .jv-row-text > strong { color: var(--jv-dim); }
+.jv-task-switch { display: inline-flex; align-items: center; flex: none; width: auto; min-height: 0; margin-right: 12px; padding: 4px 0 4px 8px; border: 0; background: transparent; cursor: pointer; }
+.jv-task-switch:hover { background: transparent; }
+.jv-list .jv-task-open:hover { background: var(--jv-hover); }
+.jv-task-switch[aria-checked="true"] .jv-env-switch { background: var(--ui-fill-control-checked); box-shadow: none; }
+.jv-task-switch[aria-checked="true"] .jv-env-switch::after { transform: translateX(14px); }
+.jv-task-editor { display: flex; flex-direction: column; gap: 12px; }
+.jv-task-editor-title { font-size: 13px; color: var(--jv-text); }
+.jv-task-kinds { align-self: flex-start; margin-bottom: 8px; }
+.jv-task-when { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.jv-task-when > input { width: auto; min-width: 0; }
+.jv-task-when[data-kind="once"] > input { flex: 1 1 220px; }
+.jv-task-when input[type="number"] { width: 84px; }
+.jv-task-when [data-slot="select-trigger"] { width: auto; min-width: 110px; }
+.jv-task-label { font-size: 13px; color: var(--jv-dim); }
+.jv-task-editor-actions { display: flex; gap: 8px; }
+/* Deleting belongs to the details, apart from Cancel and Save. */
+.jv-ui [data-slot="button"][data-variant="ghost"].jv-task-delete { color: var(--ui-text-danger); }

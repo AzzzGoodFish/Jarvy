@@ -15,6 +15,8 @@ import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
 import { ConnectionService } from "./service/connection.js";
 import { SecretService } from "./service/secrets.js";
+import { TaskService } from "./service/tasks.js";
+import { urgencyOf } from "./service/delivery/policy.js";
 import { RuntimeFault } from "./shared/runtime.js";
 import type { SessionFactory } from "./infra/pi/session.js";
 
@@ -30,6 +32,8 @@ export class Application {
   readonly models: ModelService;
   readonly connection: ConnectionService;
   readonly secrets: SecretService;
+  /** Scheduled tasks and their timer (A56). */
+  readonly tasks: TaskService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
     this.chats = new ChatService(store.chats, {
@@ -40,7 +44,9 @@ export class Application {
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
     this.secrets = new SecretService(store, this.chats);
-    this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials, secrets: this.secrets,
+    // The scheduler wakes a Bot through the same delivery any message uses (A56).
+    this.tasks = new TaskService(store, this.chats, botId => this.bots.deliver(botId, urgencyOf("task", "schedule")!));
+    this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);
@@ -60,10 +66,10 @@ export class Application {
     try { store = new Store(root); app = new Application(store, root, release, options.factory); return app; }
     catch (error) { store?.close(); await release(); throw error; }
   }
-  start(): void { this.bots.start(); this.models.refreshCatalog(); }
+  start(): void { this.bots.start(); this.tasks.start(); this.models.refreshCatalog(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
-      await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
+      this.tasks.stop(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
     })();
     return this.closing;
   }

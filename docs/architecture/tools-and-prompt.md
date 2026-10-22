@@ -48,6 +48,9 @@ There is no fourth action and no flattened top-level schema. The server validate
 | `messages.react` | add or remove an emoji mark; re-asking the same emoji takes it off and the result says which way it went (A42) |
 | `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36); the result counts unread messages like `messages.send`, including those that came in while it waited (A53) |
 | `history.read` | the Bot's own History by ID ([memory](memory.md)) |
+| `tasks.list` / `tasks.get` | the Bot's scheduled tasks, its owner's for it included: schedule, state, next and last run in local time, with the time zone; `get` adds the instruction (A56) |
+| `tasks.create` / `tasks.update` | schedule a task for itself (name, instruction, chat, schedule), or change one; a new schedule counts from now |
+| `tasks.pause` / `tasks.resume` / `tasks.delete` | stop a task until resumed, start it again from its next time, or delete it for good |
 
 Removing members and deleting channels or groups are left to people (A38), and to the agent Bot once the owner confirms (below). `messages.ask` needs a person in the chat.
 
@@ -81,9 +84,7 @@ The Pi codemode extension is loaded in its default mode. `chat(...)` and `await 
 
 ## System prompt (`service/bot/prompt.ts`)
 
-The prompt is in English, like the tool descriptions and every fixed text a Bot reads (A45); its Language section keeps replies in the language of the people the Bot talks to. Persona and description are the owner's words and stay as written. It has no product name, no tool schemas and no fixed source chat. It is built in named parts (Persona, Environment, Your role, Skills, Rules, Workspace, Responding) that, joined, are the prompt.
-
-A session does not take up a changed prompt as soon as it changes (A56): a new system prompt would make the model read the whole conversation again at full price. The session (`infra/pi/prompt-change.ts`) keeps the prompt it has and, with the next batch, tells the model which parts changed and how, once. It takes up the live prompt when it starts (a new session or a restart), when the model changes, and after a compaction.
+The prompt is in English, like the tool descriptions and every fixed text a Bot reads (A45); its Language section keeps replies in the language of the people the Bot talks to. Persona and description are the owner's words and stay as written. It has no product name, no tool schemas and no fixed source chat, and it is rebuilt at the start of every turn.
 
 ```text
 # Persona
@@ -109,6 +110,7 @@ Files in messages come with an ID: files.get puts one into your environment and 
 Channels can be put in channel groups and have a notice. Threads have a title, a status and a summary.
 In channels and threads you only get new messages when you are @-mentioned; once you subscribe, every new message there is sent to you. DMs need no @.
 Each batch of messages ends with your unread counts and the notices and summaries that have a new version. Read them through the chat gateway when you need to.
+You can schedule work for yourself, once or on a schedule, with the tasks tools in the chat gateway. When a task is due, its instruction comes in a batch as a <task>; do it then.
 
 ## History
 To look into earlier work, search the chat first, then call history.read with the History ID a message carries to read how the work was done.

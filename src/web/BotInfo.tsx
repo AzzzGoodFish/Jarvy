@@ -8,6 +8,7 @@ import { BotAvatar } from "./avatar/BotAvatar";
 import { BOT_COLORS, colorHex, type BotColor } from "./avatar/palette";
 import { BotModelControls } from "./BotModelControls";
 import { BotEnvironment } from "./environment/BotEnvironment";
+import { BotTasks } from "./tasks/BotTasks";
 import { ContextStale } from "./bot/ContextStale";
 import { copyText } from "./ui";
 import { formatNumber, t } from "./i18n";
@@ -109,6 +110,8 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
         </section>
 
         <BotEnvironment bot={bot} onSaved={onSaved}/>
+
+        <BotTasks bot={bot} chats={chats} runs={`${runtime}:${status?.runId ?? ""}`}/>
 
         <section className="jv-section" aria-label={t("bot.runtime")}><h3 className="jv-section-title">{t("bot.runtime")}</h3>
           <div className="jv-list">

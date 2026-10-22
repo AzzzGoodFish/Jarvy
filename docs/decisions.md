@@ -308,7 +308,7 @@ Why: the Bot learns about the gap at the moment it acts in that chat, at the cos
 
 ## A54 Context usage from the model
 
-Bot info's context figure is the size the model itself reported with its latest reply (`infra/pi/context.ts`, the `usage` of the last assistant message on the session's current branch), not Pi's `getContextUsage()`, which estimates characters divided by four and reads about half the real size for Chinese, code and JSON.
+Bot info's context figure is the size the model itself reported with its latest reply (`infra/pi/context.ts`, the `usage` of the last assistant message on the session's current branch), not Pi's `getContextUsage()`, which estimates characters divided by four and reads about half the real size for Chinese, code and JSON (Ezra, PR #7).
 
 - **Unknown, not zero**: before the first reply, and after a compaction until the model reports again, the figure is unknown; it is never shown as 0 %.
 - **Stale**: Pi records a `context_edit` when it drops a failed request before retrying or compacting. After that the figure stays from the last successful reply, with a warning icon in Bot info that explains on hover or tap.
@@ -326,16 +326,18 @@ Jarvy ships skills: guides for a kind of work the agent Bot (A48) helps the owne
 
 Why: a guide that is read only when needed keeps the prompt short, and a file in the workspace reaches the Bot wherever its tools run, without a tool of its own. Plans stay with the owner because a team and its channels are theirs to decide.
 
-## A56 A changed system prompt is told, not swapped in
+## A56 Scheduled tasks
 
-Changing a Bot's name, description or persona, its skills or its workspace changes its system prompt. A system prompt that changes mid-session makes the model read the whole conversation again at full price, since providers cache a prompt from its start. So a running session keeps the system prompt it has and is told what changed.
+A Bot can have scheduled tasks: work it does once at a time or on a schedule, such as reading the news every morning, going through mail or summing up the week. The owner makes them for a Bot in Bot info; a Bot makes them for itself with the tasks tools. Either can see, change, pause, resume and delete all of a Bot's tasks; no Bot makes tasks for another.
 
-- **Parts**: the prompt is built in named parts (`service/bot/prompt.ts`), so a change can say where it is.
-- **Told once**: before each batch the session compares the live prompt with the newest version the model knows. A difference goes into the batch as `instructions_changed`: the changed parts and, per part, the changed lines with two lines of context, at most 40 lines; a longer change is told as the changed parts' new text. At most 8000 characters either way. The next change is measured from what was told.
-- **Taken up**: the live prompt goes out when a session starts (a new session, a restart of Jarvy), after the model or connection changes, and after a compaction. In each case the provider has nothing cached for this conversation anyway.
-- **Not by time**: a provider's cache also expires after minutes without requests, but providers don't report when, so idle time doesn't count.
-- **In memory**: what the model knows is kept in memory only. After a restart the session starts from the live prompt.
-- **Not covered**: tool definitions and the skill files themselves are outside the prompt text; changes to them are not handled here.
+- **A task**: a name, an instruction (what to do each time, in full), the chat the Bot is told in (its DM with the owner unless another is given), a schedule, and its state: `active`, `paused` or `done` (a one-off that ran). Deleting keeps the row, marked deleted, out of every list.
+- **Schedules**, in the machine's local time: once at a time; every N minutes, 5 at the least; daily at a time; weekly on a weekday at a time. Wall-clock times are worked out afresh each time, so 09:00 stays 09:00 across daylight saving. No cron expressions.
+- **Due is a delivery**: the scheduler writes an inbox row of kind `task` (reason `schedule`, urgency `queue`) and moves the task to its next time in one transaction, then wakes the Bot as any delivery does (A41). A crash neither loses a run nor repeats it.
+- **Never mid-turn**: a task is not steered into a running turn like a reaction or a note (A39). It waits for the turn to end and opens a turn of its own, or rides with the next batch, as `<tasks>` with each task's id, chat, name, schedule, due time and instruction.
+- **Missed runs are skipped**: at start, tasks whose time passed while Jarvy was not running move on to their next time after now; a one-off already past is done without running. Nothing is made up.
+- **Timer**: one timer sleeps until the soonest task, at most a minute, so a changed clock is noticed.
+- **Storage (v22)**: `tasks`; `inbox.kind` gains `task`.
+- **Prompt**: one line in the Chat section says the tasks tools exist and that a due task comes as a `<task>`.
+- **Bot info**: a "Scheduled tasks" section lists them with their schedule, next run or state, an on/off switch, and editing and deleting in place; the list reloads when the Bot starts or ends a turn. Giving a one-off that ran a new time turns it back on.
 
-Why: a persona edit should cost a few lines in the next batch, not a full-price read of the conversation, and the model should know the change at once instead of finding it in an unannounced new prompt.
-
+Why: Bots were only ever woken by someone writing to them; recurring work needed a person to ask each time. Making "due" an ordinary delivery reuses the runtime, the inbox, History and the activity timeline as they are.

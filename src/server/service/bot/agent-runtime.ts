@@ -74,7 +74,7 @@ export class AgentRuntime implements RuntimePort {
     if (!this.prompting) { this.wake(); return; }
     // Serialised so two quick deliveries cannot both read the same pending rows.
     this.notices = this.notices.catch(() => {}).then(async () => {
-      const pending = this.inbox.notices();
+      const pending = this.inbox.notices(true);
       if (!pending || this.stopping) return;
       if (this.prompting && this.session?.steer(pending.xml)) this.inbox.tell(pending.ids);
       else this.wake();
@@ -102,15 +102,12 @@ export class AgentRuntime implements RuntimePort {
       this.update({ error: null });
       let submitted = false;
       try {
-        // A changed system prompt is told with the batch, not swapped in (A56).
-        const change = session.promptChange();
-        const prepared = await this.inbox.prepare(batch, change);
+        const prepared = await this.inbox.prepare(batch);
         if (!prepared) { repository.releaseUnsubmitted(batch.run.id); continue; }
         const { xml, notices } = prepared;
         if (this.stopping || this.pauses || version !== this.inputVersion) { repository.releaseUnsubmitted(batch.run.id); continue; }
         repository.submitted(batch.run.id); submitted = true; this.prompting = true;
         this.inbox.acknowledge(notices);
-        if (change) session.promptTold(change);
         this.promptTask = session.prompt(xml);
         const result = await this.promptTask;
         repository.finish(batch.run.id, result.outcome, result.outcome === "failed" ? "model_request_failed" : null);

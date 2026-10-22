@@ -1,6 +1,5 @@
 import type { MemberIdentity } from "../../shared/chat.js";
 import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../../shared/agent.js";
-import type { PromptChange } from "../../shared/prompt.js";
 
 export interface EnvelopeMessage {
   id: string;
@@ -45,32 +44,27 @@ export type EnvelopeNotice =
   | { kind: "reaction"; id: number; chat: NoticeChat; message: { id: string; text: string }; actor: MemberIdentity; emoji: string; createdAt: number }
   | { kind: "note"; id: number; chat: NoticeChat; actor: MemberIdentity; version: number; createdAt: number }
   | { kind: "onboard"; id: number; chat: NoticeChat; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
-  | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number };
+  | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number }
+  /** One of the Bot's scheduled tasks is due (A56): what to do, and when it was meant to run. */
+  | { kind: "task"; id: number; chat: NoticeChat; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model, in the DM named on the element. */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up Jarvy and picked your model. You are their agent Bot. `
   + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what Jarvy is and how you can help, `
   + "such as building a team of Bots for their work and running Jarvy for them. Then ask what they want to get done: a software project, writing, research or something else.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
-export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null): string {
-  if (!notices.length && !prompt) throw new Error("Empty notice batch");
+export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment): string {
+  if (!notices.length) throw new Error("Empty notice batch");
   const chats = new Map<string, string>(), members = new Map<string, string>();
   const list = noticeTail(notices, chats, members);
-  return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${instructionsLine(prompt)}${environmentLine(environment)}</notice_batch>`;
+  return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${environmentLine(environment)}</notice_batch>`;
 }
-/** Your instructions changed (A56): the system prompt stays as the session has it, so that the conversation stays
- * cached; what changed comes with the batch, once. */
-function instructionsLine(change?: PromptChange | null): string {
-  if (!change) return "";
-  const how = change.whole ? "The new text of the changed parts follows." : "Lines starting with - were removed and lines starting with + were added; the others are context.";
-  return `<instructions_changed${attribute("parts", change.parts.join(", "))}>${escape(change.diff)}`
-    + `<note>Your instructions changed. ${how} Follow the new version from now on. Your system prompt is not rewritten yet, `
-    + "so that the conversation stays cached; it will be after the next compaction.</note></instructions_changed>";
-}
-/** The tail shared by a steered notice batch and a chat batch (A39, A41): new notice / summary versions as
+/** The tail shared by a steered notice batch and a chat batch (A39, A41). Tasks come first, so the Bot reads what it
+ * is meant to do before anything else in the batch. New notice / summary versions as
  * `<updates>` (the newest per chat), marks as `<notices>` quoting the start of the marked message. A chat already
  * described by a message keeps that (fuller) definition. */
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
+    if (notice.kind === "task") continue;
     // A DM without messages yet is untitled (v18).
     if (!chats.has(notice.chat.id)) chats.set(notice.chat.id, `<chat${attribute("id", notice.chat.id)}${attribute("type", notice.chat.type)}${notice.chat.title ? attribute("title", notice.chat.title) : ""}/>`);
     remember(members, notice.actor.id, `<member${attribute("id", notice.actor.id)}${attribute("name", notice.actor.name)}${attribute("kind", notice.actor.kind)}/>`);
@@ -89,10 +83,14 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
   const byAgent = changed.some(notice => notice.actor.kind === "bot"), byOwner = changed.some(notice => notice.actor.kind === "user");
   const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("chat", notice.chat.id)}${attribute("by", notice.actor.id)}`
     + `${attribute("at", iso(notice.createdAt))}><note>${escape(welcome(notice.actor.name, notice.language))}</note></onboard>`]).slice(-1);
-  return (updates.length ? `<updates>${updates.join("")}</updates>` : "")
+  const tasks = notices.flatMap(notice => notice.kind !== "task" ? [] : [`<task${attribute("id", notice.task.id)}${attribute("chat", notice.chat.id)}`
+    + `${attribute("name", notice.task.name)}${attribute("every", notice.task.schedule)}${attribute("due", iso(notice.due))}>${escape(notice.task.instruction)}</task>`]);
+  return (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
+    + "then send what is worth sending; if nothing is, do nothing.</note></tasks>" : "")
+    + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`
-      + (byAgent ? "<note>The agent Bot changed your settings, and the changes already apply. A change to your name, description or persona is a change to your instructions too. If something is unclear, ask it in that DM.</note>" : "")
+      + (byAgent ? "<note>The agent Bot changed your settings, and the changes already apply. A persona change is already in your instructions. If something is unclear, ask it in that DM.</note>" : "")
       + (byOwner ? "<note>Your owner changed where you work, and it already applies: environment is where your file and command tools run now, and access is what environments.switch can take you to. If you were in the middle of something, carry on where you are now.</note>" : "")
       + "</changes>" : "")
     + onboard.join("");
@@ -101,7 +99,7 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
 /** Compact derived input; no runtime bookkeeping, base64 or secret credentials.
  * File readability and Chat authorization are checked by the calling service.
  */
-export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessage[], digest?: BatchDigest, notices?: readonly EnvelopeNotice[], prompt?: PromptChange | null): string {
+export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessage[], digest?: BatchDigest, notices?: readonly EnvelopeNotice[]): string {
   if (!messages.length) throw new Error("Empty chat batch");
   const chats = new Map<string, string>(), members = new Map<string, string>(), ids = new Set<string>();
   const encoded = messages.map(message => {
@@ -123,7 +121,7 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
   // Chats already defined in the head are referenced by ID; others carry their title and type.
   const ref = (key: string, item: { chatId: string; title: string; type: string }) => attribute(key, item.chatId) + (chats.has(item.chatId) ? "" : attribute("title", item.title) + attribute("type", item.type));
   // Deliveries that are not messages and were not steered into a run (A39, A41) ride along with the batch.
-  let tail = (notices?.length ? noticeTail(notices, chats, members) : "") + instructionsLine(prompt);
+  let tail = notices?.length ? noticeTail(notices, chats, members) : "";
   if (digest?.unread.length) tail += `<unread${attribute("total", String(digest.unread.reduce((sum, item) => sum + item.count, 0)))}>`
     + `${digest.unread.map(item => `<chat${ref("id", item)}${attribute("count", String(item.count))}/>`).join("")}</unread>`;
   tail += environmentLine(digest?.environment);
