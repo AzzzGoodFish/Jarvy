@@ -78,7 +78,7 @@ Leave everything else alone by default: other members' workspaces, live data dir
 Shared directories and other people's files are read-only. Ask the person in charge before writing to them.
 
 ## Work environment
-Your tools run on your owner's computer by default, the machine running Jarvy.
+Your tools run on your owner's computer by default, the machine where this chat platform's server runs.
 ${SWITCHING}
 `;
 }
@@ -89,7 +89,7 @@ function skillsSection(setup: RuntimeSetup, skills: readonly Skill[]): string {
   const home = setup.home(), base = home.kind === "computer" ? home.cwd : setup.workspace.cwd;
   return `
 ## Skills
-Skills are guides that come with Jarvy for kinds of work you help with. When a task matches one, read its file before you start, and follow it. They are suggestions for the owner: propose a plan from them and act once the owner agrees. Jarvy keeps these files in your workspace and writes them again each time you start, so changes to them don't last.
+Skills are guides that come with this chat platform for kinds of work you help with. When a task matches one, read its file before you start, and follow it. They are suggestions for the owner: propose a plan from them and act once the owner agrees. They are kept in your workspace and written again each time you start, so changes to them don't last.
 ${skills.map(skill => `- ${skill.name}: ${skill.description} File: ${base}/${skillPath(skill.name)}`).join("\n")}
 `;
 }

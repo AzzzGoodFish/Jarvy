@@ -8,7 +8,7 @@ const Model = Type.Object({
   model: Type.String({ minLength: 1, maxLength: 200, description: "A model's ID or name in that connection" }),
 }, { additionalProperties: false });
 const Thinking = Type.Union(["auto", "off", "minimal", "low", "medium", "high", "xhigh", "max"].map(level => Type.Literal(level)),
-  { description: "How much the model thinks; auto lets Jarvy choose. models.list gives the levels each model has" });
+  { description: "How much the model thinks; auto lets this chat platform choose. models.list gives the levels each model has" });
 const Settings = {
   description: Type.Optional(Type.String({ maxLength: 1000, description: "One line that other members see in members.list" })),
   persona: Type.Optional(Type.String({ maxLength: 16_000, description: "Its standing instructions: who it is and how it works (the Persona section of its prompt)" })),
@@ -16,7 +16,7 @@ const Settings = {
 };
 /** Where a new Bot's file and command tools run by default (A50): its sandbox, which the code calls a computer, or the owner's computer. */
 const Environment = Type.Union([Type.Literal("sandbox"), Type.Literal("host")], {
-  description: "Where its file and command tools run by default: sandbox, a Linux container that Jarvy makes and only it uses (the default when Docker is available), or host, the owner's computer, where you work too",
+  description: "Where its file and command tools run by default: sandbox, a Linux container that this chat platform makes and only it uses (the default when Docker is available), or host, the owner's computer, where you work too",
 });
 /** A deletion first asks the owner on a card (A48); the agent words it in the owner's language. */
 const Confirm = {

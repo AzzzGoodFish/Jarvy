@@ -15,7 +15,7 @@ export interface Moved { from: Place; to: Place }
 /** What a Bot learns about an environment when it switches there. */
 const ABOUT: Record<HomeKind, string> = {
   computer: "A Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox, and /workspace, your home there, is kept when it is reset.",
-  host: "The machine running Jarvy. Your tools run there as your owner and can reach their files: work in your directory, and leave other members' workspaces, live data directories (such as ~/.jarvy), main repository checkouts and system directories alone unless the task needs it; say in your reply what you changed there.",
+  host: "The machine where this chat platform's server runs. Your tools run there as your owner and can reach their files: work in your directory, and leave other members' workspaces, live data directories (such as ~/.jarvy), main repository checkouts and system directories alone unless the task needs it; say in your reply what you changed there.",
 };
 
 interface Opened { id: string; env: WorkEnvironment; view: WorkEnvironment; busy: number; retired: boolean }

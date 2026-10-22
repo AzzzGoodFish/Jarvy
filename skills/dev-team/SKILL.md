@@ -1,6 +1,6 @@
 ---
 name: dev-team
-description: How to run software development with a team of Bots in Jarvy — forming the team, splitting roles, organizing channels, using threads and keeping channel notices. Use when the owner wants Bots to build or maintain a code project, or asks how a development team of Bots should work.
+description: How to run software development with a team of Bots in this chat platform — forming the team, splitting roles, organizing channels, using threads and keeping channel notices. Use when the owner wants Bots to build or maintain a code project, or asks how a development team of Bots should work.
 ---
 
 # Software development with a Bot team
