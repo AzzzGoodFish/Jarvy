@@ -186,7 +186,8 @@ export class Store {
     if (!this.getBot(id)) return false;
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db.prepare("UPDATE bots SET deleted_at=? WHERE id=?").run(Date.now(), id);
+      // A deleted Bot uses no connection, so the owner can delete the one it had.
+      this.db.prepare("UPDATE bots SET deleted_at=?, connection_id=NULL WHERE id=?").run(Date.now(), id);
       this.db.prepare("DELETE FROM chats WHERE type='dm' AND id IN (SELECT chat_id FROM chat_members WHERE member_id=?)").run(id);
       for (const table of ["chat_members", "chat_states", "inbox"]) this.db.prepare(`DELETE FROM ${table} WHERE member_id=?`).run(id);
       this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(id);
@@ -292,10 +293,17 @@ export class Store {
       .run(name, baseUrl, api, Date.now(), providerName, id);
     return this.getModelConnection(id);
   }
+  /** Deleted Bots keep their row (deleteBot) but use nothing: their link to the connection is cleared with it. */
   deleteModelConnection(id: string): boolean {
     if (!this.getModelConnection(id)) return false;
-    if (this.db.prepare("SELECT 1 FROM bots WHERE connection_id=? LIMIT 1").get(id)) throw new ConflictError("A Bot is using this connection");
-    return Number(this.db.prepare("DELETE FROM provider_connections WHERE id=?").run(id).changes) > 0;
+    if (this.db.prepare("SELECT 1 FROM bots WHERE connection_id=? AND deleted_at IS NULL LIMIT 1").get(id)) throw new ConflictError("A Bot is using this connection");
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare("UPDATE bots SET connection_id=NULL WHERE connection_id=? AND deleted_at IS NOT NULL").run(id);
+      const deleted = Number(this.db.prepare("DELETE FROM provider_connections WHERE id=?").run(id).changes) > 0;
+      this.db.exec("COMMIT");
+      return deleted;
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
   }
   saveModelCredential(id: string, input: Record<string, unknown>): ModelConnection | null {
     const connection = this.getModelConnection(id);
