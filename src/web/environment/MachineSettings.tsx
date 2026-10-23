@@ -1,17 +1,19 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { PlusIcon } from "lucide-react";
-import { api, type Bot, type HostKeys, type SshMachine } from "../api";
+import { ApiError, api, type Bot, type HostKeys, type SshMachine } from "../api";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { errorText } from "../errors";
 import { SecretInput } from "../secrets/SecretInput";
 import { MachineItem } from "./MachineItem";
+import { MachineKeyLine, usePreparedKey, type MachineLogin } from "./MachineKey";
 import "../styles/secrets.css";
 import "../styles/machines.css";
 
-/** Settings → Environments (A57): machines added over SSH, each granted to the Bots that may switch to it. Adding one
- * takes two steps: where it is, then its fingerprint to check and the password, used once to install Jarvy's key. */
+/** Settings → Environments (A57, A59): machines added over SSH, each granted to the Bots that may switch to it. Adding
+ * one takes two steps: where it is, then its fingerprint to check and how Jarvy gets in — the password, which installs
+ * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. */
 export function MachineSettings() {
   const [machines, setMachines] = useState<SshMachine[] | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);
@@ -39,21 +41,25 @@ export function MachineSettings() {
   </div>;
 }
 
-/** A new machine: where it is first; then, once scanned, the fingerprint to check and the password. */
+/** A new machine: where it is first; then, once scanned, the fingerprint to check and the password or Jarvy's key. */
 function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (machine: SshMachine) => void }) {
   const [host, setHost] = useState(""), [port, setPort] = useState("22"), [user, setUser] = useState(""), [name, setName] = useState(""), [directory, setDirectory] = useState("");
   const [hostKeys, setHostKeys] = useState<HostKeys | null>(null);
-  const [password, setPassword] = useState(""), [visible, setVisible] = useState(false);
+  const [password, setPassword] = useState(""), [visible, setVisible] = useState(false), [login, setLogin] = useState<MachineLogin>("password");
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const prepared = usePreparedKey(!!hostKeys && login === "key");
   const address = { host: host.trim(), port: Number(port) || 22, user: user.trim() };
   const run = async (work: () => Promise<void>) => {
     setBusy(true); setError(null);
-    try { await work(); } catch (reason) { setError(errorText(reason)); } finally { setBusy(false); }
+    try { await work(); }
+    catch (reason) { if (reason instanceof ApiError && reason.code === "ssh_key_expired") prepared.renew(); setError(errorText(reason)); }
+    finally { setBusy(false); }
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!hostKeys) void run(async () => setHostKeys(await api.scanMachine(address)));
-    else void run(async () => onSaved(await api.addMachine({ ...address, name: name.trim(), directory: directory.trim(), password, hostKeys })));
+    else void run(async () => onSaved(await api.addMachine({ ...address, name: name.trim(), directory: directory.trim(), hostKeys,
+      ...(login === "key" ? { keyId: prepared.key!.keyId } : { password }) })));
   };
   const where = address.user && address.host ? `${address.user}@${address.host}` : "";
   return <form className="jv-panel jv-machine-form" autoComplete="off" onSubmit={submit} aria-label={t("machines.add")} aria-busy={busy || undefined}>
@@ -73,15 +79,22 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
       <div className="jv-field"><span>{t("machines.fingerprint")}</span>
         <div className="jv-machine-prints">{hostKeys.fingerprints.map(print => <code key={print}>{print}</code>)}</div>
         <span className="jv-field-hint">{t("machines.fingerprintHint")}</span></div>
-      <label className="jv-field"><span>{t("machines.password")}</span>
+      <div className="jv-env-seg jv-machine-login" role="radiogroup" aria-label={t("machines.login")}>
+        {(["password", "key"] as const).map(item => <button key={item} type="button" role="radio" aria-checked={login === item} disabled={busy}
+          onClick={() => { setLogin(item); setError(null); }}>{t(item === "password" ? "machines.byPassword" : "machines.byKey")}</button>)}
+      </div>
+      {login === "password" ? <label className="jv-field"><span>{t("machines.password")}</span>
         <SecretInput value={password} visible={visible} onChange={setPassword} onVisible={setVisible} required warnShort={false}/>
         <span className="jv-field-hint">{t("machines.passwordHint")}</span></label>
+        : <div className="jv-field"><span>{t("machines.publicKey")}</span>
+          {prepared.key ? <MachineKeyLine publicKey={prepared.key.publicKey}/> : prepared.error ? <p className="jv-note-error" role="alert">{prepared.error}</p> : <p className="jv-hint">…</p>}
+          <span className="jv-field-hint">{t("machines.keyHint", { user: address.user })}</span></div>}
     </>}
     {error && <p className="jv-note-error" role="alert">{error}</p>}
     <div className="jv-secret-actions">
       <Button type="button" variant="ghost" disabled={busy} onClick={() => { if (hostKeys) { setHostKeys(null); setPassword(""); setError(null); } else onCancel(); }}>{t(hostKeys ? "machines.back" : "common.cancel")}</Button>
-      <Button type="submit" className="jv-primary" disabled={busy || !address.host || !address.user || (!!hostKeys && !password)}>
-        {t(hostKeys ? (busy ? "machines.connecting" : "machines.connect") : busy ? "machines.scanning" : "machines.next")}</Button>
+      <Button type="submit" className="jv-primary" disabled={busy || !address.host || !address.user || (!!hostKeys && (login === "key" ? !prepared.key : !password))}>
+        {t(!hostKeys ? (busy ? "machines.scanning" : "machines.next") : login === "key" ? (busy ? "machines.verifying" : "machines.verify") : busy ? "machines.connecting" : "machines.connect")}</Button>
     </div>
   </form>;
 }

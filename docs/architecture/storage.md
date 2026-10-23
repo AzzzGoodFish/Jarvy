@@ -75,6 +75,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v21 | `secrets`, `secret_grants` and `secret_uses`; `provider_credentials` sealed under the master key (A52) |
 | v22 | `environments.kind` gains `ssh` (the table is rebuilt to change its CHECK); SSH machines keep their private key sealed under the master key in `key` and the accepted host keys with their fingerprints in `host_keys` (A57) |
 | v23 | `tasks`; `inbox.kind` gains `task` (A58) |
+| v24 | `environments.password`: an SSH machine that refuses keys keeps its password sealed under the master key; NULL means it is reached with the key (A59). A column added, no rows rewritten |
 
 ## Search
 
