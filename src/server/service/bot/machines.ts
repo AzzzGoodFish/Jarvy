@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join, posix } from "node:path";
-import { SshFault, clearRuntime, generateKey, installKey, probeHost, removeKey, scanHost, sshEnvironment, type SshAccess, type SshAddress } from "../../infra/env/ssh.js";
+import { SshFault, clearRuntime, generateKey, installKey, probeHost, publicKeyOf, removeKey, scanHost, sshEnvironment, type SshAccess, type SshAddress } from "../../infra/env/ssh.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError, type ChatMessage, type MachineAsk, type QuestionSpec } from "../../shared/chat.js";
 import type { EnvironmentRecord, HostKeys, SshMachine, WorkEnvironment } from "../../shared/environment.js";
@@ -11,11 +11,18 @@ export interface MachineInput { name?: unknown; host: unknown; port?: unknown; u
 
 const HOST = /^(?!-)[A-Za-z0-9._:-]{1,253}$/, USER = /^(?!-)[A-Za-z0-9._][A-Za-z0-9._-]{0,63}$/;
 
-/** Machines the owner adds over SSH (A57). Jarvy makes the key for each, installs it with the password the owner types
- * once, and keeps both the key (sealed with the master key) and the host keys the owner accepted; Bots never see
- * either. A Bot may switch to a machine its owner granted it. */
+/** A key made for a machine not added yet, whose public half the owner adds to it themselves (A59). Kept in memory
+ * only, for an hour; a restart forgets it and the owner asks for another. */
+interface PreparedKey { id: string; privateKey: string; publicKey: string; until: number }
+const PREPARED_MS = 60 * 60_000;
+
+/** Machines the owner adds over SSH (A57, A59). Jarvy makes the key for each and installs it with the password the
+ * owner types once, or the owner adds its public half themselves. A machine that refuses keys is reached with its
+ * password, kept sealed like the key. Bots see neither, nor the host keys the owner accepted. A Bot may switch to a
+ * machine its owner granted it. */
 export class SshMachines {
   private readonly runtime: string;
+  private readonly prepared = new Map<string, PreparedKey>();
   /** `changed`: what Bots may use changed, so the owner's page reloads them. */
   constructor(private readonly store: Store, private readonly chats: ChatService, private readonly changed: () => void = () => {}) {
     this.runtime = join(dirname(store.path), "ssh");
@@ -25,29 +32,59 @@ export class SshMachines {
   get(id: string): SshMachine { return this.view(this.need(id)); }
   /** The host keys a machine presents, to show the owner before the password is typed. */
   async scan(input: MachineInput): Promise<HostKeys> { return this.wrap(() => scanHost(address(input), this.runtime)); }
-  /** Makes a key, installs it with the password, checks a login with it, then saves the machine; the password is
-   * used for that one login only. Nothing is saved when any step fails. */
-  async add(input: MachineInput & { password: unknown; hostKeys: HostKeys }, grantTo?: { botId: string; by: string }): Promise<SshMachine> {
+  /** A key for a machine the owner will add its public half to themselves; `keyId` then adds the machine. */
+  async prepareKey(): Promise<{ keyId: string; publicKey: string }> {
+    const now = Date.now();
+    for (const [keyId, key] of this.prepared) if (key.until < now) this.prepared.delete(keyId);
+    const id = randomUUID(), key = await this.wrap(() => generateKey(this.runtime, keyComment(id)));
+    this.prepared.set(id, { id, ...key, until: now + PREPARED_MS });
+    return { keyId: id, publicKey: key.publicKey };
+  }
+  /** Adds a machine and saves it once a login works; nothing is saved when a step fails. With `password`, Jarvy makes
+   * a key and installs it with that password; when the machine then refuses the key, the password itself is kept
+   * (sealed) and used to log in (A59), and the key stays installed for when keys are allowed. With `keyId`, the owner
+   * has added that prepared key to the machine, and a login with it is checked. */
+  async add(input: MachineInput & { password?: unknown; keyId?: unknown; hostKeys: HostKeys }, grantTo?: { botId: string; by: string }): Promise<SshMachine> {
     const where = address(input), name = this.freeName(text(input.name, 40) || `${where.user}@${where.host}`);
-    if (typeof input.password !== "string" || !input.password) throw new ChatError(400, "A password is needed to install the key", "ssh_password_missing");
+    const password = typeof input.password === "string" && input.password ? input.password : null;
+    const prepared = typeof input.keyId === "string" ? this.prepared.get(input.keyId) : undefined;
+    if (!password && input.keyId === undefined) throw new ChatError(400, "A password is needed to install the key", "ssh_password_missing");
+    if (!password && (!prepared || prepared.until < Date.now())) throw new ChatError(409, "That key is no longer kept; show a new one and add it to the machine", "ssh_key_expired");
     if (!input.hostKeys.keys.length) throw new ChatError(400, "The host keys are missing; scan the machine first");
     directoryIn("/", input.directory); // a bad directory fails before anything touches the machine
-    const id = randomUUID(), comment = keyComment(id);
+    const id = prepared && !password ? prepared.id : randomUUID(), comment = keyComment(id);
     const record = await this.wrap(async () => {
-      const key = await generateKey(this.runtime, comment), access = { ...where, runtime: this.runtime, alias: alias(id), hostKeys: input.hostKeys.keys, privateKey: key.privateKey };
-      await installKey(where, this.runtime, input.hostKeys.keys, input.password as string, key.publicKey);
+      const key = prepared && !password ? prepared : await generateKey(this.runtime, comment);
+      const access: SshAccess = { ...where, runtime: this.runtime, alias: alias(id), hostKeys: input.hostKeys.keys, privateKey: key.privateKey };
+      const save = (remote: { platform: string; home: string }, kept?: string) => this.store.environments.addSsh({ name, ...where, ...remote,
+        directory: directoryIn(remote.home, input.directory), hostKeys: input.hostKeys, privateKey: key.privateKey, ...(kept ? { password: kept } : {}) }, id);
+      if (!password) return save(await probeHost(access));
+      await installKey(where, this.runtime, input.hostKeys.keys, password, key.publicKey);
       try {
-        const remote = await probeHost(access);
-        return this.store.environments.addSsh({ name, ...where, ...remote, directory: directoryIn(remote.home, input.directory), hostKeys: input.hostKeys, privateKey: key.privateKey }, id);
+        try { return save(await probeHost(access)); }
+        catch (error) {
+          if (!(error instanceof SshFault) || error.code !== "ssh_key_refused") throw error;
+          return save(await probeHost({ ...access, password }), password);
+        }
       } catch (error) {
         // The key is on the machine but the machine isn't being added: take it back off.
-        await removeKey(access, comment).catch(() => {});
+        await removeKey(password ? { ...access, password } : access, comment).catch(() => {});
         throw error;
       }
     });
+    if (prepared) this.prepared.delete(prepared.id);
     if (grantTo) this.store.environments.grant(record.id, grantTo.botId, grantTo.by);
     this.changed();
     return this.view(record);
+  }
+  /** A new password for a machine reached with its password, checked with a login before it is kept. */
+  async setPassword(id: string, password: unknown): Promise<SshMachine> {
+    const record = this.need(id);
+    if (typeof password !== "string" || !password) throw new ChatError(400, "A password is needed", "ssh_password_missing");
+    if (!this.store.environments.usesPassword(id)) throw new ChatError(409, "This machine is reached with Jarvy's key, not a password");
+    await this.wrap(() => probeHost({ ...this.access(record), password }));
+    this.store.environments.updateSsh(id, { password });
+    return this.get(id);
   }
   update(id: string, input: { name?: unknown; directory?: unknown }): SshMachine {
     const record = this.need(id);
@@ -59,11 +96,18 @@ export class SshMachines {
     this.changed();
     return this.get(id);
   }
-  /** Scans the machine again: `changed` when it no longer presents the keys the owner accepted. */
-  async check(id: string): Promise<{ hostKeys: HostKeys; changed: boolean }> {
+  /** Scans the machine again: `changed` when it no longer presents the keys the owner accepted. A machine reached
+   * with its password whose keys are unchanged is tried with Jarvy's key: once that works, the password is dropped
+   * and the key is used from then on (A59). `machine` is how it stands after. */
+  async check(id: string): Promise<{ hostKeys: HostKeys; changed: boolean; machine: SshMachine }> {
     const record = this.need(id), accepted = this.store.environments.sshSecrets(id)!.hostKeys;
-    const hostKeys = await this.scan(this.addressOf(record));
-    return { hostKeys, changed: hostKeys.keys.some(key => !accepted.keys.includes(key)) };
+    const hostKeys = await this.scan(this.addressOf(record)), changed = hostKeys.keys.some(key => !accepted.keys.includes(key));
+    if (!changed && this.store.environments.usesPassword(id)) {
+      const { password: _password, ...withKey } = this.access(record);
+      try { await probeHost(withKey); this.store.environments.updateSsh(id, { password: null }); this.changed(); }
+      catch (error) { if (!(error instanceof SshFault) || error.code !== "ssh_key_refused") throw this.fault(error); }
+    }
+    return { hostKeys, changed, machine: this.get(id) };
   }
   /** The owner accepts the keys the machine presents now (after a reinstall, say). */
   async trust(id: string, fingerprints: unknown): Promise<SshMachine> {
@@ -107,16 +151,17 @@ export class SshMachines {
       existing: existing ? { id: existing.id, name: existing.name } : null };
     return { question: { question: input.purpose, options: [{ label: "Add", value: "add" }], multiple: false, allowCustom: false, machine } };
   }
-  /** The owner's answer on a request card: adds the machine with the password (or grants the one already added) to
-   * the Bot that asked, then settles the card. The password never enters the message. */
-  async fulfil(actorId: string, chatId: string, messageId: string, input: { password?: unknown }): Promise<ChatMessage> {
+  /** The owner's answer on a request card: adds the machine with the password or a prepared key (or grants the one
+   * already added) to the Bot that asked, then settles the card. The password never enters the message. */
+  async fulfil(actorId: string, chatId: string, messageId: string, input: { password?: unknown; keyId?: unknown }): Promise<ChatMessage> {
     const message = this.chats.message(actorId, messageId), ask = message?.question?.machine;
     if (!message || message.chatId !== chatId || !ask || message.question?.state !== "pending") throw new ChatError(409, "The question is already settled", "question_closed");
     if (!this.chats.questions.waitingFor(messageId)) throw new ChatError(409, "The question has expired", "question_expired");
     const botId = message.sender.id, by = this.store.userMemberId();
     const existing = ask.existing && this.store.environments.get(ask.existing.id);
     if (existing) { this.store.environments.grant(existing.id, botId, by); this.changed(); }
-    else await this.add({ name: ask.name, host: ask.host, port: ask.port, user: ask.user, directory: ask.directory ?? undefined, password: input.password, hostKeys: ask.hostKeys }, { botId, by });
+    else await this.add({ name: ask.name, host: ask.host, port: ask.port, user: ask.user, directory: ask.directory ?? undefined, password: input.password,
+      ...(input.keyId !== undefined ? { keyId: input.keyId } : {}), hostKeys: ask.hostKeys }, { botId, by });
     return this.chats.questions.respond(actorId, chatId, messageId, { action: "answer", selected: [0] });
   }
   /** The machine a request card added or granted, by its address. */
@@ -130,7 +175,8 @@ export class SshMachines {
     const { spec } = record, secrets = this.store.environments.sshSecrets(record.id);
     return { id: record.id, name: record.name, host: spec.host ?? "", port: Number(spec.port ?? 22), user: spec.user ?? "", home: spec.home ?? "",
       directory: record.directory ?? spec.home ?? "", platform: spec.platform ?? "", fingerprints: secrets?.hostKeys.fingerprints ?? [],
-      botIds: this.store.environments.grantees(record.id) };
+      botIds: this.store.environments.grantees(record.id), login: secrets?.password || secrets?.passwordUnreadable ? "password" : "key",
+      publicKey: secrets?.privateKey ? publicKeyOf(secrets.privateKey, keyComment(record.id)) : null };
   }
   private need(id: string): EnvironmentRecord {
     const record = this.store.environments.get(id);
@@ -140,8 +186,9 @@ export class SshMachines {
   private addressOf(record: EnvironmentRecord): SshAddress { return { host: record.spec.host!, port: Number(record.spec.port), user: record.spec.user! }; }
   private access(record: EnvironmentRecord): SshAccess {
     const secrets = this.store.environments.sshSecrets(record.id);
-    if (!secrets?.privateKey) throw new ChatError(409, "This machine's key doesn't open under this installation's master key; delete the machine and add it again", "ssh_key_unreadable");
-    return { ...this.addressOf(record), runtime: this.runtime, alias: alias(record.id), hostKeys: secrets.hostKeys.keys, privateKey: secrets.privateKey };
+    if (!secrets?.privateKey || secrets.passwordUnreadable) throw new ChatError(409, "This machine's key doesn't open under this installation's master key; delete the machine and add it again", "ssh_key_unreadable");
+    return { ...this.addressOf(record), runtime: this.runtime, alias: alias(record.id), hostKeys: secrets.hostKeys.keys, privateKey: secrets.privateKey,
+      ...(secrets.password ? { password: secrets.password } : {}) };
   }
   private freeName(name: string): string {
     if (this.store.environments.sshMachines().some(record => record.name === name)) throw new ChatError(409, "Another machine has this name", "machine_name_taken");
@@ -149,16 +196,18 @@ export class SshMachines {
   }
   /** SSH failures reach people and Bots as chat errors with a code the interface can word. */
   private async wrap<T>(work: () => Promise<T>): Promise<T> {
-    try { return await work(); }
-    catch (error) {
-      if (!(error instanceof SshFault)) throw error;
-      switch (error.code) {
-        case "ssh_auth_failed": throw new ChatError(403, error.message, "ssh_auth_failed");
-        case "ssh_unreachable": throw new ChatError(409, error.message, "ssh_unreachable");
-        case "ssh_host_key_changed": throw new ChatError(409, error.message, "ssh_host_key_changed");
-        case "ssh_unsupported": throw new ChatError(409, error.message, "ssh_unsupported");
-        default: throw new ChatError(409, error.message, "ssh_failed", { detail: error.message });
-      }
+    try { return await work(); } catch (error) { throw this.fault(error); }
+  }
+  private fault(error: unknown): unknown {
+    if (!(error instanceof SshFault)) return error;
+    switch (error.code) {
+      case "ssh_auth_failed": return new ChatError(403, error.message, "ssh_auth_failed");
+      case "ssh_password_refused": return new ChatError(403, error.message, "ssh_password_refused");
+      case "ssh_key_refused": return new ChatError(403, error.message, "ssh_key_refused");
+      case "ssh_unreachable": return new ChatError(409, error.message, "ssh_unreachable");
+      case "ssh_host_key_changed": return new ChatError(409, error.message, "ssh_host_key_changed");
+      case "ssh_unsupported": return new ChatError(409, error.message, "ssh_unsupported");
+      default: return new ChatError(409, error.message, "ssh_failed", { detail: error.message });
     }
   }
 }

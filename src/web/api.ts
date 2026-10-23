@@ -15,7 +15,8 @@ export interface Bot { id: string; name: string; description: string; systemProm
 /** `computer` is a Bot's sandbox, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
 export type EnvironmentKind = "computer" | "host";
 /** A machine the owner added over SSH (A57): never its key. */
-export interface SshMachine { id: string; name: string; host: string; port: number; user: string; directory: string; home: string; platform: string; fingerprints: string[]; botIds: string[] }
+/** `login`: how Jarvy logs in (A59); `publicKey`: Jarvy's key for it, the line in its authorized_keys. */
+export interface SshMachine { id: string; name: string; host: string; port: number; user: string; directory: string; home: string; platform: string; fingerprints: string[]; botIds: string[]; login: "key" | "password"; publicKey: string | null }
 /** A host's keys from a scan: what the owner checks, and what gets saved when they accept. */
 export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** `https`: Jarvy listens beyond this machine and serves HTTPS with its own certificate (A51). */
@@ -203,18 +204,21 @@ export const api = {
   setBotEnvironment: (id: string, home: EnvironmentKind) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ home }) }),
   grantHost: (id: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ hostGranted: granted }) }),
   grantBotMachine: (id: string, machineId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ machineId, granted }) }),
-  /** The owner's SSH machines (A57); a password goes in once, keys never come back. */
+  /** The owner's SSH machines (A57, A59); private keys and kept passwords never come back. */
   machines: () => request<{ machines: SshMachine[] }>("/environments"),
   scanMachine: (input: { host: string; port: number; user: string }) => request<HostKeys>("/environments/scan", { method: "POST", body: body(input) }),
-  addMachine: (input: { name: string; host: string; port: number; user: string; directory: string; password: string; hostKeys: HostKeys }) =>
+  /** `keyId`: a key from prepareMachineKey the owner added to the machine, instead of the password (A59). */
+  addMachine: (input: { name: string; host: string; port: number; user: string; directory: string; password?: string; keyId?: string; hostKeys: HostKeys }) =>
     request<SshMachine>("/environments", { method: "POST", body: body(input) }),
+  prepareMachineKey: () => request<{ keyId: string; publicKey: string }>("/environments/keys", { method: "POST" }),
+  setMachinePassword: (id: string, password: string) => request<SshMachine>(`/environments/${id}/password`, { method: "PUT", body: body({ password }) }),
   updateMachine: (id: string, input: { name?: string; directory?: string }) => request<SshMachine>(`/environments/${id}`, { method: "PUT", body: body(input) }),
-  checkMachine: (id: string) => request<{ hostKeys: HostKeys; changed: boolean }>(`/environments/${id}/check`, { method: "POST" }),
+  checkMachine: (id: string) => request<{ hostKeys: HostKeys; changed: boolean; machine: SshMachine }>(`/environments/${id}/check`, { method: "POST" }),
   trustMachine: (id: string, fingerprints: string[]) => request<SshMachine>(`/environments/${id}/trust`, { method: "POST", body: body({ fingerprints }) }),
   deleteMachine: (id: string, force = false) => request<{ ok: boolean }>(`/environments/${id}${force ? "?force=1" : ""}`, { method: "DELETE" }),
   grantMachine: (id: string, botId: string, granted: boolean) => request<SshMachine>(`/environments/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
-  fulfilMachine: (chatId: string, messageId: string, password: string) =>
-    request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body({ password }) }),
+  fulfilMachine: (chatId: string, messageId: string, answer: { password: string } | { keyId: string }) =>
+    request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body(answer) }),
   computer: (id: string, action: "start" | "stop" | "reset") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),
   /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */
   connection: () => request<ConnectionInfo>("/connection"),

@@ -8,8 +8,8 @@ const FIELDS = (table: string) => ["id", "owner_id AS ownerId", "kind", "bot_id 
 const COLUMNS = FIELDS("");
 const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.ownerId, kind: row.kind, botId: row.botId, name: row.name, directory: row.directory,
   spec: JSON.parse(row.connection) as Record<string, string> });
-/** What a new SSH machine is saved with (A57). */
-export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; hostKeys: HostKeys; privateKey: string }
+/** What a new SSH machine is saved with (A57); `password` only for one that refuses Jarvy's key (A59). */
+export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; hostKeys: HostKeys; privateKey: string; password?: string }
 
 /** Work environments and where each Bot works (v20, A50). A Bot's home or current environment left NULL is its
  * owner's computer, whose row is made when first needed. SSH machines (v22, A57) keep their key sealed under the
@@ -95,21 +95,33 @@ export class EnvironmentRepository {
   }
   addSsh(input: NewSshMachine, id: string = randomUUID()): EnvironmentRecord {
     const { host, port, user, home, platform } = input;
-    this.db.prepare("INSERT INTO environments(id,owner_id,kind,name,connection,directory,key,host_keys,created_at) VALUES(?,?,'ssh',?,?,?,?,?,?)")
+    this.db.prepare("INSERT INTO environments(id,owner_id,kind,name,connection,directory,key,host_keys,password,created_at) VALUES(?,?,'ssh',?,?,?,?,?,?,?)")
       .run(id, this.ownerId(), input.name, JSON.stringify({ host, port: String(port), user, home, platform }), input.directory,
-        this.cipher.seal(input.privateKey, `environment:${id}`), JSON.stringify(input.hostKeys), Date.now());
+        this.cipher.seal(input.privateKey, `environment:${id}`), JSON.stringify(input.hostKeys),
+        input.password ? this.cipher.seal(input.password, `environment-password:${id}`) : null, Date.now());
     return this.get(id)!;
   }
-  updateSsh(id: string, input: { name?: string; directory?: string; hostKeys?: HostKeys }): void {
+  /** `password`: a new one for a machine reached with its password; null goes back to the key (A59). */
+  updateSsh(id: string, input: { name?: string; directory?: string; hostKeys?: HostKeys; password?: string | null }): void {
+    if (input.password !== undefined) this.db.prepare("UPDATE environments SET password=? WHERE id=? AND kind='ssh'")
+      .run(input.password === null ? null : this.cipher.seal(input.password, `environment-password:${id}`), id);
     if (input.name !== undefined) this.db.prepare("UPDATE environments SET name=? WHERE id=? AND kind='ssh'").run(input.name, id);
     if (input.directory !== undefined) this.db.prepare("UPDATE environments SET directory=? WHERE id=? AND kind='ssh'").run(input.directory, id);
     if (input.hostKeys !== undefined) this.db.prepare("UPDATE environments SET host_keys=? WHERE id=? AND kind='ssh'").run(JSON.stringify(input.hostKeys), id);
   }
-  /** The machine's private key (null when it doesn't open under this installation's key) and accepted host keys. */
-  sshSecrets(id: string): { privateKey: string | null; hostKeys: HostKeys } | null {
-    const row = this.db.prepare("SELECT key, host_keys AS hostKeys FROM environments WHERE id=? AND kind='ssh' AND deleted_at IS NULL").get(id) as { key: string | null; hostKeys: string | null } | undefined;
+  /** The machine's private key (null when it doesn't open under this installation's key), its password when it is
+   * reached with one (A59; `passwordUnreadable` when it is kept but doesn't open) and the accepted host keys. */
+  sshSecrets(id: string): { privateKey: string | null; password: string | null; passwordUnreadable: boolean; hostKeys: HostKeys } | null {
+    const row = this.db.prepare("SELECT key, password, host_keys AS hostKeys FROM environments WHERE id=? AND kind='ssh' AND deleted_at IS NULL")
+      .get(id) as { key: string | null; password: string | null; hostKeys: string | null } | undefined;
     if (!row) return null;
-    return { privateKey: row.key ? this.cipher.open(row.key, `environment:${id}`) : null, hostKeys: row.hostKeys ? JSON.parse(row.hostKeys) as HostKeys : { keys: [], fingerprints: [] } };
+    const password = row.password ? this.cipher.open(row.password, `environment-password:${id}`) : null;
+    return { privateKey: row.key ? this.cipher.open(row.key, `environment:${id}`) : null, password, passwordUnreadable: !!row.password && password === null,
+      hostKeys: row.hostKeys ? JSON.parse(row.hostKeys) as HostKeys : { keys: [], fingerprints: [] } };
+  }
+  /** Whether a machine is reached with its password rather than the key (A59). */
+  usesPassword(id: string): boolean {
+    return !!(this.db.prepare("SELECT password FROM environments WHERE id=? AND kind='ssh'").get(id) as { password: string | null } | undefined)?.password;
   }
   /** The Bots that may use an environment. */
   grantees(environmentId: string): string[] {
@@ -123,7 +135,7 @@ export class EnvironmentRepository {
       const moved = (this.db.prepare("SELECT id FROM bots WHERE current_environment_id=?").all(id) as { id: string }[]).map(row => row.id);
       this.db.prepare("UPDATE bots SET current_environment_id=home_environment_id WHERE current_environment_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE environment_id=?").run(id);
-      this.db.prepare("UPDATE environments SET deleted_at=?, key=NULL WHERE id=? AND kind='ssh'").run(Date.now(), id);
+      this.db.prepare("UPDATE environments SET deleted_at=?, key=NULL, password=NULL WHERE id=? AND kind='ssh'").run(Date.now(), id);
       this.db.exec("COMMIT");
       return moved;
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }

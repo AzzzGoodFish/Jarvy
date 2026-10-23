@@ -369,3 +369,16 @@ A Bot can have scheduled tasks: work it does once at a time or on a schedule, su
 - **Bot info**: a "Scheduled tasks" section laid out like an alarm list: each row shows the schedule and the next run (or off / done) with an on/off switch beside it, and opens the task's details, where it is changed, saved or deleted. The list reloads when the Bot starts or ends a turn. Giving a one-off that ran a new time turns it back on.
 
 Why: Bots were only ever woken by someone writing to them; recurring work needed a person to ask each time. Making "due" an ordinary delivery reuses the runtime, the inbox, History and the activity timeline as they are.
+
+## A59 SSH logins: the key or the password
+
+A57 reached every machine with a key Jarvy installs with a password typed once. Some machines take only one of the two: a VM with `PubkeyAuthentication no`, a server with passwords turned off. Either is now enough. This amends A57's "the password is not kept" and "not yet: a key the owner pastes".
+
+- **Password fallback**: the owner's password installs Jarvy's key as before. When the machine then refuses that key, the password is kept, sealed under the master key (`environments.password`), and used to log in; the key stays installed. A machine is reached with its key whenever it can be: Check fingerprint and 切换为密钥登录 try the key and drop the password once it works. 更新密码 checks a new password with a login first.
+- **Key the owner adds**: instead of the password, the owner asks for Jarvy's public line (a fresh key per machine, kept in memory for an hour), adds it to the machine and has Jarvy verify it. Settings and a Bot's request card both offer it.
+- **No Pi change**: pi-env always passes `BatchMode=yes`; a password login runs through a wrapper `ssh` that puts its own options first (ssh keeps the first value), with an askpass helper reading an owner-only file that exists only while the connection is open.
+- **Errors apart**: `ssh_auth_failed` (wrong password), `ssh_password_refused` (the machine takes no passwords, read from `Permission denied (…)`), `ssh_key_refused` (Jarvy's key wasn't accepted), `ssh_key_expired` (the shown key is no longer kept).
+- **Public key shown**: each machine's details show Jarvy's public line with a copy button, read back from the sealed private key, so nothing new is stored for it.
+- **Storage (v24)**: one column, `environments.password`; no rows rewritten.
+
+Why: a machine Jarvy can't log into with a key couldn't be added at all, nor one that takes no passwords. Keeping the password only when the key can't be used keeps it the exception, sealed like the key, and never seen by Bots; letting the owner add the key themselves covers machines where typing a password is not an option.

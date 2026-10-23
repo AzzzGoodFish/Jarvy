@@ -5,8 +5,8 @@ import { jsonBody, readJson } from "../middleware/body.js";
 import { messageView } from "../views/chat.js";
 import type { HostKeys } from "../../shared/environment.js";
 
-/** Settings → work environments: the owner's SSH machines (A57). A password goes in once, to install Jarvy's key,
- * and is never kept; keys never come back out. */
+/** Settings → work environments: the owner's SSH machines (A57, A59). A password goes in once, to install Jarvy's key,
+ * and is kept (sealed) only for a machine that refuses keys; private keys and passwords never come back out. */
 export function environmentRoutes(bots: ApiServices["bots"]) {
   const routes = new Hono<ApiEnv>(), machines = bots.machines;
   routes.get("/", c => c.json({ machines: machines.list() }));
@@ -15,10 +15,17 @@ export function environmentRoutes(bots: ApiServices["bots"]) {
     const input = await readJson(c);
     return c.json(await machines.scan({ host: input.host, port: input.port, user: input.user }));
   });
+  /** A key for the owner to add to a machine themselves, instead of giving its password (A59). */
+  routes.post("/keys", async c => c.json(await machines.prepareKey(), 201));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
     return c.json(await machines.add({ name: input.name, host: input.host, port: input.port, user: input.user, directory: input.directory,
-      password: input.password, hostKeys: hostKeys(input.hostKeys) }), 201);
+      password: input.password, ...(input.keyId !== undefined ? { keyId: input.keyId } : {}), hostKeys: hostKeys(input.hostKeys) }), 201);
+  });
+  /** A new password for a machine reached with its password, checked with a login first. */
+  routes.put("/:id/password", jsonBody, async c => {
+    const input = await readJson(c);
+    return c.json(await machines.setPassword(c.req.param("id"), input.password));
   });
   routes.put("/:id", jsonBody, async c => {
     const input = await readJson(c);
@@ -39,10 +46,11 @@ export function environmentRoutes(bots: ApiServices["bots"]) {
     bots.grantMachine(c.req.param("botId"), c.req.param("id"), input.granted);
     return c.json(machines.get(c.req.param("id")));
   });
-  /** The owner's answer on a Bot's request card: the password, used once to install the key. */
+  /** The owner's answer on a Bot's request card: the password, used to install the key, or a prepared key. */
   routes.post("/requests/:chatId/:messageId", jsonBody, async c => {
     const input = await readJson(c);
-    return c.json(messageView(await machines.fulfil(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), { password: input.password })));
+    return c.json(messageView(await machines.fulfil(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"),
+      { password: input.password, ...(input.keyId !== undefined ? { keyId: input.keyId } : {}) })));
   });
   return routes;
 }
