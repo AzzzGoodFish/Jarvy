@@ -2,6 +2,35 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.8.0 — 2026-10-22
+
+Upgrading moves the database from schema v21 to v23 on first start: the environments table is rebuilt to hold SSH machines, with their sealed keys and host keys (v22), and scheduled tasks get a table of their own while the inbox table is rebuilt with all its rows (v23). A v23 database cannot be opened by 0.7.0; keep a copy if you may need to go back.
+
+### Added
+
+- **SSH machines.** Settings › Environments adds a machine reached over SSH: its address, user and an optional start directory. Jarvy first shows the machine's host key fingerprints to check, then you type its password once. Jarvy makes a key for that machine, installs it in `~/.ssh/authorized_keys` and keeps it sealed under the master key; the password is not kept. In Bot info you turn on which Bots may use a machine. A Bot switches there like `cd` when a task needs it, and each batch says where it is. When a Bot needs a machine it doesn't have, it asks on a card in the chat; you check the fingerprints and type the password there. Deleting a machine takes its key back off the machine first. Jarvy checks host keys against its own list and does not read your `~/.ssh/config`. Linux and macOS machines are supported. (A57)
+- **Scheduled tasks.** A Bot can be given work to do later: once at a time, every N minutes (counted from when the task is made), daily or weekly at a time, in this machine's local time. A task has a name, what to do and when. You make, pause, change and delete them in Bot info › Scheduled tasks, and a Bot manages its own with the tasks tools. When a task is due, the Bot gets its instruction in a batch; it never interrupts a turn, and reports to you unless the task says where. Runs missed while Jarvy was not running are skipped, not made up. (A58)
+- **An All range in Bot usage**, beside the shorter ranges.
+- **SHA-1 fingerprint in Settings › Network**, under SHA-256: it is the Thumbprint that Windows' certificate window shows. The install steps end with a reminder to quit the browser completely and open it again.
+
+### Changed
+
+- **A changed system prompt is told, not swapped in.** When you change a Bot's persona, name, description, skills or workspace, its running session keeps the prompt the model already has, so the provider's cache of the conversation survives. The change comes with the next batch, once, as a short diff of what changed; the new prompt is taken up when a session starts, after a model switch and after a compaction. (A56)
+- **Chat gateway errors say how to fix the call.** Invalid arguments list what is wrong and include the tool's parameters; an unknown tool name lists the tools there are. A Bot gets a call right on the next try instead of looking the tool up first.
+- **Bot-facing text calls the platform "this chat platform"**, so a Bot doesn't confuse it with the agent Bot, which is named Jarvy by default. The agent Bot is still told the platform's name.
+- **Secrets cover tokens, API keys and passwords**; logging in to a machine goes through the SSH machine card instead.
+- **Composer**: a sent message leaves the input at once, and comes back if sending fails.
+- **Thinking bubble**: keeps following the newest words unless you scroll it up.
+
+### Fixed
+
+- A model connection can be deleted once the Bots that used it are deleted. This also clears links that Bots deleted before the upgrade kept. While a Bot still uses a connection, the refusal names it.
+
+### Known limits
+
+- On an SSH machine, `write` and `edit` fail for a path that exists on the machine running Jarvy but that Jarvy's user can't read there, such as a protected directory on the same computer. `bash` still works there. This is a limit in Pi, the agent library Jarvy uses, and is waiting on an upstream fix.
+- SSH machines run Bots' commands as the user you gave; there is no sandbox on them.
+
 ## 0.7.0 — 2026-10-21
 
 Upgrading moves the database from schema v20 to v21 on first start: secrets, their grants and their uses are added, and the credentials you have already saved are encrypted under a new master key. Keep the master key file if you may need to go back, and keep a copy of the database too: a v21 database cannot be opened by 0.6.0.
