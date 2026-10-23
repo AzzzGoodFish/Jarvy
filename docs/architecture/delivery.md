@@ -2,28 +2,43 @@
 
 [Index](../index.md) · [Bot input](envelope.md) · [Runtime](runtime.md) · [Channels](channels.md)
 
-Something happens in a chat; delivery decides who should know, why, and how urgently; each recipient decides how to respond (A41).
+Something happens — in a chat, or to a member outside any chat; delivery decides who should know, why, and how urgently; each recipient decides how to respond (A41, A61).
 
 ```text
-message source (service/chat)    routing and delivery (service/delivery)       handling
+source                           routing and delivery (service/delivery)       handling
 what happened             ──►    routes:  who receives it, and the reason  ──►  Bot:  AgentRuntime by urgency
                                  policy:  kind × reason → urgency               User: SSE + sidebar by urgency
                                  inbox rows written with the fact (A04)
 ```
 
-- Message sources (`Chat.deliver`, `ChatService.react`, `ChatChannels.setNote`) only say what happened.
+- Chat sources (`Chat.deliver`, `ChatService.react`, `ChatChannels.setNote`) only say what happened; a route turns it into targets.
+- System sources (the agent service, a Bot's work environment, the scheduler) name one recipient and a reason through `Deliveries.notify`; there is no chat to route in.
 - Routing reads relationships (members, mentions, reply target, subscriptions, followers) and returns targets. It knows nothing about Pi or the UI.
 - Handling looks only at urgency. The kind only affects how a delivery is shown.
-- Storage writes the rows it is given and holds no routing rules.
+- Storage writes the rows it is given and holds no routing rules. All inbox SQL is in one repository (`infra/storage/inbox-repository.ts`).
+
+## Three categories (A61)
+
+| Category | Kinds | Has | Never has |
+| --- | --- | --- | --- |
+| `message` — a chat message | `message` | chat, message | — |
+| `activity` — something in a chat | `reaction`, `note` (a new notice or thread summary version) | chat; a reaction also the marked message | — |
+| `system` — a notice to one member | `onboard`, `change`, `task` | recipient | chat, message |
+
+The recipient of a system notice can be a person or a Bot; so far only Bots get them. Nothing opens or creates a DM to carry a notice.
 
 ## Types (`shared/delivery.ts`)
 
 ```ts
 type Urgency = "interrupt" | "queue" | "digest";
-type DeliveryKind = "message" | "reaction" | "note"        // note = a new notice or thread summary version
-  | "onboard" | "change"                                    // to one Bot, from the agent service (A48)
-  | "task";                                                 // to one Bot, from the scheduler (A58)
-type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "schedule";
+type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task";
+type DeliveryCategory = "message" | "activity" | "system";
+const CATEGORY: Record<DeliveryKind, DeliveryCategory>;
+type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule";
+interface DeliveryPayloads {               // what each kind carries, stored as JSON in inbox.payload
+  message: null; reaction: { emoji: string }; note: { version: number };
+  onboard: { language: WelcomeLanguage }; change: { what: ChangeField; value: string | null }; task: { task: string; due: number };
+}
 interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
 ```
 
@@ -36,10 +51,15 @@ interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: Deliv
 | channel copy of a thread reply | channel subscribers that did not get the thread reply | `subscription` |
 | reaction | the author of the marked message, if it is not the one marking | `author` |
 | note | channel members (notice) or thread followers (summary), except the editor | `member`, `follower` |
-| onboard | the agent Bot, in its DM with the owner, when it first has a model (A48) | `setup` |
-| change | a Bot the agent Bot changed, in their DM (A48) | `agent` |
-| change | a Bot whose work environment the owner changed, in their DM (A50) | `owner` |
-| task | the Bot whose scheduled task is due, in its DM with the owner (A58) | `schedule` |
+
+System notices have no route; the source names the recipient:
+
+| Kind | Recipient | Reason |
+| --- | --- | --- |
+| onboard | the agent Bot, when it first has a model (A48) | `setup` |
+| change | a Bot the agent Bot changed (A48) | `agent` |
+| change | a Bot whose work environment the owner changed (A50); `move` when a running Bot was moved | `owner`, `move` |
+| task | the Bot whose scheduled task is due (A58) | `schedule` |
 
 The sender is never its own recipient; each member gets at most one row per message.
 
@@ -50,19 +70,25 @@ message:  { dm: "interrupt", mention: "interrupt", reply: "interrupt", subscript
 reaction: { author: "queue" },
 note:     { member: "queue", follower: "queue" },
 onboard:  { setup: "interrupt" },
-change:   { agent: "digest", owner: "interrupt" },
+change:   { agent: "digest", owner: "digest", move: "interrupt" },
 task:     { schedule: "queue" },
 ```
 
-The owner's `interrupt` applies to a move (a new default, or the owner's computer taken back while the Bot is there) of a Bot that is running, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, get `digest`: there is nothing to stop, and waking it would only spend a turn.
+Urgency is decided only here. A move (a new default, or the owner's computer taken back while the Bot is there) of a Bot that is running is reason `move`, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, are `owner`: there is nothing to stop, and waking it would only spend a turn.
 
 **Mute** is a per-recipient override: in a chat the recipient muted (a thread follows its channel), `interrupt` becomes `queue` unless the reason is `mention` or `reply`. It applies to people and Bots alike.
 
-`delivery.plan(kind, targets, muted)` turns targets into deliveries. The source writes the fact and the deliveries in one transaction; after commit the `Dispatcher` calls `Member.deliver(urgency)` for each recipient.
+## The one way in (`service/delivery/delivery.ts`)
 
-## The inbox (v16)
+`Deliveries` is made once by the application and shared:
 
-One table, `inbox`, holds every delivery: member, kind, reason, urgency, chat, message (none for notes), actor, `detail` (emoji or note version), state, run, timestamps.
+- Chat sources call `plan(kind, targets, muted)`, write the fact and the deliveries in one transaction, and after commit `deliveries.dispatch(...)` calls `Member.deliver(urgency)` for each recipient.
+- `deliveries.notify({to, kind, reason, actorId, payloads})` plans, writes and dispatches system notices; several payloads at once (changes made together) wake the recipient once.
+- The scheduler writes a due task's row in the transaction that moves the task on (A58), then dispatches it.
+
+## The inbox (v16, v26)
+
+One table, `inbox`, holds every delivery: member, category, kind, reason, urgency, chat (none for system notices), message (only for messages and reactions), actor, `payload` (JSON shaped by kind), state, run, timestamps. CHECKs keep the category's fields; the kind is checked in code, so a new kind needs no rebuild.
 
 - A Bot's message rows move `pending → claimed → done | failed | interrupted | unknown | cancelled`, tied to the run that claimed them.
 - Everything else moves `pending → told`. Removing a reaction before it was told withdraws the row.
@@ -76,7 +102,7 @@ One table, `inbox`, holds every delivery: member, kind, reason, urgency, chat, m
 - **queue** — if a turn is running, steer the pending reactions and notes into it as a `<notice_batch>` (Pi `session.steer`); otherwise wake the Bot for a turn of its own. A due task is never steered: it waits for the running turn to end and comes in the next one (A58).
 - **digest** — nothing now; it goes with the next batch.
 
-One pump per Bot claims everything pending at that moment: messages become `<message>` elements of one `<chat_batch>` prompt, untold reactions are appended as `<notices>`, new note versions as `<updates>`, and the batch ends with `<unread>` ([format](envelope.md)). Each queued item is told once. At startup, Bots with pending rows are woken, the most urgent first. Queued messages (from muted chats) are handled after the current turn rather than steered in.
+One pump per Bot claims everything pending at that moment: messages become `<message>` elements of one `<chat_batch>` prompt, untold reactions are appended as `<notices>`, new note versions as `<updates>`, system notices as `<changes>`, `<onboard>` and `<tasks>`, and the batch ends with `<unread>` ([format](envelope.md)). Each queued item is told once. At startup, Bots with pending rows are woken, the most urgent first. Queued messages (from muted chats) are handled after the current turn rather than steered in.
 
 Further rules:
 
@@ -121,4 +147,4 @@ A turn that ends without `messages.send` produces no chat message and no "no rep
 
 ## Adding a kind
 
-A new kind needs a route, a policy row, its rendering in the Bot envelope and in the sidebar. `AgentRuntime`, the inbox table and the SSE channel stay as they are.
+A new kind needs its category and payload (`shared/delivery.ts`), a policy row, a route if it is about a chat, and its rendering in the Bot envelope (and in the sidebar, for people). `AgentRuntime`, the inbox table and the SSE channel stay as they are.

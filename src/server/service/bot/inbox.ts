@@ -6,9 +6,9 @@ import type { ChatService } from "../chat/service.js";
 import { encodeChatBatch, encodeNoticeBatch, type BatchEnvironment, type EnvelopeNotice } from "../chat/envelope.js";
 import type { TaskRepository } from "../../infra/storage/task-repository.js";
 import { describeSchedule } from "../../shared/task.js";
-import type { BotNotice } from "../../infra/storage/interaction-repository.js";
+import type { BotNotice } from "../../infra/storage/inbox-repository.js";
 import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
-import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
+import { welcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
 
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
@@ -39,25 +39,27 @@ export class BotInbox {
     const pending = this.envelope(this.chats.notices(this.botId));
     return { xml: encodeChatBatch(this.botId, inputs, digest, pending.length ? pending : undefined, prompt), notices: pending.map(notice => notice.id) };
   }
-  /** Inbox rows as the envelope shape; the steered and the batch tails share it. */
+  /** Inbox rows as the envelope shape; the steered and the batch tails share it. Chat activity names its chat; system
+   * notices have none (A61). */
   private envelope(notices: readonly BotNotice[]): EnvelopeNotice[] {
     return notices.flatMap((notice): EnvelopeNotice[] => {
-      const chat = { id: notice.chatId, type: notice.chatType as "dm" | "channel" | "thread", title: notice.chatTitle };
-      if (notice.kind === "note") return [{ kind: "note" as const, id: notice.id, chat, actor: notice.actor!, version: Number(notice.detail), createdAt: notice.createdAt }];
-      if (notice.kind === "onboard") return [{ kind: "onboard" as const, id: notice.id, chat, actor: notice.actor!, language: welcomeLanguage(notice.detail), createdAt: notice.createdAt }];
-      if (notice.kind === "task") {
-        const fired = JSON.parse(notice.detail) as { task: string; due: number }, task = this.tasks.get(this.botId, fired.task);
-        // Deleted since: the row has nothing left to say.
-        return task ? [{ kind: "task" as const, id: notice.id, chat, task: { id: task.id, name: task.name, instruction: task.instruction,
-          schedule: describeSchedule(task.schedule) }, due: fired.due, createdAt: notice.createdAt }] : [];
+      const { id, createdAt } = notice;
+      switch (notice.kind) {
+        case "note": return [{ kind: "note", id, chat: notice.chat, actor: notice.actor!, version: notice.payload.version, createdAt }];
+        case "onboard": return [{ kind: "onboard", id, actor: notice.actor!, language: welcomeLanguage(notice.payload.language), createdAt }];
+        case "change": return [{ kind: "change", id, actor: notice.actor!, what: notice.payload.what, value: notice.payload.value, createdAt }];
+        case "task": {
+          const task = this.tasks.get(this.botId, notice.payload.task);
+          // Deleted since: the row has nothing left to say.
+          return task ? [{ kind: "task", id, task: { id: task.id, name: task.name, instruction: task.instruction, schedule: describeSchedule(task.schedule) },
+            due: notice.payload.due, createdAt }] : [];
+        }
+        case "reaction": {
+          const marked = this.chats.message(this.botId, notice.messageId);
+          const text = marked ? previewQuotes(marked.content, marked.quotes).slice(0, 120) : "";
+          return [{ kind: "reaction", id, chat: notice.chat, message: { id: notice.messageId, text }, actor: notice.actor!, emoji: notice.payload.emoji, createdAt }];
+        }
       }
-      if (notice.kind === "change") {
-        const change = JSON.parse(notice.detail) as BotChange;
-        return [{ kind: "change" as const, id: notice.id, chat, actor: notice.actor!, what: change.what, value: change.value, createdAt: notice.createdAt }];
-      }
-      const marked = notice.messageId ? this.chats.message(this.botId, notice.messageId) : null;
-      const text = marked ? previewQuotes(marked.content, marked.quotes).slice(0, 120) : "";
-      return [{ kind: "reaction" as const, id: notice.id, chat, message: { id: notice.messageId ?? "", text }, actor: notice.actor!, emoji: notice.detail, createdAt: notice.createdAt }];
     });
   }
   /** The batch went to the model: each delivery in its tail is told once. */

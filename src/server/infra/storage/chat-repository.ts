@@ -10,6 +10,7 @@ import { ChannelRepository } from "./channel-repository.js";
 import { ThreadRepository } from "./thread-repository.js";
 import { InteractionRepository } from "./interaction-repository.js";
 import { QuoteRepository } from "./quote-repository.js";
+import { HANDED_TO_BOT, InboxRepository } from "./inbox-repository.js";
 import { clipMarked, previewQuotes } from "../../shared/quotes.js";
 import { transaction } from "./transaction.js";
 type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; foldedAt: number | null; };
@@ -25,7 +26,7 @@ const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_at AS 
  * A channel copy of a thread reply is not unread for the thread's followers: they have it in the thread. */
 const UNREAD = `FROM messages m WHERE m.chat_id=:chat AND m.sender_id<>:member
   AND m.sequence>COALESCE((SELECT read_sequence FROM chat_states WHERE chat_id=:chat AND member_id=:member),0)
-  AND NOT EXISTS(SELECT 1 FROM inbox i JOIN bots b ON b.id=i.member_id WHERE i.member_id=:member AND i.kind='message' AND i.message_id=m.id)
+  AND NOT ${HANDED_TO_BOT}
   AND NOT (m.echo_of IS NOT NULL AND EXISTS(SELECT 1 FROM chat_states f WHERE f.chat_id=m.echo_of AND f.member_id=:member AND f.following=1))`;
 
 /** SQLite rows stay here; callers receive independent domain snapshots. */
@@ -35,9 +36,11 @@ export class ChatRepository {
   readonly threads: ThreadRepository;
   readonly interactions: InteractionRepository;
   readonly quotes: QuoteRepository;
+  /** Every delivery (A41, A61): the one place inbox SQL lives. */
+  readonly inbox: InboxRepository;
   constructor(private readonly db: DatabaseSync) {
     this.channels = new ChannelRepository(db, this); this.threads = new ThreadRepository(db, this); this.interactions = new InteractionRepository(db, this);
-    this.quotes = new QuoteRepository(db);
+    this.quotes = new QuoteRepository(db); this.inbox = new InboxRepository(db, this);
   }
   member(id: string): MemberIdentity | null {
     const row = this.db.prepare(`SELECT m.id,m.kind,COALESCE(a.username,b.name,m.id) AS name,b.deleted_at IS NOT NULL AS deleted FROM members m
@@ -84,7 +87,7 @@ export class ChatRepository {
     const row = { ...rest, lastMessage: content !== null && lastMessageId ? { content: clipMarked(content, 300), quotes: this.quotes.of(lastMessageId) } : null };
     const members = this.db.prepare("SELECT member_id AS id FROM chat_members WHERE chat_id=? ORDER BY member_id").all(row.parentId ?? id) as { id: string }[];
     const state = this.db.prepare("SELECT following,subscribed,pinned,muted FROM chat_states WHERE chat_id=? AND member_id=?").get(id, actorId) as { following: number; subscribed: number; pinned: number; muted: number } | undefined;
-    return { ...row, memberIds: members.map(item => item.id), note: this.note(id), ...this.unread(actorId, id), ...this.interactions.rowState(actorId, id),
+    return { ...row, memberIds: members.map(item => item.id), note: this.note(id), ...this.unread(actorId, id), ...this.inbox.rowState(actorId, id),
       following: row.type === "thread" && !!state?.following, subscribed: !!state?.subscribed, pinned: !!state?.pinned, muted: !!state?.muted };
   }
   listChats(actorId: string): Chat[] {
@@ -259,7 +262,7 @@ export class ChatRepository {
       this.quotes.insert(id, draft.quotes ?? []);
       for (const attachmentId of draft.attachmentIds) this.db.prepare("UPDATE attachments SET message_id=? WHERE id=?").run(id, attachmentId);
       // Who gets it was decided by the route (A41); storage writes the plan with the message.
-      this.inbox(deliveries.message, chatId, id, actorId, createdAt);
+      this.deliver(deliveries.message, chatId, id, actorId, createdAt);
       for (const memberId of mentions) this.db.prepare("INSERT OR IGNORE INTO message_mentions(message_id,member_id) VALUES(?,?)").run(id, memberId);
       // Your own message is read by you.
       this.markOwn(chatId, actorId, sequence);
@@ -276,7 +279,7 @@ export class ChatRepository {
           this.quotes.insert(`m${position + 1}`, draft.quotes ?? []);
           this.markOwn(chat.parentId, actorId, echoSequence);
           this.db.prepare("UPDATE chats SET updated_at=? WHERE id=?").run(createdAt, chat.parentId);
-          this.inbox(deliveries.echo, chat.parentId, `m${position + 1}`, actorId, createdAt);
+          this.deliver(deliveries.echo, chat.parentId, `m${position + 1}`, actorId, createdAt);
           echo = this.messageFromRow({ id: `m${position + 1}`, chatId: chat.parentId, sequence: echoSequence, senderId: actorId, content: draft.content, createdAt,
             historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question: null, echoOf: chatId, replyTo: null, foldedAt: null });
         }
@@ -291,9 +294,8 @@ export class ChatRepository {
     });
   }
   /** A message's deliveries go into the inbox with the message (A04, A41), for people and Bots alike. */
-  private inbox(deliveries: readonly Delivery[], chatId: string, messageId: string, actorId: string, createdAt: number): void {
-    for (const delivery of deliveries) this.db.prepare(`INSERT INTO inbox(member_id,kind,reason,urgency,chat_id,message_id,actor_id,created_at)
-      VALUES(?,?,?,?,?,?,?,?)`).run(delivery.member.id, delivery.kind, delivery.reason, delivery.urgency, chatId, messageId, actorId, createdAt);
+  private deliver(deliveries: readonly Delivery[], chatId: string, messageId: string, actorId: string, createdAt: number): void {
+    this.inbox.write(deliveries.map(delivery => ({ delivery, chatId, messageId, actorId, payload: null, createdAt })));
   }
   private markOwn(chatId: string, memberId: string, sequence: number): void {
     this.db.prepare(`INSERT INTO chat_states(chat_id,member_id,read_sequence) VALUES(?,?,?)

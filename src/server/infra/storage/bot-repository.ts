@@ -6,13 +6,16 @@ import { BOT_COLORS, type Bot, type BotColor } from "../../shared/models.js";
 import { ConflictError, ValidationError } from "../../shared/errors.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 import { THINKING_LEVELS, type ModelConnectionRepository } from "./model-connection-repository.js";
+import type { InboxRepository } from "./inbox-repository.js";
 import { optionalText, requireText } from "./text.js";
 import { transaction } from "./transaction.js";
 
 /** The owner's Bots: name, description, persona, color and model; each has a workspace folder under the data
  * directory. A deleted Bot keeps its row and member identity (see delete). */
 export class BotRepository {
-  constructor(private readonly db: DatabaseSync, private readonly dataDir: string, private readonly ownerId: () => string, private readonly connections: ModelConnectionRepository) {}
+  /** `inbox`: a deleted Bot's deliveries go with it (A61). */
+  constructor(private readonly db: DatabaseSync, private readonly dataDir: string, private readonly ownerId: () => string, private readonly connections: ModelConnectionRepository,
+    private readonly inbox: InboxRepository) {}
 
   private fromRow(row: Omit<Bot, "workspacePath">): Bot {
     const workspacePath = join(this.dataDir, "bots", row.id, "workspace");
@@ -43,7 +46,8 @@ export class BotRepository {
       // A deleted Bot uses no connection, so the owner can delete the one it had.
       this.db.prepare("UPDATE bots SET deleted_at=?, connection_id=NULL WHERE id=?").run(Date.now(), id);
       this.db.prepare("DELETE FROM chats WHERE type='dm' AND id IN (SELECT chat_id FROM chat_members WHERE member_id=?)").run(id);
-      for (const table of ["chat_members", "chat_states", "inbox"]) this.db.prepare(`DELETE FROM ${table} WHERE member_id=?`).run(id);
+      for (const table of ["chat_members", "chat_states"]) this.db.prepare(`DELETE FROM ${table} WHERE member_id=?`).run(id);
+      this.inbox.forget(id);
       this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM secret_grants WHERE bot_id=?").run(id);

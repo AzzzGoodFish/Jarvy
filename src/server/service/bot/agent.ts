@@ -5,6 +5,7 @@ import type { Store } from "../../infra/storage/store.js";
 import { thinkingOptions } from "../../infra/pi/thinking.js";
 import type { ChatService } from "../chat/service.js";
 import type { BotService } from "./service.js";
+import type { Deliveries } from "../delivery/delivery.js";
 
 /** The settings the agent Bot may give a Bot; only what is given changes. `model` names a connection (its id or name)
  * and a model in it (id or name), as `models.list` shows them. */
@@ -12,10 +13,10 @@ export interface BotSettings { name?: string; description?: string; persona?: st
 const same = (a: string, b: string) => a.trim().replace(/^@/, "").toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
 /** What only the agent Bot does (A48), behind its tools: Bots, their models and usage, and what is deleted once the
- * owner confirms. A Bot it changes is told with its next batch, in its DM with the agent. The first time the agent has
+ * owner confirms. A Bot it changes is told with its next batch (a system notice, A61). The first time the agent has
  * a model, it is asked to welcome the owner. */
 export class AgentOps {
-  constructor(private readonly bots: BotService, private readonly store: Store, private readonly chats: ChatService) {}
+  constructor(private readonly bots: BotService, private readonly store: Store, private readonly chats: ChatService, private readonly deliveries: Deliveries) {}
   get owner() { return this.store.account.userMemberId(); }
   readonly agentId = AGENT_BOT_ID;
   /** A Bot by name, ignoring case and a leading @. */
@@ -102,17 +103,17 @@ export class AgentOps {
   deleteSection(sectionId: string) {
     if (!this.chats.channels.deleteSection(this.owner, sectionId)) throw new ChatError(404, "Section not found");
   }
-  /** The changed Bot is told with its next batch (digest: it is not woken for it), in its DM with the agent. */
+  /** The changed Bot is told with its next batch, as system notices (A61); no DM is opened for them. */
   private tell(botId: string, changes: readonly BotChange[]) {
-    if (botId === AGENT_BOT_ID || !changes.length) return;
-    const chatId = this.chats.openDirect(AGENT_BOT_ID, botId).id;
-    for (const change of changes) this.store.agent.notify({ botId, kind: "change", reason: "agent", urgency: "digest", chatId, actorId: AGENT_BOT_ID, detail: JSON.stringify(change) });
+    if (botId === AGENT_BOT_ID) return;
+    const to = this.chats.member(botId);
+    if (to) this.deliveries.notify({ to, kind: "change", reason: "agent", actorId: AGENT_BOT_ID, payloads: changes });
   }
-  /** The agent's first model: ask it, once, to welcome the owner in their DM, in their interface language. */
+  /** The agent's first model: ask it, once, to welcome the owner in their interface language (a system notice; it
+   * writes to them itself). */
   onboard(language: WelcomeLanguage) {
     if (!this.store.agent.markOnboarded()) return;
-    const chatId = this.chats.openDirect(this.owner, AGENT_BOT_ID).id;
-    this.store.agent.notify({ botId: AGENT_BOT_ID, kind: "onboard", reason: "setup", urgency: "interrupt", chatId, actorId: this.owner, detail: language });
-    this.bots.deliver(AGENT_BOT_ID, "interrupt");
+    const to = this.chats.member(AGENT_BOT_ID);
+    if (to) this.deliveries.notify({ to, kind: "onboard", reason: "setup", actorId: this.owner, payloads: [{ language }] });
   }
 }

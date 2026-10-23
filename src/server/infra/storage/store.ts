@@ -53,15 +53,15 @@ export class Store {
     try { migrateDatabase(this.db, this.cipher); }
     catch (error) { this.db.close(); throw error; }
     this.chats = new ChatRepository(this.db);
-    this.runtime = new RuntimeRepository(this.db);
+    this.runtime = new RuntimeRepository(this.db, this.chats.inbox);
     this.credentials = new CredentialRepository(this.db, this.cipher);
     const ownerId = () => this.account.userMemberId();
     this.connections = new ModelConnectionRepository(this.db, this.credentials, ownerId);
-    this.bots = new BotRepository(this.db, root, ownerId, this.connections);
+    this.bots = new BotRepository(this.db, root, ownerId, this.connections, this.chats.inbox);
     this.agent = new AgentRepository(this.db, ownerId);
     this.environments = new EnvironmentRepository(this.db, this.cipher, ownerId);
     this.settings = new SettingsRepository(this.db);
-    this.tasks = new TaskRepository(this.db);
+    this.tasks = new TaskRepository(this.db, this.chats.inbox);
     this.secrets = new SecretRepository(this.db, this.cipher, ownerId);
     this.agent.ensure();
   }

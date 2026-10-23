@@ -98,8 +98,8 @@ export class ChatChannels {
   }
   digest(botId: string) { return this.store.digest(botId); }
   /** Notices waiting for a Bot (A39); `tellNotices` marks the ones it has been given. */
-  notices(botId: string) { return this.repository.interactions.notices(botId); }
-  tellNotices(botId: string, ids: readonly number[]) { this.repository.interactions.tell(botId, ids); }
+  notices(botId: string) { return this.repository.inbox.notices(botId); }
+  tellNotices(botId: string, ids: readonly number[]) { this.repository.inbox.tell(botId, ids); }
   /** Who an @ in this text reached, and the names it named that are not in the channel (not notified). */
   mentionReport(actorId: string, chatId: string, content: string): { notified: string[]; notInChannel: string[] } {
     const members = this.repository.memberships(actorId, chatId).filter(item => item.canRead).map(item => item.member);
