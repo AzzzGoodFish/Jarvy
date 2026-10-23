@@ -353,3 +353,19 @@ The owner adds machines over SSH as work environments (A50) and grants each to t
 - **Not yet**: an SSH machine as a default, file copy between environments, port forwarding, machine templates, a key the owner pastes, hosts from `~/.ssh/config`, Windows, and a separate record of connections beyond the tool calls in History.
 
 Why: work often lives on other machines — a server, a lab box, a NAS — and the owner shouldn't hand a Bot a password or put keys in its reach. A key made per machine and installed with one typed password gives Bots that access with nothing secret in the chat or the model's context, and lets the owner take it back cleanly.
+
+## A58 Scheduled tasks
+
+A Bot can have scheduled tasks: work it does once at a time or on a schedule, such as reading the news every morning, going through mail or summing up the week. The owner makes them for a Bot in Bot info; a Bot makes them for itself with the tasks tools. Either can see, change, pause, resume and delete all of a Bot's tasks; no Bot makes tasks for another.
+
+- **A task**: a name, an instruction (what to do each time, in full) and a schedule, plus its state: `active`, `paused` or `done` (a one-off that ran). Deleting keeps the row, marked deleted, out of every list. A task is not tied to a chat: every delivery has to sit in one, so a due task is told in the Bot's DM with its owner (made when first needed), and where the Bot reports is up to its instruction.
+- **Schedules**, in the machine's local time: once at a time; every N minutes, 5 at the least, counted from when the task was made or its interval changed (renaming it, pausing and resuming or a restart keep the rhythm); daily at a time; weekly on a weekday at a time. Wall-clock times are worked out afresh each time, so 09:00 stays 09:00 across daylight saving. The next run is always strictly after now, so a run that is due is never given back as the next one. No cron expressions.
+- **Due is a delivery**: the scheduler writes an inbox row of kind `task` (reason `schedule`, urgency `queue`) and moves the task to its next time in one transaction, then wakes the Bot as any delivery does (A41). A crash neither loses a run nor repeats it.
+- **Never mid-turn**: a task is not steered into a running turn like a reaction or a note (A39). It waits for the turn to end and opens a turn of its own, or rides with the next batch, as `<tasks>` with each task's id, name, schedule, due time and instruction.
+- **Missed runs are skipped**: at start, tasks whose time passed while the server was not running move on to their next time after now; a one-off already past is done without running. Nothing is made up.
+- **Timer**: one timer sleeps until the soonest task, at most a minute, so a changed clock is noticed.
+- **Storage (v23)**: `tasks` (an interval keeps the time it counts from in `schedule_at`); `inbox.kind` gains `task`.
+- **Prompt**: one line in the Rules part (its Chat section) says the tasks tools exist and that a due task comes as a `<task>`.
+- **Bot info**: a "Scheduled tasks" section laid out like an alarm list: each row shows the schedule and the next run (or off / done) with an on/off switch beside it, and opens the task's details, where it is changed, saved or deleted. The list reloads when the Bot starts or ends a turn. Giving a one-off that ran a new time turns it back on.
+
+Why: Bots were only ever woken by someone writing to them; recurring work needed a person to ask each time. Making "due" an ordinary delivery reuses the runtime, the inbox, History and the activity timeline as they are.

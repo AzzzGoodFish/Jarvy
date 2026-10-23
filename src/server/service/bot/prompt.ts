@@ -40,6 +40,7 @@ Files in messages come with an ID: files.get puts one into your environment and 
 Channels can be put in channel groups and have a notice. Threads have a title, a status and a summary.
 In channels and threads you only get new messages when you are @-mentioned; once you subscribe, every new message there is sent to you. DMs need no @.
 Each batch of messages ends with your unread counts and the notices and summaries that have a new version. Read them through the chat gateway when you need to.
+You can schedule work for yourself, once or on a schedule, with the tasks tools in the chat gateway. When a task is due, its instruction comes in a batch as a <task>; do it then.
 
 ## History
 To look into earlier work, search the chat first, then call history.read with the History ID a message carries to read how the work was done.

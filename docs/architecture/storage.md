@@ -74,6 +74,7 @@ Migrations run at startup, in `infra/storage/migrations/`, and only move forward
 | v20 | `environments` (owner, kind `host` or `computer`, name, connection, directory, the Bot a sandbox (`computer`) belongs to; soft delete) and `environment_grants`; `bots.home_environment_id` and `current_environment_id`, NULL meaning the owner's computer, so Bots from before stay there (A50) |
 | v21 | `secrets`, `secret_grants` and `secret_uses`; `provider_credentials` sealed under the master key (A52) |
 | v22 | `environments.kind` gains `ssh` (the table is rebuilt to change its CHECK); SSH machines keep their private key sealed under the master key in `key` and the accepted host keys with their fingerprints in `host_keys` (A57) |
+| v23 | `tasks`; `inbox.kind` gains `task` (A58) |
 
 ## Search
 

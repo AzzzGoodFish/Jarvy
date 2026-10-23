@@ -19,6 +19,8 @@ import { agentDefinitions, type AgentToolName } from "./agent-schemas.js";
 import { placeholder } from "../../shared/secret-mask.js";
 import type { EnvironmentRecord } from "../../shared/environment.js";
 import { argumentProblems, invalidArguments, unknownTool } from "./tool-errors.js";
+import { callTask, taskDefinitions, type TaskToolName } from "./task-tools.js";
+import type { TaskService } from "../tasks.js";
 
 /** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list;
  * environments.request asks the owner for an SSH machine (A57) on a card, and finds it once added. */
@@ -36,12 +38,14 @@ export class Tools implements ToolsPort {
   constructor(private readonly scope: { botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
     /** The secrets this Bot may use (A52), never their values, and the card that asks the owner for one. */
     secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
+    /** Scheduled tasks (A58): the Bot manages its own. */
+    tasks: TaskService;
     asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps }) {
     this.tools = new ChatTools(scope);
     if (scope.agent) this.agent = new AgentTools({ ops: scope.agent, tools: this.tools });
   }
-  private get catalog(): Record<string, { description: string; schema: (typeof definitions)[ToolName]["schema"] | (typeof agentDefinitions)[AgentToolName]["schema"] }> {
-    return this.agent ? { ...definitions, ...agentDefinitions } : definitions;
+  private get catalog(): Record<string, { description: string; schema: (typeof definitions)[ToolName]["schema"] | (typeof agentDefinitions)[AgentToolName]["schema"] | (typeof taskDefinitions)[TaskToolName]["schema"] }> {
+    return this.agent ? { ...definitions, ...taskDefinitions, ...agentDefinitions } : { ...definitions, ...taskDefinitions };
   }
   /** Posts a card and waits for the person's answer (messages.ask, and the agent's confirmations). */
   private async ask(chatId: string, question: QuestionSpec, toolCallId: string, signal?: AbortSignal) {
@@ -86,6 +90,7 @@ export class Tools implements ToolsPort {
         if (!args || !Value.Check(definition.schema, args)) throw new ChatError(400, invalidArguments(name, definition.schema, args));
         if (this.agent && Object.hasOwn(agentDefinitions, name))
           return this.agent.call(name as unknown as AgentToolName, args, (chatId, question) => this.ask(chatId, question, toolCallId, signal));
+        if (Object.hasOwn(taskDefinitions, name)) return callTask(this.scope.tasks, this.scope.botId, name as unknown as TaskToolName, args);
         switch (name) {
           case "history.read":
             return readHistory(this.scope.memory, this.scope.workspace, args as HistoryReadInput, signal);
