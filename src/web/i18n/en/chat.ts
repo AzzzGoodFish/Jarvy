@@ -83,6 +83,8 @@ export const chat = {
   "notice.version": "v{version}",
 
   "chat.newBelow": "New messages",
+  "chat.today": "Today",
+  "chat.yesterday": "Yesterday",
 
   "channel.echo": "Replied in “{title}”",
   "channel.replies": { one: "{count} reply", other: "{count} replies" },

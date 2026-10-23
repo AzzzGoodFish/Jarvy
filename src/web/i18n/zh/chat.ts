@@ -86,6 +86,8 @@ export const chat: Part<typeof en> = {
   "notice.version": "第 {version} 版",
 
   "chat.newBelow": "以下为新消息",
+  "chat.today": "今天",
+  "chat.yesterday": "昨天",
 
   "channel.echo": "回复了线程「{title}」",
   "channel.replies": { one: "{count} 条回复", other: "{count} 条回复" },

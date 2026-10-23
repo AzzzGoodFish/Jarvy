@@ -76,6 +76,9 @@
 .jv-role { padding: 0 5px; border-radius: 4px; background: var(--ui-fill-secondary); font-size: 10px; line-height: 16px; color: var(--ui-text-secondary); }
 .jv-mention { padding: 0 2px; border-radius: 4px; background: var(--ui-fill-accent-subtle); color: var(--ui-text-accent, var(--ui-text-primary)); font-weight: 500; }
 .jv-mention[data-me] { background: var(--ui-fill-warning-subtle); color: var(--ui-text-primary); font-weight: 650; }
+/* A day across the transcript: quieter than the new-messages line. */
+.jv-day { display: flex; align-items: center; gap: 10px; margin: 16px 8px 10px; font-size: 11px; color: var(--ui-text-tertiary); }
+.jv-day::before, .jv-day::after { content: ""; flex: 1; height: .5px; background: var(--ui-border-default); }
 .jv-divider { display: flex; align-items: center; gap: 8px; margin: 10px 8px; font-size: 11px; color: var(--ui-text-danger); font-weight: 600; }
 .jv-divider::before, .jv-divider::after { content: ""; flex: 1; height: .5px; background: var(--ui-border-danger); }
 
@@ -244,6 +247,7 @@
 .jv-dm-stack { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: min(88%, 640px); }
 .ui-user .jv-dm-stack { align-items: flex-end; max-width: min(90%, 820px); }
 .jv-dm-stack > .ui-bubble { max-width: 100%; }
+.jv-dm-time { margin: 0 4px 3px; font-size: 11px; line-height: 14px; color: var(--ui-text-tertiary); }
 /* The actions sit inline next to the bubble, on its free side. */
 .ui-message-row .jv-row-actions { position: static; align-self: flex-start; margin: 2px 6px 0; }
 .ui-message-row.ui-user .jv-row-actions { order: -1; }
