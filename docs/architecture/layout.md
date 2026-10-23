@@ -66,6 +66,7 @@ The interface comes in Chinese and English (A45), more can be added; everything 
 - Previews: the server sends a message excerpt as its content and quotes (`lastMessage`, `replyTo`, a thread's `root`; content `""` is attachments only), and `previewText()` in `channel/quotes.tsx` words it. A History summary comes as its text, tool steps and image count, worded by the activity timeline. Titles the server stores carry no interface words: an untitled DM is `""`, an attachment-only first message gives its file's name, quotes are `"passage"`, a DM between two Bots is `A · B`. A new Bot's default name comes from `freeBotName()` in `members.ts`.
 - What people write — Bot personas, notices, summaries, messages — is never translated.
 - Little text on screen: a heading, an icon or the group a row sits in already says what it is, so no subtitle, page description or empty-state second line repeats it. A second line stays only for what the layout can't show: a safety warning, a side effect (an @ adding someone to the channel, files kept when a Bot is deleted), a limit (the 5-minute minimum) or a step in a flow.
+- Menus in dialogs: a modal dialog locks scrolling (wheel and touch) outside itself and clips what sticks out. A Select or menu brings a lock of its own and scrolls anyway; a non-modal popover doesn't, so one that can open in a dialog portals into it and takes it as its collision boundary (`BotModelControls` finds it through `[data-slot=dialog-content]`; a native `<dialog>` likewise, see `channel/SectionSelect.tsx`).
 
 ## Bot and Chat
 

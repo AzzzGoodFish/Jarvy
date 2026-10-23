@@ -24,6 +24,10 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
   const [active, setActive] = useState(-1);
   const search = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  // Bot info is a modal dialog that locks scrolling (wheel and touch) everywhere outside itself, so the model menu — a
+  // non-modal popover, without a lock of its own like Select has — opens inside the dialog that holds it (none: <body>,
+  // as on the onboarding card in a DM), and stays within it, since the dialog clips what sticks out.
+  const [dialog, setDialog] = useState<HTMLElement | null>(null);
   const listId = useId();
   useEffect(() => {
     let live = true;
@@ -60,14 +64,14 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
       event.preventDefault(); const model = ordered[active]!; void choose(model.connectionId, model.id, bot.thinkingLevel);
     }
   }
-  return <div className="jv-bot-model jv-ui" aria-busy={busy || loading}>
+  return <div className="jv-bot-model jv-ui" aria-busy={busy || loading} ref={element => setDialog(element?.closest<HTMLElement>("[data-slot=dialog-content]") ?? null)}>
     <div className="jv-bot-model-fields">
       <div className="jv-bot-model-field"><span className="jv-field-label">{t("usage.model")}</span>
         <Popover.Root open={open} onOpenChange={openMenu}>
           <Popover.Trigger className="jv-model-trigger" aria-label={t("botModel.pick")} aria-haspopup="listbox" disabled={busy || loading || !!loadError}>
             <span>{current?.name ?? currentModel?.name ?? t(bot.connectionId ? "botModel.broken" : "botModel.choose")}</span>{busy ? <LoaderCircleIcon className="animate-spin"/> : <ChevronDownIcon/>}
           </Popover.Trigger>
-          <Popover.Portal><Popover.Content className="jv-model-menu jv-ui" align="start" sideOffset={6} collisionPadding={12}
+          <Popover.Portal container={dialog}><Popover.Content className="jv-model-menu jv-ui" align="start" sideOffset={6} collisionPadding={12} collisionBoundary={dialog}
             onOpenAutoFocus={event => { event.preventDefault(); (showSearch ? search.current : list.current)?.focus(); }} onKeyDown={navigate}>
             {showSearch && <div className="jv-model-search"><SearchIcon/><input ref={search} role="combobox" aria-label={t("botModel.filter")} aria-expanded="true" aria-controls={listId} aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
               placeholder={t("botModel.filterPlaceholder")} value={query} onChange={event => { setQuery(event.target.value); setActive(-1); }} autoComplete="off" spellCheck={false}/></div>}
