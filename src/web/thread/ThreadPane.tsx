@@ -133,6 +133,9 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const channelName = channel?.title ?? t("search.channel"), rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
   const Shell = mode === "pane" ? "aside" : mode === "embed" ? "section" : "main";
+  // Who takes part in the thread, first in its @ list: the root's author, whoever replied, and whoever was @-ed in it.
+  const participants = new Set([...(root ? [root.senderId, ...root.mentions] : []), ...messages.flatMap(message => [message.senderId, ...message.mentions])]);
+  participants.delete(me);
   return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label={t("thread.label")}
     onKeyDown={event => { if (chat && onSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") { event.preventDefault(); onSearch(chat); } }}>
     <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
@@ -173,7 +176,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder={t("thread.reply")} scrollRef={body} disabled={!chat}
       initialText={messages.length === 0 && root && root.senderId !== me && rootSender && !rootSender.deleted ? `@${rootSender.name} ` : undefined}
       mention={{ bots, inside: liveMembers(members).filter(member => member.id !== me && !!channel?.memberIds.includes(member.id)),
-        outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite }}
+        outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite, participants }}
       onSend={send} onError={onError} onNotice={onNotice}/>
     {/* Passages go into this thread's draft; the root can be quoted too (A44). */}
     <QuoteSelection container={body} drafts={drafts} chatId={threadId} members={members} onNotice={onNotice}

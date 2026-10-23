@@ -105,6 +105,8 @@ export const chat = {
   "info.noSection": "None",
 
   "mention.menu": "Mention a member",
+  "mention.inThread": "In this thread",
+  "mention.inChannel": "Others in the channel",
   "mention.outside": "Not in this channel",
   "mention.outsideList": "Members not in this channel",
   "mention.searchOutside": "Search members not in this channel",

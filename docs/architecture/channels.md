@@ -32,6 +32,7 @@ Mention      member IDs resolved from 「@名字」 when the message is saved
 - Thread access = parent channel access (`can_read` / `can_write`). Leaving a channel removes access to all its threads. Following is a flag, not a permission.
 - Mentions are resolved against current member names at send time: longest match, followed by the end, whitespace or punctuation; @ inside inline code or code blocks does not count. Renaming later does not change old messages.
 - Mentioning someone outside the channel does not deliver to them. In the web composer, picking them adds them to the channel; a Bot's send result lists them as not notified.
+- In a thread the web composer's @ list puts the people taking part in it first, under 「线程中」: the root's author, whoever replied, and whoever was @-ed in the root or a reply. The rest of the channel follows under 「频道其他成员」 after a line; group names show only when both groups have someone. Worked out from the thread's messages, nothing stored.
 
 ## Unread, following, subscribing
 

@@ -89,6 +89,8 @@
 .jv-mention-box > .ui-popover { position: static; width: 260px; }
 .jv-mention-menu { max-height: 300px; overflow: auto; }
 .jv-mention-box .ui-menu-item[data-active] { background: var(--ui-fill-ghost-selected); }
+.jv-mention-sep { height: 0; margin: 4px 6px; border-top: .5px solid var(--ui-border-default); }
+.jv-mention-group { margin: 6px 8px 2px; font-size: 11px; font-weight: 600; color: var(--ui-text-tertiary); }
 .jv-mention-more { border-top: .5px solid var(--ui-border-weak); border-radius: 0 0 6px 6px; margin-top: 2px; }
 .jv-mention-more .jv-muted { font-size: 12px; }
 .jv-mention-more .ui-icon { width: 14px; height: 14px; color: var(--ui-text-tertiary); }
