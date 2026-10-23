@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { ApiEnv, ApiServices } from "../context.js";
+import { eventStream } from "../event-stream.js";
 
 /** The turn a Bot is running, live (A47): `snapshot` with the turn so far (null when idle) and the server's clock, then
  * `start`, `patch` and `end` as it goes. Only the Bot's owner, the signed-in person, may listen. A reader that falls behind is disconnected,
@@ -7,38 +8,12 @@ import type { ApiEnv, ApiServices } from "../context.js";
 export function liveRoutes({ account, bots }: ApiServices) {
   const routes = new Hono<ApiEnv>();
   routes.get("/bots/:id/live", c => {
-    const token = c.get("sessionToken"), signal = c.req.raw.signal, live = bots.live(c.req.param("id"));
-    let disconnect!: (close?: boolean) => void;
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        let ended = false;
-        const encoder = new TextEncoder();
-        const send = (event: string, data: unknown) => {
-          if (ended) return;
-          if ((controller.desiredSize ?? 0) <= 0) { disconnect(); return; }
-          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
-        };
-        const { turn, unsubscribe } = live.subscribe(update => {
-          if (!account.authenticated(token)) { disconnect(); return; }
-          send(update.type, update);
-        }, () => disconnect());
-        const heartbeat = setInterval(() => {
-          if (!account.authenticated(token)) disconnect(); else send("heartbeat", {});
-        }, 15_000);
-        heartbeat.unref();
-        const aborted = () => disconnect();
-        disconnect = (close = true) => {
-          if (ended) return;
-          ended = true; clearInterval(heartbeat); unsubscribe(); signal.removeEventListener("abort", aborted);
-          if (close) controller.close();
-        };
-        signal.addEventListener("abort", aborted, { once: true });
-        // `now` lets the page line its clock up with the server's for the running times.
-        if (signal.aborted) disconnect(); else send("snapshot", { turn, now: Date.now() });
-      },
-      cancel() { disconnect(false); },
-    }, new ByteLengthQueuingStrategy({ highWaterMark: c.env.outgoing.writableHighWaterMark }));
-    return c.body(body, 200, { "Content-Type": "text/event-stream", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+    const token = c.get("sessionToken"), live = bots.live(c.req.param("id"));
+    return eventStream(c, () => account.authenticated(token), ({ send, close, signedIn }) => {
+      const { turn, unsubscribe } = live.subscribe(signedIn(update => send(update.type, update)), close);
+      // `now` lets the page line its clock up with the server's for the running times.
+      return { unsubscribe, ready: () => send("snapshot", { turn, now: Date.now() }) };
+    });
   });
   return routes;
 }
