@@ -165,12 +165,13 @@ export class ChatRepository {
     return rows.map(row => this.messageFromRow(row));
   }
   /** Search every chat the member can read: its DMs and channels and their threads (newest first). `within` keeps
-   * one chat, a channel with its threads. */
-  searchAll(actorId: string, query: string, limit: number, within?: string): ChatMessage[] {
-    const scope = within ? "AND (c.id=? OR c.parent_id=?)" : "";
+   * one chat, a channel with its threads; `sender` keeps one member's messages. */
+  searchAll(actorId: string, query: string, limit: number, within?: string, sender?: string): ChatMessage[] {
+    const scope = (within ? "AND (c.id=? OR c.parent_id=?) " : "") + (sender ? "AND m.sender_id=?" : "");
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS.split(",").map(column => `m.${column}`).join(",")} FROM messages m JOIN chats c ON c.id=m.chat_id
       JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1
-      WHERE instr(lower(m.content),lower(?))>0 ${scope} ORDER BY m.position DESC LIMIT ?`).all(actorId, query, ...(within ? [within, within] : []), limit) as MessageRow[];
+      WHERE instr(lower(m.content),lower(?))>0 ${scope} ORDER BY m.position DESC LIMIT ?`)
+      .all(actorId, query, ...(within ? [within, within] : []), ...(sender ? [sender] : []), limit) as MessageRow[];
     return rows.map(row => this.messageFromRow(row));
   }
   /** Channels and threads the member can read whose title, topic or notice / summary contains the query (newest first). */
@@ -189,9 +190,10 @@ export class ChatRepository {
     const row = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE id=?`).get(id) as MessageRow | undefined;
     return row && this.canAccess(actorId, row.chatId) ? this.messageFromRow(row) : null;
   }
-  search(actorId: string, chatId: string, query: string, limit: number): ChatMessage[] {
+  search(actorId: string, chatId: string, query: string, limit: number, sender?: string): ChatMessage[] {
     this.assertAccess(actorId, chatId);
-    const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND instr(lower(content),lower(?))>0 ORDER BY sequence DESC LIMIT ?`).all(chatId, query, limit) as MessageRow[];
+    const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND instr(lower(content),lower(?))>0 ${sender ? "AND sender_id=?" : ""}
+      ORDER BY sequence DESC LIMIT ?`).all(chatId, query, ...(sender ? [sender] : []), limit) as MessageRow[];
     return rows.map(row => this.messageFromRow(row));
   }
   sentActivity(actorId: string, senderId: string, before: ActivityCursor | undefined, limit: number): ChatActivitySummary[] {

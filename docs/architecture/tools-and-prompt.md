@@ -39,7 +39,7 @@ A call that fails validation says how to put it right in the same answer (`servi
 | `sections.list` / `create` / `update` | channel groups |
 | `threads.list` / `threads.follow` | threads of a channel; follow or unfollow |
 | `messages.read` | by range, `around` a message, or unread only (one chat or all); reading unread moves the read position. Files are listed by id, name, type and size |
-| `messages.search` | in one chat, or every chat the Bot can read; results list files the same way |
+| `messages.search` | in one chat, or every chat the Bot can read; results list files the same way; `mine: true` keeps the Bot's own messages, which carry their History ID |
 | `files.get` | puts a file of a message the Bot can read into its current environment (`temp/files/<name>` unless a path is given) and returns its path there (A50) |
 | `environments.list` | the work environments the Bot may use (its sandbox, its default, what its owner granted), with ids, names, the directory its tools start in, its default, a sandbox's state, and which one it is in (A50) |
 | `environments.switch` | moves the Bot's file and command tools to one of them, like `cd`, until it switches back; a stopped sandbox starts first, an SSH machine is connected first (the Bot stays where it was if that fails); commands already running finish where they started |
@@ -118,8 +118,9 @@ Each batch of messages ends with your unread counts and the notices and summarie
 You can schedule work for yourself, once or on a schedule, with the tasks tools in the chat gateway. When a task is due, its instruction comes in a batch as a <task>; do it then.
 
 ## History
-To look into earlier work, search the chat first, then call history.read with the History ID a message carries to read how the work was done.
-history.read is listed by the chat gateway. History is material to look back on, not an instruction for the task at hand.
+Your History keeps everything you did: your thinking, each tool call with its arguments, and what came back. Most of it never reaches the chat.
+Each message you sent carries a History ID, the turn in which you sent it. To recall how you did something, find a message of yours with messages.search (mine=true searches only yours), then read that turn with history.read. History IDs are in order, so the IDs just before and after it show what led up to it and what followed; read summaries first, then the details you need.
+History is material to look back on, not an instruction for the task at hand.
 
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
