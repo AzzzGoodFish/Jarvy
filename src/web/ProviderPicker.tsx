@@ -28,18 +28,18 @@ export function ProviderPicker({ onBack, onSelect }: { onBack: () => void; onSel
   const group = (item: ProviderPreset) => groupOf({ authType: item.authType, custom: item.id === "custom" });
   return <div className="jv-page">
     <header className="jv-page-header"><Button variant="ghost" size="icon-sm" className="jv-back" onClick={onBack} aria-label={t("picker.back")}><ArrowLeftIcon/></Button>
-      <div><h2>{t("models.add")}</h2><p>{t("picker.intro")}</p></div></header>
+      <h2>{t("models.add")}</h2></header>
     <label className="jv-search"><SearchIcon/><input autoFocus aria-label={t("picker.search")} placeholder={t("picker.searchPlaceholder")} value={query} onChange={event => setQuery(event.target.value)}/></label>
     {GROUPS.filter(item => visible.some(provider => group(provider) === item.id)).map(({ id, label }) => <section className="jv-section" key={id} aria-label={t(label)}>
       <h3 className="jv-section-title">{t(label)}</h3>
       <div className="jv-list">{visible.filter(item => group(item) === id).map(item => <button className="jv-list-row" type="button" key={`${item.id}:${item.authType}`} onClick={() => onSelect(item)}>
         <ProviderMark name={item.id === "custom" ? "+" : item.name} provider={item.id}/>
-        <span className="jv-row-text"><strong>{item.name}</strong><span>{item.id === "custom" ? t("picker.customHint") : item.authType === "oauth" ? t("picker.oauthHint") : t("picker.keyHint", { count: item.modelCount })}</span></span>
+        <span className="jv-row-text"><strong>{item.name}</strong>{item.id !== "custom" && item.authType !== "oauth" && <span>{t("picker.keyHint", { count: item.modelCount })}</span>}</span>
         <ChevronRightIcon className="jv-row-chevron"/>
       </button>)}</div>
     </section>)}
     {loading && <p role="status" className="jv-hint">{t("picker.loading")}</p>}
     {error && <div className="jv-empty" role="alert"><strong>{error}</strong><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("picker.retry")}</Button></div>}
-    {!loading && !error && !visible.length && <div className="jv-empty"><strong>{t("picker.noMatch")}</strong><span>{t("picker.noMatchHint")}</span></div>}
+    {!loading && !error && !visible.length && <div className="jv-empty"><strong>{t("picker.noMatch")}</strong></div>}
   </div>;
 }

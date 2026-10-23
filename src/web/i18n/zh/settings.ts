@@ -15,24 +15,18 @@ export const settings: Part<typeof en> = {
   "group.subscription": "订阅服务",
   "group.apiKey": "API Key",
 
-  "models.intro": "连接模型服务，Bot 从这里选择模型。",
   "models.add": "添加 Provider",
   "models.empty": "还没有模型连接",
-  "models.emptyHint": "添加一个 Provider 后，就能为 Bot 选择模型。",
   "models.count": { one: "{count} 个模型", other: "{count} 个模型" },
   "models.none": "尚未添加模型",
 
-  "picker.intro": "选择服务类型，下一步填写凭证与模型。",
   "picker.back": "返回模型页面",
   "picker.search": "搜索 Provider",
   "picker.searchPlaceholder": "搜索 Provider…",
-  "picker.customHint": "任意 OpenAI / Anthropic / Gemini 兼容端点",
-  "picker.oauthHint": "账号登录",
   "picker.keyHint": { one: "API Key · {count} 个模型", other: "API Key · {count} 个模型" },
   "picker.loading": "正在加载 Provider…",
   "picker.retry": "重试",
   "picker.noMatch": "没有匹配的 Provider",
-  "picker.noMatchHint": "换个关键词试试。",
 
   "editor.back": "返回 Provider 列表",
   "editor.delete": "删除 Provider",
@@ -73,7 +67,6 @@ export const settings: Part<typeof en> = {
   "editor.saved": "已保存",
   "editor.saving": "正在保存…",
   "editor.save": "保存",
-  "editor.footer": "勾选的模型会在保存后出现在 Bot 的模型列表中。",
 
   "card.defaultProtocol": "使用 Provider 默认协议",
   "card.modelId": "模型 ID",

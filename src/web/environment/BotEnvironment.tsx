@@ -65,7 +65,7 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
   return <section className="jv-section" aria-label={t("environment.title")}><h3 className="jv-section-title">{t("environment.title")}</h3>
     <div className="jv-list">
       <div className="jv-list-row jv-static-row">
-        <span className="jv-row-text"><strong>{t("environment.default")}</strong><span className={away ? "jv-env-away" : undefined}>{away ?? t("environment.defaultHint")}</span></span>
+        <span className="jv-row-text"><strong>{t("environment.default")}</strong>{away && <span className="jv-env-away">{away}</span>}</span>
         <div className="jv-env-seg" role="radiogroup" aria-label={t("environment.default")}>
           {(["computer", "host"] as const).map(kind => <button key={kind} type="button" role="radio" aria-checked={home === kind} disabled={!!busy || (kind === "computer" && !docker)}
             title={kind === "computer" && !docker ? t("environment.noDocker") : undefined} onClick={() => pick(kind)}>{t(kind === "computer" ? "environment.computer" : "environment.host")}</button>)}
@@ -97,7 +97,7 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
       <h4 className="jv-env-heading">{t("environment.external")}</h4>
       <div className="jv-list" role="group" aria-label={t("environment.external")}>
         {home === "computer" && <button type="button" role="switch" aria-checked={hostGranted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access" onClick={() => void act("grant", () => api.grantHost(bot.id, !hostGranted), "environment.accessFailed")}>
-          <span className="jv-row-text"><strong>{t("environment.host")}</strong><span>{t("environment.hostAbout")}</span></span>
+          <span className="jv-row-text"><strong>{t("environment.host")}</strong></span>
           <span className="jv-env-switch" aria-hidden="true"/>
         </button>}
         {machines.map(machine => <button key={machine.id} type="button" role="switch" aria-checked={machine.granted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access"
@@ -106,7 +106,6 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
           <span className="jv-env-switch" aria-hidden="true"/>
         </button>)}
       </div>
-      <p className="jv-hint jv-env-note">{t("environment.externalHint")}</p>
     </>}
     {error && <p className="jv-note-error" role="alert">{error}</p>}
   </section>;

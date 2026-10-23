@@ -3,12 +3,9 @@ import type { secrets as en } from "../en/secrets";
 
 /** 中文：设置 › 密钥 (A52)。 */
 export const secrets: Part<typeof en> = {
-  "secrets.intro": "Bot 工作时需要的 token 和密码。值经过加密保存，保存后不再显示。获得授权的 Bot 通过占位符使用，看不到明文。",
   "secrets.add": "添加密钥",
   "secrets.empty": "还没有密钥",
-  "secrets.emptyHint": "添加 token 或密码后，再选择哪些 Bot 可以使用。",
   "secrets.name": "名称",
-  "secrets.nameHint": "大写字母、数字和下划线，以字母开头。Bot 通过这个名称引用它。",
   "secrets.description": "说明",
   "secrets.descriptionPlaceholder": "可选，例如用途",
   "secrets.value": "值",
@@ -47,7 +44,7 @@ export const secrets: Part<typeof en> = {
   "secrets.deleteConfirm": "删除",
   "secrets.masterKey": "主密钥",
   "secrets.keyFile": "保存位置",
-  "secrets.keyHint": "密钥、模型 API key 和 HTTPS 证书都用主密钥加密。它不在数据目录里，备份或迁移 Jarvy 时请把这个文件一起复制。丢失后，密钥和 API key 需要重新输入，HTTPS 证书会重新生成，其他设备上要重新安装。",
+  "secrets.keyHint": "备份或迁移 Jarvy 时请一起复制这个文件，丢失后密钥和 API key 需要重新输入。",
   "secretCard.title": "请求使用密钥 {name}",
   "secretCard.valuePlaceholder": "粘贴或输入值",
   "secretCard.insecure": "当前连接未加密，填写的值可能被同一网络中的他人看到。建议先切换到 HTTPS 再填写。",

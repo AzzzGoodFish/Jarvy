@@ -26,12 +26,12 @@ export function SecretSettings() {
   }, []);
   const changed = (secret: Secret) => setSecrets(list => list && list.map(item => item.id === secret.id ? secret : item));
   return <div className="jv-page">
-    <header className="jv-page-header"><div><h2>{t("settings.secrets")}</h2><p>{t("secrets.intro")}</p></div>
+    <header className="jv-page-header"><h2>{t("settings.secrets")}</h2>
       {!adding && <Button className="jv-primary" onClick={() => setAdding(true)}><PlusIcon/>{t("secrets.add")}</Button>}</header>
     {adding && <SecretForm onCancel={() => setAdding(false)} onSaved={secret => {
       setAdding(false); setSecrets(list => [...(list ?? []), secret].sort(byName)); setOpen(secret.id);
     }}/>}
-    {secrets && !secrets.length && !adding && <div className="jv-empty"><strong>{t("secrets.empty")}</strong><span>{t("secrets.emptyHint")}</span></div>}
+    {secrets && !secrets.length && !adding && <div className="jv-empty"><strong>{t("secrets.empty")}</strong></div>}
     {secrets && secrets.length > 0 && <section className="jv-section" aria-label={t("settings.secrets")}><div className="jv-list">
       {secrets.map(secret => <SecretItem key={secret.id} secret={secret} bots={bots} open={open === secret.id}
         onToggle={() => setOpen(open === secret.id ? null : secret.id)} onChanged={changed}
@@ -56,8 +56,7 @@ function SecretForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (sec
   };
   return <form className="jv-panel jv-secret-form" onSubmit={event => void submit(event)} aria-label={t("secrets.add")}>
     <label className="jv-field"><span>{t("secrets.name")}</span>
-      <Input className="jv-mono" required autoFocus maxLength={64} placeholder="GITHUB_TOKEN" value={name} onChange={event => setName(event.target.value.toUpperCase())}/>
-      <span className="jv-field-hint">{t("secrets.nameHint")}</span></label>
+      <Input className="jv-mono" required autoFocus maxLength={64} placeholder="GITHUB_TOKEN" value={name} onChange={event => setName(event.target.value.toUpperCase())}/></label>
     <label className="jv-field"><span>{t("secrets.description")}</span>
       <Input maxLength={200} placeholder={t("secrets.descriptionPlaceholder")} value={description} onChange={event => setDescription(event.target.value)}/></label>
     <label className="jv-field"><span>{t("secrets.value")}</span><SecretInput value={value} visible={visible} onChange={setValue} onVisible={setVisible} required/></label>

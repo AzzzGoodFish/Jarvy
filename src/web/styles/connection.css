@@ -1,5 +1,4 @@
 /* How Jarvy is reached (A51): Settings → Network, and the banner of a plain-HTTP page. */
-.jv-conn-intro { margin: -2px 0 10px; }
 .jv-conn-cert { margin-top: 10px; }
 .jv-conn-root .jv-row-text > span, .jv-conn-http .jv-row-text > span, .jv-conn-local .jv-row-text > span { white-space: normal; }
 .jv-conn-root > a { flex: none; }

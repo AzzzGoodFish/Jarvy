@@ -65,6 +65,7 @@ The interface comes in Chinese and English (A45), more can be added; everything 
 - Failures: `web/errors.ts` words the server's failure codes; `errorText(reason, fallback)` is what a component shows for a failed request, `statusError(status)` for a Bot's run error. A component never shows a server message it did not get through these.
 - Previews: the server sends a message excerpt as its content and quotes (`lastMessage`, `replyTo`, a thread's `root`; content `""` is attachments only), and `previewText()` in `channel/quotes.tsx` words it. A History summary comes as its text, tool steps and image count, worded by the activity timeline. Titles the server stores carry no interface words: an untitled DM is `""`, an attachment-only first message gives its file's name, quotes are `"passage"`, a DM between two Bots is `A · B`. A new Bot's default name comes from `freeBotName()` in `members.ts`.
 - What people write — Bot personas, notices, summaries, messages — is never translated.
+- Little text on screen: a heading, an icon or the group a row sits in already says what it is, so no subtitle, page description or empty-state second line repeats it. A second line stays only for what the layout can't show: a safety warning, a side effect (an @ adding someone to the channel, files kept when a Bot is deleted), a limit (the 5-minute minimum) or a step in a flow.
 
 ## Bot and Chat
 

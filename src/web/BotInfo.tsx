@@ -71,7 +71,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
           <BotAvatar color={bot.color} mood={bot.mood} size={72} crown={bot.agent}/>
           <div className="jv-bot-identity">
             <strong>{bot.name}</strong>
-            <span>{bot.description || t("bot.noDescription")}</span>
+            {bot.description && <span>{bot.description}</span>}
             <div className="jv-bot-colors" role="radiogroup" aria-label={t("bot.color")}>
               {(Object.keys(BOT_COLORS) as BotColor[]).map(color => <button key={color} type="button" role="radio" aria-checked={bot.color === color}
                 aria-label={t(BOT_COLORS[color].label)} title={t(BOT_COLORS[color].label)} disabled={busy} style={{ background: colorHex(color) }} onClick={() => void changeColor(color)}/>)}
@@ -84,7 +84,6 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
           <div className="jv-panel jv-agent-about">
             <p>{t("agent.intro", { name: bot.name })}</p>
             <ul>{(["agent.create", "agent.model", "agent.run", "agent.delete"] as const).map(key => <li key={key}>{t(key)}</li>)}</ul>
-            <p className="jv-hint">{t("agent.note")}</p>
           </div>
         </section>}
 
@@ -116,7 +115,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
         <section className="jv-section" aria-label={t("bot.runtime")}><h3 className="jv-section-title">{t("bot.runtime")}</h3>
           <div className="jv-list">
             <div className="jv-list-row jv-static-row">
-              <span className="jv-row-text"><strong>{t("bot.status")}</strong><span>{t("bot.statusHint")}</span></span>
+              <span className="jv-row-text"><strong>{t("bot.status")}</strong></span>
               <span className="jv-status" data-ok={runtime !== "stop" || undefined} data-busy={runtime === "running" || undefined}>{t(STATUS_LABEL[runtime])}</span>
               {runtime === "running" && <Button type="button" variant="ghost" size="sm" disabled={!!control} onClick={() => void controlRuntime("abort")}>{t(control === "abort" ? "bot.aborting" : "bot.abort")}</Button>}
               <Button type="button" variant="outline" size="sm" disabled={!!control || !bot.connectionId} onClick={() => void controlRuntime(runtime === "stop" ? "start" : "stop")}>
@@ -128,12 +127,12 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
             </div>
             <button type="button" className="jv-list-row" onClick={() => setSection("activity")}>
               <span className="jv-row-icon"><HistoryIcon/></span>
-              <span className="jv-row-text"><strong>{t("bot.activity")}</strong><span>{t("bot.activityHint")}</span></span>
+              <span className="jv-row-text"><strong>{t("bot.activity")}</strong></span>
               <ChevronRightIcon className="jv-row-chevron"/>
             </button>
             <button type="button" className="jv-list-row" onClick={() => setSection("usage")}>
               <span className="jv-row-icon"><ChartColumnIcon/></span>
-              <span className="jv-row-text"><strong>{t("usage.title")}</strong><span>{t("bot.usageHint")}</span></span>
+              <span className="jv-row-text"><strong>{t("usage.title")}</strong></span>
               <ChevronRightIcon className="jv-row-chevron"/>
             </button>
           </div>

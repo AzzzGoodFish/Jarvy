@@ -20,9 +20,9 @@ export function ModelSettings({ connections, onChanged }: { connections: ModelCo
   if (page === "editor") return <ProviderEditor key={revision} connection={connections.find(item => item.id === id)} preset={preset} defaultName={defaultName} saved={revision > 0}
     onBack={back} onChanged={onChanged} onConnected={async connectedId => { await onChanged(); setId(connectedId); setPreset(undefined); }} onSaved={async savedId => { await onChanged(); setId(savedId); setPreset(undefined); setRevision(value => value + 1); }}/>;
   return <div className="jv-page">
-    <header className="jv-page-header"><div><h2>{t("settings.models")}</h2><p>{t("models.intro")}</p></div>
+    <header className="jv-page-header"><h2>{t("settings.models")}</h2>
       <Button className="jv-primary" onClick={() => setPage("choose")}><PlusIcon/>{t("models.add")}</Button></header>
-    {!connections.length && <div className="jv-empty"><strong>{t("models.empty")}</strong><span>{t("models.emptyHint")}</span></div>}
+    {!connections.length && <div className="jv-empty"><strong>{t("models.empty")}</strong></div>}
     {GROUPS.filter(category => connections.some(item => group(item) === category.id)).map(({ id, label }) => <section className="jv-section" key={id} aria-label={t(label)}>
       <h3 className="jv-section-title">{t(label)}</h3>
       <div className="jv-list">{connections.filter(item => group(item) === id).map(connection => {
