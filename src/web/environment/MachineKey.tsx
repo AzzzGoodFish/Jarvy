@@ -20,7 +20,7 @@ export function MachineKeyLine({ publicKey }: { publicKey: string }) {
   </div>;
 }
 
-/** A key made for a machine not added yet, fetched once the owner picks「我自己加公钥」 and kept while the form is open. */
+/** A key made for a machine not added yet, fetched once the owner picks 公钥 and kept while the form is open. */
 export function usePreparedKey(wanted: boolean) {
   const [key, setKey] = useState<{ keyId: string; publicKey: string } | null>(null), [error, setError] = useState<string | null>(null);
   useEffect(() => {
