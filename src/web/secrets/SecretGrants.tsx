@@ -5,7 +5,7 @@ import { t } from "../i18n";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { errorText } from "../errors";
+import { useAction } from "../action";
 
 /** The Bots that can use a secret (A52). */
 export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots: Bot[]; onChanged: (secret: Secret) => void }) {
@@ -18,17 +18,14 @@ export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots
  * dialog. Removing takes effect at once; it can be added back. */
 export function BotGrants({ grantedIds, onceIds, bots, onGrant }: { grantedIds: string[]; onceIds?: Set<string>; bots: Bot[]; onGrant: (botIds: string[], granted: boolean) => Promise<void> }) {
   const [picking, setPicking] = useState(false), [query, setQuery] = useState(""), [picked, setPicked] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const { busy, error, run: perform } = useAction();
   const granted = grantedIds.map(id => bots.find(bot => bot.id === id)).filter((bot): bot is Bot => !!bot);
   const once = onceIds ?? new Set<string>();
   const candidates = bots.filter(bot => !grantedIds.includes(bot.id));
   const shown = candidates.filter(bot => bot.name.toLowerCase().includes(query.trim().toLowerCase()));
   const close = () => { setPicking(false); setQuery(""); setPicked([]); };
   const toggle = (id: string) => setPicked(list => list.includes(id) ? list.filter(item => item !== id) : [...list, id]);
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true); setError(null);
-    try { await action(); } catch (reason) { setError(errorText(reason)); } finally { setBusy(false); }
-  };
+  const run = (action: () => Promise<void>) => perform("grant", action);
   const add = () => run(async () => { await onGrant(picked, true); close(); });
   return <section className="jv-secret-grants" aria-label={t("secrets.grants")}>
     <div className="jv-secret-grants-head"><h4 className="jv-secret-heading">{t("secrets.grants")}{granted.length > 0 && <span> · {granted.length}</span>}</h4>

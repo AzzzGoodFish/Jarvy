@@ -4,6 +4,7 @@ import { api, type Bot, type Task, type TaskInput } from "../api";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { errorText } from "../errors";
+import { useAction } from "../action";
 import { TaskEditor } from "./TaskEditor";
 import { moment, scheduleText } from "./schedule";
 import "../styles/tasks.css";
@@ -15,9 +16,9 @@ import "../styles/tasks.css";
 export function BotTasks({ bot, runs }: { bot: Bot; runs: string }) {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [open, setOpen] = useState<Task | "new" | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [editorError, setEditorError] = useState("");
+  // The list and the editor each show their own error; either one running makes both wait.
+  const { busy: listBusy, error, setError, run } = useAction(), editor = useAction();
+  const busy = listBusy || editor.busy, editorError = editor.error;
   useEffect(() => {
     let alive = true;
     void api.tasks(bot.id).then(result => { if (alive) setTasks(result.tasks); }).catch(reason => { if (alive) setError(errorText(reason, "tasks.loadFailed")); });
@@ -25,17 +26,11 @@ export function BotTasks({ bot, runs }: { bot: Bot; runs: string }) {
   }, [bot.id, runs]);
   const replace = (task: Task) => setTasks(current => (current ?? []).some(item => item.id === task.id)
     ? current!.map(item => item.id === task.id ? task : item) : [...current ?? [], task]);
-  function show(target: Task | "new") { setError(""); setEditorError(""); setOpen(target); }
+  function show(target: Task | "new") { setError(""); editor.setError(""); setOpen(target); }
   async function save(input: TaskInput) {
-    setBusy(true); setEditorError("");
-    try { replace(open === "new" || !open ? await api.createTask(bot.id, input) : await api.updateTask(bot.id, open.id, input)); setOpen(null); }
-    catch (reason) { setEditorError(errorText(reason, "tasks.saveFailed")); }
-    finally { setBusy(false); }
+    await editor.run("save", async () => { replace(open === "new" || !open ? await api.createTask(bot.id, input) : await api.updateTask(bot.id, open.id, input)); setOpen(null); }, "tasks.saveFailed");
   }
-  async function act(work: () => Promise<void>) {
-    setBusy(true); setError("");
-    try { await work(); } catch (reason) { setError(errorText(reason, "tasks.changeFailed")); } finally { setBusy(false); }
-  }
+  const act = (work: () => Promise<void>) => run("change", work, "tasks.changeFailed");
   const toggle = (task: Task) => act(async () => replace(await api.setTaskOn(bot.id, task.id, task.state !== "active")));
   const remove = (task: Task) => act(async () => {
     await api.deleteTask(bot.id, task.id);

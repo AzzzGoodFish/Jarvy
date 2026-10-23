@@ -6,6 +6,7 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { t } from "./i18n";
 import { errorText } from "./errors";
+import { useAction } from "./action";
 
 export function CredentialLogin({ connection, providerName, authType, ensureConnection, onChanged }: {
   connection?: ModelConnection; providerName: string; authType: ModelConnection["authType"];
@@ -13,8 +14,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
 }) {
   const [state, setState] = useState<CredentialState>({ phase: "idle" });
   const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, setError, run } = useAction();
   const [refresh, setRefresh] = useState(0);
   const initialChoice = useRef<string | undefined>(undefined);
   const connectionId = connection?.id;
@@ -45,10 +45,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
   }, [connectionId, state.phase, refresh]);
   useEffect(() => setValue(""), [state.prompt?.id]);
   async function act(action: () => Promise<CredentialState>) {
-    setBusy(true); setError("");
-    try { const next = await action(); setState(next); if (next.phase !== "running") await onChanged(); }
-    catch (reason) { setError(errorText(reason, "common.failed")); }
-    finally { setBusy(false); }
+    await run("act", async () => { const next = await action(); setState(next); if (next.phase !== "running") await onChanged(); }, "common.failed");
   }
   function start(choice?: string) {
     initialChoice.current = choice;

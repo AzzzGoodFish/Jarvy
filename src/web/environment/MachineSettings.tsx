@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { errorText } from "../errors";
+import { useAction } from "../action";
 import { SecretInput } from "../secrets/SecretInput";
 import { MachineItem } from "./MachineItem";
 import { MachineKeyLine, usePreparedKey, type MachineLogin } from "./MachineKey";
@@ -46,15 +47,12 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
   const [host, setHost] = useState(""), [port, setPort] = useState("22"), [user, setUser] = useState(""), [name, setName] = useState(""), [directory, setDirectory] = useState("");
   const [hostKeys, setHostKeys] = useState<HostKeys | null>(null);
   const [password, setPassword] = useState(""), [visible, setVisible] = useState(false), [login, setLogin] = useState<MachineLogin>("password");
-  const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run: perform } = useAction();
   const prepared = usePreparedKey(!!hostKeys && login === "key");
   const address = { host: host.trim(), port: Number(port) || 22, user: user.trim() };
-  const run = async (work: () => Promise<void>) => {
-    setBusy(true); setError(null);
-    try { await work(); }
-    catch (reason) { if (reason instanceof ApiError && reason.code === "ssh_key_expired") prepared.renew(); setError(errorText(reason)); }
-    finally { setBusy(false); }
-  };
+  const run = (work: () => Promise<void>) => perform("add", async () => {
+    try { await work(); } catch (reason) { if (reason instanceof ApiError && reason.code === "ssh_key_expired") prepared.renew(); throw reason; }
+  });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!hostKeys) void run(async () => setHostKeys(await api.scanMachine(address)));
@@ -81,7 +79,7 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
         <span className="jv-field-hint">{t("machines.fingerprintHint")}</span></div>
       <div className="jv-env-seg jv-machine-login" role="radiogroup" aria-label={t("machines.login")}>
         {(["password", "key"] as const).map(item => <button key={item} type="button" role="radio" aria-checked={login === item} disabled={busy}
-          onClick={() => { setLogin(item); setError(null); }}>{t(item === "password" ? "machines.byPassword" : "machines.byKey")}</button>)}
+          onClick={() => { setLogin(item); setError(""); }}>{t(item === "password" ? "machines.byPassword" : "machines.byKey")}</button>)}
       </div>
       {login === "password" ? <label className="jv-field"><span>{t("machines.password")}</span>
         <SecretInput value={password} visible={visible} onChange={setPassword} onVisible={setVisible} required warnShort={false}/>
@@ -92,7 +90,7 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
     </>}
     {error && <p className="jv-note-error" role="alert">{error}</p>}
     <div className="jv-secret-actions">
-      <Button type="button" variant="ghost" disabled={busy} onClick={() => { if (hostKeys) { setHostKeys(null); setPassword(""); setError(null); } else onCancel(); }}>{t(hostKeys ? "machines.back" : "common.cancel")}</Button>
+      <Button type="button" variant="ghost" disabled={busy} onClick={() => { if (hostKeys) { setHostKeys(null); setPassword(""); setError(""); } else onCancel(); }}>{t(hostKeys ? "machines.back" : "common.cancel")}</Button>
       <Button type="submit" className="jv-primary" disabled={busy || !address.host || !address.user || (!!hostKeys && (login === "key" ? !prepared.key : !password))}>
         {t(!hostKeys ? (busy ? "machines.scanning" : "machines.next") : login === "key" ? (busy ? "machines.verifying" : "machines.verify") : busy ? "machines.connecting" : "machines.connect")}</Button>
     </div>

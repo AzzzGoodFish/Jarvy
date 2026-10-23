@@ -5,6 +5,7 @@ import { Icon, IconButton, Modal } from "../ui";
 import { MemberAvatar } from "./ChannelView";
 import { t } from "../i18n";
 import { errorText } from "../errors";
+import { useAction } from "../action";
 
 /** Add people the usual chat-app way: search, pick one or more, confirm. */
 function MemberPicker({ candidates, bots, busy, onCancel, onConfirm }: {
@@ -35,15 +36,13 @@ function MemberPicker({ candidates, bots, busy, onCancel, onConfirm }: {
 export function AddMembersDialog({ chat, members, bots, onClose, onChanged }: {
   chat: Chat; members: Member[]; bots: Bot[]; onClose: () => void; onChanged: (chat: Chat) => void;
 }) {
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const { busy, error, run } = useAction();
   async function add(picked: string[]) {
-    setBusy(true); setError("");
-    try {
+    await run("add", async () => {
       let saved = chat;
       for (const id of picked) saved = await api.addMember(chat.id, id);
       onChanged(saved); onClose();
-    } catch (reason) { setError(errorText(reason, "dialogs.addFailed")); }
-    finally { setBusy(false); }
+    }, "dialogs.addFailed");
   }
   return <Modal title={t("info.addMembers")} onClose={onClose} className="jv-channel-dialog">
     <MemberPicker candidates={members.filter(member => !chat.memberIds.includes(member.id))} bots={bots} busy={busy} onCancel={onClose} onConfirm={picked => void add(picked)}/>
@@ -58,14 +57,11 @@ export function NewChannelDialog({ sections, members, bots, me, onClose, onSaved
   const ids = useId();
   const [name, setName] = useState(""), [topic, setTopic] = useState(""), [sectionId, setSectionId] = useState<string | null>(null);
   const [memberIds, setMemberIds] = useState<string[]>([me]), [picking, setPicking] = useState(false);
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const { busy, error, run } = useAction();
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!name.trim() || busy) return;
-    setBusy(true); setError("");
-    try { onSaved(await api.createChannel({ name: name.trim(), topic: topic.trim(), sectionId, memberIds: memberIds.filter(id => id !== me) })); }
-    catch (reason) { setError(errorText(reason, "common.saveFailed")); }
-    finally { setBusy(false); }
+    await run("save", async () => onSaved(await api.createChannel({ name: name.trim(), topic: topic.trim(), sectionId, memberIds: memberIds.filter(id => id !== me) })), "common.saveFailed");
   }
   const current = members.filter(member => memberIds.includes(member.id));
   if (picking) return <Modal title={t("info.addMembers")} onClose={onClose} className="jv-channel-dialog">
