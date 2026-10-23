@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Delivery, Urgency } from "../../shared/delivery.js";
 import { ChatError, type ChatHint, type MemberIdentity } from "../../shared/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
+import { transaction } from "./transaction.js";
 
 /** A delivery that is not a message (A41): a mark on the member's message (`detail` = emoji), a new version of a
  * notice / summary (`detail` = version, no message), or for a Bot from the agent service (A48) the request to welcome
@@ -9,12 +10,6 @@ import type { ChatRepository } from "./chat-repository.js";
 export interface BotNotice { id: number; kind: "reaction" | "note" | "onboard" | "change" | "task"; urgency: Urgency; chatId: string; chatTitle: string; chatType: string; messageId: string | null;
   /** Who did it; none for a task, which the scheduler delivers (A58, `detail` = JSON {task, due}). */
   actor: MemberIdentity | null; detail: string; createdAt: number; }
-
-function inTransaction<T>(db: DatabaseSync, work: () => T): T {
-  db.exec("BEGIN IMMEDIATE");
-  try { const result = work(); db.exec("COMMIT"); return result; }
-  catch (error) { db.exec("ROLLBACK"); throw error; }
-}
 
 /** Emoji marks, pins and Bot notices (v15). A mark never interrupts a run; the
  * author of a marked message, when it is a Bot, gets a notice written in the same transaction as the mark. */
@@ -35,7 +30,7 @@ export class InteractionRepository {
     return !!this.db.prepare("SELECT 1 FROM message_reactions WHERE message_id=? AND member_id=? AND emoji=?").get(messageId, actorId, emoji);
   }
   react(actorId: string, messageId: string, emoji: string, on: boolean, deliveries: readonly Delivery[]): { chatId: string; added: boolean } {
-    return inTransaction(this.db, () => {
+    return transaction(this.db, () => {
       const row = this.db.prepare("SELECT chat_id AS chatId FROM messages WHERE id=?").get(messageId) as { chatId: string } | undefined;
       if (!row || !this.chats.canAccess(actorId, row.chatId, true)) throw new ChatError(404, "Message not found");
       if (on) {

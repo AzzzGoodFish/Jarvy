@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { Cipher } from "../vault/cipher.js";
+import { transaction } from "./transaction.js";
 
 export type StoredCredential = { type: "api_key"; key?: string; env?: Record<string, string> }
   | { type: "oauth"; access: string; refresh: string; expires: number; [key: string]: unknown };
@@ -35,8 +36,7 @@ export class CredentialRepository {
   }
   replace(ownerId: string, connectionId: string, prior: string | null, value: StoredCredential): void {
     const next = this.stored(connectionId, value);
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       if (!this.db.prepare("SELECT 1 FROM provider_connections WHERE id=? AND owner_id=?").get(connectionId, ownerId))
         throw new RuntimeFault("connection_missing", "Connection not found", 404);
       const current = this.current(ownerId, connectionId);
@@ -44,8 +44,7 @@ export class CredentialRepository {
       this.db.prepare(`INSERT INTO provider_credentials(connection_id,type,credential_json,updated_at) VALUES(?,?,?,?)
         ON CONFLICT(connection_id) DO UPDATE SET type=excluded.type,credential_json=excluded.credential_json,updated_at=excluded.updated_at`)
         .run(connectionId, value.type, next, Date.now());
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   delete(ownerId: string, connectionId: string): void {
     this.db.prepare("DELETE FROM provider_credentials WHERE connection_id=? AND connection_id IN (SELECT id FROM provider_connections WHERE owner_id=?)").run(connectionId, ownerId);

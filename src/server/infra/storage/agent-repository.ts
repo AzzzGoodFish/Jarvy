@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { AGENT_BOT_ID, BOT_COLORS } from "../../shared/models.js";
 import type { Urgency } from "../../shared/delivery.js";
+import { transaction } from "./transaction.js";
 
 /** The agent Bot's storage (v19, A48): the setup Bot kept in place, the onboarding mark, and deliveries to a Bot that
  * are about no message (the onboarding request, a change the agent made). */
@@ -16,8 +17,7 @@ export class AgentRepository {
       UNION ALL SELECT 1 FROM bots WHERE lower(name)=lower(:name) AND deleted_at IS NULL LIMIT 1`);
     let name = "Jarvy";
     for (let n = 2; taken.get({ name }); n++) name = `Jarvy ${n}`;
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       if (row) this.db.prepare(`UPDATE bots SET deleted_at=NULL,name=?,description='',system_prompt='',connection_id=NULL,model_id='',thinking_level='auto'
         WHERE id=?`).run(name, AGENT_BOT_ID);
       else {
@@ -26,8 +26,7 @@ export class AgentRepository {
           .run(AGENT_BOT_ID, name, Date.now(), this.ownerId(), BOT_COLORS[randomInt(BOT_COLORS.length)]!);
       }
       this.db.prepare("DELETE FROM settings WHERE key='agent_onboarded'").run();
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   /** Records that the owner is being welcomed; false when that already happened, so only one caller asks. */
   markOnboarded(): boolean {
