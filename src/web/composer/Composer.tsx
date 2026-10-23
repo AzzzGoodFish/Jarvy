@@ -15,7 +15,7 @@ const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte
 export function Composer({ chatId, id, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, onSend, onError, onNotice }: {
   chatId: string; id: string; drafts: DraftStore; placeholder: string; disabled?: boolean;
   /** Channel / thread: who can be @-mentioned; picking someone outside the channel invites them. */
-  mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void };
+  mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void; participants?: ReadonlySet<string> };
   /** Used while this chat has no draft yet (a new thread pre-fills its root's sender once). */
   initialText?: string;
   formRef?: RefObject<HTMLFormElement | null>;
@@ -34,7 +34,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   const draft = saved.text ?? initialText ?? "", files = saved.files, quote = saved.quote;
   const setDraft = (value: string) => drafts.update(chatId, { text: value });
   const menu = useMentionMenu({ textarea, value: draft, setValue: setDraft, inside: mention?.inside ?? [], outside: mention?.outside ?? [], bots: mention?.bots ?? [],
-    onInvite: member => mention?.onInvite(member) });
+    onInvite: member => mention?.onInvite(member), participants: mention?.participants });
 
   async function attach(list: File[]) {
     const target = chatId;

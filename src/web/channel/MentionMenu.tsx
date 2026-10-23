@@ -6,10 +6,13 @@ import { MemberAvatar } from "./ChannelView";
 
 /** @-autocomplete for the composer (A37). The menu lists channel members (people and Bots alike); its last row,
  * 「不在本频道中」, opens a side list of everyone else with a search box at the top. Picking someone from there adds
- * them to the channel first. */
-export function useMentionMenu({ textarea, value, setValue, inside, outside, bots, onInvite }: {
+ * them to the channel first. In a thread, the people taking part in it come first under 「线程中」, then the rest of
+ * the channel under 「频道其他成员」; the arrow keys follow that order. */
+export function useMentionMenu({ textarea, value, setValue, inside, outside, bots, onInvite, participants }: {
   textarea: RefObject<HTMLTextAreaElement | null>; value: string; setValue: (value: string) => void;
   inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void;
+  /** In a thread: who takes part in it (wrote in it or was @-ed there), listed first. */
+  participants?: ReadonlySet<string>;
 }) {
   const [query, setQuery] = useState<string | null>(null), [active, setActive] = useState(0);
   /** The side list: its search text and highlighted row; null while closed. */
@@ -22,7 +25,12 @@ export function useMentionMenu({ textarea, value, setValue, inside, outside, bot
     textarea.current.focus(); textarea.current.setSelectionRange(caret.current, caret.current); caret.current = null;
   }, [value, textarea]);
   const has = (member: Member, text: string) => member.name.toLowerCase().includes(text.toLowerCase());
-  const shown = query === null ? [] : inside.filter(member => has(member, query));
+  const matched = query === null ? [] : inside.filter(member => has(member, query));
+  const ours = participants ? matched.filter(member => participants.has(member.id)) : matched;
+  const rest = participants ? matched.filter(member => !participants.has(member.id)) : [];
+  // Group names only when there are two groups to tell apart.
+  const grouped = ours.length > 0 && rest.length > 0;
+  const shown = [...ours, ...rest];
   const others = query === null ? [] : outside.filter(member => has(member, query));
   const found = side ? outside.filter(member => has(member, side.search)) : [];
   const rows = shown.length + (others.length ? 1 : 0);
@@ -73,7 +81,11 @@ export function useMentionMenu({ textarea, value, setValue, inside, outside, bot
   </button>;
   const menu = rows > 0 ? <div ref={box} className="jv-mention-box" data-side={side ? "" : undefined} onBlur={leaves}>
     <div className="ui-popover jv-mention-menu" role="listbox" aria-label={t("mention.menu")}>
-      {shown.map((member, index) => option(member, index === active))}
+      {grouped && <p className="jv-mention-group" aria-hidden="true">{t("mention.inThread")}</p>}
+      {ours.map((member, index) => option(member, index === active))}
+      {grouped && <div className="jv-mention-sep" role="separator"/>}
+      {grouped && <p className="jv-mention-group" aria-hidden="true">{t("mention.inChannel")}</p>}
+      {rest.map((member, index) => option(member, ours.length + index === active))}
       {others.length > 0 && <button type="button" className="ui-menu-item jv-mention-more" aria-haspopup="listbox" aria-expanded={!!side}
         data-active={active === shown.length || undefined} onMouseEnter={() => { setActive(shown.length); openSide(false); }}
         onMouseDown={event => { event.preventDefault(); setActive(shown.length); openSide(true); }}>

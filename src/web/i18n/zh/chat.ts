@@ -108,6 +108,8 @@ export const chat: Part<typeof en> = {
   "info.noSection": "无",
 
   "mention.menu": "提及成员",
+  "mention.inThread": "线程中",
+  "mention.inChannel": "频道其他成员",
   "mention.outside": "不在本频道中",
   "mention.outsideList": "不在本频道中的成员",
   "mention.searchOutside": "搜索不在本频道中的成员",
