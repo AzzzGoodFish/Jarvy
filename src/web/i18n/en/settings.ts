@@ -12,24 +12,18 @@ export const settings = {
   "group.subscription": "Subscription",
   "group.apiKey": "API key",
 
-  "models.intro": "Connect model services; each Bot picks its model from these.",
   "models.add": "Add a provider",
   "models.empty": "No model connection yet",
-  "models.emptyHint": "Add a provider, then a Bot can pick one of its models.",
   "models.count": { one: "{count} model", other: "{count} models" },
   "models.none": "No models yet",
 
-  "picker.intro": "Pick the kind of service; next you enter its credentials and models.",
   "picker.back": "Back to the model page",
   "picker.search": "Search providers",
   "picker.searchPlaceholder": "Search providers…",
-  "picker.customHint": "Any OpenAI / Anthropic / Gemini compatible endpoint",
-  "picker.oauthHint": "Sign in with your account",
   "picker.keyHint": { one: "API key · {count} model", other: "API key · {count} models" },
   "picker.loading": "Loading providers…",
   "picker.retry": "Try again",
   "picker.noMatch": "No provider matches",
-  "picker.noMatchHint": "Try another word.",
 
   "editor.back": "Back to the provider list",
   "editor.delete": "Delete this provider",
@@ -70,7 +64,6 @@ export const settings = {
   "editor.saved": "Saved",
   "editor.saving": "Saving…",
   "editor.save": "Save",
-  "editor.footer": "Ticked models appear in the Bots' model menu once saved.",
 
   "card.defaultProtocol": "The provider's own protocol",
   "card.modelId": "Model ID",

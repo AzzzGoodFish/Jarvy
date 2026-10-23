@@ -50,7 +50,7 @@ export function BotActivity({ botId, botName, onBack, onOpenChat }: {
         <div className="jv-activity-scroll" ref={scroll}>
           {loading ? <p className="jv-activity-state" role="status">{t("activity.loading")}</p>
             : error ? <div className="jv-activity-state"><p role="alert">{error}</p><Button variant="outline" size="sm" onClick={() => setRefresh(n => n + 1)}>{t("common.retry")}</Button></div>
-            : !page.items.length ? <div className="jv-activity-state jv-activity-empty"><p>{t("activity.empty")}</p><span>{t("activity.emptyHint")}</span></div>
+            : !page.items.length ? <div className="jv-activity-state jv-activity-empty"><p>{t("activity.empty")}</p></div>
             : <ActivityTimeline items={page.items} onSelect={select}/>}
         </div>
         <div className="jv-activity-pagination">

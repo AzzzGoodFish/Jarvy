@@ -4,10 +4,8 @@ import type { machines as en } from "../en/machines";
 /** 中文：通过 SSH 添加的机器 (A57)。 */
 export const machines: Part<typeof en> = {
   "settings.machines": "工作环境",
-  "machines.intro": "通过 SSH 添加的机器。获得授权的 Bot 可以切换过去，运行命令、读写文件。",
   "machines.add": "添加机器",
   "machines.empty": "还没有机器",
-  "machines.emptyHint": "添加后，再选择哪些 Bot 可以使用。",
   "machines.host": "地址",
   "machines.hostPlaceholder": "192.168.1.20 或 dev.example.com",
   "machines.port": "端口",

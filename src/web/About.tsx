@@ -14,7 +14,7 @@ const LINKS = [
 /** Settings → About: what Jarvy is (the README's one line), its version, and where its code, package and licences are. */
 export function About() {
   return <div className="jv-page">
-    <header className="jv-page-header"><div><h2>{t("settings.about")}</h2></div></header>
+    <header className="jv-page-header"><h2>{t("settings.about")}</h2></header>
     <div className="jv-list">
       <div className="jv-list-row jv-static-row jv-about-intro"><div className="jv-row-text"><strong>Jarvy</strong><span>{t("about.tagline")}</span></div>
         <span className="jv-row-meta">{t("about.version", { version })}</span></div>

@@ -142,7 +142,7 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
         {!fetching && !drafts.length && <div className="jv-empty"><strong>{t("editor.empty")}</strong><span>{t(custom ? "editor.emptyCustom" : "editor.emptyBuiltin")}</span></div>}
       </section>
     </div>
-    <footer className="jv-editor-footer"><div aria-live="polite">{error ? <p role="alert">{error}</p> : notice ? <p role="status">{notice}</p> : <p>{t("editor.footer")}</p>}</div>
+    <footer className="jv-editor-footer"><div aria-live="polite">{error ? <p role="alert">{error}</p> : notice ? <p role="status">{notice}</p> : null}</div>
       <Button type="submit" className="jv-primary" disabled={busy || fetching || pending}>{t(busy ? "editor.saving" : "editor.save")}</Button></footer>
   </form>;
 }

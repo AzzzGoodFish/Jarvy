@@ -1,11 +1,8 @@
 /** English: Settings → Secrets (A52). A part of the reference dictionary (./index.ts). */
 export const secrets = {
-  "secrets.intro": "Tokens and passwords your Bots need for their work. Values are encrypted and aren't shown again after saving. A Bot you grant a secret uses it through a placeholder and never sees the value.",
   "secrets.add": "Add secret",
   "secrets.empty": "No secrets yet",
-  "secrets.emptyHint": "Add a token or password, then choose which Bots can use it.",
   "secrets.name": "Name",
-  "secrets.nameHint": "Capital letters, digits and underscores, starting with a letter. Bots refer to the secret by this name.",
   "secrets.description": "Description",
   "secrets.descriptionPlaceholder": "Optional, such as what it's for",
   "secrets.value": "Value",
@@ -44,7 +41,7 @@ export const secrets = {
   "secrets.deleteConfirm": "Delete",
   "secrets.masterKey": "Master key",
   "secrets.keyFile": "Location",
-  "secrets.keyHint": "Secrets, model API keys and the HTTPS certificate are encrypted with the master key. It isn't in the data directory, so copy this file too when you back up or move Jarvy. Without it, secrets and API keys must be entered again, and a new HTTPS certificate is made that your other devices need to install again.",
+  "secrets.keyHint": "Copy this file too when you back up or move Jarvy; without it, secrets and API keys must be entered again.",
   "secretCard.title": "Request to use the secret {name}",
   "secretCard.valuePlaceholder": "Paste or type the value",
   "secretCard.insecure": "This connection isn't encrypted, so others on the same network could see the value. Switch to HTTPS before entering it.",

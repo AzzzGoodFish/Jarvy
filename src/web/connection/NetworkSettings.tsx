@@ -17,7 +17,7 @@ export function NetworkSettings() {
   const [failed, setFailed] = useState(false);
   useEffect(() => { void api.connection().then(setInfo).catch(() => setFailed(true)); }, []);
   const page = (body: ReactNode) => <div className="jv-page">
-    <header className="jv-page-header"><div><h2>{t("settings.network")}</h2></div></header>
+    <header className="jv-page-header"><h2>{t("settings.network")}</h2></header>
     <section className="jv-section" aria-labelledby="network-lan"><h3 id="network-lan" className="jv-section-title">{t("connection.lan")}</h3>{body}</section>
     {failed && <p className="jv-note-error" role="alert">{t("common.failed")}</p>}
   </div>;
@@ -30,7 +30,6 @@ export function NetworkSettings() {
     try { setInfo(await api.setConnection(!info.allowHttp)); } catch { setFailed(true); } finally { setBusy(false); }
   };
   return page(<>
-    <p className="jv-hint jv-conn-intro">{t("connection.lanHint")}</p>
     <div className="jv-list" role="group" aria-label={t("connection.addresses")}>
       {info.addresses.map(address => <div key={address} className="jv-list-row jv-static-row">
         <span className="jv-row-text"><code>{address}</code></span>
@@ -40,7 +39,7 @@ export function NetworkSettings() {
     </div>
     <div className="jv-list jv-conn-cert">
       <div className="jv-list-row jv-static-row jv-conn-root">
-        <span className="jv-row-text"><strong>{t("connection.root")}</strong><span>{t("connection.rootHint")}</span></span>
+        <span className="jv-row-text"><strong>{t("connection.root")}</strong></span>
         {/* A plain link: iOS offers to install a certificate it navigates to, and saves one marked for download. */}
         <Button asChild variant="outline" size="sm"><a href="/api/connection/root.crt"><DownloadIcon/>{t("connection.download")}</a></Button>
       </div>

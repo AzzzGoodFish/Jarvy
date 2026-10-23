@@ -38,7 +38,6 @@
 .jv-activity-state p { margin:0 0 12px; }
 .jv-activity-state [role=alert] { color:var(--jv-danger); }
 .jv-activity-empty { text-align:center; padding:64px 16px; position:relative; }
-.jv-activity-empty span { font-size:11px; color:var(--jv-dim); }
 .jv-activity-message-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 24px; border-bottom:1px solid var(--jv-line); }
 .jv-activity-message-head h3 { margin:0; font-size:13px; font-weight:600; }
 .jv-activity-message-head p { margin:6px 0 0; font-size:11px; color:var(--jv-muted); }

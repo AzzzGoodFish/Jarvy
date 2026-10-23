@@ -1,10 +1,8 @@
 /** English: machines the owner adds over SSH (A57) — Settings, a Bot's request card and Bot info. A part of the reference dictionary (./index.ts). */
 export const machines = {
   "settings.machines": "Environments",
-  "machines.intro": "Machines added over SSH. A Bot you allow can switch to one and run commands and edit files there.",
   "machines.add": "Add machine",
   "machines.empty": "No machines yet",
-  "machines.emptyHint": "Add one, then choose which Bots may use it.",
   "machines.host": "Host",
   "machines.hostPlaceholder": "192.168.1.20 or dev.example.com",
   "machines.port": "Port",

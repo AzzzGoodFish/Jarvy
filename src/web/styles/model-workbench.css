@@ -69,10 +69,8 @@
 .jv-page { height: 100%; overflow-y: auto; padding: 28px 32px 36px; display: flex; flex-direction: column; gap: 24px; }
 /* Scroll columns: children keep their size instead of flex-shrinking (search box collapsed). */
 :is(.jv-page, .jv-editor-scroll, .jv-bot-scroll) > * { flex-shrink: 0; }
-.jv-page-header { display: flex; align-items: flex-start; gap: 12px; padding-right: 36px; }
-.jv-page-header > div { flex: 1; min-width: 0; display: grid; gap: 4px; }
-.jv-page-header h2 { font-size: 17px; font-weight: 600; line-height: 1.35; }
-.jv-page-header p { font-size: 13px; color: var(--jv-muted); text-wrap: pretty; }
+.jv-page-header { display: flex; align-items: center; gap: 12px; min-height: 32px; padding-right: 36px; }
+.jv-page-header h2 { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 1.35; }
 .jv-back { margin-left: -6px; }
 .jv-section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .jv-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

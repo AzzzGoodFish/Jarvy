@@ -24,12 +24,12 @@ export function MachineSettings() {
   }, []);
   const changed = (machine: SshMachine) => setMachines(list => list && list.map(item => item.id === machine.id ? machine : item));
   return <div className="jv-page">
-    <header className="jv-page-header"><div><h2>{t("settings.machines")}</h2><p>{t("machines.intro")}</p></div>
+    <header className="jv-page-header"><h2>{t("settings.machines")}</h2>
       {!adding && <Button className="jv-primary" onClick={() => setAdding(true)}><PlusIcon/>{t("machines.add")}</Button>}</header>
     {adding && <MachineForm onCancel={() => setAdding(false)} onSaved={machine => {
       setAdding(false); setMachines(list => [...(list ?? []), machine]); setOpen(machine.id);
     }}/>}
-    {machines && !machines.length && !adding && <div className="jv-empty"><strong>{t("machines.empty")}</strong><span>{t("machines.emptyHint")}</span></div>}
+    {machines && !machines.length && !adding && <div className="jv-empty"><strong>{t("machines.empty")}</strong></div>}
     {machines && machines.length > 0 && <section className="jv-section" aria-label={t("settings.machines")}><div className="jv-list">
       {machines.map(machine => <MachineItem key={machine.id} machine={machine} bots={bots} open={open === machine.id}
         onToggle={() => setOpen(open === machine.id ? null : machine.id)} onChanged={changed}

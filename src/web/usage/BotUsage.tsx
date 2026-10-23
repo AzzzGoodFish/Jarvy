@@ -70,7 +70,7 @@ export function BotUsage({ botId, botName, onBack }: { botId: string; botName: s
                 <td data-label={t("usage.cost")} className={priced.length ? undefined : "jv-usage-unpriced"}>{totalCost}</td>
               </tr></tfoot>}
             </table>
-            <p className="jv-usage-note">{t(priced.length > 0 && priced.length < models.length ? "usage.notePartial" : "usage.note")}</p>
+            {priced.length > 0 && priced.length < models.length && <p className="jv-usage-note">{t("usage.notePartial")}</p>}
           </>}
       </div>
     </div>

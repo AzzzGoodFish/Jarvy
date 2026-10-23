@@ -11,7 +11,7 @@ export function General() {
   const option = (key: string, label: string, on: boolean, pick: () => void, lang?: string) => <button key={key} type="button" role="radio" aria-checked={on} lang={lang}
     className="jv-list-row jv-choice-row" onClick={pick}><span className="jv-row-text"><strong>{label}</strong></span>{on && <CheckIcon aria-hidden="true"/>}</button>;
   return <div className="jv-page">
-    <header className="jv-page-header"><div><h2>{t("settings.general")}</h2></div></header>
+    <header className="jv-page-header"><h2>{t("settings.general")}</h2></header>
     <section className="jv-section" aria-labelledby="general-language"><h3 id="general-language" className="jv-section-title">{t("general.language")}</h3>
       <div className="jv-list" role="radiogroup" aria-labelledby="general-language">
         {LOCALES.map(locale => option(locale, localeLabel(locale, "name"), getLocale() === locale, () => setLocale(locale), locale))}</div></section>
