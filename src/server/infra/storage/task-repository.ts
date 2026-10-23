@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { ValidationError } from "../../shared/errors.js";
 import { nextAfter, type Task, type TaskSchedule, type TaskState } from "../../shared/task.js";
+import { transaction } from "./transaction.js";
 
 type Row = { id: string; bot_id: string; name: string; instruction: string; schedule_kind: TaskSchedule["kind"];
   schedule_at: number | null; schedule_minutes: number | null; schedule_hour: number | null; schedule_minute: number | null; schedule_weekday: number | null;
@@ -103,8 +104,7 @@ export class TaskRepository {
   fire(dms: ReadonlyMap<string, string>, now = Date.now()): { taskId: string; botId: string; chatId: string; at: number }[] {
     const due = this.due(now).filter(row => dms.has(row.bot_id));
     if (!due.length) return [];
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    return transaction(this.db, () => {
       const fired: { taskId: string; botId: string; chatId: string; at: number }[] = [];
       for (const row of due) {
         const at = row.next_run_at!, next = nextAfter(scheduleOf(row), now);
@@ -113,9 +113,8 @@ export class TaskRepository {
           .run(row.bot_id, dms.get(row.bot_id)!, JSON.stringify({ task: row.id, due: at }), now);
         fired.push({ taskId: row.id, botId: row.bot_id, chatId: dms.get(row.bot_id)!, at });
       }
-      this.db.exec("COMMIT");
       return fired;
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   /** At start: tasks whose time passed while the server was not running move on to their next time; a one-off already
    * past is done without running. Returns how many were skipped. */

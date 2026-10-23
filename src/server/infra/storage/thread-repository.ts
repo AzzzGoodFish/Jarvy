@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { ChatError, type ThreadInfo } from "../../shared/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 import { previewQuotes } from "../../shared/quotes.js";
+import { transaction } from "./transaction.js";
 
 /** Default thread title: the root's first line without its leading @mentions or Markdown marks (A37); for a root
  * with no text, its first file's name (A45: stored titles carry no interface words). */
@@ -26,8 +27,7 @@ export class ThreadRepository {
 
   /** The thread of a channel message, created on first use; whoever opens it and the root's author follow it. */
   open(actorId: string, rootMessageId: string, names: readonly string[]): string {
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    return transaction(this.db, () => {
       const root = this.db.prepare(`SELECT m.chat_id AS chatId,m.content,m.sender_id AS senderId,c.type,c.owner_id AS ownerId FROM messages m JOIN chats c ON c.id=m.chat_id
         WHERE m.id=?`).get(rootMessageId) as { chatId: string; content: string; senderId: string; type: string; ownerId: string } | undefined;
       if (!root || !this.chats.canAccess(actorId, root.chatId, true)) throw new ChatError(404, "Message not found");
@@ -43,9 +43,8 @@ export class ThreadRepository {
         // The root's author follows too, so replies to their message reach their followed threads (if still in the channel).
         if (root.senderId !== actorId && this.chats.canAccess(root.senderId, root.chatId)) this.follow(root.senderId, id);
       }
-      this.db.exec("COMMIT");
       return id;
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   /** Starting, replying and being @-mentioned follow a thread (no transaction of its own). */
   follow(memberId: string, threadId: string): void {

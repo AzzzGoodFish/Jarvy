@@ -3,13 +3,9 @@ import type { Delivery } from "../../shared/delivery.js";
 import type { DatabaseSync } from "node:sqlite";
 import { ChatError, type ChatNote, type MemberIdentity, type Section } from "../../shared/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
+import { transaction } from "./transaction.js";
 
 const SECTION_COLUMNS = "id,name,position,created_at AS createdAt,updated_at AS updatedAt";
-function inTransaction<T>(db: DatabaseSync, work: () => T): T {
-  db.exec("BEGIN IMMEDIATE");
-  try { const result = work(); db.exec("COMMIT"); return result; }
-  catch (error) { db.exec("ROLLBACK"); throw error; }
-}
 
 /** Sections, channels, notes and read positions (A37). Callers validate text; access is checked here. */
 export class ChannelRepository {
@@ -67,7 +63,7 @@ export class ChannelRepository {
     const members = [...new Set([ownerId, ...input.memberIds])];
     if (members.some(id => !allowed.has(id))) throw new ChatError(400, "Invalid channel members");
     const id = randomUUID(), now = Date.now();
-    return inTransaction(this.db, () => {
+    return transaction(this.db, () => {
       this.db.prepare("INSERT INTO chats(id,type,title,owner_id,created_at,updated_at,section_id,topic) VALUES(?,'channel',?,?,?,?,?,?)")
         .run(id, input.name, ownerId, now, now, input.sectionId, input.topic);
       for (const memberId of members) {
@@ -88,7 +84,7 @@ export class ChannelRepository {
     this.assertChannelOwner(ownerId, chatId);
     if (!this.directory(ownerId).some(member => member.id === memberId)) throw new ChatError(404, "Member not found");
     if (this.db.prepare("SELECT 1 FROM chat_members WHERE chat_id=? AND member_id=?").get(chatId, memberId)) return;
-    inTransaction(this.db, () => this.chats.addMember(ownerId, chatId, memberId, true, true));
+    transaction(this.db, () => this.chats.addMember(ownerId, chatId, memberId, true, true));
   }
   /** The owner stays; pending @s to a removed Bot are cancelled when it next claims its queue. */
   removeMember(ownerId: string, chatId: string, memberId: string): void {
@@ -117,7 +113,7 @@ export class ChannelRepository {
     const type = (this.db.prepare("SELECT type FROM chats WHERE id=?").get(chatId) as { type: string }).type;
     if (type === "dm") throw new ChatError(400, "Direct messages have no notice");
     const now = Date.now();
-    inTransaction(this.db, () => {
+    transaction(this.db, () => {
       this.db.prepare(`INSERT INTO chat_notes(chat_id,text,updated_by,updated_at,version) VALUES(?,?,?,?,1)
         ON CONFLICT(chat_id) DO UPDATE SET text=excluded.text,updated_by=excluded.updated_by,updated_at=excluded.updated_at,version=version+1`).run(chatId, text, actorId, now);
       this.db.prepare("UPDATE chats SET updated_at=? WHERE id=?").run(now, chatId);
@@ -154,7 +150,7 @@ export class ChannelRepository {
     this.chats.assertAccess(memberId, chatId);
     const type = (this.db.prepare("SELECT type FROM chats WHERE id=?").get(chatId) as { type: string }).type;
     if (type === "dm") throw new ChatError(400, "Only channels and threads can be subscribed");
-    inTransaction(this.db, () => {
+    transaction(this.db, () => {
       if (type === "thread" && subscribed && !this.chats.threads.isFollowing(memberId, chatId)) this.chats.threads.setFollowing(memberId, chatId, true);
       this.db.prepare(`INSERT INTO chat_states(chat_id,member_id,subscribed) VALUES(?,?,?)
         ON CONFLICT(chat_id,member_id) DO UPDATE SET subscribed=excluded.subscribed`).run(chatId, memberId, subscribed ? 1 : 0);

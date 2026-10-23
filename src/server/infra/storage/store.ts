@@ -18,6 +18,7 @@ import { TaskRepository } from "./task-repository.js";
 import { Cipher } from "../vault/cipher.js";
 import { masterKey } from "../vault/master-key.js";
 import type { ModelSelection } from "../../shared/runtime.js";
+import { transaction } from "./transaction.js";
 
 export const defaultDataDir = () => process.env.JARVY_DATA_DIR || join(homedir(), ".jarvy");
 export const DATABASE_FILENAME = "jarvy.db";
@@ -137,12 +138,10 @@ export class Store {
     if (typeof password !== "string" || password.length < 8 || password.length > 256) throw new ValidationError("Password must be 8-256 characters");
     const salt = randomBytes(16).toString("hex");
     const digest = passwordHash(password, salt);
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       if (this.isInitialized()) throw new ConflictError("Account is already initialized");
       this.db.prepare("INSERT INTO account(id,username,password_salt,password_hash,member_id) VALUES(1,?,?,?,?)").run(name, salt, digest, this.userMemberId());
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   login(username: unknown, password: unknown): string | null {
     const row = this.db.prepare("SELECT username,password_salt,password_hash FROM account WHERE id=1").get() as
@@ -188,8 +187,7 @@ export class Store {
    * author, and its name is free again. Files are the caller's (BotService). */
   deleteBot(id: string): boolean {
     if (!this.getBot(id)) return false;
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       // A deleted Bot uses no connection, so the owner can delete the one it had.
       this.db.prepare("UPDATE bots SET deleted_at=?, connection_id=NULL WHERE id=?").run(Date.now(), id);
       this.db.prepare("DELETE FROM chats WHERE type='dm' AND id IN (SELECT chat_id FROM chat_members WHERE member_id=?)").run(id);
@@ -197,8 +195,7 @@ export class Store {
       this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM secret_grants WHERE bot_id=?").run(id);
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
     return true;
   }
   private botName(value: unknown, exceptBotId?: string): string {
@@ -211,13 +208,11 @@ export class Store {
   createBot(name: unknown): Bot {
     const clean = this.botName(name);
     const id = randomUUID(), createdAt = Date.now();
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       this.db.prepare("INSERT INTO members VALUES(?,'bot')").run(id);
       this.db.prepare("INSERT INTO bots(id,name,description,system_prompt,model_id,created_at,owner_id,thinking_level,color) VALUES(?,?,?,?,?,?,?,'auto',?)")
         .run(id, clean, "", "", "", createdAt, this.userMemberId(), BOT_COLORS[randomInt(BOT_COLORS.length)]!);
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
     return this.getBot(id)!;
   }
   updateBot(id: string, input: Record<string, unknown>): Bot | null {
@@ -269,14 +264,12 @@ export class Store {
     const key = input.apiKey === undefined ? null : requireText(input.apiKey, "API Key", 8192);
     if (key && authType !== "api_key") throw new ValidationError("Invalid credential type");
     const id = randomUUID(), now = Date.now();
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       this.db.prepare("INSERT INTO provider_connections(id,provider_name,display_name,kind,auth_type,base_url,api,created_at,updated_at,owner_id) VALUES(?,?,?,?,?,?,?,?,?,?)")
         .run(id, providerName, displayName, kind, authType, baseUrl, api, now, now, this.userMemberId());
       if (key) this.db.prepare("INSERT INTO provider_credentials(connection_id,type,credential_json,updated_at) VALUES(?,'api_key',?,?)")
         .run(id, this.credentials.stored(id, { type: "api_key", key }), now);
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
     return this.getModelConnection(id)!;
   }
   private checkCustomName(name: string, except = ""): void {
@@ -302,13 +295,11 @@ export class Store {
     if (!this.getModelConnection(id)) return false;
     const users = (this.db.prepare("SELECT name FROM bots WHERE connection_id=? AND deleted_at IS NULL ORDER BY name").all(id) as { name: string }[]).map(row => row.name);
     if (users.length) throw new ConflictError(`In use by ${users.join(", ")}`, "connection_in_use", { bots: users.join(", "), count: users.length });
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    return transaction(this.db, () => {
       this.db.prepare("UPDATE bots SET connection_id=NULL WHERE connection_id=? AND deleted_at IS NOT NULL").run(id);
       const deleted = Number(this.db.prepare("DELETE FROM provider_connections WHERE id=?").run(id).changes) > 0;
-      this.db.exec("COMMIT");
       return deleted;
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   saveModelCredential(id: string, input: Record<string, unknown>): ModelConnection | null {
     const connection = this.getModelConnection(id);
@@ -344,8 +335,7 @@ export class Store {
     const literalHeaders: Record<string, string> = {};
     headers.forEach((value, name) => { literalHeaders[name] = value; });
     const stored = { ...model, headers: literalHeaders };
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       if (originalId && originalId !== model.id) {
         if (!this.db.prepare("SELECT 1 FROM connection_models WHERE connection_id=? AND model_id=?").get(id, originalId)) throw new ConflictError("Original model not found");
         if (this.db.prepare("SELECT 1 FROM connection_models WHERE connection_id=? AND model_id=?").get(id, model.id)) throw new ConflictError("Model ID already exists");
@@ -355,8 +345,7 @@ export class Store {
       } else this.db.prepare(`INSERT INTO connection_models(connection_id,model_id,config_json,created_at,updated_at) VALUES(?,?,?,?,?)
         ON CONFLICT(connection_id,model_id) DO UPDATE SET config_json=excluded.config_json,updated_at=excluded.updated_at`)
         .run(id, model.id, JSON.stringify(stored), now, now);
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
     return this.getModelConnection(id);
   }
   deleteConnectionModel(id: string, modelId: string): ModelConnection | null {
