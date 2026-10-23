@@ -45,6 +45,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `notices` | reactions to the Bot's messages, quoting the marked message, with a fixed note |
 | `changes` | what the agent Bot changed about this Bot (A48), or the owner about where it works (A50): one `change` per field — the DM with whoever changed it, who, which field, when, and the new value (none for a persona; that change comes as `instructions_changed`) — with a fixed note for each. The owner's fields are `environment` (where its tools run now and the directory there) and `access` (an environment granted or taken back; `environments.switch` can take it to those granted) |
 | `instructions_changed` | the Bot's system prompt changed since the newest version its model knows (A56), told once: `parts` names the changed parts; the text has each part as `@@ name` and its lines (`-` removed, `+` added, two lines of context, `…` between changes), at most 40 lines, or the changed parts' new text when the diff is longer; at most 8000 characters. A fixed note says to follow the new version and that the system prompt itself is updated after the next compaction |
+| `tasks` | the Bot's scheduled tasks that are due (A58), first in the tail: one `task` each with its `id`, `name`, the schedule in words (`schedule`), `due` and the instruction as text, and a fixed note saying they are its own tasks, not messages, and that what is worth sending goes to its owner unless the task says where |
 | `onboard` | to the agent Bot only, once (A48): the owner has just given it a model; its note asks for a welcome in the owner's interface language, in the DM it names |
 | `unread` | the Bot's unread counts; chats not defined above carry `title` and `type` |
 | `environment` | where the Bot's file and command tools run now (A50): the environment's name and the directory they start in. Last in every batch, so the system prompt need not change when the Bot switches |
@@ -65,7 +66,7 @@ The source ID is left out when that message is gone; a passage over 200 characte
 Queued deliveries steered into a running turn, or forming a turn of their own when the Bot was idle, use the same shape without messages:
 
 ```xml
-<notice_batch bot="bot_2"><chat …/><member …/><updates>…</updates><notices>…</notices><changes>…</changes><environment …/></notice_batch>
+<notice_batch bot="bot_2"><chat …/><member …/><tasks>…</tasks><updates>…</updates><notices>…</notices><changes>…</changes><environment …/></notice_batch>
 ```
 
 ## Rules

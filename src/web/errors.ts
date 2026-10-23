@@ -25,6 +25,8 @@ const ERROR_KEYS: Record<string, Key> = {
   secret_name_taken: "error.secretNameTaken", secret_value_missing: "error.secretValueMissing", secret_value_too_long: "error.secretValueTooLong",
   runtime_failed: "error.runtimeFailed", session_corrupt: "error.sessionCorrupt", session_mismatch: "error.sessionMismatch",
   session_missing: "error.sessionMissing", session_path: "error.sessionPath", stopping: "error.stopping",
+  task_invalid: "error.taskInvalid",
+  task_schedule_invalid: "error.taskScheduleInvalid", task_time_past: "error.taskTimePast",
   thinking_format: "error.thinkingFormat", tools_missing: "error.toolsMissing", unsafe_replay: "error.unsafeReplay",
 };
 const worded = (code: string | null | undefined, params?: Record<string, string | number>) => {
