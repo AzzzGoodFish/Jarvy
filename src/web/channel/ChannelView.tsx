@@ -6,6 +6,7 @@ import { QuestionCard } from "../question/QuestionCard";
 import { Icon, IconButton, Markdown } from "../ui";
 import { MessageText } from "./quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "./MessageActions";
+import { FoldedLine, LongText, useUnfolded } from "./fold";
 import { memberName } from "../members";
 import { formatDate, t } from "../i18n";
 import { Clock, DayDivider, shortTime, startsDay, startsGroup } from "./days";
@@ -77,7 +78,7 @@ export function NoticeBar({ chat, onSave }: { chat: Chat; onSave: (text: string)
 /** Flat, Slack-style rows for channels; consecutive lines from one sender within 5 minutes fold together, and each day
  * opens with a divider. Only the @s that notified someone (stored with the message) are highlighted. `before` is the
  * time of the message shown just above the list (a thread's root), so its day doesn't repeat. */
-export function ChannelMessages({ messages, members, bots, me, divider, before, activeQuestion, onSettled, onPreview, onReply, onOpenThread, onQuote, onReact, onJump, onError }: {
+export function ChannelMessages({ messages, members, bots, me, divider, before, activeQuestion, onSettled, onPreview, onReply, onOpenThread, onQuote, onReact, onFold, onJump, onError }: {
   messages: ChatMessage[]; members: Member[]; bots: Bot[]; me: string; divider: number; before?: number; activeQuestion?: string;
   onSettled: (message: ChatMessage) => void; onPreview: (files: Attachment[], index: number) => void;
   /** Channels: reply in the message's thread (opened on first use). Not given inside a thread. */
@@ -87,28 +88,34 @@ export function ChannelMessages({ messages, members, bots, me, divider, before, 
   onQuote?: (message: ChatMessage) => void;
   /** Add or remove an emoji mark. */
   onReact?: (message: ChatMessage, emoji: string, on: boolean) => void;
+  /** Fold a message to one line, or unfold it (A60). */
+  onFold?: (message: ChatMessage, folded: boolean) => void;
   /** Jump to the message a reply quotes, or to a partial quote's source (null: gone) and its passage. */
   onJump?: (id: string | null, passage?: string) => void;
   onError?: (error: unknown) => void;
 }) {
-  const firstNew = messages.find(message => message.sequence > divider && message.senderId !== me)?.id;
+  const firstNew = messages.find(message => message.sequence > divider && message.senderId !== me)?.id, unfolded = useUnfolded();
   return <>{messages.map((message, index) => {
     const previous = messages[index - 1], member = members.find(item => item.id === message.senderId);
     const earlier = previous?.createdAt ?? before;
     const folded = !startsGroup(message, previous, earlier) && message.id !== firstNew;
+    // Folded to one line (A60); the thread link stays.
+    const shut = message.folded;
     return <div key={message.id}>
       {startsDay(message.createdAt, earlier) && <DayDivider time={message.createdAt}/>}
       {message.id === firstNew && <div className="jv-divider" role="separator"><span>{t("chat.newBelow")}</span></div>}
-      <div className="jv-row" tabIndex={-1} data-message={message.id} data-folded={folded || undefined} data-mention={message.mentions.includes(me) || undefined}>
+      <div className="jv-row" tabIndex={-1} data-message={message.id} data-folded={folded || undefined} data-mention={message.mentions.includes(me) || undefined} data-shut={shut || undefined}>
         <div className="jv-row-gutter">{folded ? <Clock time={message.createdAt} className="jv-row-time"/> : <MemberAvatar member={member} bots={bots} size={32}/>}</div>
         <div className="jv-row-body">
           {!folded && <div className="jv-row-head"><strong>{memberName(member)}</strong>{member?.kind === "bot" && <span className="jv-role">Bot</span>}<Clock time={message.createdAt}/></div>}
+          {shut ? <FoldedLine message={message}/> : <>
           {message.echoOf && <button type="button" className="jv-echo" onClick={() => onOpenThread?.(message.echoOf!.id)}>{t("channel.echo", { title: message.echoOf.title })}</button>}
           {message.replyTo && <ReplyQuote message={message} members={members} onJump={id => onJump?.(id)}/>}
           {message.question ? <QuestionCard message={{ ...message, question: message.question }} keyboard={message.id === activeQuestion} onSettled={onSettled}/>
-            : <div className="ui-bubble jv-flat">{message.content && <MessageText message={message} members={members} me={me} onJump={onJump}/>}
+            : <div className="ui-bubble jv-flat">{message.content && <LongText whole={unfolded.has(message.id)}><MessageText message={message} members={members} me={me} onJump={onJump}/></LongText>}
               {message.attachments.length > 0 && <FileCards files={message.attachments} onOpen={file => onPreview(message.attachments, file)}/>}</div>}
           {onReact && <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError ?? (() => {})}/>}
+          </>}
           {message.thread && message.thread.replies > 0 && <button type="button" className="jv-thread-link" data-done={message.thread.status === "done" || undefined}
             onClick={() => onOpenThread?.(message.thread!.id)}>{t("channel.replies", { count: message.thread.replies })}{message.thread.status === "done" && ` · ${t("channel.threadDone")}`}
             {message.thread.lastReplyAt && <span className="jv-muted">{t("channel.lastReply", { time: shortTime(message.thread.lastReplyAt) })}</span>}</button>}
@@ -116,6 +123,8 @@ export function ChannelMessages({ messages, members, bots, me, divider, before, 
         <div className="jv-row-actions">
           {onReply && !message.echoOf && <IconButton icon="chat-bubble" label={t("channel.replyInThread")} onClick={() => onReply(message)}/>}
           {onReact && <MessageActions message={message} me={me} onReply={onQuote} onReact={onReact} onError={onError ?? (() => {})}/>}
+          {onFold && <IconButton icon={message.folded ? "unfold" : "fold"} label={t(message.folded ? "actions.unfold" : "actions.fold")}
+            onClick={() => { if (message.folded) unfolded.add(message.id); onFold(message, !message.folded); }}/>}
         </div>
       </div>
     </div>;

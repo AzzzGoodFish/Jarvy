@@ -294,6 +294,12 @@ export function App() {
       setMessages(previous => previous.map(item => item.id === updated.id ? { ...item, reactions: updated.reactions } : item));
     } catch (error) { handleError(error); }
   }
+  async function fold(message: ChatMessage, folded: boolean) {
+    try {
+      const updated = await api.fold(message.id, folded);
+      setMessages(previous => previous.map(item => item.id === updated.id ? { ...item, folded: updated.folded } : item));
+    } catch (error) { handleError(error); }
+  }
   /** The composer's quote bar: part of the quoted message's chat draft. */
   function setReplyFor(message: ChatMessage) { quoteMessage(drafts, message, members); }
   /** A reply's or a partial quote's source (A44): scrolls to it and highlights the passage; null means it is gone. */
@@ -374,7 +380,7 @@ export function App() {
       <ChatMain chat={current} inChannel={inChannel} bots={bots} members={members} meId={meId} drafts={drafts} composeReady={composeReady} botName={botName}
         activeBot={activeBot} status={status} connections={connections} activity={activity} history={history} divider={dividers[current?.id ?? ""] ?? current?.readSequence ?? 0} activeQuestion={activeQuestion}
         pane={pane} onPane={setPane} onToggleInfo={toggleInfo} find={find} onNav={() => setMobileNav(true)} onBot={id => setInfoBotId(id)} hasBotDirects={botDirects.length > 0}
-        onInvite={invite} onQuote={setReplyFor} onReply={message => void replyInThread(message)} onReact={(message, emoji, on) => void react(message, emoji, on)}
+        onInvite={invite} onQuote={setReplyFor} onReply={message => void replyInThread(message)} onReact={(message, emoji, on) => void react(message, emoji, on)} onFold={(message, folded) => void fold(message, folded)}
         onJump={jumpTo} onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))}
         onPreview={(files, index) => setPreview({ files, index })} onSend={sendMain} notice={setNotice}
         onSaveNote={async text => { try { chatSaved(await api.setNote(current!.id, text)); } catch (error) { handleError(error); throw error; } }}

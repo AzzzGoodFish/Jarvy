@@ -97,6 +97,12 @@ export const common = {
   "actions.react": "Add a reaction",
   "actions.pickEmoji": "Pick an emoji",
   "actions.more": "More",
+  "actions.fold": "Fold to one line",
+  "actions.unfold": "Unfold",
+
+  "fold.folded": "Folded",
+  "fold.more": "Show all",
+  "fold.less": "Show less",
 
   "dialogs.candidates": "Members you can add",
   "dialogs.allInside": "Everyone is already in this channel",

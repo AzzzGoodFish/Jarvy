@@ -17,7 +17,7 @@ import type { RefObject } from "react";
 /** The main area: header, notice, transcript, composer and the selection menu (A44). The sidebar, the followed-threads
  * page and the panes are App's. Nothing here holds state of its own. */
 export function ChatMain({ chat, inChannel, bots, members, meId, drafts, composeReady, botName, activeBot, status, connections, activity, history, divider,
-  activeQuestion, pane, onPane, onToggleInfo, find, onNav, onBot, hasBotDirects, onInvite, onQuote, onReply, onReact, onJump, onSettled, onSend, onPreview, onSaveNote,
+  activeQuestion, pane, onPane, onToggleInfo, find, onNav, onBot, hasBotDirects, onInvite, onQuote, onReply, onReact, onFold, onJump, onSettled, onSend, onPreview, onSaveNote,
   notice, createBot, creating, updateBot, onManageModels, error, chatArea, transcript, composeWrap, hidden, onOpenThread }: {
   chat: Chat | undefined; inChannel: boolean; bots: Bot[]; members: Member[]; meId: string; drafts: DraftStore;
   /** A channel takes messages whether or not its Bots have models; a DM needs its Bot's model first. */
@@ -31,6 +31,7 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
   /** A DM whose Bot has DMs with other Bots shows a button for them. */
   hasBotDirects: boolean; onInvite: (channelId: string, member: Member) => void;
   onQuote: (message: ChatMessage) => void; onReply: (message: ChatMessage) => void; onReact: (message: ChatMessage, emoji: string, on: boolean) => void;
+  onFold: (message: ChatMessage, folded: boolean) => void;
   onJump: (id: string | null, passage?: string) => void; onSettled: (message: ChatMessage) => void;
   onSend: (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) => Promise<void>;
   onPreview: (files: ChatMessage["attachments"], index: number) => void;
@@ -63,9 +64,9 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
           {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
           {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={divider} activeQuestion={activeQuestion}
             onSettled={onSettled} onPreview={onPreview} onReply={onReply} onOpenThread={onOpenThread}
-            onQuote={onQuote} onReact={onReact} onJump={onJump} onError={error}/>
+            onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>
           : <DmMessages messages={messages} members={members} me={meId} activeQuestion={activeQuestion} bot={activeBot}
-            onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onJump={onJump} onError={error}/>}
+            onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>}
         </>}
         {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={toLatest} aria-label={t("chat.toLatest")}>
           {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}

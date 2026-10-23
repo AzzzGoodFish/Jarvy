@@ -11,8 +11,8 @@ import { ThreadRepository } from "./thread-repository.js";
 import { InteractionRepository } from "./interaction-repository.js";
 import { QuoteRepository } from "./quote-repository.js";
 import { clipMarked, previewQuotes } from "../../shared/quotes.js";
-type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; };
-const MESSAGE_COLUMNS = "id,chat_id AS chatId,sequence,sender_id AS senderId,content,created_at AS createdAt,history_id AS historyId,tool_call_id AS toolCallId,question,echo_of AS echoOf,reply_to AS replyTo";
+type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; foldedAt: number | null; };
+const MESSAGE_COLUMNS = "id,chat_id AS chatId,sequence,sender_id AS senderId,content,created_at AS createdAt,history_id AS historyId,tool_call_id AS toolCallId,question,echo_of AS echoOf,reply_to AS replyTo,folded_at AS foldedAt";
 const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_at AS createdAt,c.updated_at AS updatedAt,
   c.section_id AS sectionId,c.topic,c.parent_id AS parentId,c.root_message_id AS rootMessageId,c.status,
   (SELECT content FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessage,
@@ -219,7 +219,8 @@ export class ChatRepository {
       mentions: (this.db.prepare("SELECT member_id AS id FROM message_mentions WHERE message_id=? ORDER BY rowid").all(row.id) as { id: string }[]).map(item => item.id),
       thread: this.threads.info(row.id),
       echoOf: row.echoOf === null ? null : { id: row.echoOf, title: (this.db.prepare("SELECT title FROM chats WHERE id=?").get(row.echoOf) as { title: string }).title },
-      replyTo: row.replyTo === null ? null : this.quote(row.replyTo), reactions: this.interactions.reactions(row.id), quotes: this.quotes.of(row.id) };
+      replyTo: row.replyTo === null ? null : this.quote(row.replyTo), reactions: this.interactions.reactions(row.id), quotes: this.quotes.of(row.id),
+      folded: row.foldedAt !== null };
   }
   /** What a reply shows of the message it answers: who wrote it and the start of its content, with its quotes ("" is attachments only). */
   private quote(id: string): ChatMessage["replyTo"] {
@@ -280,7 +281,7 @@ export class ChatRepository {
           this.db.prepare("UPDATE chats SET updated_at=? WHERE id=?").run(createdAt, chat.parentId);
           this.inbox(deliveries.echo, chat.parentId, `m${position + 1}`, actorId, createdAt);
           echo = this.messageFromRow({ id: `m${position + 1}`, chatId: chat.parentId, sequence: echoSequence, senderId: actorId, content: draft.content, createdAt,
-            historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question: null, echoOf: chatId, replyTo: null });
+            historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question: null, echoOf: chatId, replyTo: null, foldedAt: null });
         }
       }
       // The first message names an untitled DM (v18: untitled is ""): its text, or the file it carries.
@@ -288,7 +289,7 @@ export class ChatRepository {
       const title = draft.content ? previewQuotes(draft.content, draft.quotes ?? []).slice(0, 46).replace(/\s+/g, " ") : file?.name.slice(0, 46) ?? "";
       this.db.prepare("UPDATE chats SET title=CASE WHEN title='' AND ?=1 THEN ? ELSE title END,updated_at=? WHERE id=?")
         .run(sequence, title, createdAt, chatId);
-      const message = this.messageFromRow({ id, chatId, sequence, senderId: actorId, content: draft.content, createdAt, historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question, echoOf: null, replyTo: draft.replyTo ?? null });
+      const message = this.messageFromRow({ id, chatId, sequence, senderId: actorId, content: draft.content, createdAt, historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question, echoOf: null, replyTo: draft.replyTo ?? null, foldedAt: null });
       this.db.exec("COMMIT");
       return { message, duplicate: false, ...(echo ? { echo } : {}) };
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }

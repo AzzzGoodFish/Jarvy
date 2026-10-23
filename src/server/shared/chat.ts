@@ -70,6 +70,8 @@ export interface ChatMessage {
   reactions: { emoji: string; memberIds: string[] }[];
   /** Partial quotes, the Nth marked `[[qN]]` in the content (A44). */
   quotes: MessageQuote[];
+  /** The owner folded it to one line in the interface (A60). Only the interface reads it; a Bot's views leave it out. */
+  folded: boolean;
 }
 export interface MessageDraft { content: string; attachmentIds: string[]; clientMessageId?: string; /** Reply to this message (same chat). */ replyTo?: string; }
 /** A partial quote as a sender asks for it: the source message and the passage (A44). */

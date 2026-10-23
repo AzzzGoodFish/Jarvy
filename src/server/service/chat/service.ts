@@ -123,6 +123,15 @@ export class ChatService {
     if (added) this.dispatcher.dispatch(deliveries);
     return this.repository.message(actorId, messageId)!;
   }
+  /** Folds a message to one line in the owner's interface, or unfolds it (A60). Nobody is told: a Bot reads it as before. */
+  fold(actorId: string, messageId: string, folded: unknown): ChatMessage {
+    if (typeof folded !== "boolean") throw new ChatError(400, "Invalid folded state");
+    const message = this.repository.message(actorId, messageId);
+    if (!message) throw new ChatError(404, "Message not found");
+    this.repository.interactions.setFolded(messageId, folded);
+    this.notifySaved(message.chatId);
+    return this.repository.message(actorId, messageId)!;
+  }
   mute(actorId: string, chatId: string, muted: unknown): ChatSnapshot {
     if (typeof muted !== "boolean") throw new ChatError(400, "Invalid muted");
     this.repository.interactions.setMuted(actorId, chatId, muted);

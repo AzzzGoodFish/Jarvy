@@ -100,6 +100,12 @@ export const common: Part<typeof en> = {
   "actions.react": "添加表情回应",
   "actions.pickEmoji": "选择表情",
   "actions.more": "更多",
+  "actions.fold": "折叠成一行",
+  "actions.unfold": "取消折叠",
+
+  "fold.folded": "已折叠",
+  "fold.more": "展开全文",
+  "fold.less": "收起",
 
   "dialogs.candidates": "可添加的成员",
   "dialogs.allInside": "所有成员都已在频道中",

@@ -116,12 +116,19 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       setMessages(previous => previous.map(apply)); setRoot(previous => previous && apply(previous));
     } catch (error) { onError(error); }
   };
+  const fold = async (message: ChatMessage, folded: boolean) => {
+    try {
+      const updated = await api.fold(message.id, folded);
+      const apply = (item: ChatMessage) => item.id === updated.id ? { ...item, folded: updated.folded } : item;
+      setMessages(previous => previous.map(apply)); setRoot(previous => previous && apply(previous));
+    } catch (error) { onError(error); }
+  };
   const jump = (id: string | null, passage?: string) => {
     const element = id && body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`);
     if (!element) { onNotice(t(id ? "thread.sourceElsewhere" : "app.sourceGone")); return; }
     jumpToPassage(element, passage);
   };
-  const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onJump: jump, onError };
+  const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onFold: fold, onJump: jump, onError };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
   const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes: { messageId: string; text: string }[] = [], alsoToChannel = false) => {
     await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
@@ -164,7 +171,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>
       <div ref={rows}>
       {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
-        onSettled={() => {}} onPreview={onPreview} onReact={react} onJump={jump} onError={onError}/>}
+        onSettled={() => {}} onPreview={onPreview} onReact={react} onFold={fold} onJump={jump} onError={onError}/>}
       <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: messages.length }) : t("thread.noReplies")}</span></div>
       <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER} before={root?.createdAt}
         onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
