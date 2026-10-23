@@ -69,7 +69,7 @@ Tools → readHistory → Memory.readMany → HistoryRepository
 
 ## Linking chat and History
 
-A message's `source: {historyId, toolCallId} | null` names the assistant History row and the call that sent it; the actual sender decides whose History it is. This is the sending call, not a position in time: one assistant row can contain several sends. Ranges of History before and after each message are not built yet.
+A message's `source: {historyId, toolCallId} | null` names the assistant History row and the call that sent it; the actual sender decides whose History it is. A Bot sees `historyId` only on its own messages, and `messages.search` with `mine: true` returns only those, so it can go from something it said to the turn that said it; since History IDs are in order, the rows around it are what led up to it and what followed. This is the sending call, not a position in time: one assistant row can contain several sends. Ranges of History before and after each message are not built yet.
 
 ## Web views
 

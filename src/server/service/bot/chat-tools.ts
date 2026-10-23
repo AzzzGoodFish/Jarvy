@@ -126,9 +126,11 @@ export class ChatTools {
     signal?.throwIfAborted();
     return messages.map(message => messageRow(this.chats, this.bot, message, listing(message)));
   }
-  search(input: { chatId?: string; query: string; limit?: number }) {
-    const found = input.chatId === undefined ? this.chats.searchAll(this.bot, input.query, input.limit ?? 30)
-      : this.chats.search(this.bot, this.chat(input.chatId).id, input.query, input.limit ?? 30);
+  /** `mine`: only what this Bot sent; those messages carry the History ID of the turn that sent them (A21). */
+  search(input: { chatId?: string; query: string; limit?: number; mine?: boolean }) {
+    const sender = input.mine ? this.bot : undefined;
+    const found = input.chatId === undefined ? this.chats.searchAll(this.bot, input.query, input.limit ?? 30, undefined, sender)
+      : this.chats.search(this.bot, this.chat(input.chatId).id, input.query, input.limit ?? 30, sender);
     const chats = new Map<string, Chat | null>();
     const chatOf = (id: string) => { if (!chats.has(id)) chats.set(id, this.chats.get(this.bot, id)); return chats.get(id); };
     return found.map(message => messageRow(this.chats, this.bot, message, listing(message), input.chatId === undefined ? chatOf(message.chatId) : null));

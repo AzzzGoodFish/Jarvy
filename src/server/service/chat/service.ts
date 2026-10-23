@@ -142,10 +142,11 @@ export class ChatService {
   }
   /** Exactly the unread messages of a chat, oldest first; the caller moves the read position. */
   unreadMessages(actorId: string, chatId: string, limit: number) { return this.repository.unreadMessages(actorId, chatId, limit); }
-  searchAll(actorId: string, query: string, limit = 30, within?: string) {
+  /** `sender`: only that member's messages (a Bot looking for what it sent itself). */
+  searchAll(actorId: string, query: string, limit = 30, within?: string, sender?: string) {
     if (!query.trim() || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChatError(400, "Invalid search query or limit");
     if (within) this.repository.assertAccess(actorId, within);
-    return this.repository.searchAll(actorId, query.trim(), limit, within);
+    return this.repository.searchAll(actorId, query.trim(), limit, within, sender);
   }
   /** The search box: channels and threads by title, topic or notice / summary, and messages by text, with the chat
    * each message is in. `within` searches one chat (a channel with its threads) and returns no chats. */
@@ -200,9 +201,9 @@ export class ChatService {
       ...(message.alsoToChannel ? { alsoToChannel: true } : {}), ...(message.quotes?.length ? { quotes: message.quotes } : {}) });
   }
   message(actorId: string, id: string) { return this.repository.message(actorId, id); }
-  search(actorId: string, chatId: string, query: string, limit = 30) {
+  search(actorId: string, chatId: string, query: string, limit = 30, sender?: string) {
     if (!query.trim() || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChatError(400, "Invalid search query or limit");
-    return this.repository.search(actorId, chatId, query, limit);
+    return this.repository.search(actorId, chatId, query, limit, sender);
   }
   private notifySaved(chatId: string): void {
     try { this.notifications.saved?.(chatId); }
