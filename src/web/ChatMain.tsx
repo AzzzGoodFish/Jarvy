@@ -8,7 +8,7 @@ import { FloatingBot } from "./avatar/FloatingBot";
 import { ModelPicker } from "./ModelPicker";
 import { Icon, IconButton } from "./ui";
 import { liveMembers } from "./members";
-import { formatDate, t } from "./i18n";
+import { t } from "./i18n";
 import type { Pane } from "./pane";
 import type { InfoPage } from "./channel/ChannelInfo";
 import type { useTranscript } from "./transcript/useTranscript";
@@ -61,7 +61,6 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
           ? inChannel ? <div className="jarvy-empty-chat"><p>{t("chat.empty")}</p></div>
           : activeBot?.connectionId ? <div className="jarvy-empty-chat"><h2>{t("chat.start", { name: botName })}</h2></div> : null : <>
           {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
-          <p className="jarvy-date-stamp">{formatDate(messages[0]!.createdAt, { year: "numeric", month: "long", day: "numeric" })}</p>
           {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={divider} activeQuestion={activeQuestion}
             onSettled={onSettled} onPreview={onPreview} onReply={onReply} onOpenThread={onOpenThread}
             onQuote={onQuote} onReact={onReact} onJump={onJump} onError={error}/>

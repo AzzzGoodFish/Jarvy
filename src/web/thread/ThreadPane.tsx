@@ -163,7 +163,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
         onSettled={() => {}} onPreview={onPreview} onReact={react} onJump={jump} onError={onError}/>}
       <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: messages.length }) : t("thread.noReplies")}</span></div>
-      <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER}
+      <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER} before={root?.createdAt}
         onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
       </div>
       {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label={t("thread.toLatest")}

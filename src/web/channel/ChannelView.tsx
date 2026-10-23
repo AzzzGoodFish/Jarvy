@@ -7,7 +7,8 @@ import { Icon, IconButton, Markdown } from "../ui";
 import { MessageText } from "./quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "./MessageActions";
 import { memberName } from "../members";
-import { formatClock, formatDate, t } from "../i18n";
+import { formatDate, t } from "../i18n";
+import { Clock, DayDivider, shortTime, startsDay, startsGroup } from "./days";
 
 const NOTICE_KEY = "jarvy-notice-closed";
 const closedNotices = (): string[] => { try { return JSON.parse(localStorage.getItem(NOTICE_KEY) ?? "[]") as string[]; } catch { return []; } };
@@ -73,10 +74,11 @@ export function NoticeBar({ chat, onSave }: { chat: Chat; onSave: (text: string)
   </div>;
 }
 
-/** Flat, Slack-style rows for channels; consecutive lines from one sender within 5 minutes fold together.
- * Only the @s that notified someone (stored with the message) are highlighted. */
-export function ChannelMessages({ messages, members, bots, me, divider, activeQuestion, onSettled, onPreview, onReply, onOpenThread, onQuote, onReact, onJump, onError }: {
-  messages: ChatMessage[]; members: Member[]; bots: Bot[]; me: string; divider: number; activeQuestion?: string;
+/** Flat, Slack-style rows for channels; consecutive lines from one sender within 5 minutes fold together, and each day
+ * opens with a divider. Only the @s that notified someone (stored with the message) are highlighted. `before` is the
+ * time of the message shown just above the list (a thread's root), so its day doesn't repeat. */
+export function ChannelMessages({ messages, members, bots, me, divider, before, activeQuestion, onSettled, onPreview, onReply, onOpenThread, onQuote, onReact, onJump, onError }: {
+  messages: ChatMessage[]; members: Member[]; bots: Bot[]; me: string; divider: number; before?: number; activeQuestion?: string;
   onSettled: (message: ChatMessage) => void; onPreview: (files: Attachment[], index: number) => void;
   /** Channels: reply in the message's thread (opened on first use). Not given inside a thread. */
   onReply?: (message: ChatMessage) => void;
@@ -92,13 +94,15 @@ export function ChannelMessages({ messages, members, bots, me, divider, activeQu
   const firstNew = messages.find(message => message.sequence > divider && message.senderId !== me)?.id;
   return <>{messages.map((message, index) => {
     const previous = messages[index - 1], member = members.find(item => item.id === message.senderId);
-    const folded = !!previous && previous.senderId === message.senderId && message.createdAt - previous.createdAt < 5 * 60_000 && message.id !== firstNew;
+    const earlier = previous?.createdAt ?? before;
+    const folded = !startsGroup(message, previous, earlier) && message.id !== firstNew;
     return <div key={message.id}>
+      {startsDay(message.createdAt, earlier) && <DayDivider time={message.createdAt}/>}
       {message.id === firstNew && <div className="jv-divider" role="separator"><span>{t("chat.newBelow")}</span></div>}
       <div className="jv-row" tabIndex={-1} data-message={message.id} data-folded={folded || undefined} data-mention={message.mentions.includes(me) || undefined}>
-        <div className="jv-row-gutter">{folded ? <time className="jv-row-time">{formatClock(message.createdAt)}</time> : <MemberAvatar member={member} bots={bots} size={32}/>}</div>
+        <div className="jv-row-gutter">{folded ? <Clock time={message.createdAt} className="jv-row-time"/> : <MemberAvatar member={member} bots={bots} size={32}/>}</div>
         <div className="jv-row-body">
-          {!folded && <div className="jv-row-head"><strong>{memberName(member)}</strong>{member?.kind === "bot" && <span className="jv-role">Bot</span>}<time>{formatClock(message.createdAt)}</time></div>}
+          {!folded && <div className="jv-row-head"><strong>{memberName(member)}</strong>{member?.kind === "bot" && <span className="jv-role">Bot</span>}<Clock time={message.createdAt}/></div>}
           {message.echoOf && <button type="button" className="jv-echo" onClick={() => onOpenThread?.(message.echoOf!.id)}>{t("channel.echo", { title: message.echoOf.title })}</button>}
           {message.replyTo && <ReplyQuote message={message} members={members} onJump={id => onJump?.(id)}/>}
           {message.question ? <QuestionCard message={{ ...message, question: message.question }} keyboard={message.id === activeQuestion} onSettled={onSettled}/>
@@ -107,7 +111,7 @@ export function ChannelMessages({ messages, members, bots, me, divider, activeQu
           {onReact && <ReactionPills message={message} me={me} members={members} onReact={onReact} onError={onError ?? (() => {})}/>}
           {message.thread && message.thread.replies > 0 && <button type="button" className="jv-thread-link" data-done={message.thread.status === "done" || undefined}
             onClick={() => onOpenThread?.(message.thread!.id)}>{t("channel.replies", { count: message.thread.replies })}{message.thread.status === "done" && ` · ${t("channel.threadDone")}`}
-            {message.thread.lastReplyAt && <span className="jv-muted">{t("channel.lastReply", { time: formatClock(message.thread.lastReplyAt) })}</span>}</button>}
+            {message.thread.lastReplyAt && <span className="jv-muted">{t("channel.lastReply", { time: shortTime(message.thread.lastReplyAt) })}</span>}</button>}
         </div>
         <div className="jv-row-actions">
           {onReply && !message.echoOf && <IconButton icon="chat-bubble" label={t("channel.replyInThread")} onClick={() => onReply(message)}/>}
