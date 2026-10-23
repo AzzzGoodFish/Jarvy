@@ -2,6 +2,30 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.9.0 — 2026-10-23
+
+Upgrading moves the database from schema v23 to v25 on first start. Each step adds one column and rewrites no rows: `environments.password` holds the sealed password of an SSH machine that refuses keys (v24), and `messages.folded_at` marks a folded message (v25). A v25 database cannot be opened by 0.8.0; keep a copy if you may need to go back.
+
+### Added
+
+- **SSH machines with either a password or a key.** A machine that only takes passwords can now be added. Jarvy still installs its key with the password. When the machine refuses keys, the password is kept sealed under the master key and used to log in. In the machine's details you can update the password, or switch to key login once keys are allowed; the saved password is then deleted. A machine that only takes keys can be added without a password: choose Public key, add the line Jarvy shows to `~/.ssh/authorized_keys`, then verify. A Bot's machine request card offers both. Each machine's details show Jarvy's public key with a copy button. Errors now tell a wrong password from a machine that takes no passwords and from a key that wasn't accepted. (A59)
+- **Long and folded messages.** Message text longer than 12 lines shows its start with Show all. Any message can be folded to one line from its hover actions; a folded message shows the start of its text and a quiet "Folded", and the same action unfolds it. Folding stays after a reload and on other devices. It only changes what you see: Bots read the message as before and are not told. (A60)
+- **Dates in chats.** Channels, threads and DMs show a divider for each day: Today, Yesterday, or the date. In DMs, the first bubble of a group shows its time. Hovering any time shows the full date, and a thread's last reply shows the date when it isn't today.
+
+### Changed
+
+- **The @ list in a thread puts the people in it first**, under "In this thread": the root's author, whoever replied, and whoever was @-mentioned there. The rest of the channel follows under "Others in the channel".
+- **A Bot can search only its own messages** with `messages.search {mine: true}`, and its prompt now tells it how to recall past work: find its own message, then read the History around that turn.
+- **Less secondary text in the interface.** Subtitles, page descriptions and second lines that repeat what a heading or the layout already says are gone. A second line stays only for warnings, side effects, limits and steps.
+
+### Fixed
+
+- The model menu in Bot info scrolls with the mouse wheel and by touch.
+
+### Known limits
+
+- On an SSH machine, `write` and `edit` fail for a path that exists on the machine running Jarvy but that Jarvy's user can't read there. `bash` still works there. This waits on a fix in Pi, the agent library Jarvy uses.
+
 ## 0.8.0 — 2026-10-22
 
 Upgrading moves the database from schema v21 to v23 on first start: the environments table is rebuilt to hold SSH machines, with their sealed keys and host keys (v22), and scheduled tasks get a table of their own while the inbox table is rebuilt with all its rows (v23). A v23 database cannot be opened by 0.7.0; keep a copy if you may need to go back.
