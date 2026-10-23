@@ -25,6 +25,9 @@ export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
     const input = await readJson(c);
     return c.json(messageView(chats.react(c.get("actorId"), c.req.param("id"), input.emoji, input.on ?? true)));
   });
+  // Folding a message to one line (A60): the interface only.
+  routes.put("/messages/:id/fold", jsonBody, async c =>
+    c.json(messageView(chats.fold(c.get("actorId"), c.req.param("id"), (await readJson(c)).folded))));
   // A person's inbox (A41): what was delivered to them, and "I have seen it".
   routes.put("/chats/:id/mute", jsonBody, async c => c.json(chat(c.get("actorId"), chats.mute(c.get("actorId"), c.req.param("id"), (await readJson(c)).muted).id)));
   routes.put("/chats/:id/pin", jsonBody, async c => c.json(chat(c.get("actorId"), chats.pin(c.get("actorId"), c.req.param("id"), (await readJson(c)).pinned).id)));

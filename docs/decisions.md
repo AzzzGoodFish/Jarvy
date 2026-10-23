@@ -382,3 +382,14 @@ A57 reached every machine with a key Jarvy installs with a password typed once. 
 - **Storage (v24)**: one column, `environments.password`; no rows rewritten.
 
 Why: a machine Jarvy can't log into with a key couldn't be added at all, nor one that takes no passwords. Keeping the password only when the key can't be used keeps it the exception, sealed like the key, and never seen by Bots; letting the owner add the key themselves covers machines where typing a password is not an option.
+
+## A60 Long and folded messages
+
+Bots sometimes write a lot into a chat — long logs, many steps in a row — and push the conversation out of view. Deleting loses what was said and breaks quotes, threads and what a Bot remembers, so messages are folded instead, the way Slack and Lark cut long messages and GitHub hides a comment.
+
+- **Long text**: in the interface, a message's text past 12 lines shows its start, fading out, with 「展开全文」 (and 「收起」 once open). Two lines of slack, so 13 lines are not cut to hide one. Only the text is cut, never files or question cards. Nothing is stored.
+- **Folding**: 「折叠成一行」 in a message's hover actions folds any message, in channels, threads and DMs. A folded message is one muted line with the start of its text and a quiet 「已折叠」 after it, no buttons. The same place in the hover actions then reads 「取消折叠」; that is the only way back, so folding is a plain switch. A message just unfolded shows its text whole, not cut to 12 lines again, until the page reloads. Folding one message at a time; no batch folding.
+- **Interface only**: folding changes nothing for Bots. Their tools and batches read the message as before, without the folded state, and nobody is told. The owner is the only person, so the state is the message's (`messages.folded_at`, v25), not per member.
+- **API**: `PUT /messages/:id/fold {folded}` returns the message; the change is announced like a reaction, so other tabs reload it.
+
+Why: folding keeps everything — content, quotes, threads, a Bot's context — and can be undone, while it takes the noise out of view.

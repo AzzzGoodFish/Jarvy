@@ -91,6 +91,10 @@ export class InteractionRepository {
     return (this.db.prepare(`SELECT DISTINCT member_id AS id FROM chat_states WHERE muted=1 AND chat_id IN
       (SELECT id FROM chats WHERE id=? UNION SELECT parent_id FROM chats WHERE id=? AND parent_id IS NOT NULL)`).all(chatId, chatId) as { id: string }[]).map(row => row.id);
   }
+  /** Folds a message to one line in the interface, or unfolds it (A60); its content and everything else stay. */
+  setFolded(messageId: string, folded: boolean): void {
+    this.db.prepare("UPDATE messages SET folded_at=? WHERE id=?").run(folded ? Date.now() : null, messageId);
+  }
   setPinned(memberId: string, chatId: string, pinned: boolean): void {
     this.chats.assertAccess(memberId, chatId);
     this.db.prepare(`INSERT INTO chat_states(chat_id,member_id,pinned) VALUES(?,?,?)

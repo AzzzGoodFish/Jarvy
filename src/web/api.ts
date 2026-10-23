@@ -89,6 +89,8 @@ export interface ChatMessage { id: string; chatId: string; sequence: number; sen
   replyTo: { id: string; senderId: string; content: string; quotes: MessageQuote[] } | null;
   /** Emoji marks, grouped, in the order each emoji was first used. */
   reactions: Reaction[];
+  /** Folded to one line in this interface (A60); the content is all there. */
+  folded: boolean;
   /** Channel messages: the thread under it. */
   thread: ThreadInfo | null;
   /** A channel copy of a thread reply, or a thread's conclusion. */
@@ -181,6 +183,7 @@ export const api = {
   send: (id: string, content: string, attachmentIds: string[], clientMessageId: string, alsoToChannel = false, replyTo?: string, quotes: { messageId: string; text: string }[] = []) =>
     request<ChatMessage>(`/chats/${id}/messages`, { method: "POST", body: body({ content, attachmentIds, clientMessageId, ...(alsoToChannel ? { alsoToChannel } : {}), ...(replyTo ? { replyTo } : {}), ...(quotes.length ? { quotes } : {}) }) }),
   /** Emoji marks (A39) and pins. */
+  fold: (messageId: string, folded: boolean) => request<ChatMessage>(`/messages/${messageId}/fold`, { method: "PUT", body: body({ folded }) }),
   react: (messageId: string, emoji: string, on: boolean) => request<ChatMessage>(`/messages/${messageId}/reaction`, { method: "PUT", body: body({ emoji, on }) }),
   pin: (id: string, pinned: boolean) => request<Chat>(`/chats/${id}/pin`, { method: "PUT", body: body({ pinned }) }),
   mute: (id: string, muted: boolean) => request<Chat>(`/chats/${id}/mute`, { method: "PUT", body: body({ muted }) }),

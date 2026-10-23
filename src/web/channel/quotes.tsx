@@ -60,6 +60,8 @@ export function highlightPassage(element: Element, passage: string): boolean {
 
 /** Scrolls to a message and highlights the passage, or flashes the whole message when the passage is not there. */
 export function jumpToPassage(element: Element, passage?: string) {
+  // A long message cut to its start (A60) is shown whole, so the passage can be seen.
+  element.querySelector<HTMLButtonElement>(".jv-long-toggle[aria-expanded='false']")?.click();
   element.scrollIntoView({ block: "center", behavior: "smooth" });
   if (passage && highlightPassage(element, passage)) return;
   element.classList.add("jv-jump"); setTimeout(() => element.classList.remove("jv-jump"), 1200);
