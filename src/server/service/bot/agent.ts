@@ -16,17 +16,17 @@ const same = (a: string, b: string) => a.trim().replace(/^@/, "").toLocaleLowerC
  * a model, it is asked to welcome the owner. */
 export class AgentOps {
   constructor(private readonly bots: BotService, private readonly store: Store, private readonly chats: ChatService) {}
-  get owner() { return this.store.userMemberId(); }
+  get owner() { return this.store.account.userMemberId(); }
   readonly agentId = AGENT_BOT_ID;
   /** A Bot by name, ignoring case and a leading @. */
   bot(name: string): BotRecord {
-    const bot = this.store.listBots().find(record => same(name, record.name));
+    const bot = this.store.bots.list().find(record => same(name, record.name));
     if (!bot) throw new ChatError(404, `No Bot named ${name} (see bots.list)`);
     return bot;
   }
   /** Connected models and their thinking levels; never credentials. */
   models() {
-    return this.store.listModelConnections().filter(connection => connection.models.length).map(connection => ({
+    return this.store.connections.list().filter(connection => connection.models.length).map(connection => ({
       connection: connection.displayName, connectionId: connection.id,
       models: connection.models.map(model => ({ id: model.id, name: model.name, thinking: ["auto", ...thinkingOptions(model).levels] })),
     }));
@@ -36,7 +36,7 @@ export class AgentOps {
     let connectionId = bot?.connectionId ?? null, modelId = bot?.modelId ?? "";
     if (input.model) {
       const { connection, model } = input.model;
-      const found = this.store.listModelConnections().find(item => item.id === connection || same(connection, item.displayName));
+      const found = this.store.connections.list().find(item => item.id === connection || same(connection, item.displayName));
       if (!found) throw new ChatError(404, `No connection named ${connection} (see models.list)`);
       const picked = found.models.find(item => item.id === model || same(model, item.name));
       if (!picked) throw new ChatError(404, `No model ${model} in ${found.displayName} (see models.list)`);
@@ -49,7 +49,7 @@ export class AgentOps {
   environment(botId: string) { return this.bots.describe(botId).environment.home; }
   /** "model (connection)", as the agent and the changed Bot read it. */
   modelLabel(bot: BotRecord) {
-    const connection = bot.connectionId ? this.store.getModelConnection(bot.connectionId) : null;
+    const connection = bot.connectionId ? this.store.connections.get(bot.connectionId) : null;
     const model = connection?.models.find(item => item.id === bot.modelId);
     return model ? `${model.name} (${connection!.displayName})` : bot.modelId;
   }
@@ -60,14 +60,14 @@ export class AgentOps {
       this.bots.get(created.id).identity.update({ name: created.name, description: input.description ?? "", persona: input.persona ?? "" });
     if (selection) await this.bots.selectModel(created.id, selection);
     this.bots.listChanged();
-    return this.store.getBot(created.id)!;
+    return this.store.bots.get(created.id)!;
   }
   async update(bot: BotRecord, input: BotSettings) {
     const selection = this.selection(bot, input);
     if (input.name !== undefined || input.description !== undefined || input.persona !== undefined)
       this.bots.get(bot.id).identity.update({ name: input.name ?? bot.name, description: input.description ?? bot.description, persona: input.persona ?? bot.systemPrompt });
     if (selection) await this.bots.selectModel(bot.id, selection);
-    const after = this.store.getBot(bot.id)!, changes: BotChange[] = [];
+    const after = this.store.bots.get(bot.id)!, changes: BotChange[] = [];
     if (after.name !== bot.name) changes.push({ what: "name", value: after.name });
     if (after.description !== bot.description) changes.push({ what: "description", value: after.description });
     if (after.systemPrompt !== bot.systemPrompt) changes.push({ what: "persona", value: null });

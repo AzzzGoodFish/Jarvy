@@ -9,15 +9,15 @@ export class AccountService {
     const failure = this.failures.get(client);
     if (failure && failure.until < Date.now()) this.failures.delete(client);
     if ((this.failures.get(client)?.attempts ?? 0) >= 8) return { type: "limited" };
-    const token = this.store.login(username, password);
+    const token = this.store.account.login(username, password);
     if (!token) {
       this.failures.set(client, { attempts: (this.failures.get(client)?.attempts ?? 0) + 1, until: Date.now() + 15 * 60_000 });
       return { type: "invalid" };
     }
     this.failures.delete(client);
-    return { type: "success", token, username: this.store.username()! };
+    return { type: "success", token, username: this.store.account.username()! };
   }
-  authenticated(token: string | undefined) { return this.store.authenticated(token); }
-  identity() { return { id: this.store.userMemberId(), username: this.store.username() }; }
-  logout(token: string) { this.store.logout(token); }
+  authenticated(token: string | undefined) { return this.store.account.authenticated(token); }
+  identity() { return { id: this.store.account.userMemberId(), username: this.store.account.username() }; }
+  logout(token: string) { this.store.account.logout(token); }
 }

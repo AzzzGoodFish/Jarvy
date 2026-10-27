@@ -41,7 +41,7 @@ function secretPrompt(label: string): Promise<string> {
   });
 }
 async function initialize(store: Store): Promise<void> {
-  if (store.isInitialized()) throw new Error("Account already initialized; existing credentials will not be overwritten");
+  if (store.account.isInitialized()) throw new Error("Account already initialized; existing credentials will not be overwritten");
   if (!process.stdin.isTTY) throw new Error("First run needs a terminal; run jarvy init interactively");
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   let username: string;
@@ -50,7 +50,7 @@ async function initialize(store: Store): Promise<void> {
   const password = await secretPrompt("Password (hidden): ");
   const confirm = await secretPrompt("Confirm password (hidden): ");
   if (password !== confirm) throw new Error("Passwords do not match");
-  store.initialize(username, password);
+  store.account.initialize(username, password);
   console.log(`Account ${username} initialized.`);
 }
 
@@ -78,7 +78,7 @@ async function startDetached(args: string[], dir: string): Promise<void> {
   if (running) { console.log(`Jarvy is already running at ${running.url} (pid ${running.pid}). Stop it with: ${offCommand}`); return; }
   const app = await Application.open(dir);
   let allowHttp = false;
-  try { if (!app.store.isInitialized()) await initialize(app.store); allowHttp = app.connection.allowHttp(); } finally { await app.close(); }
+  try { if (!app.store.account.isInitialized()) await initialize(app.store); allowHttp = app.connection.allowHttp(); } finally { await app.close(); }
   const started = await startBackground(process.argv[1]!, args.slice(1), dir);
   console.log(`Jarvy running in background at ${started.url} (pid ${started.pid}, listening on ${host})`);
   const notes = reachNotes(host, port, allowHttp);
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
   const store = app.store;
   if (command === "init") { try { await initialize(store); } finally { await app.close(); } return; }
   try {
-    if (!store.isInitialized()) await initialize(store);
+    if (!store.account.isInitialized()) await initialize(store);
     const { host, port, url } = listenOptions(args);
     const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../web");
     if (!existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");

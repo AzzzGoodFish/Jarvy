@@ -39,7 +39,7 @@ export class Application {
     this.chats = new ChatService(store.chats, {
       bot: (id, urgency) => this.bots.deliver(id, urgency), user: (id, urgency) => { if (id === this.user.id) this.user.deliver(urgency); },
       saved: id => this.user.changed(id), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
-    this.user = new User(store.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }), id => this.events.publish({ kind: "chat", id }),
+    this.user = new User(store.account.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }), id => this.events.publish({ kind: "chat", id }),
       () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();

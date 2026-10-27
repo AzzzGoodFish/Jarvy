@@ -24,7 +24,7 @@ export class CredentialLogins {
   private readonly flows = new Map<string, LoginFlow>();
   constructor(private readonly store: Store, private readonly credentials: CredentialCoordinator, private readonly changed: (id: string) => void) {}
   private connection(id: string) {
-    const connection = this.store.getModelConnection(id);
+    const connection = this.store.connections.get(id);
     if (!connection) throw new RuntimeFault("connection_missing", "Connection not found", 404);
     return connection;
   }
@@ -39,13 +39,13 @@ export class CredentialLogins {
     this.flows.set(id, flow);
     flow.task = (async () => {
       try {
-        const scoped = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.userMemberId(), id, connection.providerName);
+        const scoped = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.account.userMemberId(), id, connection.providerName);
         const runtime = await ModelRuntime.create({ credentials: scoped, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false, signal: flow.controller.signal });
         await runtime.login(connection.providerName, connection.authType, {
           signal: flow.controller.signal,
           notify: event => { flow.state.event = event; },
           prompt: prompt => this.prompt(flow, prompt),
-        }, { getDeviceId: () => this.store.installationDeviceId() });
+        }, { getDeviceId: () => this.store.account.installationDeviceId() });
         flow.state = { phase: "completed" };
         this.changed(id);
       } catch (error) {
@@ -89,7 +89,7 @@ export class CredentialLogins {
   async logout(id: string): Promise<void> {
     const connection = this.connection(id);
     await this.cancel(id);
-    const scoped = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.userMemberId(), id, connection.providerName);
+    const scoped = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.account.userMemberId(), id, connection.providerName);
     await scoped.delete(connection.providerName);
     this.flows.delete(id);
   }

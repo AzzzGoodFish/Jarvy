@@ -18,40 +18,40 @@ export class ModelService {
     if (!value) throw new RuntimeFault("connection_missing", "Connection not found", 404);
     return value;
   }
-  list() { return this.store.listModelConnections(); }
-  create(input: Record<string, unknown>) { return this.store.createModelConnection(input); }
+  list() { return this.store.connections.list(); }
+  create(input: Record<string, unknown>) { return this.store.connections.create(input); }
   update(id: string, input: Record<string, unknown>) {
-    const saved = this.required(this.store.updateModelConnection(id, input));
+    const saved = this.required(this.store.connections.update(id, input));
     this.changed(id); return saved;
   }
   async delete(id: string) {
     await this.logins.cancel(id);
-    if (!this.store.deleteModelConnection(id)) throw new RuntimeFault("connection_missing", "Connection not found", 404);
+    if (!this.store.connections.delete(id)) throw new RuntimeFault("connection_missing", "Connection not found", 404);
   }
   saveCredential(id: string, input: Record<string, unknown>) {
-    const saved = this.required(this.store.saveModelCredential(id, input));
+    const saved = this.required(this.store.connections.saveCredential(id, input));
     this.changed(id); return saved;
   }
   saveModel(id: string, model: unknown, originalId?: string) {
-    const saved = this.required(this.store.saveConnectionModel(id, model, originalId));
+    const saved = this.required(this.store.connections.saveModel(id, model, originalId));
     this.changed(id); return saved;
   }
-  deleteModel(id: string, modelId: string) { return this.required(this.store.deleteConnectionModel(id, modelId)); }
+  deleteModel(id: string, modelId: string) { return this.required(this.store.connections.deleteModel(id, modelId)); }
   providers() { return providerCatalog(this.models.providers()); }
   /** Brings pi.dev's newer catalog entries in the background (A49). */
   refreshCatalog() { this.models.refresh(); }
   builtinModels(provider: string) { return providerModels(this.models.providers(), provider); }
   async catalog(id: string) {
-    const connection = this.required(this.store.getModelConnection(id));
-    const credentials = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.userMemberId(), id, connection.providerName);
+    const connection = this.required(this.store.connections.get(id));
+    const credentials = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.account.userMemberId(), id, connection.providerName);
     return modelCatalog(credentials, connection.providerName, this.models);
   }
   discover(input: Record<string, unknown>, signal: AbortSignal) {
     if (typeof input.baseUrl !== "string") throw new RuntimeFault("discovery_url_missing", "Enter the API URL.", 400);
     let key = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
     if (!key && typeof input.connectionId === "string") {
-      this.required(this.store.getModelConnection(input.connectionId));
-      const credential = this.store.credentials.read(this.store.userMemberId(), input.connectionId)?.value;
+      this.required(this.store.connections.get(input.connectionId));
+      const credential = this.store.credentials.read(this.store.account.userMemberId(), input.connectionId)?.value;
       if (credential?.type === "api_key") key = credential.key ?? "";
     }
     if (!key) throw new RuntimeFault("discovery_key", "Enter the API key.", 400);

@@ -15,9 +15,9 @@ export class TaskService {
 
   /** Where a due task is told: the DM between the Bot and its owner, made when first needed. */
   private dm(botId: string): string {
-    const bot = this.store.getBot(botId);
+    const bot = this.store.bots.get(botId);
     if (!bot) throw new ChatError(404, "Bot not found");
-    return this.chats.openDirect(botId, this.store.userMemberId()).id;
+    return this.chats.openDirect(botId, this.store.account.userMemberId()).id;
   }
   /** Checked against what a Bot and its owner can both mean: an existing schedule the Bot can compute. `previous`:
    * the task's schedule before; an interval left as it was keeps counting from when it was set, a new one from now. */
@@ -58,7 +58,7 @@ export class TaskService {
   list(botId: string): Task[] { return this.store.tasks.list(botId); }
   get(botId: string, id: string): Task | null { return this.store.tasks.get(botId, id); }
   create(botId: string, input: Record<string, unknown>): Task {
-    if (!this.store.getBot(botId)) throw new ChatError(404, "Bot not found");
+    if (!this.store.bots.get(botId)) throw new ChatError(404, "Bot not found");
     const task = this.store.tasks.create({ botId,
       name: this.text(input.name, "A name", 80), instruction: this.text(input.instruction, "An instruction", 8000), schedule: this.schedule(input.schedule) });
     this.tick();

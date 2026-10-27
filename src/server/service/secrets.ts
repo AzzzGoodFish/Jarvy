@@ -27,7 +27,7 @@ export class SecretService {
   grant(id: string, botId: string, granted: boolean): SecretRecord {
     const secret = this.store.secrets.get(id) ?? this.missing();
     if (secret.kind !== "value") throw new RuntimeFault("secret_missing", "No secret with this id", 404);
-    if (!this.store.getBot(botId)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    if (!this.store.bots.get(botId)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     if (granted) this.store.secrets.grant(id, botId, "always", null); else this.store.secrets.revoke(id, botId);
     return this.store.secrets.get(id)!;
   }

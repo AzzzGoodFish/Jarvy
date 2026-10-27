@@ -114,15 +114,15 @@ export class PiSession implements BotSession {
       if (header.type !== "session" || !header.id || (reference.sessionId && header.id !== reference.sessionId))
         throw new RuntimeFault("session_mismatch", "The session file doesn't match this Bot.");
     }
-    const connection = store.getModelConnection(selection.connectionId);
+    const connection = store.connections.get(selection.connectionId);
     if (!connection) throw new RuntimeFault("connection_missing", "Connection not found", 404);
-    const scoped = new ConnectionCredentials(store.credentials, options.credentials, store.userMemberId(), connection.id, connection.providerName);
+    const scoped = new ConnectionCredentials(store.credentials, options.credentials, store.account.userMemberId(), connection.id, connection.providerName);
     await scoped.read(connection.providerName);
     const credentials = new CurrentCredentials(scoped);
     const models = await ModelRuntime.create({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
     const configured = connection.models.find(model => model.id === selection.modelId);
     if (!configured) throw new RuntimeFault("model_missing", "Model not found", 404);
-    const model = installModel(models, connection, configured, store.modelHeaders(connection.id, configured.id));
+    const model = installModel(models, connection, configured, store.connections.headers(connection.id, configured.id));
     const sessionManager = SessionManager.open(reference.file, sessionsDir, bot.workspacePath);
     const adapter = new PiSession(options, models, credentials);
     adapter.prompts = new PromptLog(options.systemPrompt);
@@ -192,7 +192,7 @@ export class PiSession implements BotSession {
       });
     }
     store.runtime.recordSession(bot.id, adapter.sessionId, existsSync(adapter.sessionFile));
-    adapter.signature = JSON.stringify([{ connectionId: selection.connectionId, modelId: selection.modelId }, connection.providerName, connection.api, connection.baseUrl, configured, store.modelHeaders(connection.id, configured.id)]);
+    adapter.signature = JSON.stringify([{ connectionId: selection.connectionId, modelId: selection.modelId }, connection.providerName, connection.api, connection.baseUrl, configured, store.connections.headers(connection.id, configured.id)]);
     return adapter;
   }
   /** A batch never carries a secret's value, even one a person pasted into the chat. */
@@ -263,16 +263,16 @@ export class PiSession implements BotSession {
     } finally { this.options.live?.({ type: "end", outcome }); }
   }
   async configure(selection: ModelSelection): Promise<string> {
-    const connection = this.options.store.getModelConnection(selection.connectionId), configured = connection?.models.find(item => item.id === selection.modelId);
+    const connection = this.options.store.connections.get(selection.connectionId), configured = connection?.models.find(item => item.id === selection.modelId);
     if (!connection || !configured) throw new RuntimeFault("model_missing", "Model not found", 404);
-    const signature = JSON.stringify([{ connectionId: selection.connectionId, modelId: selection.modelId }, connection.providerName, connection.api, connection.baseUrl, configured, this.options.store.modelHeaders(connection.id, configured.id)]);
+    const signature = JSON.stringify([{ connectionId: selection.connectionId, modelId: selection.modelId }, connection.providerName, connection.api, connection.baseUrl, configured, this.options.store.connections.headers(connection.id, configured.id)]);
     if (signature === this.signature) {
       this.session.setThinkingLevel(resolveThinking(configured, selection.thinkingLevel), { persist: false });
       return this.session.thinkingLevel;
     }
-    const next = new ConnectionCredentials(this.options.store.credentials, this.options.credentials, this.options.store.userMemberId(), connection.id, connection.providerName);
+    const next = new ConnectionCredentials(this.options.store.credentials, this.options.credentials, this.options.store.account.userMemberId(), connection.id, connection.providerName);
     await next.read(connection.providerName);
-    const model = installModel(this.models, connection, configured, this.options.store.modelHeaders(connection.id, configured.id));
+    const model = installModel(this.models, connection, configured, this.options.store.connections.headers(connection.id, configured.id));
     // checkAuth inside setModel asks the credential store, so point it at the new connection first
     // and put the previous one back if the switch is rejected (the current turn may still run).
     const previous = this.credentials.current;
