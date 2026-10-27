@@ -107,7 +107,7 @@ export class ChannelRepository {
     return { type, members: ids.map(row => this.chats.member(row.id)).filter(member => member !== null) };
   }
   /** Channel notice / thread summary: any member who can write there, people and Bots alike. The routed
-   * deliveries (A41) are written with the new version; `detail` is that version. */
+   * deliveries (A41) are written with the new version, which is their payload. */
   setNote(actorId: string, chatId: string, text: string, deliveries: readonly Delivery[] = []): ChatNote {
     this.chats.assertAccess(actorId, chatId, true);
     const type = (this.db.prepare("SELECT type FROM chats WHERE id=?").get(chatId) as { type: string }).type;
@@ -118,9 +118,8 @@ export class ChannelRepository {
         ON CONFLICT(chat_id) DO UPDATE SET text=excluded.text,updated_by=excluded.updated_by,updated_at=excluded.updated_at,version=version+1`).run(chatId, text, actorId, now);
       this.db.prepare("UPDATE chats SET updated_at=? WHERE id=?").run(now, chatId);
       this.markNoteSeen(actorId, chatId);
-      const version = String((this.db.prepare("SELECT version FROM chat_notes WHERE chat_id=?").get(chatId) as { version: number }).version);
-      for (const delivery of deliveries) this.db.prepare(`INSERT INTO inbox(member_id,kind,reason,urgency,chat_id,actor_id,detail,created_at)
-        VALUES(?,?,?,?,?,?,?,?)`).run(delivery.member.id, delivery.kind, delivery.reason, delivery.urgency, chatId, actorId, version, now);
+      const version = (this.db.prepare("SELECT version FROM chat_notes WHERE chat_id=?").get(chatId) as { version: number }).version;
+      this.chats.inbox.write(deliveries.map(delivery => ({ delivery, chatId, messageId: null, actorId, payload: { version }, createdAt: now })));
     });
     return this.chats.note(chatId)!;
   }
@@ -137,9 +136,8 @@ export class ChannelRepository {
     const read = this.chats.unread(memberId, chatId).readSequence;
     // A person who has read a message delivered to them has been told (A41). A Bot's deliveries follow its runs.
     if (this.chats.member(memberId)?.kind === "user") {
-      this.db.prepare(`UPDATE inbox SET state='told',told_at=? WHERE member_id=? AND kind='message' AND state='pending'
-        AND chat_id=? AND message_id IN (SELECT id FROM messages WHERE chat_id=? AND sequence<=?)`).run(Date.now(), memberId, chatId, chatId, read);
-      this.chats.interactions.seenIn(memberId, chatId);
+      this.chats.inbox.readUpTo(memberId, chatId, read);
+      this.chats.inbox.seenIn(memberId, chatId);
     }
     return read;
   }

@@ -79,6 +79,7 @@ A write that spans several statements goes through `transaction(db, work)` (`inf
 | v23 | `tasks`; `inbox.kind` gains `task` (A58) |
 | v24 | `environments.password`: an SSH machine that refuses keys keeps its password sealed under the master key; NULL means it is reached with the key (A59). A column added, no rows rewritten |
 | v25 | `messages.folded_at`: when the owner folded a message to one line, or null (A60) |
+| v26 | `inbox.category` (`message`, `activity`, `system`); `chat_id` nullable, required by CHECK only for the chat categories and absent for system notices; `kind` checked in code instead of a CHECK; `detail` becomes `payload`, JSON by kind. System rows drop the DM they borrowed; the table is rebuilt with its rows, indexes and id sequence (A61) |
 
 ## Search
 

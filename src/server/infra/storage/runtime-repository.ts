@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { RuntimeFault, type BotRun, type ModelSelection, type RunState, type SessionRef } from "../../shared/runtime.js";
 import { transaction } from "./transaction.js";
+import type { InboxRepository } from "./inbox-repository.js";
 
 type RunRow = Omit<BotRun, "selection"> & { selectionJson: string };
 const RUN_COLUMNS = "id,bot_id AS botId,state,selection_json AS selectionJson,created_at AS createdAt,ended_at AS endedAt,error_code AS errorCode";
 export class RuntimeRepository {
-  constructor(private readonly db: DatabaseSync) {}
+  /** `inbox`: a run claims and settles the Bot's message deliveries there (A41). */
+  constructor(private readonly db: DatabaseSync, private readonly inbox: InboxRepository) {}
   session(botId: string): SessionRef | null {
     const row = this.db.prepare("SELECT bot_id AS botId,file,runtime_session_id AS sessionId,persisted FROM bot_sessions WHERE bot_id=?").get(botId) as (Omit<SessionRef, "persisted"> & { persisted: number }) | undefined;
     return row ? { ...row, persisted: !!row.persisted } : null;
@@ -19,26 +21,18 @@ export class RuntimeRepository {
     this.db.prepare("UPDATE bot_sessions SET runtime_session_id=?,persisted=MAX(persisted,?) WHERE bot_id=?").run(sessionId, persisted ? 1 : 0, botId);
   }
   /** Bots with deliveries still waiting at startup, each with the most urgent of them (A41). */
-  waitingBots(ownerId: string): { botId: string; urgency: "interrupt" | "queue" }[] {
-    return this.db.prepare(`SELECT i.member_id AS botId,CASE WHEN SUM(i.urgency='interrupt')>0 THEN 'interrupt' ELSE 'queue' END AS urgency
-      FROM inbox i JOIN bots b ON b.id=i.member_id WHERE b.owner_id=? AND b.deleted_at IS NULL AND i.state='pending' AND i.urgency IN ('interrupt','queue')
-      GROUP BY i.member_id ORDER BY i.member_id`).all(ownerId) as { botId: string; urgency: "interrupt" | "queue" }[];
-  }
+  waitingBots(ownerId: string): { botId: string; urgency: "interrupt" | "queue" }[] { return this.inbox.waitingBots(ownerId); }
   /** Messages waiting for the Bot's next run. */
-  hasPending(botId: string): boolean { return !!this.db.prepare("SELECT 1 FROM inbox WHERE member_id=? AND kind='message' AND state='pending' LIMIT 1").get(botId); }
+  hasPending(botId: string): boolean { return this.inbox.hasPendingMessages(botId); }
   /** Claims the pending messages as one run; `allowEmpty` opens a run without messages, for notices only. */
   claim(botId: string, selection: ModelSelection, allowEmpty = false): { run: BotRun; inputs: { chatId: string; messageId: string }[] } | null {
     return transaction(this.db, () => {
-      this.db.prepare(`UPDATE inbox SET state='cancelled' WHERE member_id=? AND kind='message' AND state='pending' AND message_id NOT IN
-        (SELECT m.id FROM messages m JOIN chats c ON c.id=m.chat_id
-          JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1)`).run(botId, botId);
-      const inputs = this.db.prepare(`SELECT chat_id AS chatId,message_id AS messageId FROM inbox
-        WHERE member_id=? AND kind='message' AND state='pending' ORDER BY id`).all(botId) as { chatId: string; messageId: string }[];
+      const inputs = this.inbox.pendingMessages(botId);
       if (!inputs.length && !allowEmpty) return null;
       const id = randomUUID();
       this.db.prepare("INSERT INTO bot_runs(id,bot_id,state,selection_json,created_at) VALUES(?,?,'claimed',?,?)").run(id, botId, JSON.stringify(selection), Date.now());
       inputs.forEach((input, position) => this.db.prepare("INSERT INTO bot_run_inputs VALUES(?,?,?,?)").run(id, position + 1, input.chatId, input.messageId));
-      this.db.prepare("UPDATE inbox SET state='claimed',run_id=? WHERE member_id=? AND kind='message' AND state='pending'").run(id, botId);
+      this.inbox.claimMessages(botId, id);
       return { run: this.run(id)!, inputs };
     });
   }
@@ -49,24 +43,22 @@ export class RuntimeRepository {
   finish(runId: string, state: Exclude<RunState, "claimed" | "submitted">, errorCode: string | null = null): void {
     transaction(this.db, () => {
       this.db.prepare("UPDATE bot_runs SET state=?,ended_at=?,error_code=? WHERE id=?").run(state, Date.now(), errorCode, runId);
-      this.db.prepare("UPDATE inbox SET state=? WHERE run_id=?").run(state === "completed" ? "done" : state, runId);
+      this.inbox.settleRun(runId, state === "completed" ? "done" : state);
     });
   }
   releaseUnsubmitted(runId: string): void {
     transaction(this.db, () => {
       if (!this.db.prepare("UPDATE bot_runs SET state='cancelled',ended_at=? WHERE id=? AND state='claimed'").run(Date.now(), runId).changes)
         throw new RuntimeFault("unsafe_replay", "A submitted run can't be replayed automatically.");
-      this.db.prepare("UPDATE inbox SET state='pending',run_id=NULL WHERE run_id=? AND state='claimed'").run(runId);
+      this.inbox.releaseRun(runId);
     });
   }
   recover(): void {
     // Data-root lock is held. Only definitely-unsubmitted work is requeued.
-    transaction(this.db, () => this.db.exec(`
-      UPDATE inbox SET state='pending',run_id=NULL WHERE run_id IN (SELECT id FROM bot_runs WHERE state='claimed');
+    transaction(this.db, () => { this.inbox.recover(); this.db.exec(`
       UPDATE bot_runs SET state='cancelled',ended_at=CAST(unixepoch('subsec')*1000 AS INTEGER) WHERE state='claimed';
-      UPDATE inbox SET state='unknown' WHERE run_id IN (SELECT id FROM bot_runs WHERE state='submitted');
       UPDATE bot_runs SET state='unknown',error_code='process_interrupted',ended_at=CAST(unixepoch('subsec')*1000 AS INTEGER) WHERE state='submitted';
-      UPDATE bot_model_changes SET state='unknown' WHERE state='applying';`));
+      UPDATE bot_model_changes SET state='unknown' WHERE state='applying';`); });
   }
   run(id: string): BotRun | null {
     const row = this.db.prepare(`SELECT ${RUN_COLUMNS} FROM bot_runs WHERE id=?`).get(id) as RunRow | undefined;

@@ -3,6 +3,8 @@ import type { DatabaseSync } from "node:sqlite";
 import { ValidationError } from "../../shared/errors.js";
 import { nextAfter, type Task, type TaskSchedule, type TaskState } from "../../shared/task.js";
 import { transaction } from "./transaction.js";
+import type { InboxRepository } from "./inbox-repository.js";
+import type { Urgency } from "../../shared/delivery.js";
 
 type Row = { id: string; bot_id: string; name: string; instruction: string; schedule_kind: TaskSchedule["kind"];
   schedule_at: number | null; schedule_minutes: number | null; schedule_hour: number | null; schedule_minute: number | null; schedule_weekday: number | null;
@@ -37,7 +39,7 @@ function scheduleColumns(schedule: TaskSchedule) {
 /** Scheduled tasks (v23, A58). The Bot that runs one and the schedule; the scheduler asks for what is due and writes
  * the inbox row in the same transaction that moves the task on. */
 export class TaskRepository {
-  constructor(private readonly db: DatabaseSync) {}
+  constructor(private readonly db: DatabaseSync, private readonly inbox: InboxRepository) {}
 
   /** A Bot's tasks: active ones first, soonest first; then paused and done ones. */
   list(botId: string): Task[] {
@@ -96,22 +98,20 @@ export class TaskRepository {
     return this.db.prepare(`SELECT ${COLUMNS.replace(/(\w+)/g, "t.$1")} FROM tasks t JOIN bots b ON b.id=t.bot_id
       WHERE t.deleted_at IS NULL AND t.state='active' AND t.next_run_at<=? AND b.deleted_at IS NULL ORDER BY t.next_run_at`).all(now) as unknown as Row[];
   }
-  /** The Bots with a task due now, so the caller can find each one's DM before `fire`. */
-  dueBots(now = Date.now()): string[] { return [...new Set(this.due(now).map(row => row.bot_id))]; }
-  /** The tasks that are due, oldest first, each already moved on: its inbox row (in `dms`, the Bot's DM with its owner)
-   * is written and its next run set in one transaction, so a crash can neither lose nor repeat a run. A Bot missing
-   * from `dms` keeps its task due for the next pass. `at` is when it was due. */
-  fire(dms: ReadonlyMap<string, string>, now = Date.now()): { taskId: string; botId: string; chatId: string; at: number }[] {
-    const due = this.due(now).filter(row => dms.has(row.bot_id));
+  /** The tasks that are due, oldest first, each already moved on: its delivery (a system notice to its Bot, A61) is
+   * written and its next run set in one transaction, so a crash can neither lose nor repeat a run. `at` is when it was
+   * due; `urgency` is the policy's for a due task. */
+  fire(urgency: Urgency, now = Date.now()): { taskId: string; botId: string; at: number }[] {
+    const due = this.due(now);
     if (!due.length) return [];
     return transaction(this.db, () => {
-      const fired: { taskId: string; botId: string; chatId: string; at: number }[] = [];
+      const fired: { taskId: string; botId: string; at: number }[] = [];
       for (const row of due) {
         const at = row.next_run_at!, next = nextAfter(scheduleOf(row), now);
         this.db.prepare("UPDATE tasks SET last_run_at=?,next_run_at=?,state=?,updated_at=? WHERE id=?").run(at, next, next === null ? "done" : "active", now, row.id);
-        this.db.prepare(`INSERT INTO inbox(member_id,kind,reason,urgency,chat_id,actor_id,detail,created_at) VALUES(?,'task','schedule','queue',?,NULL,?,?)`)
-          .run(row.bot_id, dms.get(row.bot_id)!, JSON.stringify({ task: row.id, due: at }), now);
-        fired.push({ taskId: row.id, botId: row.bot_id, chatId: dms.get(row.bot_id)!, at });
+        this.inbox.write([{ delivery: { member: { id: row.bot_id }, reason: "schedule", kind: "task", urgency },
+          chatId: null, messageId: null, actorId: null, payload: { task: row.id, due: at }, createdAt: now }]);
+        fired.push({ taskId: row.id, botId: row.bot_id, at });
       }
       return fired;
     });

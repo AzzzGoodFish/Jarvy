@@ -16,7 +16,7 @@ import { BotService } from "./service/bot/service.js";
 import { ConnectionService } from "./service/connection.js";
 import { SecretService } from "./service/secrets.js";
 import { TaskService } from "./service/tasks.js";
-import { urgencyOf } from "./service/delivery/policy.js";
+import { Deliveries } from "./service/delivery/delivery.js";
 import { RuntimeFault } from "./shared/runtime.js";
 import type { SessionFactory } from "./infra/pi/session.js";
 
@@ -24,6 +24,8 @@ export class Application {
   readonly events = new Changes();
   readonly credentials = new CredentialCoordinator();
   readonly chats: ChatService;
+  /** Every delivery goes through here (A41, A61). */
+  readonly deliveries: Deliveries;
   readonly user: User;
   readonly files: ChatFiles;
   readonly bots: BotService;
@@ -36,17 +38,19 @@ export class Application {
   readonly tasks: TaskService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
-    this.chats = new ChatService(store.chats, {
-      bot: (id, urgency) => this.bots.deliver(id, urgency), user: (id, urgency) => { if (id === this.user.id) this.user.deliver(urgency); },
+    // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
+    this.deliveries = new Deliveries(store.chats.inbox, {
+      bot: (id, urgency) => this.bots.deliver(id, urgency), user: (id, urgency) => { if (id === this.user.id) this.user.deliver(urgency); } });
+    this.chats = new ChatService(store.chats, this.deliveries, {
       saved: id => this.user.changed(id), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
     this.user = new User(store.account.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }), id => this.events.publish({ kind: "chat", id }),
       () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
     this.secrets = new SecretService(store, this.chats);
-    // The scheduler wakes a Bot through the same delivery any message uses (A58).
-    this.tasks = new TaskService(store, this.chats, botId => this.bots.deliver(botId, urgencyOf("task", "schedule")!));
-    this.bots = new BotService({ store, chats: this.chats, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks,
+    // A due task is a system notice to its Bot, delivered like any other (A58, A61).
+    this.tasks = new TaskService(store, this.deliveries);
+    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);

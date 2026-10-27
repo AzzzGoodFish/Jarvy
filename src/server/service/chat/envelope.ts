@@ -38,19 +38,19 @@ export interface BatchEnvironment { name: string; directory: string }
 const environmentLine = (place?: BatchEnvironment) => place ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}/>` : "";
 const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z");
 
-/** A delivery that is not a message (A39, A41): a mark on the Bot's message, or a new notice / summary version
- * (told as where and which version, no content). */
+/** A delivery that is not a message (A39, A41): chat activity — a mark on the Bot's message, or a new notice / summary
+ * version (told as where and which version, no content) — or a system notice, about no chat (A61). */
 type NoticeChat = { id: string; type: "dm" | "channel" | "thread"; title: string };
 export type EnvelopeNotice =
   | { kind: "reaction"; id: number; chat: NoticeChat; message: { id: string; text: string }; actor: MemberIdentity; emoji: string; createdAt: number }
   | { kind: "note"; id: number; chat: NoticeChat; actor: MemberIdentity; version: number; createdAt: number }
-  | { kind: "onboard"; id: number; chat: NoticeChat; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
-  | { kind: "change"; id: number; chat: NoticeChat; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number }
+  | { kind: "onboard"; id: number; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
+  | { kind: "change"; id: number; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number }
   /** One of the Bot's scheduled tasks is due (A58): what to do, and when it was meant to run. */
-  | { kind: "task"; id: number; chat: NoticeChat; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number };
-/** The agent Bot's first turn (A48): the owner has just given it a model, in the DM named on the element. */
+  | { kind: "task"; id: number; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number };
+/** The agent Bot's first turn (A48): the owner has just given it a model; it writes to them itself (A61). */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
-  + `In this DM, welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
+  + `Write to them in a DM (messages.send with to: "${owner}") and welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
   + "such as building a team of Bots for their work and running the platform for them. Then ask what they want to get done: a software project, writing, research or something else.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
 export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null): string {
@@ -75,9 +75,10 @@ function instructionsLine(change?: PromptChange | null): string {
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
     if (notice.kind === "task") continue;
-    // A DM without messages yet is untitled (v18).
-    if (!chats.has(notice.chat.id)) chats.set(notice.chat.id, `<chat${attribute("id", notice.chat.id)}${attribute("type", notice.chat.type)}${notice.chat.title ? attribute("title", notice.chat.title) : ""}/>`);
     remember(members, notice.actor.id, `<member${attribute("id", notice.actor.id)}${attribute("name", notice.actor.name)}${attribute("kind", notice.actor.kind)}/>`);
+    // System notices are about no chat (A61). A DM without messages yet is untitled (v18).
+    if (notice.kind === "onboard" || notice.kind === "change") continue;
+    if (!chats.has(notice.chat.id)) chats.set(notice.chat.id, `<chat${attribute("id", notice.chat.id)}${attribute("type", notice.chat.type)}${notice.chat.title ? attribute("title", notice.chat.title) : ""}/>`);
   }
   const latest = new Map<string, Extract<EnvelopeNotice, { kind: "note" }>>();
   for (const notice of notices) if (notice.kind === "note" && (latest.get(notice.chat.id)?.version ?? 0) < notice.version) latest.set(notice.chat.id, notice);
@@ -85,13 +86,13 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + `${attribute("version", String(note.version))}${attribute("by", note.actor.id)}${attribute("at", iso(note.createdAt))}/>`);
   const marks = notices.flatMap(notice => notice.kind !== "reaction" ? [] : [`<reaction${attribute("message", notice.message.id)}${attribute("chat", notice.chat.id)}`
     + `${attribute("by", notice.actor.id)}${attribute("emoji", notice.emoji)}${attribute("at", iso(notice.createdAt))}>${escape(notice.message.text)}</reaction>`]);
-  // Changes the agent Bot (A48) or the owner (where you work, A50) made to you: where to ask (your DM with them), what
-  // changed and the new value.
+  // Changes the agent Bot (A48) or the owner (where you work, A50) made to you: who, what changed and the new value.
+  // About no chat (A61): the note says how to ask.
   const changed = notices.filter((notice): notice is Extract<EnvelopeNotice, { kind: "change" }> => notice.kind === "change");
-  const changes = changed.map(notice => `<change${attribute("chat", notice.chat.id)}${attribute("by", notice.actor.id)}`
+  const changes = changed.map(notice => `<change${attribute("by", notice.actor.id)}`
     + `${attribute("what", notice.what)}${attribute("at", iso(notice.createdAt))}${notice.value === null ? "/>" : `>${escape(notice.value)}</change>`}`);
-  const byAgent = changed.some(notice => notice.actor.kind === "bot"), byOwner = changed.some(notice => notice.actor.kind === "user");
-  const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("chat", notice.chat.id)}${attribute("by", notice.actor.id)}`
+  const agent = changed.find(notice => notice.actor.kind === "bot")?.actor, byOwner = changed.some(notice => notice.actor.kind === "user");
+  const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("by", notice.actor.id)}`
     + `${attribute("at", iso(notice.createdAt))}><note>${escape(welcome(notice.actor.name, notice.language))}</note></onboard>`]).slice(-1);
   const tasks = notices.flatMap(notice => notice.kind !== "task" ? [] : [`<task${attribute("id", notice.task.id)}`
     + `${attribute("name", notice.task.name)}${attribute("schedule", notice.task.schedule)}${attribute("due", iso(notice.due))}>${escape(notice.task.instruction)}</task>`]);
@@ -100,7 +101,8 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`
-      + (byAgent ? "<note>The agent Bot changed your settings, and the changes already apply. A change to your name, description or persona is a change to your instructions too. If something is unclear, ask it in that DM.</note>" : "")
+      + (agent ? "<note>The agent Bot changed your settings, and the changes already apply. A change to your name, description or persona is a change to your instructions too. "
+        + `If something is unclear, ask it in a DM (messages.send with to: "${escape(agent.name)}").</note>` : "")
       + (byOwner ? "<note>Your owner changed where you work, and it already applies: environment is where your file and command tools run now, and access is what environments.switch can take you to. If you were in the middle of something, carry on where you are now.</note>" : "")
       + "</changes>" : "")
     + onboard.join("");

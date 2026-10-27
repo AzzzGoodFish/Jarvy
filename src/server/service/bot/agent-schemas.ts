@@ -33,7 +33,7 @@ export const agentDefinitions = {
   "models.list": { description: "List the models you can give a Bot: each connection with its models and their thinking levels. Only the owner adds connections, keys and logins, in Settings.", schema: None },
   "bots.create": { description: "Create a Bot. Give it a model so it can work; without one it waits until it gets one. It starts when a message first arrives for it. bots.update changes everything later.",
     schema: Type.Object({ name: Name, ...Settings, environment: Type.Optional(Environment) }, { additionalProperties: false }) },
-  "bots.update": { description: "Change a Bot's name, description, persona, model or thinking; give only what changes. Works for any Bot, yourself included. The Bot is told what changed with its next batch, in its DM with you.",
+  "bots.update": { description: "Change a Bot's name, description, persona, model or thinking; give only what changes. Works for any Bot, yourself included. The Bot is told what changed with its next batch.",
     schema: Type.Object({ bot: BotName, name: Type.Optional(Name), ...Settings }, { additionalProperties: false }) },
   "bots.start": { description: "Start a stopped Bot. A stopped Bot also starts by itself when a message arrives for it.", schema: Type.Object({ bot: BotName }, { additionalProperties: false }) },
   "bots.stop": { description: "Stop a Bot (not yourself): its current turn ends, and it stays stopped until it is started or a message arrives for it.", schema: Type.Object({ bot: BotName }, { additionalProperties: false }) },

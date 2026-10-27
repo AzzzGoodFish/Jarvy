@@ -9,7 +9,7 @@ import { ChatRepository } from "../../infra/storage/chat-repository.js";
 import { ChatQuestions, questionSpec } from "./questions.js";
 import { ChatChannels } from "./channels.js";
 import { ChatThreads } from "./threads.js";
-import { Dispatcher, plan, type DeliveryHandlers } from "../delivery/delivery.js";
+import { plan, type Deliveries } from "../delivery/delivery.js";
 import { reactionTargets } from "../delivery/routes.js";
 import { quoteDrafts, resolveQuotes } from "./quotes.js";
 
@@ -42,10 +42,6 @@ export function emojiValue(value: unknown): string {
   return value;
 }
 export interface ChatNotifications {
-  /** A committed delivery reached a Bot (A41); the Bot decides how to respond to its urgency. */
-  bot?: DeliveryHandlers["bot"];
-  /** … or a person. */
-  user?: DeliveryHandlers["user"];
   saved?: (chatId: string) => void;
   /** An owner's channel groups changed (a Bot may create or rename them). */
   sections?: (ownerId: string) => void;
@@ -55,14 +51,13 @@ export class ChatService {
   readonly questions: ChatQuestions;
   readonly channels: ChatChannels;
   readonly threads: ChatThreads;
-  private readonly dispatcher: Dispatcher;
-  constructor(private readonly repository: ChatRepository, private readonly notifications: ChatNotifications = {}) {
-    this.dispatcher = new Dispatcher({ bot: notifications.bot, user: notifications.user });
+  /** `deliveries`: the delivery module (A41, A61); chat sources hand their committed deliveries off there. */
+  constructor(private readonly repository: ChatRepository, private readonly deliveries: Deliveries, private readonly notifications: ChatNotifications = {}) {
     this.threads = new ChatThreads(repository, chatId => this.notifySaved(chatId));
     this.questions = new ChatQuestions(repository, chatId => this.notifySaved(chatId));
     this.channels = new ChatChannels(repository, chatId => this.notifySaved(chatId), ownerId => {
       try { this.notifications.sections?.(ownerId); } catch { console.error("[chat] section notification failed"); }
-    }, deliveries => this.dispatcher.dispatch(deliveries));
+    }, deliveries => this.deliveries.dispatch(deliveries));
   }
   list(actorId: string) { return this.repository.listChats(actorId); }
   get(actorId: string, chatId: string) { return this.repository.getChat(actorId, chatId); }
@@ -120,7 +115,7 @@ export class ChatService {
     const deliveries = apply ? plan("reaction", reactionTargets({ actorId, author })) : [];
     const { chatId, added } = this.repository.interactions.react(actorId, messageId, value, apply, deliveries);
     this.notifySaved(chatId);
-    if (added) this.dispatcher.dispatch(deliveries);
+    if (added) this.deliveries.dispatch(deliveries);
     return this.repository.message(actorId, messageId)!;
   }
   /** Folds a message to one line in the owner's interface, or unfolds it (A60). Nobody is told: a Bot reads it as before. */
@@ -187,7 +182,7 @@ export class ChatService {
       members: new ChatMembers(chatId, actorId, this.repository, (message, deliveries) => {
         this.notifySaved(chatId);
         if (parentId) this.notifySaved(parentId);
-        this.dispatcher.dispatch(deliveries, message);
+        this.deliveries.dispatch(deliveries, message);
       }),
       messages: new ChatMessages(chatId, actorId, this.repository),
     }, { delete: async id => { this.repository.assertOwner(actorId, id); this.repository.deleteChat(actorId, id); } });

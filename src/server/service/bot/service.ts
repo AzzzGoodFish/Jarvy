@@ -31,7 +31,7 @@ import type { Skill } from "../../shared/skill.js";
 import type { RosterEntry } from "./roster.js";
 import { LiveTurns } from "./live.js";
 import { AgentOps } from "./agent.js";
-import { urgencyOf } from "../delivery/policy.js";
+import type { Deliveries } from "../delivery/delivery.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 import type { SecretService } from "../secrets.js";
@@ -39,6 +39,8 @@ import type { TaskService } from "../tasks.js";
 
 export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
+  /** The delivery module (A61): system notices to a Bot, such as a change to where it works. */
+  deliveries: Deliveries;
   /** The owner's secrets (A52): each Bot's runs fill placeholders and mask values through it. */
   secrets: SecretService;
   /** Scheduled tasks (A58): each Bot manages its own with the tasks tools. */
@@ -62,7 +64,7 @@ export class BotService {
   /** The skills that ship with Jarvy, for the agent Bot (A55). */
   private readonly skills: readonly Skill[] = builtinSkills();
   constructor(private readonly deps: BotDependencies) {
-    this.agent = new AgentOps(this, deps.store, deps.chats);
+    this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries);
     this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
     this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
     this.environments = new BotEnvironments(deps.store, this.computers, this.machines);
@@ -161,16 +163,16 @@ export class BotService {
     if (changed && environmentId !== "host") this.listChanged();
     return this.describe(id);
   }
-  /** Tells a Bot what its owner changed about where it works (A41, A50). A move interrupts a running turn, as an
-   * @-mention does, so the Bot doesn't go on in the old place; a Bot not running, or a change of access alone, is
-   * told with its next batch. */
+  /** Tells a Bot what its owner changed about where it works (A41, A50), as system notices (A61). A move of a Bot that
+   * is running interrupts its turn, as an @-mention does, so it doesn't go on in the old place; a Bot not running, or a
+   * change of access alone, is told with its next batch. */
   private tellOwner(id: string, changes: readonly BotChange[], move: boolean) {
     // A Bot still being set up (no model yet, its first-setup card) has nothing to be told.
     if (!this.record(id).connectionId) return;
-    const owner = this.deps.store.account.userMemberId(), chatId = this.deps.chats.openDirect(owner, id).id;
-    const urgency = move && this.bots.get(id)?.status().status === "running" ? urgencyOf("change", "owner")! : "digest";
-    for (const change of changes) this.deps.store.agent.notify({ botId: id, kind: "change", reason: "owner", urgency, chatId, actorId: owner, detail: JSON.stringify(change) });
-    if (urgency === "interrupt") this.deliver(id, urgency);
+    const to = this.deps.chats.member(id);
+    if (!to) return;
+    const reason = move && this.bots.get(id)?.status().status === "running" ? "move" : "owner";
+    this.deps.deliveries.notify({ to, kind: "change", reason, actorId: this.deps.store.account.userMemberId(), payloads: changes });
   }
   private record(id: string): BotRecord {
     const record = this.deps.store.bots.get(id);

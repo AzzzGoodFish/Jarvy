@@ -1,24 +1,18 @@
 import type { Store } from "../infra/storage/store.js";
-import type { ChatService } from "./chat/service.js";
+import type { Deliveries } from "./delivery/delivery.js";
+import { urgencyOf } from "./delivery/policy.js";
 import { ChatError } from "../shared/chat.js";
 import { ValidationError } from "../shared/errors.js";
 import { TASK_MINUTES_MIN, type Task, type TaskSchedule } from "../shared/task.js";
 
 const MAX_WAIT_MS = 60_000;
 /** Task schedules and the owner's list of them (A58). Making one is checked here, not in the Bot or the page:
- * a schedule has to be one the Bot can compute. A task is not tied to a chat: when it is due, it is told in the
- * Bot's DM with its owner, made when first needed. */
+ * a schedule has to be one the Bot can compute. A task is not tied to a chat: when it is due, its Bot gets a system
+ * notice (A61). */
 export class TaskService {
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
-  constructor(private readonly store: Store, private readonly chats: ChatService, private readonly wake: (botId: string) => void) {}
-
-  /** Where a due task is told: the DM between the Bot and its owner, made when first needed. */
-  private dm(botId: string): string {
-    const bot = this.store.bots.get(botId);
-    if (!bot) throw new ChatError(404, "Bot not found");
-    return this.chats.openDirect(botId, this.store.account.userMemberId()).id;
-  }
+  constructor(private readonly store: Store, private readonly deliveries: Deliveries) {}
   /** Checked against what a Bot and its owner can both mean: an existing schedule the Bot can compute. `previous`:
    * the task's schedule before; an interval left as it was keeps counting from when it was set, a new one from now. */
   schedule(value: unknown, previous?: TaskSchedule): TaskSchedule {
@@ -102,8 +96,12 @@ export class TaskService {
     if (this.stopped) return;
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
-    const dms = new Map(this.store.tasks.dueBots().map(botId => [botId, this.dm(botId)]));
-    for (const fired of this.store.tasks.fire(dms)) this.wake(fired.botId);
+    // Written in the same transaction that moves each task on; handed to its Bot after.
+    const urgency = urgencyOf("task", "schedule")!;
+    for (const fired of this.store.tasks.fire(urgency)) {
+      const member = this.store.chats.member(fired.botId);
+      if (member) this.deliveries.dispatch([{ member, reason: "schedule", kind: "task", urgency }]);
+    }
     const soonest = this.store.tasks.soonest();
     const wait = soonest === null ? MAX_WAIT_MS : Math.min(MAX_WAIT_MS, Math.max(1000, soonest - Date.now()));
     this.timer = setTimeout(() => this.tick(), wait);
