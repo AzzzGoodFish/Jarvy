@@ -239,7 +239,7 @@ Why: the setup Bot already has a fixed id that survives renaming, and keeping it
 ## A49 Pi 1.2.0 and the online model catalog
 
 - `pi-coding-agent` and `pi-ai` are pinned to 1.2.0 (supersedes A24's version). Sessions (JSONL v3) carry over both ways; History, credentials and Codex accounts are unchanged. Pi now brings `pi-agent-core` (its agent loop), which stays behind `infra/pi` like the rest. Pi no longer ships a shrinkwrap and pins `brace-expansion` 5.0.12 itself; `npm audit` is clean.
-- Auto-configuration and the provider list read the model catalog with pi.dev's overlay (supersedes A26's bundled-only catalog). Jarvy fetches pi.dev's catalog at most every 4 hours, keeps it in the data directory, and falls back to it and to the bundled catalog when offline; `PI_OFFLINE=1` turns the fetch off. Pi's own overlay only refreshes providers that have a credential, so the catalog fetches the whole list itself, in the same shape. Entries newer than the SDK can carry fields it ignores, so the overlay brings models released between upgrades, not new request features.
+- Auto-configuration and the provider list read the model catalog with pi.dev's overlay (supersedes A26's bundled-only catalog). Jarvy fetches pi.dev's catalog at most every 4 hours (on a timer and when a connection is opened since A62), keeps it in the data directory, and falls back to it and to the bundled catalog when offline; `PI_OFFLINE=1` turns the fetch off. Pi's own overlay only refreshes providers that have a credential, so the catalog fetches the whole list itself, in the same shape. Entries newer than the SDK can carry fields it ignores, so the overlay brings models released between upgrades, not new request features.
 - Pi renamed the Azure provider from `azure-openai-responses` to `azure`. Saved connections are not migrated: an Azure connection made before has to be created again.
 - Codemode's own description is shorter and its errors say how to recover; Jarvy's tools and prompts are unchanged.
 
@@ -393,3 +393,14 @@ Bots sometimes write a lot into a chat — long logs, many steps in a row — an
 - **API**: `PUT /messages/:id/fold {folded}` returns the message; the change is announced like a reaction, so other tabs reload it.
 
 Why: folding keeps everything — content, quotes, threads, a Bot's context — and can be undone, while it takes the noise out of view.
+
+## A62 Resetting a connection's models to the catalog
+
+A model saved under a connection is a snapshot of its catalog entry. When the catalog moved on — a new model, new prices, another protocol — nothing reached a connection already set up, and the only way back was to delete its models one by one and add them again; the catalog itself was only checked when someone opened the provider list. A model taken from pi.dev's newer entries also lost its address: Kimi Coding there is `openai-completions` at `…/coding/v1`, Pi bundles `anthropic-messages` at `…/coding`, and a request with the new protocol at the bundled address failed with 404.
+
+- **Reset**: a built-in connection's models can be reset to the catalog. After checking pi.dev at once, it says how many models will be reset and which will be removed, naming the Bots that use them; on confirmation, in one transaction, the connection's address and protocol go back to the provider's, each saved model the catalog has is set to its entry (protocol, address, limits, thinking levels, prices, capabilities, name), and the others are removed. Kept: the key or login, the connection's name, each model's ID and request headers — so Bots on a reset model carry on, and Bots on a removed one wait for another model, as a new Bot does. Models the catalog offers that weren't saved are listed unticked, as before. A custom connection has no catalog to reset to.
+- **A model keeps its address**: a model saved from the catalog stores the address its entry gives; requests go to the connection's own address first, then the model's, then Pi's bundled one. Changing a model's protocol by hand drops it.
+- **The catalog is checked on time**: every 4 hours while the server runs, and when a connection is opened if a check is due, besides at start (amends A49, where it was only checked at start and when the provider list was read).
+- No database change: model configuration is JSON.
+
+Why: a connection should be able to follow the catalog without losing its login, and a model from the catalog should work as the catalog describes it.
