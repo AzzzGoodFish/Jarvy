@@ -32,7 +32,7 @@ src/
       connection.ts          how Jarvy is reached: its certificate, LAN addresses, whether plain HTTP is allowed (A51)
       secrets.ts             the owner's secrets, their grants and uses (A52)
     infra/
-      storage/               Store, repositories, migrations/
+      storage/               Store (opens the database, runs migrations, holds the repositories), one repository per domain (account, bots, model connections, chats, …), migrations/
       pi/                    Pi session, models, credentials, History and live-event conversion, HTTP dispatcher
       env/                   work environments: where a Bot's file and command tools run (pi-env, Pi Durable)
       tls/                   Jarvy's own root and server certificates (A51)

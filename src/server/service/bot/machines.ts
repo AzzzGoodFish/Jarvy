@@ -157,7 +157,7 @@ export class SshMachines {
     const message = this.chats.message(actorId, messageId), ask = message?.question?.machine;
     if (!message || message.chatId !== chatId || !ask || message.question?.state !== "pending") throw new ChatError(409, "The question is already settled", "question_closed");
     if (!this.chats.questions.waitingFor(messageId)) throw new ChatError(409, "The question has expired", "question_expired");
-    const botId = message.sender.id, by = this.store.userMemberId();
+    const botId = message.sender.id, by = this.store.account.userMemberId();
     const existing = ask.existing && this.store.environments.get(ask.existing.id);
     if (existing) { this.store.environments.grant(existing.id, botId, by); this.changed(); }
     else await this.add({ name: ask.name, host: ask.host, port: ask.port, user: ask.user, directory: ask.directory ?? undefined, password: input.password,

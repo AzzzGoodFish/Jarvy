@@ -70,7 +70,7 @@ export class BotService {
   listChanged() { this.deps.listChanged?.(); }
   get(id: string): Bot {
     if (this.closed) throw new RuntimeFault("stopping", "Shutting down.", 503);
-    const record = this.deps.store.getBot(id);
+    const record = this.deps.store.bots.get(id);
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     let bot = this.bots.get(id);
     if (bot) return bot;
@@ -104,14 +104,14 @@ export class BotService {
     return bot;
   }
   private details(record: BotRecord) {
-    const model = record.connectionId ? this.deps.store.getModelConnection(record.connectionId)?.models.find(model => model.id === record.modelId) : undefined;
+    const model = record.connectionId ? this.deps.store.connections.get(record.connectionId)?.models.find(model => model.id === record.modelId) : undefined;
     return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null, agent: record.id === AGENT_BOT_ID,
       environment: this.environments.placement(record.id) };
   }
-  owns(id: string) { return this.deps.store.getBot(id) !== null; }
+  owns(id: string) { return this.deps.store.bots.get(id) !== null; }
   /** The turn a Bot is running, live (A47); kept for a Bot whether or not it has started. */
   live(id: string): LiveTurns {
-    if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    if (!this.deps.store.bots.get(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     let live = this.lives.get(id);
     if (!live) { live = new LiveTurns(chatId => this.liveChat(id, chatId)); this.lives.set(id, live); }
     return live;
@@ -123,12 +123,12 @@ export class BotService {
     const other = chat.type === "dm" ? chat.memberIds.find(member => member !== botId) : undefined;
     return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
   }
-  list() { return this.deps.store.listBots().map(record => this.details(record)); }
+  list() { return this.deps.store.bots.list().map(record => this.details(record)); }
   /** A new Bot works in its sandbox when this machine has Docker, unless asked for the owner's computer (A50). */
   create(name: string, environment?: HomeKind) {
     const kind = environment ?? (this.computers.available ? "computer" : "host");
     if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
-    const record = this.deps.store.createBot(name);
+    const record = this.deps.store.bots.create(name);
     this.environments.setHome(record.id, kind, record.workspacePath);
     return this.details(record);
   }
@@ -147,14 +147,14 @@ export class BotService {
     const name = this.machines.get(machineId).name, granted = this.machines.get(machineId).botIds;
     const moved = await this.machines.remove(machineId, force);
     for (const id of new Set([...granted, ...moved])) {
-      if (!this.deps.store.getBot(id)) continue;
+      if (!this.deps.store.bots.get(id)) continue;
       const changes: BotChange[] = [{ what: "access", value: `${name}: removed` }];
       if (moved.includes(id)) { const to = this.environments.here(id, this.record(id).workspacePath); changes.push({ what: "environment", value: `${to.name}, in ${to.directory}` }); }
       this.tellOwner(id, changes, moved.includes(id));
     }
   }
   private grant(id: string, environmentId: string | "host", granted: boolean) {
-    const { changed, moved, name } = this.environments.grant(id, environmentId, granted, this.deps.store.userMemberId(), this.record(id).workspacePath);
+    const { changed, moved, name } = this.environments.grant(id, environmentId, granted, this.deps.store.account.userMemberId(), this.record(id).workspacePath);
     const changes: BotChange[] = changed ? [{ what: "access", value: `${name}: ${granted ? "you may switch to it" : "taken back"}` }] : [];
     if (moved) changes.push({ what: "environment", value: where(moved) });
     if (changes.length) this.tellOwner(id, changes, !!moved);
@@ -167,13 +167,13 @@ export class BotService {
   private tellOwner(id: string, changes: readonly BotChange[], move: boolean) {
     // A Bot still being set up (no model yet, its first-setup card) has nothing to be told.
     if (!this.record(id).connectionId) return;
-    const owner = this.deps.store.userMemberId(), chatId = this.deps.chats.openDirect(owner, id).id;
+    const owner = this.deps.store.account.userMemberId(), chatId = this.deps.chats.openDirect(owner, id).id;
     const urgency = move && this.bots.get(id)?.status().status === "running" ? urgencyOf("change", "owner")! : "digest";
     for (const change of changes) this.deps.store.agent.notify({ botId: id, kind: "change", reason: "owner", urgency, chatId, actorId: owner, detail: JSON.stringify(change) });
     if (urgency === "interrupt") this.deliver(id, urgency);
   }
   private record(id: string): BotRecord {
-    const record = this.deps.store.getBot(id);
+    const record = this.deps.store.bots.get(id);
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     return record;
   }
@@ -191,12 +191,12 @@ export class BotService {
   runs(id: string) { this.describe(id); return this.deps.store.runtime.runs(id); }
   activity(id: string, before?: ActivityCursor, limit = 40) {
     const bot = this.get(id);
-    const messages = this.deps.chats.sentActivity(this.deps.store.userMemberId(), id, before, limit + 1);
+    const messages = this.deps.chats.sentActivity(this.deps.store.account.userMemberId(), id, before, limit + 1);
     return activityPage(messages, bot.memory.timeline(before, limit + 1), limit);
   }
   activityMessage(id: string, messageId: string) {
     this.describe(id);
-    const actor = this.deps.store.userMemberId();
+    const actor = this.deps.store.account.userMemberId();
     const message = this.deps.chats.message(actor, messageId);
     if (!message || message.sender.id !== id) throw new RuntimeFault("message_missing", "Message not found", 404);
     const chat = this.deps.chats.get(actor, message.chatId)!;
@@ -205,7 +205,7 @@ export class BotService {
   memory(id: string) { return this.get(id).memory; }
   /** A delivery reached a Bot (A41); the Bot responds to its urgency. */
   deliver(id: string, urgency: Urgency): void {
-    if (this.closed || !this.deps.store.getBot(id)) return;
+    if (this.closed || !this.deps.store.bots.get(id)) return;
     const bot = this.get(id);
     void bot.deliver(urgency).catch(error => {
       const fault = publicFault(error);
@@ -215,7 +215,7 @@ export class BotService {
   }
   /** Picks up what is still waiting for a Bot (after a failure, a new model, or a restart), if anything. */
   resume(id: string): void {
-    const waiting = this.deps.store.runtime.waitingBots(this.deps.store.userMemberId()).find(item => item.botId === id);
+    const waiting = this.deps.store.runtime.waitingBots(this.deps.store.account.userMemberId()).find(item => item.botId === id);
     if (waiting) this.deliver(id, waiting.urgency);
   }
   retry(id: string): void { this.resume(id); }
@@ -223,12 +223,12 @@ export class BotService {
     if (this.started) return;
     this.started = true;
     void this.computers.start();
-    for (const { botId, urgency } of this.deps.store.runtime.waitingBots(this.deps.store.userMemberId())) this.deliver(botId, urgency);
+    for (const { botId, urgency } of this.deps.store.runtime.waitingBots(this.deps.store.account.userMemberId())) this.deliver(botId, urgency);
   }
   /** Every Bot's run state, for `bots.list` (A43). A Bot not loaded in this process is stopped. */
   roster(): RosterEntry[] {
     const { store } = this.deps;
-    return store.listBots().map(record => {
+    return store.bots.list().map(record => {
       const bot = this.bots.get(record.id), runId = bot?.agentRuntime.activeRunId ?? null;
       const status = bot?.status() ?? { status: "stop", activity: null, context: null, error: null };
       return { id: record.id, name: record.name, agent: record.id === AGENT_BOT_ID, status,
@@ -237,21 +237,21 @@ export class BotService {
     });
   }
   status(id: string): BotStatus & { botId: string; runId: string | null } {
-    if (!this.deps.store.getBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    if (!this.deps.store.bots.get(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     const bot = this.bots.get(id);
     return { ...(bot?.status() ?? { status: "stop", activity: null, context: null, error: null }), botId: id, runId: bot?.agentRuntime.activeRunId ?? null };
   }
   /** `language` is the browser's interface language: the agent Bot's first model asks it to welcome the owner in it (A48). */
   async selectModel(id: string, input: Record<string, unknown>) {
-    const selection = this.deps.store.validateSelection(id, input);
+    const selection = this.deps.store.bots.validateSelection(id, input);
     if (!selection) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     await this.get(id).changeModel(selection);
     this.resume(id);
     if (id === AGENT_BOT_ID) this.agent.onboard(welcomeLanguage(input.language));
-    return this.deps.store.getBot(id)!;
+    return this.deps.store.bots.get(id)!;
   }
   connectionChanged(connectionId: string) {
-    for (const bot of this.deps.store.listBots()) if (bot.connectionId === connectionId) this.resume(bot.id);
+    for (const bot of this.deps.store.bots.list()) if (bot.connectionId === connectionId) this.resume(bot.id);
   }
   /** A deleted chat ends the turns handling it; `except` is the agent Bot that deleted it from inside its turn. */
   async chatDeleted(chatId: string, except?: string): Promise<void> {
@@ -270,7 +270,7 @@ export class BotService {
     this.bots.delete(id);
     this.lives.get(id)?.close(); this.lives.delete(id);
     await this.environments.release(id);
-    if (!this.deps.store.deleteBot(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    if (!this.deps.store.bots.delete(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
   }
   async close(): Promise<void> {
