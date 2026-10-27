@@ -5,7 +5,8 @@ import {
   COMPUTER_CWD, buildImage, computerImage, containerEnvironment, containerState, containerStates, dockerAvailable, homeAtWorkspace,
   imageExists, pruneImages, removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
 } from "../../infra/env/docker.js";
-import type { ComputerStatus, EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { ComputerStatus } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
 const SWEEP_MS = 60_000;

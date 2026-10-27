@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { ApiError, api, type Bot, type HostKeys, type SshMachine } from "../api";
+import { ApiError, api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type HostKeys, type SshMachine } from "../../contract/environment";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";

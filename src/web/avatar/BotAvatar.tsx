@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { colorHex, type BotColor, type BotMood } from "./palette";
+import { colorHex } from "./palette";
+import { type BotColor, type BotMood } from "../../contract/models";
 import { snapshot } from "./snapshot";
 import { t } from "../i18n";
 import "../styles/avatar.css";

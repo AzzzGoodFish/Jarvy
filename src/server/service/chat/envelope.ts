@@ -1,15 +1,15 @@
-import type { MemberIdentity } from "../../shared/chat.js";
+import type { Member } from "../../../contract/chat.js";
 import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
 
 export interface EnvelopeMessage {
   id: string;
   chat: { id: string; type: "dm" | "channel" | "thread"; title?: string; section?: string; parent?: string; root?: string; status?: string };
-  sender: MemberIdentity;
+  sender: Member;
   createdAt: number;
   content: string;
   /** The message this one replies to, quoted short. */
-  replyTo?: { id: string; sender: MemberIdentity; text: string };
+  replyTo?: { id: string; sender: Member; text: string };
   /** What a Bot learns of a file in a message (A50): files.get and files.view open it by its id. */
   attachments: readonly FileListing[];
 }
@@ -42,10 +42,10 @@ const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z")
  * version (told as where and which version, no content) — or a system notice, about no chat (A61). */
 type NoticeChat = { id: string; type: "dm" | "channel" | "thread"; title: string };
 export type EnvelopeNotice =
-  | { kind: "reaction"; id: number; chat: NoticeChat; message: { id: string; text: string }; actor: MemberIdentity; emoji: string; createdAt: number }
-  | { kind: "note"; id: number; chat: NoticeChat; actor: MemberIdentity; version: number; createdAt: number }
-  | { kind: "onboard"; id: number; actor: MemberIdentity; language: WelcomeLanguage; createdAt: number }
-  | { kind: "change"; id: number; actor: MemberIdentity; what: ChangeField; value: string | null; createdAt: number }
+  | { kind: "reaction"; id: number; chat: NoticeChat; message: { id: string; text: string }; actor: Member; emoji: string; createdAt: number }
+  | { kind: "note"; id: number; chat: NoticeChat; actor: Member; version: number; createdAt: number }
+  | { kind: "onboard"; id: number; actor: Member; language: WelcomeLanguage; createdAt: number }
+  | { kind: "change"; id: number; actor: Member; what: ChangeField; value: string | null; createdAt: number }
   /** One of the Bot's scheduled tasks is due (A58): what to do, and when it was meant to run. */
   | { kind: "task"; id: number; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model; it writes to them itself (A61). */

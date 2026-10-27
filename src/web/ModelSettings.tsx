@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
-import type { ModelConnection } from "./api";
+import type { ModelConnection } from "../contract/models";
 import { ProviderPicker, GROUPS, groupOf, type ProviderPreset } from "./ProviderPicker";
 import { ProviderEditor } from "./ProviderEditor";
 import { Button } from "./components/ui/button";

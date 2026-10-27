@@ -1,4 +1,5 @@
-import type { BotStatus, Member } from "./api";
+import type { BotStatus } from "../contract/bots";
+import type { Member } from "../contract/chat";
 import { t, type Key } from "./i18n";
 
 /** How a member is named on a message; a deleted Bot keeps its old messages under 「名字（已删除）」. */

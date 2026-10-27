@@ -1,4 +1,4 @@
-import type { MessageSource } from "./chat.js";
+import type { MessageSource } from "../../contract/chat.js";
 import type { HistorySummary } from "./history.js";
 
 /** Descending timestamp, then History before Chat at ties, then descending source ID. */

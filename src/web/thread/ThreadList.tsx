@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, type Bot, type Chat, type Member, type ThreadEntry } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type Chat, type Member, type ThreadEntry } from "../../contract/chat";
 import { formatDate, t } from "../i18n";
 import { previewText } from "../channel/quotes";
 import { IconButton } from "../ui";

@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import type { MemberIdentity, DeliveryMessage } from "../../shared/chat.js";
+import type { DeliveryMessage } from "../../shared/chat.js";
+import type { Member } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 import type { AppendDeliveries, ChatMessages as Messages } from "./contracts.js";
 
 export class ChatMessages implements Messages {
   constructor(private readonly id: string, private readonly actor: string, private readonly repository: ChatRepository) {}
-  async append(sender: MemberIdentity, message: DeliveryMessage, deliveries: AppendDeliveries, mentions: readonly string[] = []) {
+  async append(sender: Member, message: DeliveryMessage, deliveries: AppendDeliveries, mentions: readonly string[] = []) {
     const payload: unknown[] = message.files === undefined
       ? [this.id, message.content, message.attachmentIds]
       : [this.id, message.content, message.files.map(file => [file.name, createHash("sha256").update(file.data).digest("hex")])];

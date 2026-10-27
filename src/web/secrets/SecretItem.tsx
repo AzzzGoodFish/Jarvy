@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type Bot, type Secret, type SecretUse } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type Secret, type SecretUse } from "../../contract/secrets";
 import { formatDate, t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";

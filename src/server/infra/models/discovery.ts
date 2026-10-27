@@ -1,5 +1,5 @@
 import { RuntimeFault } from "../../shared/runtime.js";
-import type { ConfiguredModel } from "../../shared/models.js";
+import type { ConfiguredModel } from "../../../contract/models.js";
 
 /** Listing endpoints are protocol-specific; this is not a model inference test. */
 export async function discoverModels(input: { api: string; baseUrl: string; key: string }, signal: AbortSignal): Promise<ConfiguredModel[]> {

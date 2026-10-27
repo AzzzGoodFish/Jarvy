@@ -1,6 +1,6 @@
 import type * as Three from "three";
 import { Crown } from "./crown";
-import type { BotMood } from "./palette";
+import type { BotMood } from "../../contract/models";
 
 type THREE = typeof Three;
 /** What the body does (from Bot status); mood only changes the eyes. The NPC prototype adds actions by fact: read (holds

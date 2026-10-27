@@ -1,5 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { api, ApiError, type Attachment, type BotStatus, type Bot, type Chat, type ChatMessage, type Member, type ModelConnection, type Section, type ThreadEntry } from "./api";
+import { api, ApiError } from "./api";
+import { type Attachment, type Chat, type ChatMessage, type Member, type Section, type ThreadEntry } from "../contract/chat";
+import { type BotStatus, type Bot } from "../contract/bots";
+import { type ModelConnection } from "../contract/models";
 import { AppDialogs, type Confirm, type Dialog, type Menu } from "./AppDialogs";
 import { AppSidebar } from "./AppSidebar";
 import { ChatMain } from "./ChatMain";
@@ -346,7 +349,7 @@ export function App() {
     return () => { resized.disconnect(); changed.disconnect(); el.removeEventListener("scroll", remember); };
   }, [hasTranscript]);
   const viewing = chats.find(chat => chat.id === selected), inChannel = viewing?.type === "channel";
-  const botDirects = useBotDirects(phase === "ready" ? chats.find(chat => chat.id === selected && chat.type === "dm")?.botId : undefined, tick);
+  const botDirects = useBotDirects(phase === "ready" ? chats.find(chat => chat.id === selected && chat.type === "dm")?.botId ?? undefined : undefined, tick);
   if (phase === "loading") return <div className="jarvy-loading">{t("app.connecting")}</div>;
   if (phase === "login") return <Login onLogin={name => void loadData(name).catch(handleError)}/>;
   const current = chats.find(chat => chat.id === selected);

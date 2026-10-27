@@ -1,4 +1,5 @@
-import { ChatError, type QuestionSpec } from "../../shared/chat.js";
+import { ChatError } from "../../shared/chat.js";
+import { type QuestionSpec } from "../../../contract/chat.js";
 import type { ChatTools } from "./chat-tools.js";
 import type { AgentOps, BotSettings } from "./agent.js";
 import type { AgentToolName } from "./agent-schemas.js";

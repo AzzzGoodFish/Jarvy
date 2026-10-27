@@ -1,10 +1,10 @@
-import type { EnvironmentKind } from "../../shared/environment.js";
+import type { EnvironmentKind } from "../../../contract/environment.js";
 import type { Urgency } from "../../shared/delivery.js";
 import type { ActivityCursor } from "../../shared/activity.js";
 import type { ToolDefinition } from "../../shared/tools.js";
 import type { HistoryDraft, HistoryPage, HistoryRecord, HistoryLink, HistoryReadMode, HistoryReadResult, HistorySummary, ModelUsage } from "../../shared/history.js";
 import type { ModelSelection } from "../../shared/runtime.js";
-import type { QuestionSpec } from "../../shared/chat.js";
+import type { QuestionSpec } from "../../../contract/chat.js";
 import type { ErrorParams } from "../../shared/errors.js";
 
 /** Bot 使用各组成对象的类型契约；组件实现独立展开，不在 Bot 内代实现。 */

@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { ConflictError, ValidationError } from "../../shared/errors.js";
-import { SECRET_NAME, type GrantScope, type SecretRecord, type SecretUse } from "../../shared/secret.js";
+import { SECRET_NAME } from "../../shared/secret.js";
+import { type GrantScope, type Secret, type SecretUse } from "../../../contract/secrets.js";
 import type { Cipher } from "../vault/cipher.js";
 
-type Row = { id: string; name: string; kind: SecretRecord["kind"]; botId: string | null; description: string; value: string; fingerprint: string;
+type Row = { id: string; name: string; kind: Secret["kind"]; botId: string | null; description: string; value: string; fingerprint: string;
   createdAt: number; updatedAt: number; uses: number; lastUsedAt: number | null };
 const COLUMNS = `s.id, s.name, s.kind, s.bot_id AS botId, s.description, s.value, s.fingerprint, s.created_at AS createdAt, s.updated_at AS updatedAt,
   (SELECT count(*) FROM secret_uses u WHERE u.secret_id=s.id) AS uses, (SELECT max(at) FROM secret_uses u WHERE u.secret_id=s.id) AS lastUsedAt`;
@@ -13,18 +14,18 @@ const MAX_VALUE = 16 * 1024;
 /** Secrets, their grants and their uses (v21, A52). Values are sealed under the master key, bound to the secret's id. */
 export class SecretRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
-  private toRecord(row: Row): SecretRecord {
+  private toRecord(row: Row): Secret {
     const grants = (this.db.prepare(`SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM secret_grants g WHERE secret_id=?
       AND (scope='always' OR EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=g.run_id AND r.ended_at IS NULL)) ORDER BY granted_at`)
-      .all(row.id) as unknown as SecretRecord["grants"]).map(grant => ({ ...grant }));
+      .all(row.id) as unknown as Secret["grants"]).map(grant => ({ ...grant }));
     const { value, ...rest } = row;
     return { ...rest, readable: this.cipher.open(value, `secret:${row.id}`) !== null, grants };
   }
-  list(): SecretRecord[] {
+  list(): Secret[] {
     this.purge();
     return (this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.owner_id=? ORDER BY s.kind, lower(s.name)`).all(this.ownerId()) as unknown as Row[]).map(row => this.toRecord(row));
   }
-  get(id: string): SecretRecord | null {
+  get(id: string): Secret | null {
     const row = this.db.prepare(`SELECT ${COLUMNS} FROM secrets s WHERE s.id=? AND s.owner_id=?`).get(id, this.ownerId()) as unknown as Row | undefined;
     return row ? this.toRecord(row) : null;
   }
@@ -38,7 +39,7 @@ export class SecretRepository {
     if (typeof value !== "string" || value.length > 200 || /[\n\r]/.test(value)) throw new ValidationError("The description must be one line of up to 200 characters", "secret_description_invalid");
     return value.trim();
   }
-  create(input: { name: unknown; description?: unknown; value: unknown }): SecretRecord {
+  create(input: { name: unknown; description?: unknown; value: unknown }): Secret {
     if (typeof input.name !== "string" || !SECRET_NAME.test(input.name)) throw new ValidationError("Names use capital letters, digits and underscores, and start with a letter", "secret_name_invalid");
     const description = this.checkDescription(input.description), value = this.checkValue(input.value);
     if (this.db.prepare("SELECT 1 FROM secrets WHERE owner_id=? AND kind='value' AND name=?").get(this.ownerId(), input.name)) throw new ConflictError("Another secret has this name", "secret_name_taken");
@@ -47,7 +48,7 @@ export class SecretRepository {
       .run(id, this.ownerId(), input.name, description, this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), now, now);
     return this.get(id)!;
   }
-  update(id: string, input: { description?: unknown; value?: unknown }): SecretRecord | null {
+  update(id: string, input: { description?: unknown; value?: unknown }): Secret | null {
     if (!this.get(id)) return null;
     if (input.description !== undefined) this.db.prepare("UPDATE secrets SET description=?, updated_at=? WHERE id=?").run(this.checkDescription(input.description), Date.now(), id);
     if (input.value !== undefined) {
@@ -82,7 +83,7 @@ export class SecretRepository {
   currentRun(botId: string): string | null {
     return (this.db.prepare("SELECT id FROM bot_runs WHERE bot_id=? AND ended_at IS NULL ORDER BY created_at DESC LIMIT 1").get(botId) as { id: string } | undefined)?.id ?? null;
   }
-  byName(name: string): SecretRecord | null {
+  byName(name: string): Secret | null {
     const row = this.db.prepare("SELECT id FROM secrets WHERE owner_id=? AND kind='value' AND name=?").get(this.ownerId(), name) as { id: string } | undefined;
     return row ? this.get(row.id) : null;
   }

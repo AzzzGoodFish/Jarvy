@@ -2,7 +2,8 @@ import type { ActivityCursor, ChatActivitySummary } from "../../shared/activity.
 import type { DeliveryMessage } from "../../shared/chat.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { ChatError, type Attachment, type Chat, type ChatMessage, type ChatNote, type MemberIdentity, type Question, type QuestionAnswer, type QuestionState } from "../../shared/chat.js";
+import { ChatError, type Chat, type ChatMessage } from "../../shared/chat.js";
+import { type Attachment, type ChatNote, type Member, type Question, type QuestionAnswer, type QuestionState } from "../../../contract/chat.js";
 
 import type { OutgoingFile } from "../../shared/chat.js";
 import type { Delivery } from "../../shared/delivery.js";
@@ -42,9 +43,9 @@ export class ChatRepository {
     this.channels = new ChannelRepository(db, this); this.threads = new ThreadRepository(db, this); this.interactions = new InteractionRepository(db, this);
     this.quotes = new QuoteRepository(db); this.inbox = new InboxRepository(db, this);
   }
-  member(id: string): MemberIdentity | null {
+  member(id: string): Member | null {
     const row = this.db.prepare(`SELECT m.id,m.kind,COALESCE(a.username,b.name,m.id) AS name,b.deleted_at IS NOT NULL AS deleted FROM members m
-      LEFT JOIN account a ON a.member_id=m.id LEFT JOIN bots b ON b.id=m.id WHERE m.id=?`).get(id) as (Omit<MemberIdentity, "deleted"> & { deleted: number }) | undefined;
+      LEFT JOIN account a ON a.member_id=m.id LEFT JOIN bots b ON b.id=m.id WHERE m.id=?`).get(id) as (Omit<Member, "deleted"> & { deleted: number }) | undefined;
     return row ? { id: row.id, kind: row.kind, name: row.name, ...(row.deleted ? { deleted: true } : {}) } : null;
   }
   /** A thread has no member list of its own: reading and writing follow its parent channel (A37). The owner may

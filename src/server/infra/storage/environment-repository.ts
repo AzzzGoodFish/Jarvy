@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type { EnvironmentKind, EnvironmentRecord, HostKeys } from "../../shared/environment.js";
+import type { EnvironmentRecord } from "../../shared/environment.js";
+import type { EnvironmentKind, HostKeys } from "../../../contract/environment.js";
 import type { Cipher } from "../vault/cipher.js";
 import { transaction } from "./transaction.js";
 

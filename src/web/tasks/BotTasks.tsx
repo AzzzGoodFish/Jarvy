@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { PlusIcon } from "lucide-react";
-import { api, type Bot, type Task, type TaskInput } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type Task, type TaskInput } from "../../contract/tasks";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { errorText } from "../errors";

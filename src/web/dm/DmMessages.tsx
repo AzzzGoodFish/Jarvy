@@ -1,5 +1,6 @@
 import { Fragment } from "react";
-import type { Attachment, Bot, ChatMessage, Member } from "../api";
+import type { Attachment, ChatMessage, Member } from "../../contract/chat";
+import type { Bot } from "../../contract/bots";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";

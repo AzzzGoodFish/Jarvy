@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { ChatError, type ThreadInfo } from "../../shared/chat.js";
+import { ChatError } from "../../shared/chat.js";
+import { type ThreadInfo } from "../../../contract/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 import { previewQuotes } from "../../shared/quotes.js";
 import { transaction } from "./transaction.js";

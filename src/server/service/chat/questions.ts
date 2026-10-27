@@ -1,4 +1,5 @@
-import { ChatError, type ChatMessage, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../shared/chat.js";
+import { ChatError, type ChatMessage } from "../../shared/chat.js";
+import { type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */

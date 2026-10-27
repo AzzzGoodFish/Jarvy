@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowDownUpIcon } from "lucide-react";
-import type { ThreadEntry } from "../api";
+import type { ThreadEntry } from "../../contract/chat";
 import { t } from "../i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 

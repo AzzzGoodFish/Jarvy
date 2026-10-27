@@ -1,4 +1,4 @@
-import type { ModelConnection } from "./api";
+import type { ModelConnection } from "../contract/models";
 import { t } from "./i18n";
 import { providerLogo } from "./provider-logos";
 

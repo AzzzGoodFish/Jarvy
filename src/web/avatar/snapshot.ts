@@ -1,4 +1,5 @@
-import { BOT_COLORS, type BotColor, type BotMood } from "./palette";
+import { BOT_COLORS } from "./palette";
+import { type BotColor, type BotMood } from "../../contract/models";
 
 type Renderer = { render(color: BotColor, mood: BotMood, pixels: number, shadow: boolean, crown: boolean): string };
 let renderer: Promise<Renderer> | undefined;

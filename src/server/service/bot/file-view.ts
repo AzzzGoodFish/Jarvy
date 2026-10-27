@@ -1,4 +1,5 @@
-import { ChatError, type Attachment } from "../../shared/chat.js";
+import { ChatError } from "../../shared/chat.js";
+import { type Attachment } from "../../../contract/chat.js";
 import type { ToolMedia } from "../../shared/tools.js";
 import { byteSize } from "../chat/files.js";
 

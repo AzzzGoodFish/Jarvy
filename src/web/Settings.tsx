@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DatabaseIcon, GlobeIcon, InfoIcon, KeyRoundIcon, ServerIcon, SlidersHorizontalIcon } from "lucide-react";
-import type { ModelConnection } from "./api";
+import type { ModelConnection } from "../contract/models";
 import { About } from "./About";
 import { General } from "./General";
 import { ModelSettings } from "./ModelSettings";

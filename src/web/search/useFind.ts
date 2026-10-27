@@ -1,5 +1,5 @@
 import { useEffect, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import type { Chat, ChatMessage } from "../api";
+import type { Chat, ChatMessage } from "../../contract/chat";
 import type { Pane } from "../pane";
 
 /** Opening search results (and quote tags pointing elsewhere, A44), and Ctrl+F. A message opens where it is: in the

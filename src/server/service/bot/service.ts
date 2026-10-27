@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { rm } from "node:fs/promises";
 import type { Store } from "../../infra/storage/store.js";
 import { AGENT_BOT_ID, type Bot as BotRecord } from "../../shared/models.js";
+import type { Bot as BotView } from "../../../contract/bots.js";
 import type { BotStatus } from "./contracts.js";
 import { RuntimeFault, publicFault } from "../../shared/runtime.js";
 import type { ChatService } from "../chat/service.js";
@@ -14,7 +15,7 @@ import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
 import type { ModelCatalog } from "../../infra/pi/catalog.js";
 import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
-import type { HomeKind } from "../../shared/environment.js";
+import type { HomeKind } from "../../../contract/environment.js";
 import { SshMachines } from "./machines.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
@@ -108,7 +109,7 @@ export class BotService {
     this.bots.set(id, bot);
     return bot;
   }
-  private details(record: BotRecord) {
+  private details(record: BotRecord): BotView {
     const model = record.connectionId ? this.deps.store.connections.get(record.connectionId)?.models.find(model => model.id === record.modelId) : undefined;
     return { ...record, effectiveThinkingLevel: model ? resolveThinking(model, record.thinkingLevel) : null, agent: record.id === AGENT_BOT_ID,
       environment: this.environments.placement(record.id) };

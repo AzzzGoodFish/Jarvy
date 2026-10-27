@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type ModelConnection, type CredentialState } from "./api";
+import { api } from "./api";
+import { type ModelConnection, type LoginState } from "../contract/models";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -12,7 +13,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
   connection?: ModelConnection; providerName: string; authType: ModelConnection["authType"];
   ensureConnection: () => Promise<string>; onChanged: () => Promise<void>;
 }) {
-  const [state, setState] = useState<CredentialState>({ phase: "idle" });
+  const [state, setState] = useState<LoginState>({ phase: "idle" });
   const [value, setValue] = useState("");
   const { busy, error, setError, run } = useAction();
   const [refresh, setRefresh] = useState(0);
@@ -44,7 +45,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
     return () => { alive = false; clearTimeout(timer); };
   }, [connectionId, state.phase, refresh]);
   useEffect(() => setValue(""), [state.prompt?.id]);
-  async function act(action: () => Promise<CredentialState>) {
+  async function act(action: () => Promise<LoginState>) {
     await run("act", async () => { const next = await action(); setState(next); if (next.phase !== "running") await onChanged(); }, "common.failed");
   }
   function start(choice?: string) {

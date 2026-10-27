@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Bot } from "../api";
+import type { Bot } from "../../contract/bots";
 import { t } from "../i18n";
 import { Modal } from "../ui";
 import { Button } from "../components/ui/button";

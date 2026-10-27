@@ -1,4 +1,5 @@
-import type { ChatMessage, MessageDraft } from "../shared/chat.js";
+import type { ChatMessage } from "../shared/chat.js";
+import type { MessageDraft } from "../../contract/chat.js";
 import type { Urgency } from "../shared/delivery.js";
 
 /** Shared identity and communication contract; concrete members own their behaviour. People and Bots get the

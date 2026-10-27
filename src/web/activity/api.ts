@@ -1,4 +1,5 @@
-import { request, type ChatMessage } from "../api";
+import { request } from "../api";
+import { type ChatMessage } from "../../contract/chat";
 import type { HistorySummary } from "../history-api";
 
 export interface ChatActivity {

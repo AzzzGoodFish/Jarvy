@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ServerIcon, TriangleAlertIcon } from "lucide-react";
-import { ApiError, api, type ChatMessage, type MachineAsk, type Question } from "../api";
+import { ApiError, api } from "../api";
+import { type ChatMessage, type MachineAsk, type Question } from "../../contract/chat";
 import { t } from "../i18n";
 import { useAction } from "../action";
 import { MaskedField, RequestCard, SettledRequest } from "../question/RequestCard";

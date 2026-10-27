@@ -1,105 +1,11 @@
-import type { BotColor, BotMood } from "./avatar/palette";
+import type { Bot, BotStatus } from "../contract/bots";
+import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
+import type { ConnectionInfo } from "../contract/connection";
+import type { EnvironmentKind, HostKeys, SshMachine } from "../contract/environment";
+import type { AutoconfigResult, BotColor, BotModelGroup, BotMood, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
+import type { Secret, SecretUse } from "../contract/secrets";
+import type { Task, TaskInput } from "../contract/tasks";
 import { t } from "./i18n";
-export interface ProviderOption { id: string; name: string; authType: "oauth" | "api_key"; api: string; modelCount: number; }
-export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null; phase: string; runId?: string | null; error: string | null; errorCode: string | null; errorParams?: Record<string, string | number>; context?: { tokens: number | null; contextWindow: number; percent: number | null; stale?: boolean }; }
-export interface CredentialState {
-  phase: "idle" | "running" | "completed" | "cancelled" | "error";
-  prompt?: { id: string; type: "select" | "text" | "secret" | "manual_code"; message: string; placeholder?: string; options?: { id: string; label: string; description?: string }[] };
-  event?: { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; intervalSeconds?: number; expiresInSeconds?: number } | { type: "info"; message: string; links?: { url: string; label?: string }[] } | { type: "progress"; message: string };
-}
-export interface Bot { id: string; name: string; description: string; systemPrompt: string; connectionId: string | null; modelId: string; thinkingLevel: string; effectiveThinkingLevel: string | null; workspacePath: string; color: BotColor; mood: BotMood; createdAt: number;
-  /** The agent Bot (A48): the owner's helper for running Jarvy itself. */
-  agent: boolean;
-  /** Where its file and command tools run (A50). */
-  environment: BotPlacement; }
-/** `computer` is a Bot's sandbox, a container only it uses; `host` the owner's computer, running Jarvy (A50). */
-export type EnvironmentKind = "computer" | "host";
-/** A machine the owner added over SSH (A57): never its key. */
-/** `login`: how Jarvy logs in (A59); `publicKey`: Jarvy's key for it, the line in its authorized_keys. */
-export interface SshMachine { id: string; name: string; host: string; port: number; user: string; directory: string; home: string; platform: string; fingerprints: string[]; botIds: string[]; login: "key" | "password"; publicKey: string | null }
-/** A host's keys from a scan: what the owner checks, and what gets saved when they accept. */
-export interface HostKeys { keys: string[]; fingerprints: string[] }
-/** `https`: Jarvy listens beyond this machine and serves HTTPS with its own certificate (A51). */
-export interface ConnectionInfo { https: boolean; allowHttp: boolean; addresses: string[]; fingerprint: string | null; fingerprintSha1: string | null }
-/** A secret as the page sees it (A52): never its value. `readable` is false when it doesn't open under this installation's master key. */
-export interface Secret { id: string; name: string; kind: "value" | "ssh_key"; botId: string | null; description: string; fingerprint: string;
-  createdAt: number; updatedAt: number; readable: boolean; grants: { botId: string; scope: "always" | "once"; grantedAt: number }[]; uses: number; lastUsedAt: number | null }
-export interface SecretUse { id: number; secretName: string; botId: string; at: number; how: "command" | "ssh_sign"; environmentId: string | null; historyId: number | null; toolCallId: string | null; detail: string }
-/** A Bot's scheduled task (A58); times are ms, schedules in this machine's local time. */
-export type TaskSchedule = { kind: "once"; at: number } | { kind: "every"; minutes: number; since?: number } | { kind: "daily"; hour: number; minute: number }
-  | { kind: "weekly"; weekday: number; hour: number; minute: number };
-export interface Task { id: string; botId: string; name: string; instruction: string; schedule: TaskSchedule;
-  state: "active" | "paused" | "done"; nextRunAt: number | null; lastRunAt: number | null; createdAt: number; updatedAt: number }
-export type TaskInput = { name: string; instruction: string; schedule: TaskSchedule };
-export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
-/** `hostGranted`: the owner lets the Bot switch to their computer (A50); `machines`: each SSH machine and whether it may use it (A57). */
-export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind | "ssh"; currentName?: string; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean;
-  machines: { id: string; name: string; granted: boolean }[] }
-/** What resetting a built-in connection's models does (A62). */
-export interface ModelResetPlan { reset: string[]; removed: { id: string; name: string; bots: string[] }[] }
-export interface ConfiguredModel { api?: string; baseUrl?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
-export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }
-export type AutoconfigFields = Pick<ConfiguredModel, "reasoning" | "input" | "contextWindow" | "maxTokens" | "cost" | "thinkingLevelMap" | "thinkingFormat" | "compat">;
-export type AutoconfigResult =
-  | { status: "matched"; source: AutoconfigSource; reseller: boolean; apiMismatch: boolean; fields: AutoconfigFields; alternatives: AutoconfigSource[] }
-  | { status: "choose"; reason: "multiple" | "similar"; options: AutoconfigSource[] }
-  | { status: "none" };
-export interface ModelConnection { id: string; providerName: string; displayName: string; kind: "builtin" | "custom"; baseUrl: string; api: string; authType: "api_key" | "oauth"; configured: boolean; models: ConfiguredModel[]; createdAt: number; updatedAt: number; }
-export interface Member { id: string; name: string; kind: "user" | "bot"; /** A deleted Bot: still shown as the author of old messages. */ deleted?: boolean; }
-/** A project grouping channels (A37). */
-export interface Section { id: string; name: string; position: number; createdAt: number; updatedAt: number; }
-/** `chatId` / `title`: where it happened — the chat itself, or for a channel row one of its threads. */
-export interface ChatHint { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actor: string; detail: string; createdAt: number; }
-export interface ChatNote { text: string; updatedBy: Member; updatedAt: number; version: number; }
-/** botId is the DM's Bot (null for channels); unread/mentions/readSequence are for you. */
-export interface Chat { id: string; type: "dm" | "channel" | "thread"; botId: string; title: string; createdAt: number; updatedAt: number; lastMessage: Pick<ChatMessage, "content" | "quotes"> | null;
-  memberIds: string[]; sectionId: string | null; topic: string; parentId: string | null; rootMessageId: string | null; status: "open" | "done" | null;
-  note: ChatNote | null; readSequence: number; unread: number; mentions: number;
-  /** Delivered to you with an interrupt and not read (DMs, @, replies): the red count (A41). */
-  alerts: number;
-  /** The newest queued delivery you have not seen (a mark on your message, a new notice / summary): the hint line. */
-  hint: ChatHint | null;
-  /** Some unread messages delivered to you @ you or reply to you (the 「[有人@我]」 mark). */
-  atMe: boolean;
-  /** You muted it (免打扰): only @ and replies still show red. */
-  muted: boolean;
-  /** Who wrote the last message (channel rows: 「名字：消息」). */
-  lastSender: string | null;
-  /** Threads only: you follow it (only followed threads count as unread). */
-  following: boolean;
-  /** Channels and threads: you subscribed to it (every new message is delivered to you). */
-  subscribed: boolean;
-  /** You pinned it to the top of its sidebar group. */
-  pinned: boolean; }
-/** A thread as listed (channel thread list, 「我关注的线程」). */
-export interface ThreadEntry extends Chat { replies: number; lastReplyAt: number | null; root: { senderId: string; content: string; quotes: MessageQuote[] } | null; }
-export interface ThreadInfo { id: string; title: string; status: "open" | "done"; replies: number; lastReplyAt: number | null; }
-export interface Attachment { id: string; name: string; mimeType: string; size: number; }
-export interface QuestionOption { label: string; value?: string; description?: string; style?: "default" | "primary" | "danger"; }
-/** A Bot's question card (messages.ask, A36); pending while the Bot's tool call waits. */
-/** A Bot's request for a secret (A52), shown as its own card. */
-export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
-/** A Bot's request for an SSH machine (A57), shown as its own card; `existing` when it only needs a grant. */
-export interface MachineAsk { name: string; host: string; port: number; user: string; directory: string | null; purpose: string; hostKeys: HostKeys; existing: { id: string; name: string } | null }
-export interface Question { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean; secret?: SecretAsk; machine?: MachineAsk;
-  state: "pending" | "answered" | "dismissed" | "ignored"; answer: { selected: number[]; custom: string | null } | null; settledAt: number | null; }
-export interface Reaction { emoji: string; memberIds: string[]; }
-/** What the search box found: chats only when searching everywhere. */
-export interface SearchResult { chats: Chat[]; messages: { message: ChatMessage; chat: Chat }[] }
-export interface ChatMessage { id: string; chatId: string; sequence: number; senderId: string; source: { historyId: number; toolCallId: string } | null; role: "user" | "assistant"; content: string; createdAt: number; attachments: Attachment[]; question: Question | null; mentions: string[];
-  /** The message this one replies to (same chat), with the start of its text. */
-  replyTo: { id: string; senderId: string; content: string; quotes: MessageQuote[] } | null;
-  /** Emoji marks, grouped, in the order each emoji was first used. */
-  reactions: Reaction[];
-  /** Folded to one line in this interface (A60); the content is all there. */
-  folded: boolean;
-  /** Channel messages: the thread under it. */
-  thread: ThreadInfo | null;
-  /** A channel copy of a thread reply, or a thread's conclusion. */
-  echoOf: { id: string; title: string } | null;
-  /** Partial quotes (A44), in the order of the [[q1]] … [[qN]] markers in content; messageId is null once the source is gone. */
-  quotes: MessageQuote[]; }
-export interface MessageQuote { messageId: string | null; senderId: string; text: string; }
 /** A failed request. `code` and `params` (A45) name a failure the interface words itself (errors.ts); the message is
  * the server's English, shown only when there is no code. */
 export class ApiError extends Error {
@@ -241,10 +147,10 @@ export const api = {
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
-  authStatus: (id: string) => request<CredentialState>(`/model-connections/${id}/auth`),
-  authStart: (id: string) => request<CredentialState>(`/model-connections/${id}/auth`, { method: "POST" }),
-  authCancel: (id: string) => request<CredentialState>(`/model-connections/${id}/auth`, { method: "DELETE" }),
-  authInput: (id: string, promptId: string, value: string) => request<CredentialState>(`/model-connections/${id}/auth/input`, { method: "POST", body: body({ promptId, value }) }),
+  authStatus: (id: string) => request<LoginState>(`/model-connections/${id}/auth`),
+  authStart: (id: string) => request<LoginState>(`/model-connections/${id}/auth`, { method: "POST" }),
+  authCancel: (id: string) => request<LoginState>(`/model-connections/${id}/auth`, { method: "DELETE" }),
+  authInput: (id: string, promptId: string, value: string) => request<LoginState>(`/model-connections/${id}/auth/input`, { method: "POST", body: body({ promptId, value }) }),
   authLogout: (id: string) => request<{ ok: boolean }>(`/model-connections/${id}/auth/logout`, { method: "POST" }),
   modelCatalog: (id: string) => request<{ models: ConfiguredModel[] }>(`/model-connections/${id}/catalog`),
   modelResetPlan: (id: string) => request<ModelResetPlan>(`/model-connections/${id}/reset`),
@@ -258,8 +164,6 @@ export const api = {
   updateModelConnection: (id: string, input: { providerName?: string; displayName: string; baseUrl: string; api: string }) => request<ModelConnection>(`/model-connections/${id}`, { method: "PUT", body: body(input) }),
   deleteModelConnection: (id: string) => request<{ ok: boolean }>(`/model-connections/${id}`, { method: "DELETE" }),
   saveModelCredential: (id: string, apiKey?: string, remove = false) => request<ModelConnection>(`/model-connections/${id}/credential`, { method: "PUT", body: body({ apiKey, remove }) }),
-  saveConnectionModel: (id: string, model: ConfiguredModel, originalId?: string) => request<ModelConnection>(`/model-connections/${id}/models`, { method: originalId ? "PUT" : "POST", body: body({ model, originalId }) }),
+  saveConnectionModel: (id: string, model: ModelInput, originalId?: string) => request<ModelConnection>(`/model-connections/${id}/models`, { method: originalId ? "PUT" : "POST", body: body({ model, originalId }) }),
   deleteConnectionModel: (id: string, modelId: string) => request<ModelConnection>(`/model-connections/${id}/models`, { method: "DELETE", body: body({ modelId }) }),
 };
-
-export interface BotModelGroup { id: string; name: string; models: { id: string; name: string; thinking: { levels: string[] }; thinkingLevelMap: Record<string, string | null> }[]; }

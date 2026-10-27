@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { Bot, Chat } from "../api";
+import type { Bot } from "../../contract/bots";
+import type { Chat } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon } from "../ui";
 

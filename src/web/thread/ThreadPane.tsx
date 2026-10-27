@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { api, type Attachment, type Bot, type Chat, type ChatMessage, type Member } from "../api";
+import { api } from "../api";
+import { type Attachment, type Chat, type ChatMessage, type Member } from "../../contract/chat";
+import { type Bot } from "../../contract/bots";
 import { Composer } from "../composer/Composer";
 import { quoteMessage, type DraftStore } from "../composer/drafts";
 import { ChannelMessages } from "../channel/ChannelView";

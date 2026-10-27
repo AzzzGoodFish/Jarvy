@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { BOT_COLORS } from "../../../shared/models.js";
+import { BOT_COLORS } from "../../../../contract/models.js";
 
 /** v10: Bots get a figure colour (random for existing Bots) and a mood the
  * Bot sets itself; uploaded avatar images are removed together with the upload feature. */

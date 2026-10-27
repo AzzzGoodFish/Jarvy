@@ -1,5 +1,6 @@
 import { SparklesIcon } from "lucide-react";
-import { api, type AutoconfigResult, type AutoconfigSource, type ConfiguredModel } from "./api";
+import { api } from "./api";
+import { type AutoconfigResult, type AutoconfigSource, type ModelInput } from "../contract/models";
 import { Button } from "./components/ui/button";
 import { rich, t } from "./i18n";
 import { errorText } from "./errors";
@@ -7,11 +8,11 @@ import { errorText } from "./errors";
 /** Last autoconfigure outcome for a draft card; UI-only, never saved (no provenance storage). */
 type Matched = Extract<AutoconfigResult, { status: "matched" }>;
 export type AutoState = Exclude<AutoconfigResult, Matched> | Omit<Matched, "fields"> | { status: "error"; message: string } | { status: "pending" };
-export interface AutoDraft { model: ConfiguredModel; auto?: AutoState; }
+export interface AutoDraft { model: ModelInput; auto?: AutoState; }
 
 export type AutoOutcome = AutoconfigResult | { status: "error"; message: string };
 /** One catalog lookup for the draft's current ID and effective protocol. */
-export async function requestAutoconfig(model: ConfiguredModel, protocol: string, choice?: { provider: string; modelId: string }): Promise<AutoOutcome> {
+export async function requestAutoconfig(model: ModelInput, protocol: string, choice?: { provider: string; modelId: string }): Promise<AutoOutcome> {
   try { return await api.autoconfigModel({ modelId: model.id, api: model.api || protocol, ...(choice ? { choice } : {}) }); }
   catch (reason) { return { status: "error", message: errorText(reason, "auto.failed") }; }
 }

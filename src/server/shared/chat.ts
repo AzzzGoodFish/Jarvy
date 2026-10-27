@@ -1,13 +1,5 @@
-import type { HostKeys } from "./environment.js";
 import type { ErrorParams } from "./errors.js";
-import type { MessageQuote } from "./quotes.js";
-export interface MemberIdentity { id: string; kind: "user" | "bot"; name: string; /** A deleted Bot (its old messages stay, v15). */ deleted?: boolean; }
-/** Channel notice / thread summary (A37): one current version, no edit history. */
-/** `chatId` / `title`: where it happened — the chat itself, or for a channel row one of its threads. */
-export interface ChatHint { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actor: string; detail: string; createdAt: number }
-export interface ChatNote { text: string; updatedBy: MemberIdentity; updatedAt: number; version: number; }
-/** A project grouping channels (A37); organisation only, it grants no access. */
-export interface Section { id: string; name: string; position: number; createdAt: number; updatedAt: number; }
+import type { Attachment, ChatHint, ChatNote, Member, MessageDraft, MessageQuote, MessageSource, Question, QuestionSpec, ThreadInfo } from "../../contract/chat.js";
 export interface Chat {
   id: string; type: "dm" | "channel" | "thread"; title: string; ownerId: string;
   memberIds: string[]; createdAt: number; updatedAt: number; lastMessage: { content: string; quotes: MessageQuote[] } | null;
@@ -32,31 +24,9 @@ export interface Chat {
   /** Pinned to the top of its sidebar group by the asking member (v15). */
   pinned: boolean;
 }
-/** A thread as seen from its channel: under the root message and in the thread list. */
-export interface ThreadInfo { id: string; title: string; status: "open" | "done"; replies: number; lastReplyAt: number | null; }
 export interface OutgoingFile { name: string; mimeType: string; data: Uint8Array; }
-export interface Attachment { id: string; name: string; mimeType: string; size: number; }
-export interface MessageSource { historyId: number; toolCallId: string; }
-/** A Bot's question card (messages.ask, A36). The Bot's tool call waits for it to settle. */
-export interface QuestionOption { label: string; value?: string; description?: string; style?: "default" | "primary" | "danger"; }
-export interface QuestionSpec { question: string; detail?: string; options: QuestionOption[]; multiple: boolean; allowCustom: boolean;
-  /** A request for a secret (secrets.request, A52): the card takes the value through its own endpoint, never into the chat. */
-  secret?: SecretAsk;
-  /** A request for an SSH machine (environments.request, A57): the card takes the password through its own endpoint. */
-  machine?: MachineAsk; }
-/** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
- * doesn't open under this installation's key). */
-export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
-/** The machine a Bot asks for, with the host keys scanned when it asked; `existing` when the owner already added a
- * machine at this address, so the card only grants it. */
-export interface MachineAsk { name: string; host: string; port: number; user: string; directory: string | null; purpose: string;
-  hostKeys: HostKeys; existing: { id: string; name: string } | null }
-/** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
-export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";
-export interface QuestionAnswer { selected: number[]; custom: string | null; }
-export interface Question extends QuestionSpec { state: QuestionState; answer: QuestionAnswer | null; settledAt: number | null; }
 export interface ChatMessage {
-  id: string; chatId: string; sequence: number; sender: MemberIdentity;
+  id: string; chatId: string; sequence: number; sender: Member;
   content: string; createdAt: number; attachments: Attachment[]; source: MessageSource | null; question: Question | null;
   /** Members @-mentioned in the text, resolved when the message was saved (channels and threads). */
   mentions: string[];
@@ -73,9 +43,6 @@ export interface ChatMessage {
   /** The owner folded it to one line in the interface (A60). Only the interface reads it; a Bot's views leave it out. */
   folded: boolean;
 }
-export interface MessageDraft { content: string; attachmentIds: string[]; clientMessageId?: string; /** Reply to this message (same chat). */ replyTo?: string; }
-/** A partial quote as a sender asks for it: the source message and the passage (A44). */
-export interface QuoteDraft { messageId: string; text: string; }
 export class ChatError extends Error {
   constructor(readonly status: 400 | 403 | 404 | 409, message: string, readonly code?: string, readonly params?: ErrorParams) { super(message); }
 }

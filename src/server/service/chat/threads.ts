@@ -1,6 +1,7 @@
-import { ChatError, type Chat, type ThreadInfo } from "../../shared/chat.js";
+import { ChatError, type Chat } from "../../shared/chat.js";
+import { type ThreadInfo } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
-import type { MessageQuote } from "../../shared/quotes.js";
+import type { MessageQuote } from "../../../contract/chat.js";
 
 /** A thread with what its list entry needs: replies and the root message it hangs off. */
 export interface ThreadEntry { chat: Chat; info: ThreadInfo; root: { senderId: string; content: string; quotes: MessageQuote[] } | null; }

@@ -1,4 +1,5 @@
-import { ChatError, type Chat, type ChatMessage, type MemberIdentity } from "../../shared/chat.js";
+import { ChatError, type Chat, type ChatMessage } from "../../shared/chat.js";
+import { type Member } from "../../../contract/chat.js";
 import type { ChatService } from "../chat/service.js";
 import { listing, type ChatFiles } from "../chat/files.js";
 import { messageRow, threadRow } from "./chat-views.js";
@@ -19,7 +20,7 @@ export class ChatTools {
     return chat;
   }
   /** Members by name (case-insensitive, a leading @ allowed); unknown names are an error that lists them. */
-  members(names: readonly string[]): MemberIdentity[] {
+  members(names: readonly string[]): Member[] {
     const directory = this.chats.channels.directory(this.bot);
     const found = names.map(name => ({ name, member: directory.find(member => same(name, member.name)) }));
     const missing = found.filter(item => !item.member).map(item => item.name);

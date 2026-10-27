@@ -1,7 +1,8 @@
 import type { ToolDefinition } from "../../shared/tools.js";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { ChatError, type QuestionSpec } from "../../shared/chat.js";
+import { ChatError } from "../../shared/chat.js";
+import { type QuestionSpec } from "../../../contract/chat.js";
 import type { ChatService } from "../chat/service.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { Tools as ToolsPort, OutgoingMessage, SentMessage, Memory, Workspace } from "./contracts.js";

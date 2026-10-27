@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon, ChevronRightIcon, SearchIcon } from "lucide-react";
-import { api, type ProviderOption } from "./api";
+import { api } from "./api";
+import { type ProviderOption } from "../contract/models";
 import { ProviderMark } from "./ProviderMark";
 import { Button } from "./components/ui/button";
 import { t } from "./i18n";

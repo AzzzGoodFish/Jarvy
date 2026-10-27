@@ -1,7 +1,7 @@
 import { useState, type RefObject } from "react";
 import { RotateCcwIcon, ShapesIcon } from "lucide-react";
 import { t, type Key } from "../../i18n";
-import { BOT_MOODS, type BotMood } from "../palette";
+import { BOT_MOODS, type BotMood } from "../../../contract/models";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { POSES } from "./script";
 import type { NpcDemo } from "./useNpcDemo";

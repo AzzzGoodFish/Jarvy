@@ -1,8 +1,8 @@
 import type { BotService } from "../../service/bot/service.js";
-import type { BotStatus } from "../../shared/runtime.js";
+import type { BotStatus } from "../../../contract/bots.js";
 
 /** phase/errorCode are existing HTTP fields, not the business lifecycle model. */
-export function botStatusView(status: ReturnType<BotService["status"]>): BotStatus & { status: "stop" | "idle" | "running"; activity: string | null } {
+export function botStatusView(status: ReturnType<BotService["status"]>): BotStatus {
   const phase = status.error ? "error" : status.status === "stop" ? "stopped" : status.status === "idle" ? "idle"
     : status.activity === "reasoning" ? "thinking" : status.activity === "texting" ? "texting" : status.activity === "tool_calling" ? "tool" : status.activity === "asking" ? "asking" : "dispatching";
   return { botId: status.botId, phase, status: status.status, activity: status.activity, runId: status.runId,

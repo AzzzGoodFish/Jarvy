@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Section } from "../api";
+import type { Section } from "../../contract/chat";
 import { t } from "../i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 

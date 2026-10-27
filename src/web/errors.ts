@@ -1,4 +1,5 @@
-import { ApiError, type BotStatus } from "./api";
+import { ApiError } from "./api";
+import { type BotStatus } from "../contract/bots";
 import { t, type Key } from "./i18n";
 
 /** Failures the server names with a code (A45), worded here. scripts/check-i18n.mjs keeps this table and the

@@ -1,7 +1,9 @@
 import type { Store } from "../infra/storage/store.js";
 import { RuntimeFault } from "../shared/runtime.js";
-import { ChatError, type ChatMessage, type QuestionSpec } from "../shared/chat.js";
-import { SECRET_NAME, type GrantScope, type SecretAccess, type SecretRecord, type SecretUse } from "../shared/secret.js";
+import { ChatError, type ChatMessage } from "../shared/chat.js";
+import { type QuestionSpec } from "../../contract/chat.js";
+import { SECRET_NAME, type SecretAccess } from "../shared/secret.js";
+import { type GrantScope, type Secret, type SecretUse } from "../../contract/secrets.js";
 import { Masker, placeholder } from "../shared/secret-mask.js";
 import type { ChatService } from "./chat/service.js";
 
@@ -10,21 +12,21 @@ const SCOPES: GrantScope[] = ["always", "once"];
 
 /** The owner's secrets (A52): kept in Settings, granted to Bots, never shown again once saved. Only the owner manages
  * them; the agent Bot has no tools for them. Bots use them through placeholders in bash and see them masked. */
-export interface SecretsView { secrets: SecretRecord[]; keyLocation: string }
+export interface SecretsView { secrets: Secret[]; keyLocation: string }
 
 export class SecretService {
   /** Built from every value on first need, again after any change. */
   private cached: Masker | null = null;
   constructor(private readonly store: Store, private readonly chats: ChatService) {}
   list(): SecretsView { return { secrets: this.store.secrets.list(), keyLocation: this.store.cipher.location() }; }
-  create(input: { name: unknown; description?: unknown; value: unknown }): SecretRecord { const made = this.store.secrets.create(input); this.cached = null; return made; }
-  update(id: string, input: { description?: unknown; value?: unknown }): SecretRecord {
+  create(input: { name: unknown; description?: unknown; value: unknown }): Secret { const made = this.store.secrets.create(input); this.cached = null; return made; }
+  update(id: string, input: { description?: unknown; value?: unknown }): Secret {
     const updated = this.store.secrets.update(id, input) ?? this.missing();
     this.cached = null; return updated;
   }
   delete(id: string): void { if (!this.store.secrets.delete(id)) this.missing(); this.cached = null; }
   /** Grants until revoked, from Settings; a card's "this time only" comes with the request card. */
-  grant(id: string, botId: string, granted: boolean): SecretRecord {
+  grant(id: string, botId: string, granted: boolean): Secret {
     const secret = this.store.secrets.get(id) ?? this.missing();
     if (secret.kind !== "value") throw new RuntimeFault("secret_missing", "No secret with this id", 404);
     if (!this.store.bots.get(botId)) throw new RuntimeFault("bot_missing", "Bot not found", 404);

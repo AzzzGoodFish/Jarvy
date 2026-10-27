@@ -1,4 +1,5 @@
-import { ChatError, type ChatNote, type MemberIdentity, type Section } from "../../shared/chat.js";
+import { ChatError } from "../../shared/chat.js";
+import { type ChatNote, type Member, type Section } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 import { findMentions } from "./mentions.js";
 import type { Delivery } from "../../shared/delivery.js";
@@ -30,12 +31,12 @@ export class ChatChannels {
     if (owner !== actorId && chatId && !this.repository.canAccess(actorId, chatId, true)) throw new ChatError(404, "Channel not found");
     return owner;
   }
-  directory(actorId: string): MemberIdentity[] { return this.store.directory(this.store.ownerOf(actorId)); }
+  directory(actorId: string): Member[] { return this.store.directory(this.store.ownerOf(actorId)); }
   /** The directory plus deleted Bots (flagged), for showing who wrote old messages. */
-  everyone(actorId: string): MemberIdentity[] { return this.store.everyone(this.store.ownerOf(actorId)); }
+  everyone(actorId: string): Member[] { return this.store.everyone(this.store.ownerOf(actorId)); }
   profiles(actorId: string) { return this.store.profiles(this.store.ownerOf(actorId)); }
   /** Members subscribed to a chat that the actor can see (for a sender's delivery report). */
-  subscribers(actorId: string, chatId: string): MemberIdentity[] {
+  subscribers(actorId: string, chatId: string): Member[] {
     const ids = this.store.subscribers(chatId);
     return this.repository.memberships(actorId, chatId).filter(item => item.canRead && ids.includes(item.member.id)).map(item => item.member);
   }

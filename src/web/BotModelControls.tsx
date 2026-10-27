@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Popover } from "radix-ui";
 import { CheckIcon, ChevronDownIcon, LoaderCircleIcon, SearchIcon } from "lucide-react";
-import { api, type Bot, type BotModelGroup, type ModelConnection } from "./api";
+import { api } from "./api";
+import { type Bot } from "../contract/bots";
+import { type BotModelGroup, type ModelConnection } from "../contract/models";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { getLocale, t, type Key } from "./i18n";
 import "./styles/model-workbench.css";

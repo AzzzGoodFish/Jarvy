@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
-import type { ChatMessage, Member } from "../api";
+import type { ChatMessage, Member } from "../../contract/chat";
 import { memberName } from "../members";
 import { copyText, Icon, Markdown } from "../ui";
 import { linkMentions } from "./mentions";

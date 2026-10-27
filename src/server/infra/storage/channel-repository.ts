@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Delivery } from "../../shared/delivery.js";
 import type { DatabaseSync } from "node:sqlite";
-import { ChatError, type ChatNote, type MemberIdentity, type Section } from "../../shared/chat.js";
+import { ChatError } from "../../shared/chat.js";
+import { type ChatNote, type Member, type Section } from "../../../contract/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 import { transaction } from "./transaction.js";
 
@@ -12,18 +13,18 @@ export class ChannelRepository {
   constructor(private readonly db: DatabaseSync, private readonly chats: ChatRepository) {}
 
   /** The owner's people and Bots: who can be added to channels and @-mentioned (deleted Bots are not). */
-  directory(ownerId: string): MemberIdentity[] {
+  directory(ownerId: string): Member[] {
     return this.everyone(ownerId).filter(member => !member.deleted);
   }
   /** Everyone who ever was in the owner's space, deleted Bots flagged, so old messages still show their author. */
-  everyone(ownerId: string): MemberIdentity[] {
+  everyone(ownerId: string): Member[] {
     return (this.db.prepare(`SELECT m.id,m.kind,COALESCE(a.username,b.name,m.id) AS name,b.deleted_at IS NOT NULL AS deleted FROM members m
       LEFT JOIN account a ON a.member_id=m.id LEFT JOIN bots b ON b.id=m.id
-      WHERE m.id=:owner OR b.owner_id=:owner ORDER BY m.kind DESC,b.created_at,m.id`).all({ owner: ownerId }) as (Omit<MemberIdentity, "deleted"> & { deleted: number })[])
+      WHERE m.id=:owner OR b.owner_id=:owner ORDER BY m.kind DESC,b.created_at,m.id`).all({ owner: ownerId }) as (Omit<Member, "deleted"> & { deleted: number })[])
       .map(row => ({ id: row.id, kind: row.kind, name: row.name, ...(row.deleted ? { deleted: true } : {}) }));
   }
   /** The directory with each Bot's description, for a Bot's members.list. */
-  profiles(ownerId: string): (MemberIdentity & { description: string })[] {
+  profiles(ownerId: string): (Member & { description: string })[] {
     const descriptions = new Map((this.db.prepare("SELECT id,description FROM bots WHERE owner_id=? AND deleted_at IS NULL").all(ownerId) as { id: string; description: string }[]).map(row => [row.id, row.description]));
     return this.directory(ownerId).map(member => ({ ...member, description: descriptions.get(member.id) ?? "" }));
   }
@@ -98,7 +99,7 @@ export class ChannelRepository {
 
   /** Who is concerned by a chat's notice / summary (A41 route input): a channel's members who can read it, or a
    * thread's followers who can read its channel. */
-  noteAudience(chatId: string): { type: string; members: MemberIdentity[] } {
+  noteAudience(chatId: string): { type: string; members: Member[] } {
     const type = (this.db.prepare("SELECT type FROM chats WHERE id=?").get(chatId) as { type: string } | undefined)?.type ?? "dm";
     const ids = (type === "thread"
       ? this.db.prepare(`SELECT s.member_id AS id FROM chat_states s JOIN chats c ON c.id=s.chat_id

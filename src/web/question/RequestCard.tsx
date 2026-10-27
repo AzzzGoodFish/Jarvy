@@ -1,6 +1,6 @@
 import type { FormEvent, ReactNode } from "react";
 import { CheckIcon, EyeIcon, EyeOffIcon, MinusIcon } from "lucide-react";
-import type { Question } from "../api";
+import type { Question } from "../../contract/chat";
 import { t } from "../i18n";
 import "../styles/secret-request.css";
 

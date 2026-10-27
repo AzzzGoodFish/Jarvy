@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { api, type ChatMessage } from "../api";
+import { api } from "../api";
+import { type ChatMessage } from "../../contract/chat";
 import { jumpToPassage } from "../channel/quotes";
 
 const PAGE = 50;

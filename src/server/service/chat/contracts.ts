@@ -1,9 +1,6 @@
 import type { Delivery } from "../../shared/delivery.js";
-import type {
-  ChatMessage,
-  MemberIdentity,
-  DeliveryMessage,
-} from "../../shared/chat.js";
+import type { ChatMessage, DeliveryMessage } from "../../shared/chat.js";
+import type { Member } from "../../../contract/chat.js";
 
 /** Chat 使用组成对象的契约；不包含 API、Bot Runtime 或数据库实现。 */
 export interface ChatParts {
@@ -26,7 +23,7 @@ export interface ChatInfoSnapshot {
 }
 
 export interface ChatMembership {
-  member: MemberIdentity;
+  member: Member;
   canRead: boolean;
   canWrite: boolean;
 }
@@ -38,14 +35,14 @@ export interface ChatMembers {
   remove(memberId: string): Promise<void>;
 
   /** 确认发送者是允许发言的成员，返回由成员模块取得的身份。 */
-  requireSender(senderId: string): Promise<MemberIdentity>;
+  requireSender(senderId: string): Promise<Member>;
 
   /** 订阅了本频道/线程的成员 ID。 */
   subscribers(): Promise<readonly string[]>;
   /** 对本会话（线程也看所属频道）开了免打扰的成员。 */
   muted(): Promise<readonly string[]>;
   /** 线程所属频道里能读的成员和订阅者，用于「同时发到频道」的副本；不是线程时为 null。 */
-  channelAudience(): Promise<{ members: readonly MemberIdentity[]; subscribers: readonly string[]; muted: readonly string[] } | null>;
+  channelAudience(): Promise<{ members: readonly Member[]; subscribers: readonly string[]; muted: readonly string[] } | null>;
 
   /** 只把已提交的投递交给收件端（A41），不等待成员完成模型执行。 */
   notify(message: ChatMessage, deliveries: readonly Delivery[]): void;
@@ -57,7 +54,7 @@ export interface ChatMessages {
    * 这些存储变化在同一事务中提交；source 原样保存，不在 Chat 中推测。
    */
   append(
-    sender: MemberIdentity,
+    sender: Member,
     message: DeliveryMessage,
     deliveries: AppendDeliveries,
     mentions?: readonly string[],

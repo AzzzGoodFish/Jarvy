@@ -1,5 +1,7 @@
-import { ChatError, type QuoteDraft } from "../../shared/chat.js";
-import { quoteComparable, quoteMarks, type MessageQuote } from "../../shared/quotes.js";
+import { ChatError } from "../../shared/chat.js";
+import { type QuoteDraft } from "../../../contract/chat.js";
+import { quoteComparable, quoteMarks } from "../../shared/quotes.js";
+import { type MessageQuote } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 const MAX_QUOTES = 10;

@@ -27,6 +27,7 @@
   "include": [
     "src/web/**/*.ts",
     "src/web/**/*.tsx",
+    "src/contract/**/*.ts",
     "vite.config.ts"
   ]
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import type { Attachment } from "../api";
+import type { Attachment } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon } from "../ui";
 import { KIND_LABEL, bytes, extension, fileKind, fileUrl, isMedia, isPicture, pictureSource } from "./files";

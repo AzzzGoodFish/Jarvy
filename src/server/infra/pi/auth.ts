@@ -5,15 +5,8 @@ import type { Store } from "../storage/store.js";
 import type { CredentialCoordinator } from "../credentials/coordinator.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { ConnectionCredentials } from "./credentials.js";
+import type { LoginState } from "../../../contract/models.js";
 
-interface LoginPrompt {
-  id: string; type: AuthPrompt["type"]; message: string; placeholder?: string;
-  options?: readonly { id: string; label: string; description?: string }[];
-}
-export interface LoginState {
-  phase: "idle" | "running" | "completed" | "cancelled" | "error";
-  prompt?: LoginPrompt; event?: AuthEvent;
-}
 interface LoginFlow {
   state: LoginState; controller: AbortController; task: Promise<void>;
   answer?: (value: string) => void;

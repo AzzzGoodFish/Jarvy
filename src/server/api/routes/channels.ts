@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
 import { chatView, messageView, threadView } from "../views/chat.js";
+import type { SearchResult } from "../../../contract/chat.js";
 
 /** Sections, channels, members, notices, read positions and threads (A37). */
 export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
@@ -18,7 +19,8 @@ export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
   routes.get("/search", c => {
     const within = c.req.query("in") || undefined, limit = Number(c.req.query("limit") ?? 50), view = (found: Parameters<typeof chatView>[0]) => chatView(found, member => chats.member(member));
     const found = chats.find(c.get("actorId"), c.req.query("q") ?? "", { within, limit });
-    return c.json({ chats: found.chats.map(view), messages: found.messages.map(({ message, chat: place }) => ({ message: messageView(message), chat: view(place) })) });
+    const result: SearchResult = { chats: found.chats.map(view), messages: found.messages.map(({ message, chat: place }) => ({ message: messageView(message), chat: view(place) })) };
+    return c.json(result);
   });
   // Emoji marks (A39) and per-member pins.
   routes.put("/messages/:id/reaction", jsonBody, async c => {

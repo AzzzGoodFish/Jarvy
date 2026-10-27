@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type { ConfiguredModel, ModelConnection } from "../../shared/models.js";
+import type { ConfiguredModel, ModelConnection } from "../../../contract/models.js";
 import { ConflictError, ValidationError } from "../../shared/errors.js";
 import { modelApis } from "../pi/catalog.js";
 import type { CredentialRepository } from "./credential-repository.js";

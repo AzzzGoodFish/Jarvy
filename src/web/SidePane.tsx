@@ -1,4 +1,5 @@
-import type { Attachment, Bot, BotStatus, Chat, Member, Section, ThreadEntry } from "./api";
+import type { Attachment, Chat, Member, Section, ThreadEntry } from "../contract/chat";
+import type { Bot, BotStatus } from "../contract/bots";
 import { BotDirects } from "./bot/BotDirects";
 import { ChannelInfo } from "./channel/ChannelInfo";
 import type { DraftStore } from "./composer/drafts";

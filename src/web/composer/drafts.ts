@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { Attachment, ChatMessage, Member } from "../api";
+import type { Attachment, ChatMessage, Member } from "../../contract/chat";
 import { memberName } from "../members";
 import { quotedText } from "../channel/quotes";
 

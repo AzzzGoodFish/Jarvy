@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../api";
+import type { ChatMessage } from "../../contract/chat";
 import { formatClock, formatDate, formatDay, getLocale, t } from "../i18n";
 
 /** Messages from one sender within this long of each other form a group: one name, avatar or time for the group. */

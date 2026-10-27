@@ -1,4 +1,5 @@
-import { ChatError, type Attachment, type ChatMessage } from "../../shared/chat.js";
+import { ChatError, type ChatMessage } from "../../shared/chat.js";
+import { type Attachment } from "../../../contract/chat.js";
 import { expandQuotes, replyExcerpt } from "../../shared/quotes.js";
 import type { EnvelopeMessage, FileListing } from "./envelope.js";
 import type { ChatService } from "./service.js";
