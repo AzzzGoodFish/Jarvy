@@ -430,3 +430,15 @@ The web and the server are separate programs joined by HTTP, and what crosses it
 - The contract is the HTTP boundary written down, not a layer: the call path stays web → api → service → infra.
 
 Why: one definition of what crosses HTTP, checked on both sides, so the web and the server cannot drift apart unnoticed.
+
+## A64 Each Bot tool registered once
+
+The `chat` gateway's 33 tools (43 for the agent Bot) were dispatched four ways: a switch of some thirty cases in `tools.ts`, a `ChatTools` class, an `AgentTools` class with its own switch, and a `callTask` function. Descriptions and parameters lived in schema files apart from the code, so a tool was added in two or three places, and arguments reached handlers through casts the parameters didn't check. The check that a person can answer a card was written three times.
+
+- **One entry per tool** (`service/bot/tools/`): `tool(name, description, parameters, handler)`. The handler's arguments are typed from the parameters (TypeBox `Static`), which the gateway checks first; no casts.
+- **By area**: `history`, `chats`, `messages`, `files`, `environments`, `secrets`, `tasks`, `agent`; a tool's description sits with what it does.
+- **The gateway** does what is the same for every tool: list, describe, check, run. The agent Bot's own tools are registered only for it (A48); for another Bot they stay unknown.
+- **Shared steps** in one context: finding a chat, member or channel group by what the Bot wrote, sending, asking on a card, the unread hint (A53), the check that a person can answer.
+- **What a Bot sees is unchanged** except the order of `list`, now by area: names, descriptions, parameters, results and every error text are the same (compared tool by tool for an ordinary Bot and the agent Bot).
+
+Why: a tool is one thing — what the Bot reads about it and what it does — and adding or changing one should be one edit the compiler checks.
