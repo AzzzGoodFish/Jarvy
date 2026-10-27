@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { ValidationError } from "../../shared/errors.js";
-import { nextAfter, type Task, type TaskSchedule, type TaskState } from "../../shared/task.js";
+import { nextAfter } from "../../shared/task.js";
+import { type Task, type TaskSchedule, type TaskState } from "../../../contract/tasks.js";
 import { transaction } from "./transaction.js";
 import type { InboxRepository } from "./inbox-repository.js";
 import type { Urgency } from "../../shared/delivery.js";

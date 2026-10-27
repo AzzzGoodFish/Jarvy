@@ -1,4 +1,4 @@
-import type { MemberIdentity } from "./chat.js";
+import type { Member } from "../../contract/chat.js";
 import type { BotChange, WelcomeLanguage } from "./agent.js";
 
 /** How urgently a recipient should learn about something (A41): interrupt = now, even mid-run; queue = soon,
@@ -28,6 +28,6 @@ export interface DeliveryPayloads {
  * Bot works; `move` is that change moving a Bot that is running. */
 export type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule";
 /** A route's answer: who should know, and why. */
-export interface DeliveryTarget { member: MemberIdentity; reason: DeliveryReason }
+export interface DeliveryTarget { member: Member; reason: DeliveryReason }
 /** A planned delivery, written with the fact it is about and handed to the recipient after commit. */
 export interface Delivery extends DeliveryTarget { kind: DeliveryKind; urgency: Urgency }

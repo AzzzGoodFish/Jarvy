@@ -1,5 +1,5 @@
 import type { Store } from "../../infra/storage/store.js";
-import type { ConfiguredModel } from "../../shared/models.js";
+import type { ConfiguredModel } from "../../../contract/models.js";
 import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
 import type { Model as ModelPort, PreparedModel } from "./contracts.js";
 

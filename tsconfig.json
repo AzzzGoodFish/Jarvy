@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "rootDir": "src/server",
+    "rootDir": "src",
     "outDir": "dist/server",
     "strict": true,
     "esModuleInterop": true,
@@ -18,7 +18,8 @@
     "verbatimModuleSyntax": true
   },
   "include": [
-    "src/server/**/*.ts"
+    "src/server/**/*.ts",
+    "src/contract/**/*.ts"
   ],
   "exclude": [
     "node_modules",

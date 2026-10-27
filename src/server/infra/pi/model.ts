@@ -1,7 +1,7 @@
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Api, Model, OpenAICompletionsCompat, Provider } from "@earendil-works/pi-ai";
 import type { ModelCatalog } from "./catalog.js";
-import type { ConfiguredModel, ModelConnection } from "../../shared/models.js";
+import type { ConfiguredModel, ModelConnection } from "../../../contract/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
 const FORMATS = new Set(["openai", "openrouter", "deepseek", "together", "baseten", "zai", "qwen", "chat-template", "qwen-chat-template", "string-thinking", "ant-ling"]);

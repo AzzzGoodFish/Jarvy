@@ -1,4 +1,4 @@
-import type { Attachment } from "../api";
+import type { Attachment } from "../../contract/chat";
 import { t } from "../i18n";
 
 /** Preview kinds; larger files are download-only, except audio and video, which stream (A34). */

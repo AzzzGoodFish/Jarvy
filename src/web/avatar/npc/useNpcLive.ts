@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { BotStatus } from "../../api";
+import type { BotStatus } from "../../../contract/bots";
 import type { FigureMotion } from "../figure";
-import type { BotMood } from "../palette";
+import type { BotMood } from "../../../contract/models";
 import { useLiveTurn } from "./live";
 import { liveSteps, stepMotion } from "./live-view";
 import { pickStep } from "./pick";

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeftIcon, ChevronDownIcon, DownloadIcon, PlusIcon, RotateCcwIcon, SearchIcon, SparklesIcon, Trash2Icon } from "lucide-react";
-import { api, type ConfiguredModel, type ModelConnection, type ModelResetPlan } from "./api";
+import { api } from "./api";
+import { type ConfiguredModel, type ModelConnection, type ModelResetPlan } from "../contract/models";
 import type { ProviderPreset } from "./ProviderPicker";
 import { CredentialLogin } from "./CredentialLogin";
 import { ModelCard, ProtocolSelect, emptyModel, type ModelDraft } from "./ModelCard";

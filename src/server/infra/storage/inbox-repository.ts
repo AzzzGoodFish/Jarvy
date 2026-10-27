@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { CATEGORY, type Delivery, type DeliveryKind, type DeliveryPayloads, type Urgency } from "../../shared/delivery.js";
-import type { ChatHint, MemberIdentity } from "../../shared/chat.js";
+import type { ChatHint, Member } from "../../../contract/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 
 /** One row to write: a planned delivery, where it is (a chat and message for the chat categories, none for a system
@@ -12,7 +12,7 @@ export interface InboxEntry<K extends DeliveryKind = DeliveryKind> {
  * the chat it is about; or a system notice (A61), about no chat. `payload` is as its kind writes it. */
 export type BotNotice = { [K in Exclude<DeliveryKind, "message">]: { id: number; kind: K; urgency: Urgency; createdAt: number;
   /** Who did it; none for a task, which the scheduler delivers (A58). */
-  actor: MemberIdentity | null; payload: DeliveryPayloads[K];
+  actor: Member | null; payload: DeliveryPayloads[K];
   chat: K extends "reaction" | "note" ? { id: string; type: "dm" | "channel" | "thread"; title: string } : null;
   messageId: K extends "reaction" ? string : null } }[Exclude<DeliveryKind, "message">];
 type NoticeRow = { id: number; kind: Exclude<DeliveryKind, "message">; urgency: Urgency; chatId: string | null; chatTitle: string | null; chatType: string | null;

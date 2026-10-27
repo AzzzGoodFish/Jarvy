@@ -1,6 +1,7 @@
 import { BACKGROUND_CONTEXT, withAbortSignal, type Context } from "@earendil-works/chord/context";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import type { EnvironmentKind, ExecOptions, WorkEnvironment } from "../../shared/environment.js";
+import type { ExecOptions, WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentKind } from "../../../contract/environment.js";
 
 /** A WorkEnvironment over one of Pi Durable's execution environments: the host's `NodeExecutionEnv` or pi-env's
  * `RemoteExecutionEnv`, which behaves like it on the far side. `passEnv` says whether the command gets the environment

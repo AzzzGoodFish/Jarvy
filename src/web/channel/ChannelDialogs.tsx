@@ -1,6 +1,8 @@
 import { useId, useState, type FormEvent } from "react";
 import { SectionSelect } from "./SectionSelect";
-import { api, type Bot, type Chat, type Member, type Section } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type Chat, type Member, type Section } from "../../contract/chat";
 import { Icon, IconButton, Modal } from "../ui";
 import { MemberAvatar } from "./ChannelView";
 import { t } from "../i18n";

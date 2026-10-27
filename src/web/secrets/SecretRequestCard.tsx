@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { KeyRoundIcon, TriangleAlertIcon } from "lucide-react";
-import { api, type ChatMessage, type Question, type SecretAsk } from "../api";
+import { api } from "../api";
+import { type ChatMessage, type Question, type SecretAsk } from "../../contract/chat";
 import { t } from "../i18n";
 import { useAction } from "../action";
 import { MaskedField, RequestCard, SettledRequest } from "../question/RequestCard";

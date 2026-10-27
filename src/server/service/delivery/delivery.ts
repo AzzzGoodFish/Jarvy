@@ -1,4 +1,5 @@
-import type { ChatMessage, MemberIdentity } from "../../shared/chat.js";
+import type { ChatMessage } from "../../shared/chat.js";
+import type { Member } from "../../../contract/chat.js";
 import type { Delivery, DeliveryKind, DeliveryPayloads, DeliveryReason, DeliveryTarget, SystemKind, Urgency } from "../../shared/delivery.js";
 import { mutedUrgency, urgencyOf } from "./policy.js";
 
@@ -43,7 +44,7 @@ export class Deliveries {
   dispatch(deliveries: readonly Delivery[], message?: ChatMessage): void { this.dispatcher.dispatch(deliveries, message); }
   /** System notices (A61): one row per payload goes to `to`, for `reason`, with no chat; the recipient is handed them
    * once, so several changes at a time interrupt a running Bot only once. */
-  notify<K extends SystemKind>(input: { to: MemberIdentity; kind: K; reason: DeliveryReason; actorId: string | null; payloads: readonly DeliveryPayloads[K][] }): void {
+  notify<K extends SystemKind>(input: { to: Member; kind: K; reason: DeliveryReason; actorId: string | null; payloads: readonly DeliveryPayloads[K][] }): void {
     if (!input.payloads.length) return;
     const [delivery] = plan(input.kind, [{ member: input.to, reason: input.reason }]);
     if (!delivery) throw new Error(`No delivery policy for ${input.kind} / ${input.reason}`);

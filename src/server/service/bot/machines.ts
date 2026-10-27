@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { dirname, join, posix } from "node:path";
 import { SshFault, clearRuntime, generateKey, installKey, probeHost, publicKeyOf, removeKey, scanHost, sshEnvironment, type SshAccess, type SshAddress } from "../../infra/env/ssh.js";
 import type { Store } from "../../infra/storage/store.js";
-import { ChatError, type ChatMessage, type MachineAsk, type QuestionSpec } from "../../shared/chat.js";
-import type { EnvironmentRecord, HostKeys, SshMachine, WorkEnvironment } from "../../shared/environment.js";
+import { ChatError, type ChatMessage } from "../../shared/chat.js";
+import { type MachineAsk, type QuestionSpec } from "../../../contract/chat.js";
+import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { HostKeys, SshMachine } from "../../../contract/environment.js";
 import type { ChatService } from "../chat/service.js";
 
 /** What adding a machine takes, from Settings or from a Bot's request card. */

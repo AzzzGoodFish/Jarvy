@@ -1,4 +1,5 @@
-import type { Bot, Chat, Member, Section, ThreadEntry } from "./api";
+import type { Bot } from "../contract/bots";
+import type { Chat, Member, Section, ThreadEntry } from "../contract/chat";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Icon, IconButton } from "./ui";
 import { t } from "./i18n";

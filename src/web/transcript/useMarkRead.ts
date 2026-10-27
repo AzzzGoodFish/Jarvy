@@ -1,5 +1,6 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
-import { api, type Chat, type ChatMessage } from "../api";
+import { api } from "../api";
+import { type Chat, type ChatMessage } from "../../contract/chat";
 
 /** What is on screen counts as read (A37): move the open chat's read position to the last loaded message while the
  * page is visible, and clear the row's counts and hints at once. */

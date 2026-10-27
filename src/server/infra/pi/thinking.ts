@@ -1,5 +1,5 @@
 import { clampThinkingLevel, getSupportedThinkingLevels, type Api, type Model, type ModelThinkingLevel } from "@earendil-works/pi-ai";
-import type { ConfiguredModel } from "../../shared/models.js";
+import type { ConfiguredModel } from "../../../contract/models.js";
 
 // Pi 1.2.0 core/defaults.js uses medium; this constant is not publicly exported.
 // Keep this adapter aligned when upgrading Pi; never read the host's settings.

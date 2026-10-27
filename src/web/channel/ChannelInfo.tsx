@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { SectionSelect } from "./SectionSelect";
-import { api, type Bot, type BotStatus, type Chat, type Member, type Section } from "../api";
+import { api } from "../api";
+import { type Bot, type BotStatus } from "../../contract/bots";
+import { type Chat, type Member, type Section } from "../../contract/chat";
 import { Icon, IconButton } from "../ui";
 import { MemberList } from "./MemberList";
 import { t } from "../i18n";

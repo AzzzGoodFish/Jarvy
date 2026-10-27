@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t, type Key } from "../../i18n";
 import type { FigureMotion } from "../figure";
-import type { BotMood } from "../palette";
+import type { BotMood } from "../../../contract/models";
 import { DEMO_TURN, POSES, type ScriptStep, type StepKind } from "./script";
 import { demoStep } from "./demo-view";
 import type { NpcDriver } from "./view";

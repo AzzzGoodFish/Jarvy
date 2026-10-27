@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { AGENT_BOT_ID, BOT_COLORS } from "../../shared/models.js";
+import { AGENT_BOT_ID } from "../../shared/models.js";
+import { BOT_COLORS } from "../../../contract/models.js";
 import { transaction } from "./transaction.js";
 
 /** The agent Bot's storage (v19, A48): the setup Bot kept in place and the onboarding mark. */

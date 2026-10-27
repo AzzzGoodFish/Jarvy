@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import type { ConfiguredModel } from "./api";
+import type { ModelInput } from "../contract/models";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -12,8 +12,8 @@ import { t } from "./i18n";
 import type { Key } from "./i18n/keys";
 
 export const PROTOCOLS = [{ id: "openai-completions", label: "OpenAI · Chat Completions" }, { id: "openai-responses", label: "OpenAI · Responses" }, { id: "anthropic-messages", label: "Anthropic · Messages" }, { id: "google-generative-ai", label: "Google · Gemini" }];
-export const emptyModel = (): ConfiguredModel => ({ id: "", name: "", reasoning: false, input: ["text"], contextWindow: null, maxTokens: null, thinkingFormat: "", thinkingLevelMap: {}, compat: {}, cost: null });
-export interface ModelDraft { key: string; originalId?: string; selected: boolean; model: ConfiguredModel; auto?: AutoState; }
+export const emptyModel = (): ModelInput => ({ id: "", name: "", reasoning: false, input: ["text"], contextWindow: null, maxTokens: null, thinkingFormat: "", thinkingLevelMap: {}, compat: {}, cost: null });
+export interface ModelDraft { key: string; originalId?: string; selected: boolean; model: ModelInput; auto?: AutoState; }
 export function ProtocolSelect({ value, onChange, allowDefault = false }: { value: string; onChange: (value: string) => void; allowDefault?: boolean }) {
   const options = PROTOCOLS.some(item => item.id === value) || !value ? PROTOCOLS : [...PROTOCOLS, { id: value, label: value }];
   return <Select value={value || "default"} onValueChange={item => onChange(item === "default" ? "" : item)}><SelectTrigger aria-label={t("editor.protocol")}><SelectValue/></SelectTrigger><SelectContent className="jv-select-menu">
@@ -44,7 +44,7 @@ export function ModelCard({ draft, protocol, onChange, onRemove, onAutoconfig }:
   const [open, setOpen] = useState(!model.id);
   const [prices, setPrices] = useState(false);
   const [headers, setHeaders] = useState(() => (model.headerNames ?? []).map(name => ({ name, value: "", saved: true })));
-  const set = (patch: Partial<ConfiguredModel>) => onChange({ ...draft, model: { ...model, ...patch } });
+  const set = (patch: Partial<ModelInput>) => onChange({ ...draft, model: { ...model, ...patch } });
   const field = (label: string, node: React.ReactNode) => <label className="jv-field"><span>{label}</span>{node}</label>;
   const setHeader = (index: number, key: "name" | "value", value: string) => {
     const next = headers.map((item, i) => i === index ? { ...item, [key]: value } : item); setHeaders(next);

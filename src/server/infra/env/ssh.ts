@@ -3,7 +3,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { HostKeyChangedError, HostKeyUnknownError, RemoteExecutionEnv, detectPlatform, scanHostKey, sshArguments, sshConnection, type SshTarget } from "@earendil-works/pi-env";
-import type { HostKeys, WorkEnvironment } from "../../shared/environment.js";
+import type { WorkEnvironment } from "../../shared/environment.js";
+import type { HostKeys } from "../../../contract/environment.js";
 import { overDurable } from "./durable.js";
 
 /** Machines the owner adds over SSH (A57, A59). Jarvy makes an ed25519 key for each one and logs in with it; the key

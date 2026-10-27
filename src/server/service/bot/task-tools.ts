@@ -1,5 +1,6 @@
 import { Type } from "typebox";
-import { describeSchedule, localIso, TASK_MINUTES_MIN, type Task } from "../../shared/task.js";
+import { describeSchedule, localIso, TASK_MINUTES_MIN } from "../../shared/task.js";
+import { type Task } from "../../../contract/tasks.js";
 import type { TaskService } from "../tasks.js";
 import { ChatError } from "../../shared/chat.js";
 

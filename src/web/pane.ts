@@ -1,4 +1,4 @@
-import type { Chat } from "./api";
+import type { Chat } from "../contract/chat";
 import type { InfoPage } from "./channel/ChannelInfo";
 
 /** The right-hand pane (A37 P2): a channel's thread list or info (with its member page), a Bot's DMs with other Bots,

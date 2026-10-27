@@ -1,5 +1,5 @@
 import type { Api, Model, Provider } from "@earendil-works/pi-ai";
-import type { AutoconfigResult, AutoconfigSource } from "../../shared/models.js";
+import type { AutoconfigResult, AutoconfigSource } from "../../../contract/models.js";
 import { catalogCompat, publicModel } from "./model.js";
 
 // Matching adapted from VulnHunter service/src/modules/catalog/catalog-match.ts: exact →

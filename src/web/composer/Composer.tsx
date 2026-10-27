@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
-import { api, type Bot, type Member } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type Member } from "../../contract/chat";
 import { useMentionMenu } from "../channel/MentionMenu";
 import { putBack, useDraft, type DraftStore } from "./drafts";
 import { QuoteTags } from "../channel/quotes";

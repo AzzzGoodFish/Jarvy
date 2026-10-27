@@ -1,4 +1,4 @@
-import type { TaskSchedule } from "../api";
+import type { TaskSchedule } from "../../contract/tasks";
 import { formatClock, formatDate, formatDay, t } from "../i18n";
 
 const clock = (hour: number, minute: number) => formatClock(new Date(2000, 0, 1, hour, minute));

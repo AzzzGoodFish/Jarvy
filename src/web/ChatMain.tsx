@@ -1,4 +1,6 @@
-import type { Bot, BotStatus, Chat, ChatMessage, Member, ModelConnection } from "./api";
+import type { Bot, BotStatus } from "../contract/bots";
+import type { Chat, ChatMessage, Member } from "../contract/chat";
+import type { ModelConnection } from "../contract/models";
 import { ChannelHeader, ChannelMessages, NoticeBar } from "./channel/ChannelView";
 import { QuoteSelection } from "./channel/quotes";
 import { Composer } from "./composer/Composer";

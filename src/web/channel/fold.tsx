@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { ChatMessage } from "../api";
+import type { ChatMessage } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon } from "../ui";
 import { previewText } from "./quotes";

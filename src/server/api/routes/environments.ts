@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
 import { messageView } from "../views/chat.js";
-import type { HostKeys } from "../../shared/environment.js";
+import type { HostKeys } from "../../../contract/environment.js";
 
 /** Settings → work environments: the owner's SSH machines (A57, A59). A password goes in once, to install Jarvy's key,
  * and is kept (sealed) only for a machine that refuses keys; private keys and passwords never come back out. */

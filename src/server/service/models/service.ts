@@ -1,5 +1,5 @@
 import type { Store } from "../../infra/storage/store.js";
-import type { ConfiguredModel, ModelConnection, ModelResetPlan } from "../../shared/models.js";
+import type { BotModelGroup, ConfiguredModel, ModelConnection, ModelResetPlan } from "../../../contract/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import type { CredentialLogins } from "../../infra/pi/auth.js";
@@ -96,7 +96,7 @@ export class ModelService {
     }
     return autoconfigure(this.models.providers(), modelId, api, choice);
   }
-  options() {
+  options(): BotModelGroup[] {
     return this.list().filter(connection => connection.models.length).map(connection => ({
       id: connection.id, name: connection.displayName,
       models: connection.models.map(model => ({ id: model.id, name: model.name, thinking: thinkingOptions(model), thinkingLevelMap: model.thinkingLevelMap })),

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { CheckIcon, PlusIcon, XIcon } from "lucide-react";
-import { api, type Bot, type Secret } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type Secret } from "../../contract/secrets";
 import { t } from "../i18n";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { Button } from "../components/ui/button";

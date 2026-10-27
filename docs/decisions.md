@@ -417,3 +417,15 @@ A model saved under a connection is a snapshot of its catalog entry. When the ca
 - No database change: model configuration is JSON.
 
 Why: a connection should be able to follow the catalog without losing its login, and a model from the catalog should work as the catalog describes it.
+
+## A63 The HTTP contract, written once
+
+The web and the server are separate programs joined by HTTP, and what crosses it was written twice: the server's `api/views` assembled a chat, a message or a Bot by its own idea, and `web/api.ts` declared the same shapes again by hand. Of the web's 38 types, 28 shared a name with a server type; 14 were copies and 14 had already drifted (the web's environment kinds lacked `ssh`, its chat said `botId: string` where the server sends null for channels, its task schedule took no `since`). Nothing tied the two, so a changed field showed up only as a broken page.
+
+- **`src/contract/`**: the types the server sends and the web reads — chats, messages, members, Bots and their run state, models and connections, environments, tasks, secrets, the connection info — and the request shapes that differ from them (`ModelInput` with header updates, `ScheduleInput` without `since`). Plain types and constants, by area.
+- **Imports**: the contract imports only itself, no package, Node or browser module. Every server layer may import it, as it imports `shared`; the web imports only `src/web` and `src/contract`. `check-boundaries` enforces both.
+- **Server types stay the server's**: where the server holds more or other than it sends (a chat with its owner, a message with its sender's identity, a stored Bot with its workspace), its type stays in `shared/`, and `api/views` (or the service that builds a view) is typed to return the contract's. A field changed on one side fails to compile on the other.
+- **No forwarding**: moved types are imported from the contract where they are used; `shared/` and `web/api.ts` do not re-export them.
+- The contract is the HTTP boundary written down, not a layer: the call path stays web → api → service → infra.
+
+Why: one definition of what crosses HTTP, checked on both sides, so the web and the server cannot drift apart unnoticed.

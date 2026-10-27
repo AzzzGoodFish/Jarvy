@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Attachment } from "../api";
+import type { Attachment } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon, IconButton, Markdown } from "../ui";
 import { KIND_LABEL, PREVIEW_LIMIT, bytes, fileKind, fileUrl, isMedia, isPicture, pictureSource, readText, runUrl, safeHtml, scriptReport } from "./files";

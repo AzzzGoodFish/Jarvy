@@ -3,7 +3,8 @@ import { LocalWorkspace } from "../../infra/files/workspace.js";
 import { installSkills } from "../../infra/files/skills.js";
 import type { Skill } from "../../shared/skill.js";
 import { ChatError, type OutgoingFile } from "../../shared/chat.js";
-import type { EnvironmentKind, WorkEnvironment } from "../../shared/environment.js";
+import type { WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentKind } from "../../../contract/environment.js";
 import type { Workspace as WorkspacePort } from "./contracts.js";
 
 const MAX_FILE = 10 * 1024 * 1024;

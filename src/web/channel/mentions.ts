@@ -1,4 +1,4 @@
-import type { Member } from "../api";
+import type { Member } from "../../contract/chat";
 
 /** Same rule as the server (service/chat/mentions.ts; web cannot import server code): "@name" with the
  * longest matching name; a Latin/digit name must not run into another Latin/digit; "a@b" is not a mention;

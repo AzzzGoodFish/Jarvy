@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import { builtinProviders, getBuiltinModelDataGeneratedAt } from "@earendil-works/pi-ai/providers/all";
+import type { ProviderOption } from "../../../contract/models.js";
 
 /** pi.dev's model catalog: every provider's chat models, the same entries Pi bundles. */
 const CATALOG_URL = "https://pi.dev/api/models";
@@ -139,7 +140,7 @@ function merge<T extends { id: string }>(models: readonly T[], newer: readonly T
   return merged;
 }
 
-export function providerCatalog(providers: readonly Provider[]) {
+export function providerCatalog(providers: readonly Provider[]): ProviderOption[] {
   return providers.flatMap(provider => {
     const models = provider.getModels();
     // This is a chat-model selector. Keep empty dynamic catalogs, not image/classifier-only providers.

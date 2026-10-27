@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Ellipsis, Pin, Search } from "lucide-react";
 import type { MenuTarget } from "./EntryMenu";
-import type { Bot, Chat, Member, Section, ThreadEntry } from "../api";
+import type { Bot } from "../../contract/bots";
+import type { Chat, Member, Section, ThreadEntry } from "../../contract/chat";
 import { ResultGroup, SearchResults } from "../search/SearchResults";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { Button } from "../components/ui/button";

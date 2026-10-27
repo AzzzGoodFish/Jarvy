@@ -1,11 +1,5 @@
 /** Partial quotes (A44): a message carries quotes as structure and marks where each one sits with `[[qN]]`. */
-export interface MessageQuote {
-  /** The quoted message; null once that message is gone. */
-  messageId: string | null;
-  senderId: string;
-  /** The quoted passage, a snapshot of the source's text. */
-  text: string;
-}
+import type { MessageQuote } from "../../contract/chat.js";
 
 const MARK = /\[\[q(\d+)\]\]/g;
 /** The quote numbers marked in a text, in order of appearance. */

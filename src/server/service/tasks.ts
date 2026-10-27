@@ -3,7 +3,8 @@ import type { Deliveries } from "./delivery/delivery.js";
 import { urgencyOf } from "./delivery/policy.js";
 import { ChatError } from "../shared/chat.js";
 import { ValidationError } from "../shared/errors.js";
-import { TASK_MINUTES_MIN, type Task, type TaskSchedule } from "../shared/task.js";
+import { TASK_MINUTES_MIN } from "../shared/task.js";
+import { type Task, type TaskSchedule } from "../../contract/tasks.js";
 
 const MAX_WAIT_MS = 60_000;
 /** Task schedules and the owner's list of them (A58). Making one is checked here, not in the Bot or the page:

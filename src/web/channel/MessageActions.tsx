@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ChatMessage, Member } from "../api";
+import type { ChatMessage, Member } from "../../contract/chat";
 import { IconButton } from "../ui";
 import { memberName } from "../members";
 import { t } from "../i18n";

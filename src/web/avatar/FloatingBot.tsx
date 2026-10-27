@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
-import type { Bot, BotStatus } from "../api";
+import type { Bot, BotStatus } from "../../contract/bots";
 import { BotAvatar } from "./BotAvatar";
 import type { FigureInput, FigureMotion } from "./figure";
-import { BOT_COLORS, type BotColor, type BotMood } from "./palette";
+import { BOT_COLORS } from "./palette";
+import { type BotColor, type BotMood } from "../../contract/models";
 import { NpcLayer } from "./npc/NpcLayer";
 import { NpcToolbar } from "./npc/NpcToolbar";
 import { useNpcDemo } from "./npc/useNpcDemo";

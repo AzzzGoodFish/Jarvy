@@ -2,7 +2,8 @@ import { COMPUTER_CWD } from "../../infra/env/docker.js";
 import { hostEnvironment } from "../../infra/env/host.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError } from "../../shared/chat.js";
-import type { BotPlacement, EnvironmentRecord, HomeKind, WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { BotPlacement, HomeKind } from "../../../contract/environment.js";
 import type { Computers } from "./computers.js";
 import type { SshMachines } from "./machines.js";
 

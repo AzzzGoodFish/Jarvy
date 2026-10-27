@@ -1,6 +1,6 @@
 import type { Key } from "../../i18n";
 import type { FigureMotion } from "../figure";
-import type { BotMood } from "../palette";
+import type { BotMood } from "../../../contract/models";
 
 /** One step of the NPC prototype's scripted turn (no server). Thinking and talking to itself (the model's own text,
  * which nobody else sees) are not said to anyone; `say` is a message sent with the chat tool — to you, or to another

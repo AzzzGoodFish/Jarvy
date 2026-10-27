@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { MessageQuote } from "../../shared/quotes.js";
+import type { MessageQuote } from "../../../contract/chat.js";
 
 /** A message's partial quotes (A44, v17), in mark order. */
 export class QuoteRepository {

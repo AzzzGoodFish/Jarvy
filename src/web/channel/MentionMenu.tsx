@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from "react";
-import type { Bot, Member } from "../api";
+import type { Bot } from "../../contract/bots";
+import type { Member } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon } from "../ui";
 import { MemberAvatar } from "./ChannelView";

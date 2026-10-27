@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { api, type Bot, type BotStatus, type Chat, type Member } from "../api";
+import { api } from "../api";
+import { type Bot, type BotStatus } from "../../contract/bots";
+import { type Chat, type Member } from "../../contract/chat";
 import { ConfirmDialog } from "../dm/DeleteDialog";
 import { Icon, IconButton } from "../ui";
 import { t } from "../i18n";

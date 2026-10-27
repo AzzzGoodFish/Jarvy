@@ -1,4 +1,6 @@
-import type { Attachment, Bot, BotStatus, Chat, Member, ModelConnection, Section } from "./api";
+import type { Attachment, Chat, Member, Section } from "../contract/chat";
+import type { Bot, BotStatus } from "../contract/bots";
+import type { ModelConnection } from "../contract/models";
 import { BotInfo } from "./BotInfo";
 import { AddMembersDialog, NewChannelDialog, SectionDialog } from "./channel/ChannelDialogs";
 import { DeleteBotDialog, ConfirmDialog } from "./dm/DeleteDialog";

@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { CheckIcon, MessageCircleQuestionMarkIcon, MinusIcon, XIcon } from "lucide-react";
-import { api, type ChatMessage, type Question } from "../api";
+import { api } from "../api";
+import { type ChatMessage, type Question } from "../../contract/chat";
 import { rich, t } from "../i18n";
 import "../styles/question.css";
 import { useAction } from "../action";

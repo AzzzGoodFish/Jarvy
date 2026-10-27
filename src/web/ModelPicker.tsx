@@ -1,7 +1,8 @@
 import { BotModelControls } from "./BotModelControls";
 import { EnvironmentChoice } from "./environment/BotEnvironment";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import type { Bot, ModelConnection } from "./api";
+import type { Bot } from "../contract/bots";
+import type { ModelConnection } from "../contract/models";
 import { t } from "./i18n";
 
 export function ModelPicker({ bot, connections, onSaved, onManage }: {

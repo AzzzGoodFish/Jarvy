@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { Task, TaskInput, TaskSchedule } from "../api";
+import type { ScheduleInput, Task, TaskInput, TaskSchedule } from "../../contract/tasks";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -23,7 +23,7 @@ function draftOf(schedule?: TaskSchedule): Draft {
   return draft;
 }
 /** The schedule the form describes; null while it can't be one (an empty date, fewer than 5 minutes). */
-function scheduleOf(kind: Kind, draft: Draft): TaskSchedule | null {
+function scheduleOf(kind: Kind, draft: Draft): ScheduleInput | null {
   const [hour, minute] = draft.time.split(":").map(Number);
   const clock = Number.isInteger(hour) && Number.isInteger(minute) ? { hour: hour!, minute: minute! } : null;
   if (kind === "once") { const at = new Date(draft.at).getTime(); return Number.isFinite(at) ? { kind, at } : null; }

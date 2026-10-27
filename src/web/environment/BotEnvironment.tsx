@@ -1,6 +1,8 @@
 import { useId, useState } from "react";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import { api, type Bot, type EnvironmentKind } from "../api";
+import { api } from "../api";
+import { type Bot } from "../../contract/bots";
+import { type EnvironmentKind } from "../../contract/environment";
 import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
 import { useAction } from "../action";

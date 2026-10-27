@@ -22,7 +22,7 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 | Document | Covers |
 | --- | --- |
 | [Engineering principles](engineering-principles.md) | The ten rules every change follows |
-| [Code layout](architecture/layout.md) | `src/web`, `src/server` and the `api → service → infra` layers |
+| [Code layout](architecture/layout.md) | `src/web`, `src/server`, the `api → service → infra` layers and the HTTP contract in `src/contract` |
 | [Domain](architecture/domain.md) | Member, User, Bot, Chat and their parts; permissions |
 | [Delivery](architecture/delivery.md) | Routing, the policy table, the inbox, how Bots and people respond |
 | [Bot input (XML)](architecture/envelope.md) | The `<chat_batch>` and `<notice_batch>` formats |

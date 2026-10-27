@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon, CopyIcon, DownloadIcon } from "lucide-react";
-import { api, type ConnectionInfo } from "../api";
+import { api } from "../api";
+import { type ConnectionInfo } from "../../contract/connection";
 import { rich, t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { copyText } from "../ui";

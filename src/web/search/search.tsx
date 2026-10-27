@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type Chat, type ChatMessage, type Member, type SearchResult } from "../api";
+import { api } from "../api";
+import { type Chat, type ChatMessage, type Member, type SearchResult } from "../../contract/chat";
 import { formatClock, formatDay, t } from "../i18n";
 import { memberName } from "../members";
 import { quotedText } from "../channel/quotes";

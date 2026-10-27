@@ -39,7 +39,7 @@ interface DeliveryPayloads {               // what each kind carries, stored as 
   message: null; reaction: { emoji: string }; note: { version: number };
   onboard: { language: WelcomeLanguage }; change: { what: ChangeField; value: string | null }; task: { task: string; due: number };
 }
-interface Delivery { member: MemberIdentity; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
+interface Delivery { member: Member; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
 ```
 
 ## Routes (`service/delivery/routes.ts`)

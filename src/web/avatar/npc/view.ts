@@ -1,5 +1,5 @@
 import type { FigureMotion } from "../figure";
-import type { BotMood } from "../palette";
+import type { BotMood } from "../../../contract/models";
 
 /** What the NPC layer shows, whoever drives it — the scripted demo or a Bot's live turn (A47). Strings are already
  * worded (built while rendering, so they follow the interface language). */

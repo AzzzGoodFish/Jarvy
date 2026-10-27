@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Attachment, Bot, Chat, ChatMessage, Member } from "../api";
+import type { Attachment, Chat, ChatMessage, Member } from "../../contract/chat";
+import type { Bot } from "../../contract/bots";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";
