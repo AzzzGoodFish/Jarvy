@@ -20,7 +20,7 @@ const ERROR_KEYS: Record<string, Key> = {
   login_input: "error.loginInput", login_option: "error.loginOption", login_step: "error.loginStep",
   message_missing: "error.messageMissing", model_incomplete: "error.modelIncomplete", model_missing: "error.modelMissing",
   model_request_failed: "error.modelRequestFailed", model_required: "error.modelRequired", model_switch_uncertain: "error.modelSwitchUncertain",
-  name_taken: "error.nameTaken", provider_name_taken: "error.providerNameTaken",
+  name_taken: "error.nameTaken", provider_name_taken: "error.providerNameTaken", reset_custom: "error.resetCustom",
   question_closed: "error.questionClosed", question_expired: "error.questionExpired",
   secret_description_invalid: "error.secretDescriptionInvalid", secret_missing: "error.secretMissing", secret_name_invalid: "error.secretNameInvalid",
   secret_name_taken: "error.secretNameTaken", secret_value_missing: "error.secretValueMissing", secret_value_too_long: "error.secretValueTooLong",

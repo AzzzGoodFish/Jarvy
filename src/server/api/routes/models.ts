@@ -18,6 +18,9 @@ export function modelRoutes(models: ApiServices["models"]) {
     await models.delete(c.req.param("id")); return c.json({ ok: true });
   });
   connections.get("/:id/catalog", async c => c.json({ models: await models.catalog(c.req.param("id")) }));
+  // Resetting a built-in connection's models to the catalog (A62): what it would do, then doing it.
+  connections.get("/:id/reset", async c => c.json(await models.resetPlan(c.req.param("id"))));
+  connections.post("/:id/reset", async c => c.json(await models.reset(c.req.param("id"))));
   connections.put("/:id/credential", jsonBody, async c => c.json(models.saveCredential(c.req.param("id"), await readJson(c))));
   connections.post("/:id/models", jsonBody, async c => {
     const input = await readJson(c);

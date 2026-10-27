@@ -66,10 +66,10 @@ export class Application {
     try { store = new Store(root); app = new Application(store, root, release, options.factory); return app; }
     catch (error) { store?.close(); await release(); throw error; }
   }
-  start(): void { this.bots.start(); this.tasks.start(); this.models.refreshCatalog(); }
+  start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
-      this.tasks.stop(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
+      this.tasks.stop(); this.models.stopCatalog(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
     })();
     return this.closing;
   }

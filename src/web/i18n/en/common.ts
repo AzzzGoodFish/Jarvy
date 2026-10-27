@@ -152,6 +152,7 @@ export const common = {
   "error.modelSwitchUncertain": "The model switch didn't finish. Pick the model again.",
   "error.nameTaken": "Another member already has this name.",
   "error.providerNameTaken": "A provider with this name already exists.",
+  "error.resetCustom": "A custom provider has no default models to reset to.",
   "error.connectionInUse": "In use by {bots}. Switch to another model before deleting this provider.",
   "error.questionClosed": "This question is already settled.",
   "error.questionExpired": "This question was ignored. The Bot is no longer waiting for an answer.",

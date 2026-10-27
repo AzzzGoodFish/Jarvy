@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeftIcon, ChevronDownIcon, DownloadIcon, PlusIcon, SearchIcon, SparklesIcon, Trash2Icon } from "lucide-react";
-import { api, type ConfiguredModel, type ModelConnection } from "./api";
+import { ArrowLeftIcon, ChevronDownIcon, DownloadIcon, PlusIcon, RotateCcwIcon, SearchIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { api, type ConfiguredModel, type ModelConnection, type ModelResetPlan } from "./api";
 import type { ProviderPreset } from "./ProviderPicker";
 import { CredentialLogin } from "./CredentialLogin";
 import { ModelCard, ProtocolSelect, emptyModel, type ModelDraft } from "./ModelCard";
@@ -29,6 +29,7 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
   const [query, setQuery] = useState("");
   const { busy, error, setError, run } = useAction(), [fetching, setFetching] = useState(false);
   const [notice, setNotice] = useState(saved ? t("editor.saved") : "");
+  const [resetPlan, setResetPlan] = useState<ModelResetPlan | null>(null);
   const id = useRef(connection?.id);
   function merge(models: ConfiguredModel[]) {
     setDrafts(current => { const ids = new Set(current.map(item => item.model.id)); return [...current, ...models.filter(model => !ids.has(model.id)).map(model => draftModel(model, false))]; });
@@ -88,6 +89,23 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
       await onSaved(saved.id); setNotice(t("editor.saved"));
     }, "editor.saveFailed");
   }
+  /** Reset to the catalog (A62): the server checks pi.dev and says what would happen; confirmed, it does it and the
+   * drafts start again from the result. */
+  async function askReset() {
+    setNotice("");
+    await run("reset", async () => setResetPlan(await api.modelResetPlan(connection!.id)), "editor.resetFailed");
+  }
+  async function reset() {
+    setNotice("");
+    const done = await run("reset", async () => {
+      const result = await api.resetModelConnection(connection!.id);
+      setResetPlan(null); setRemoved([]); setUrl(result.baseUrl); setProtocol(result.api);
+      setDrafts(result.models.map(model => draftModel(model, true, true)));
+      merge((await api.modelCatalog(result.id)).models);
+      await onChanged();
+    }, "editor.resetFailed");
+    if (done) setNotice(t("editor.resetDone"));
+  }
   async function remove() {
     if (!connection || !confirm(t("editor.confirmDelete", { name: connection.displayName }))) return;
     await run("delete", async () => { await api.deleteModelConnection(connection.id); await onChanged(); onBack(); }, "editor.deleteFailed");
@@ -130,8 +148,10 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
             {custom && <Button type="button" variant="ghost" size="sm" disabled={busy || fetching || !url.trim() || !(key.trim() || connection?.configured)} onClick={() => void discover()}><DownloadIcon/>{t(fetching ? "editor.fetching" : "editor.fetch")}</Button>}
             {selected > 0 && <Button type="button" variant="ghost" size="sm" disabled={busy || pending} onClick={() => void autoconfigure(drafts.filter(item => item.selected).map(item => item.key))}><SparklesIcon/>{t("editor.autoSelected")}</Button>}
             <Button type="button" variant="ghost" size="sm" onClick={() => setDrafts([...drafts, draftModel(emptyModel(), true)])}><PlusIcon/>{t("editor.addManually")}</Button>
+            {connection && !custom && <Button type="button" variant="ghost" size="sm" disabled={busy || fetching || !!resetPlan} onClick={() => void askReset()}><RotateCcwIcon/>{t("editor.reset")}</Button>}
           </div>
         </div>
+        {resetPlan && <ResetConfirm plan={resetPlan} busy={busy} onCancel={() => setResetPlan(null)} onConfirm={() => void reset()}/>}
         {drafts.length > 6 && <div className="jv-models-filter"><label className="jv-search"><SearchIcon/><input aria-label={t("editor.filter")} placeholder={t("editor.filterPlaceholder")} value={query} onChange={event => setQuery(event.target.value)}/></label>
           <Button type="button" variant="ghost" size="sm" onClick={() => setDrafts(current => current.map(item => visible.includes(item) ? { ...item, selected: true } : item))}>{t("editor.selectVisible")}</Button></div>}
         {fetching && !custom && <p role="status" className="jv-hint">{t("editor.loadingCatalog")}</p>}
@@ -142,4 +162,18 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
     <footer className="jv-editor-footer"><div aria-live="polite">{error ? <p role="alert">{error}</p> : notice ? <p role="status">{notice}</p> : null}</div>
       <Button type="submit" className="jv-primary" disabled={busy || fetching || pending}>{t(busy ? "editor.saving" : "editor.save")}</Button></footer>
   </form>;
+}
+
+/** What resetting will do, asked in place: models set back, models removed and the Bots that then need another model. */
+function ResetConfirm({ plan, busy, onCancel, onConfirm }: { plan: ModelResetPlan; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  const bots = [...new Set(plan.removed.flatMap(model => model.bots))], separator = t("common.listSeparator");
+  return <div className="jv-reset-confirm" role="group" aria-label={t("editor.resetTitle")}>
+    <strong>{t("editor.resetTitle")}</strong>
+    {plan.reset.length > 0 && <p>{t("editor.resetModels", { count: plan.reset.length })}</p>}
+    {plan.removed.length > 0 && <p>{t("editor.resetRemoves", { count: plan.removed.length, names: plan.removed.map(model => model.name || model.id).join(separator) })}</p>}
+    {bots.length > 0 && <p className="jv-reset-bots">{t("editor.resetBots", { count: bots.length, bots: bots.join(separator) })}</p>}
+    <p>{t("editor.resetKeeps")}</p>
+    <div className="jv-reset-actions"><Button type="button" variant="ghost" size="sm" onClick={onCancel}>{t("common.cancel")}</Button>
+      <Button type="button" className="jv-primary" size="sm" disabled={busy} onClick={onConfirm}>{t("editor.resetConfirm")}</Button></div>
+  </div>;
 }

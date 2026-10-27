@@ -35,7 +35,9 @@ export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "un
 /** `hostGranted`: the owner lets the Bot switch to their computer (A50); `machines`: each SSH machine and whether it may use it (A57). */
 export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind | "ssh"; currentName?: string; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean;
   machines: { id: string; name: string; granted: boolean }[] }
-export interface ConfiguredModel { api?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
+/** What resetting a built-in connection's models does (A62). */
+export interface ModelResetPlan { reset: string[]; removed: { id: string; name: string; bots: string[] }[] }
+export interface ConfiguredModel { api?: string; baseUrl?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
 export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }
 export type AutoconfigFields = Pick<ConfiguredModel, "reasoning" | "input" | "contextWindow" | "maxTokens" | "cost" | "thinkingLevelMap" | "thinkingFormat" | "compat">;
 export type AutoconfigResult =
@@ -245,6 +247,8 @@ export const api = {
   authInput: (id: string, promptId: string, value: string) => request<CredentialState>(`/model-connections/${id}/auth/input`, { method: "POST", body: body({ promptId, value }) }),
   authLogout: (id: string) => request<{ ok: boolean }>(`/model-connections/${id}/auth/logout`, { method: "POST" }),
   modelCatalog: (id: string) => request<{ models: ConfiguredModel[] }>(`/model-connections/${id}/catalog`),
+  modelResetPlan: (id: string) => request<ModelResetPlan>(`/model-connections/${id}/reset`),
+  resetModelConnection: (id: string) => request<ModelConnection>(`/model-connections/${id}/reset`, { method: "POST" }),
   providerModels: (name: string) => request<{ models: ConfiguredModel[] }>(`/model-providers/${encodeURIComponent(name)}/models`),
   modelProviders: () => request<{ providers: ProviderOption[] }>("/model-providers"),
   autoconfigModel: (input: { modelId: string; api: string; choice?: { provider: string; modelId: string } }) => request<AutoconfigResult>("/model-autoconfig", { method: "POST", body: body(input) }),
