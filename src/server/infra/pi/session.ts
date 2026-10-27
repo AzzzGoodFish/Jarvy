@@ -14,6 +14,7 @@ import { RuntimeFault, type BotPhase, type ContextUsage, type ModelSelection, ty
 import { CredentialCoordinator } from "../credentials/coordinator.js";
 import { ConnectionCredentials, CurrentCredentials } from "./credentials.js";
 import { installModel } from "./model.js";
+import type { ModelCatalog } from "./catalog.js";
 import { configureHttp } from "./http.js";
 import { Type, type TSchema } from "typebox";
 import { isToolMedia, type ToolDefinition } from "../../shared/tools.js";
@@ -36,6 +37,8 @@ export interface SessionOptions {
   environment: () => WorkEnvironment;
   /** The Bot's secrets (A52): placeholders in bash, and masking of what reaches the model and the chat. */
   secrets?: SecretAccess;
+  /** The model catalog (A49): a saved model takes what it leaves out, such as compat, from its entry (A62). */
+  catalog?: ModelCatalog;
 }
 /** The longest we wait for one provider request (Pi's default is five minutes). */
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
@@ -122,7 +125,8 @@ export class PiSession implements BotSession {
     const models = await ModelRuntime.create({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
     const configured = connection.models.find(model => model.id === selection.modelId);
     if (!configured) throw new RuntimeFault("model_missing", "Model not found", 404);
-    const model = installModel(models, connection, configured, store.connections.headers(connection.id, configured.id));
+    await options.catalog?.ready();
+    const model = installModel(models, connection, configured, store.connections.headers(connection.id, configured.id), options.catalog);
     const sessionManager = SessionManager.open(reference.file, sessionsDir, bot.workspacePath);
     const adapter = new PiSession(options, models, credentials);
     adapter.prompts = new PromptLog(options.systemPrompt);
@@ -272,7 +276,7 @@ export class PiSession implements BotSession {
     }
     const next = new ConnectionCredentials(this.options.store.credentials, this.options.credentials, this.options.store.account.userMemberId(), connection.id, connection.providerName);
     await next.read(connection.providerName);
-    const model = installModel(this.models, connection, configured, this.options.store.connections.headers(connection.id, configured.id));
+    const model = installModel(this.models, connection, configured, this.options.store.connections.headers(connection.id, configured.id), this.options.catalog);
     // checkAuth inside setModel asks the credential store, so point it at the new connection first
     // and put the previous one back if the switch is rejected (the current turn may still run).
     const previous = this.credentials.current;

@@ -27,6 +27,7 @@ export class ModelCatalog {
   private loaded = false;
   private overlaid?: readonly Provider[];
   private loading?: Promise<void>;
+  private reading?: Promise<void>;
   private timer?: ReturnType<typeof setInterval>;
   constructor(dataDir: string) { this.path = join(dataDir, "pi", "models.json"); }
   /** Checks now if due, then every 4 hours while the server runs (A62); `stop` ends it. */
@@ -37,6 +38,9 @@ export class ModelCatalog {
   }
   stop(): void { clearInterval(this.timer); this.timer = undefined; }
 
+  /** Waits until the kept catalog has been read (once, at start), never for pi.dev: a Bot's session needs the entries it
+   * takes a model's compat and address from (A62). */
+  ready(): Promise<void> { return this.load(); }
   providers(): readonly Provider[] {
     this.refresh();
     return this.overlaid ?? builtinProviders();
@@ -52,7 +56,7 @@ export class ModelCatalog {
   async check(): Promise<void> {
     await this.loading;
     const run = (async () => {
-      if (!this.loaded) { this.kept = await this.read(); this.loaded = true; }
+      await this.load();
       if (process.env.PI_OFFLINE === undefined) await this.fetch().catch(error => console.warn("[models] catalog check failed", { error: error instanceof Error ? error.message : String(error) }));
       this.apply();
     })();
@@ -64,7 +68,7 @@ export class ModelCatalog {
     const due = process.env.PI_OFFLINE === undefined && Date.now() - (this.kept?.checkedAt ?? 0) >= REFRESH_MS;
     if (this.loading || (this.loaded && !due)) return;
     this.loading = (async () => {
-      if (!this.loaded) { this.kept = await this.read(); this.loaded = true; this.apply(); }
+      await this.load();
       if (!due) return;
       await this.fetch();
       this.apply();
@@ -72,6 +76,9 @@ export class ModelCatalog {
       .finally(() => { this.loading = undefined; });
   }
 
+  private load(): Promise<void> {
+    return this.reading ??= this.read().then(kept => { this.kept ??= kept; this.loaded = true; this.apply(); });
+  }
   private async fetch(): Promise<void> {
     const previous = this.kept;
     const checkedAt = Date.now();

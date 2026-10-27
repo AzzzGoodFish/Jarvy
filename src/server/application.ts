@@ -50,12 +50,14 @@ export class Application {
     this.secrets = new SecretService(store, this.chats);
     // A due task is a system notice to its Bot, delivered like any other (A58, A61).
     this.tasks = new TaskService(store, this.deliveries);
-    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks,
+    // One model catalog: the settings' provider lists and the models a Bot's session installs read the same entries.
+    const catalog = new ModelCatalog(dataDir);
+    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks, catalog,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
-    this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), new ModelCatalog(dataDir));
+    this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), catalog);
   }
   static async open(dataDir: string, options: { factory?: SessionFactory; onCompromised?: () => void } = {}): Promise<Application> {
     await mkdir(resolve(dataDir), { recursive: true, mode: 0o700 });
