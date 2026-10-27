@@ -2,10 +2,12 @@
 
 [Index](../index.md) · [Domain](domain.md) · [ADR](../decisions.md)
 
-Frontend → API → Service (business objects such as Chat and Bot) → Infra. No actor framework. Directories and real imports follow this structure (A20).
+Frontend → API → Service (business objects such as Chat and Bot) → Infra. No actor framework. Directories and real imports follow this structure (A20). Between the frontend and the API, `src/contract` defines what crosses HTTP (A63).
 
 ```text
 src/
+  contract/                  the HTTP contract (A63): types the server sends and the web reads, written once; plain, no imports
+    chat.ts bots.ts models.ts environment.ts tasks.ts secrets.ts connection.ts
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
     activity/ usage/ avatar/ files/ question/ bot/ environment/ connection/ secrets/ styles/ theme/ components/ui/
@@ -56,7 +58,9 @@ The skills that ship with Jarvy are in `skills/` at the package root, one folder
 - Services hold business rules and complete objects; they may call Infra and other services' public interfaces.
 - Infra never imports Service or API. Database rows, network and SDK objects are converted here; data crossing layers uses `shared/` contracts. Pi types stay in `infra/pi/`, pi-env and Pi Durable in `infra/env/`, `node:sqlite` in `infra/storage/`.
 - `shared/` is not a fifth layer. Only the wiring entry points (`application.ts`, `cli.ts`) depend on every layer.
-- `npm run check:architecture` checks import direction, Pi/pi-env/SQLite ownership and the 500-line limit on server files. `npm run build` runs it. It does not replace checking behaviour.
+- `src/contract/` is not a layer either: it is the HTTP boundary written down. Any server layer and the web import it; it imports only itself, no package, Node or browser module. A type the server sends lives there once; the server's own types (a chat with its owner, a message with its sender's identity, a stored Bot) stay in `shared/`, and `api/views` turns them into the contract's, typed so that a field changed on either side fails to compile.
+- The web imports only `src/web` and `src/contract`; `web/api.ts` holds the requests, not their types.
+- `npm run check:architecture` checks import direction, the contract's and the web's imports, Pi/pi-env/SQLite ownership and the 500-line limit. `npm run build` runs it. It does not replace checking behaviour.
 
 ## Interface languages
 
