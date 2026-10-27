@@ -1,5 +1,5 @@
 import type { Store } from "../../infra/storage/store.js";
-import type { ModelConnection } from "../../shared/models.js";
+import type { ConfiguredModel, ModelConnection, ModelResetPlan } from "../../shared/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import type { CredentialLogins } from "../../infra/pi/auth.js";
@@ -38,13 +38,38 @@ export class ModelService {
   }
   deleteModel(id: string, modelId: string) { return this.required(this.store.connections.deleteModel(id, modelId)); }
   providers() { return providerCatalog(this.models.providers()); }
-  /** Brings pi.dev's newer catalog entries in the background (A49). */
-  refreshCatalog() { this.models.refresh(); }
+  /** Brings pi.dev's newer catalog entries in the background (A49), checking every 4 hours while running (A62). */
+  startCatalog() { this.models.start(); }
+  stopCatalog() { this.models.stop(); }
   builtinModels(provider: string) { return providerModels(this.models.providers(), provider); }
   async catalog(id: string) {
     const connection = this.required(this.store.connections.get(id));
     const credentials = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.account.userMemberId(), id, connection.providerName);
     return modelCatalog(credentials, connection.providerName, this.models);
+  }
+  /** What resetting a built-in connection's models would do (A62), after checking pi.dev now. */
+  async resetPlan(id: string): Promise<ModelResetPlan> { return (await this.resetting(id)).plan; }
+  /** Resets a built-in connection to the catalog (A62): its address and protocol back to the provider's, each saved model
+   * that the catalog has set to its entry, the others removed and their Bots left to pick another model. The login or key
+   * and the connection's name stay. */
+  async reset(id: string): Promise<ModelConnection> {
+    const { connection, plan, api, defaults } = await this.resetting(id);
+    const saved = this.required(this.store.connections.reset(id, api, plan.reset.map(modelId => defaults.get(modelId)!), plan.removed.map(model => model.id)));
+    this.changed(connection.id);
+    return saved;
+  }
+  private async resetting(id: string) {
+    const connection = this.required(this.store.connections.get(id));
+    if (connection.kind !== "builtin") throw new RuntimeFault("reset_custom", "A custom connection has no catalog to reset to.", 400);
+    await this.models.check();
+    const defaults = new Map((await this.catalog(id)).map(model => [model.id, model] as [string, ConfiguredModel]));
+    const provider = providerCatalog(this.models.providers()).find(entry => entry.id === connection.providerName);
+    const api = connection.providerName === "openai-codex" ? "openai-codex-responses" : provider?.api ?? connection.api;
+    const plan: ModelResetPlan = {
+      reset: connection.models.filter(model => defaults.has(model.id)).map(model => model.id),
+      removed: connection.models.filter(model => !defaults.has(model.id)).map(model => ({ id: model.id, name: model.name, bots: this.store.connections.botsUsing(id, model.id) })),
+    };
+    return { connection, plan, api, defaults };
   }
   discover(input: Record<string, unknown>, signal: AbortSignal) {
     if (typeof input.baseUrl !== "string") throw new RuntimeFault("discovery_url_missing", "Enter the API URL.", 400);

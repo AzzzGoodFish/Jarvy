@@ -35,7 +35,7 @@ export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "un
 /** `hostGranted`: the owner lets the Bot switch to their computer (A50); `machines`: each SSH machine and whether it may use it (A57). */
 export interface BotPlacement { home: EnvironmentKind; current: EnvironmentKind | "ssh"; currentName?: string; computer: { state: ComputerState; error?: string } | null; docker: boolean; hostGranted: boolean;
   machines: { id: string; name: string; granted: boolean }[] }
-export interface ConfiguredModel { api?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
+export interface ConfiguredModel { api?: string; baseUrl?: string; headerNames?: string[]; headerUpdates?: Record<string, string | null>; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
 export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }
 export type AutoconfigFields = Pick<ConfiguredModel, "reasoning" | "input" | "contextWindow" | "maxTokens" | "cost" | "thinkingLevelMap" | "thinkingFormat" | "compat">;
 export type AutoconfigResult =

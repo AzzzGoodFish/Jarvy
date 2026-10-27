@@ -14,6 +14,13 @@ function optionalPositive(value: unknown, label: string): number | null {
   if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 10_000_000) throw new ValidationError(`Invalid ${label}`);
   return Number(value);
 }
+/** A model address: http(s), no credentials in it; empty stays empty. */
+function modelUrl(value: string): string {
+  if (!value) return value;
+  const url = new URL(value);
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new ValidationError("Invalid model URL");
+  return value;
+}
 function normalizeModel(value: unknown): ConfiguredModel {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ValidationError("Invalid model");
   const input = value as Record<string, unknown>;
@@ -36,12 +43,13 @@ function normalizeModel(value: unknown): ConfiguredModel {
     cost = { input: Number(rates.input), output: Number(rates.output), cacheRead: Number(rates.cacheRead), cacheWrite: Number(rates.cacheWrite) };
   }
   if (input.api && (typeof input.api !== "string" || !MODEL_APIS.has(input.api))) throw new ValidationError("Invalid model API");
+  const baseUrl = input.baseUrl === undefined || input.baseUrl === null ? "" : modelUrl(optionalText(input.baseUrl, "Model URL", 2048));
   // Pi compat flags vary by protocol and SDK version, so the store checks shape and size only;
   // thinkingFormat lives in its own field. Rows saved before compat existed read as {}.
   const rawCompat = input.compat ?? {};
   if (typeof rawCompat !== "object" || Array.isArray(rawCompat) || JSON.stringify(rawCompat).length > 16_000) throw new ValidationError("Invalid model compat");
   const { thinkingFormat: _format, ...compat } = rawCompat as Record<string, unknown>;
-  return { id, name, ...(input.api ? { api: input.api as string } : {}), headerNames: Object.keys((input.headers ?? {}) as object), reasoning: input.reasoning === true,
+  return { id, name, ...(input.api ? { api: input.api as string } : {}), ...(baseUrl ? { baseUrl } : {}), headerNames: Object.keys((input.headers ?? {}) as object), reasoning: input.reasoning === true,
     input: [...new Set(capabilities)] as ("text" | "image")[],
     contextWindow: optionalPositive(input.contextWindow, "context window"),
     maxTokens: optionalPositive(input.maxTokens, "max output tokens"),
@@ -77,8 +85,7 @@ export class ModelConnectionRepository {
     if (kind === "custom") this.checkCustomName(providerName);
     const api = input.api === undefined ? (providerName === "openai-codex" ? "openai-codex-responses" : "openai-completions") : requireText(input.api, "API", 80);
     if (!MODEL_APIS.has(api)) throw new ValidationError("Unsupported API protocol");
-    const baseUrl = input.baseUrl === undefined ? "" : optionalText(input.baseUrl, "Base URL", 2048);
-    if (baseUrl) { const url = new URL(baseUrl); if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new ValidationError("Invalid model URL"); }
+    const baseUrl = input.baseUrl === undefined ? "" : modelUrl(optionalText(input.baseUrl, "Base URL", 2048));
     const key = input.apiKey === undefined ? null : requireText(input.apiKey, "API Key", 8192);
     if (key && authType !== "api_key") throw new ValidationError("Invalid credential type");
     const id = randomUUID(), now = Date.now();
@@ -100,8 +107,7 @@ export class ModelConnectionRepository {
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(providerName)) throw new ValidationError("Invalid provider name");
     if (current.kind === "custom") this.checkCustomName(providerName, id);
     const name = requireText(input.displayName, "Connection name", 100);
-    const baseUrl = optionalText(input.baseUrl, "Base URL", 2048);
-    if (baseUrl) { const url = new URL(baseUrl); if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new ValidationError("Invalid model URL"); }
+    const baseUrl = modelUrl(optionalText(input.baseUrl, "Base URL", 2048));
     const api = requireText(input.api, "API", 80);
     if (!MODEL_APIS.has(api)) throw new ValidationError("Unsupported API protocol");
     this.db.prepare("UPDATE provider_connections SET display_name=?,base_url=?,api=?,updated_at=?,provider_name=? WHERE id=?")
@@ -170,6 +176,27 @@ export class ModelConnectionRepository {
     if (!this.get(id)) return null;
     if (this.db.prepare("SELECT 1 FROM bots WHERE connection_id=? AND model_id=? LIMIT 1").get(id, modelId)) throw new ConflictError("A Bot is using this model");
     this.db.prepare("DELETE FROM connection_models WHERE connection_id=? AND model_id=?").run(id, modelId);
+    return this.get(id);
+  }
+  /** Names of the Bots (not deleted) whose model this is. */
+  botsUsing(id: string, modelId: string): string[] {
+    return (this.db.prepare("SELECT name FROM bots WHERE connection_id=? AND model_id=? AND deleted_at IS NULL ORDER BY name").all(id, modelId) as { name: string }[]).map(row => row.name);
+  }
+  /** A built-in connection back to its catalog (A62), in one transaction: its address cleared and its protocol set; each of
+   * `models` saved as given, keeping the request headers added to it; `removed` deleted, and the Bots using them left
+   * without a model. The credential and the name stay. */
+  reset(id: string, api: string, models: readonly ConfiguredModel[], removed: readonly string[]): ModelConnection | null {
+    if (!this.get(id)) return null;
+    if (!MODEL_APIS.has(api)) throw new ValidationError("Unsupported API protocol");
+    const now = Date.now(), rows = models.map(model => ({ id: model.id, stored: JSON.stringify({ ...normalizeModel(model), headers: this.headers(id, model.id) }) }));
+    transaction(this.db, () => {
+      this.db.prepare("UPDATE provider_connections SET base_url='',api=?,updated_at=? WHERE id=?").run(api, now, id);
+      for (const row of rows) this.db.prepare("UPDATE connection_models SET config_json=?,updated_at=? WHERE connection_id=? AND model_id=?").run(row.stored, now, id, row.id);
+      for (const modelId of removed) {
+        this.db.prepare("UPDATE bots SET connection_id=NULL,model_id='' WHERE connection_id=? AND model_id=?").run(id, modelId);
+        this.db.prepare("DELETE FROM connection_models WHERE connection_id=? AND model_id=?").run(id, modelId);
+      }
+    });
     return this.get(id);
   }
 }

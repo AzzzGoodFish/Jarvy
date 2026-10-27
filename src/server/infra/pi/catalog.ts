@@ -7,6 +7,8 @@ import { builtinProviders, getBuiltinModelDataGeneratedAt } from "@earendil-work
 const CATALOG_URL = "https://pi.dev/api/models";
 /** Like Pi, at most one check every 4 hours; a check that fails waits as long. */
 const REFRESH_MS = 4 * 60 * 60 * 1000;
+/** How often the timer asks whether a check is due; the check itself still waits 4 hours (A62). */
+const TICK_MS = 15 * 60 * 1000;
 const TIMEOUT_MS = 15_000;
 
 /** pi.dev's body (provider → model ID → entry) and how to check it again. */
@@ -25,15 +27,37 @@ export class ModelCatalog {
   private loaded = false;
   private overlaid?: readonly Provider[];
   private loading?: Promise<void>;
+  private timer?: ReturnType<typeof setInterval>;
   constructor(dataDir: string) { this.path = join(dataDir, "pi", "models.json"); }
+  /** Checks now if due, then every 4 hours while the server runs (A62); `stop` ends it. */
+  start(): void {
+    this.refresh();
+    this.timer ??= setInterval(() => this.refresh(), TICK_MS);
+    this.timer.unref?.();
+  }
+  stop(): void { clearInterval(this.timer); this.timer = undefined; }
 
   providers(): readonly Provider[] {
     this.refresh();
     return this.overlaid ?? builtinProviders();
   }
-  /** Newer entries for one provider's models (a connection's catalog comes from Pi with its credentials). */
+  /** Newer entries for one provider's models (a connection's catalog comes from Pi with its credentials). Opening a
+   * connection also checks pi.dev when that is due (A62). */
   overlay<T extends Model<Api>>(providerId: string, models: readonly T[]): T[] {
+    this.refresh();
     return merge(models, this.entries(providerId) as T[]);
+  }
+  /** Checks pi.dev now, whenever it was last checked, and waits for it (resetting a connection to the catalog, A62).
+   * Offline, or when pi.dev can't be reached, the kept and bundled entries stay. */
+  async check(): Promise<void> {
+    await this.loading;
+    const run = (async () => {
+      if (!this.loaded) { this.kept = await this.read(); this.loaded = true; }
+      if (process.env.PI_OFFLINE === undefined) await this.fetch().catch(error => console.warn("[models] catalog check failed", { error: error instanceof Error ? error.message : String(error) }));
+      this.apply();
+    })();
+    this.loading = run.finally(() => { this.loading = undefined; });
+    await this.loading;
   }
   /** Loads the kept catalog, then checks pi.dev when the last check is 4 hours old; never waits. */
   refresh(): void {

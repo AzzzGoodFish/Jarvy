@@ -6,8 +6,12 @@ export type BotMood = typeof BOT_MOODS[number];
 /** The agent Bot (A48): the Bot created at setup, which always has this id; it cannot be deleted. */
 export const AGENT_BOT_ID = "00000000-0000-4000-8000-000000000001";
 export interface Bot { id: string; name: string; description: string; systemPrompt: string; connectionId: string | null; modelId: string; thinkingLevel: string; workspacePath: string; color: BotColor; mood: BotMood; createdAt: number; }
-export interface ConfiguredModel { api?: string; headerNames?: string[]; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
+export interface ConfiguredModel { api?: string; /** The address its catalog entry gives, kept with it (A62); the connection's own address comes first. */ baseUrl?: string; headerNames?: string[]; id: string; name: string; reasoning: boolean; input: ("text" | "image")[]; contextWindow: number | null; maxTokens: number | null; thinkingFormat: string; thinkingLevelMap: Record<string, string | null>; compat: Record<string, unknown>; cost: { input: number; output: number; cacheRead: number; cacheWrite: number } | null; }
 export interface ModelConnection { id: string; providerName: string; displayName: string; kind: "builtin" | "custom"; baseUrl: string; api: string; authType: "api_key" | "oauth"; configured: boolean; models: ConfiguredModel[]; createdAt: number; updatedAt: number; }
+
+/** What resetting a built-in connection's models to the catalog does (A62): the saved models it sets to their catalog
+ * entries, and the ones it removes (not in the catalog), with the Bots that will need another model. */
+export interface ModelResetPlan { reset: string[]; removed: { id: string; name: string; bots: string[] }[] }
 
 /** Catalog entry offered as a configuration source; data only, never credentials. */
 export interface AutoconfigSource { provider: string; modelId: string; name: string; api: string; official: boolean; }

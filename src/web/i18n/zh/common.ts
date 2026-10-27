@@ -155,6 +155,7 @@ export const common: Part<typeof en> = {
   "error.modelSwitchUncertain": "模型切换未完成，请重新选择模型。",
   "error.nameTaken": "名称已被其他成员使用。",
   "error.providerNameTaken": "已有同名的 Provider。",
+  "error.resetCustom": "自定义 Provider 没有系统默认的模型，无法重置。",
   "error.connectionInUse": "{bots} 正在使用这个 Provider 的模型，请先换成其他模型再删除。",
   "error.questionClosed": "问题已结束。",
   "error.questionExpired": "这个问题已忽略，Bot 不再等待回答。",

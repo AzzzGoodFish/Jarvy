@@ -9,7 +9,9 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
   const builtin = runtime.getModel(connection.providerName, configured.id);
   const contextWindow = configured.contextWindow ?? builtin?.contextWindow;
   const maxTokens = configured.maxTokens ?? builtin?.maxTokens;
-  const baseUrl = connection.baseUrl || builtin?.baseUrl || runtime.getModels(connection.providerName)[0]?.baseUrl;
+  // The connection's own address first; then the one saved with the model from the catalog (A62), which goes with its
+  // protocol; then Pi's bundled entry.
+  const baseUrl = connection.baseUrl || configured.baseUrl || builtin?.baseUrl || runtime.getModels(connection.providerName)[0]?.baseUrl;
   if (!contextWindow || !maxTokens) throw new RuntimeFault("model_incomplete", "Fill in the model's context window and max output.", 422);
   if (configured.thinkingFormat && !FORMATS.has(configured.thinkingFormat)) throw new RuntimeFault("thinking_format", "This thinking format isn't supported.", 422);
   // Precedence: builtin provider defaults < saved compat (catalog/autoconfig/user) < thinking format field.
@@ -49,7 +51,8 @@ export function catalogCompat(model: Model<Api>): Record<string, unknown> {
 // explicitly for connections that cannot inherit it.
 export function publicModel(model: Model<Api>): ConfiguredModel {
   return {
-    id: model.id, name: model.name, api: model.api, reasoning: model.reasoning, input: [...model.input],
+    id: model.id, name: model.name, api: model.api, ...(typeof model.baseUrl === "string" && model.baseUrl ? { baseUrl: model.baseUrl } : {}),
+    reasoning: model.reasoning, input: [...model.input],
     contextWindow: model.contextWindow, maxTokens: model.maxTokens,
     thinkingLevelMap: { ...model.thinkingLevelMap },
     thinkingFormat: model.compat && "thinkingFormat" in model.compat && typeof model.compat.thinkingFormat === "string" ? model.compat.thinkingFormat : "",
