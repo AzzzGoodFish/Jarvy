@@ -3,7 +3,7 @@ import { CheckIcon, MessageCircleQuestionMarkIcon, MinusIcon, XIcon } from "luci
 import { api, type ChatMessage, type Question } from "../api";
 import { rich, t } from "../i18n";
 import "../styles/question.css";
-import { errorText } from "../errors";
+import { useAction } from "../action";
 import { SecretRequestCard } from "../secrets/SecretRequestCard";
 import { MachineRequestCard } from "../environment/MachineRequestCard";
 
@@ -25,13 +25,10 @@ export function QuestionCard(props: { message: ChatMessage & { question: Questio
 }
 function OptionsQuestion({ message, keyboard, onSettled }: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
   const question = message.question, pending = question.state === "pending", titleId = useId();
-  const [ticked, setTicked] = useState<number[]>([]), [custom, setCustom] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [ticked, setTicked] = useState<number[]>([]), [custom, setCustom] = useState(""), { busy, error, run } = useAction();
   async function settle(body: Parameters<typeof api.answerQuestion>[2]) {
     if (busy || !pending) return;
-    setBusy(true); setError("");
-    try { onSettled(await api.answerQuestion(message.chatId, message.id, body)); }
-    catch (reason) { setError(errorText(reason, "question.failed")); }
-    finally { setBusy(false); }
+    await run("settle", async () => onSettled(await api.answerQuestion(message.chatId, message.id, body)), "question.failed");
   }
   const pick = (index: number) => {
     if (!question.multiple) { void settle({ action: "answer", selected: [index] }); return; }

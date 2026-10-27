@@ -7,6 +7,7 @@ import { getLocale, t, type Key } from "./i18n";
 import "./styles/model-workbench.css";
 import "./styles/bot-model.css";
 import { errorText } from "./errors";
+import { useAction } from "./action";
 
 const DESCRIPTIONS: Record<string, Key> = { auto: "botModel.auto", off: "botModel.off", minimal: "botModel.minimal", low: "botModel.low", medium: "botModel.medium", high: "botModel.high", xhigh: "botModel.xhigh", max: "botModel.max" };
 const keyOf = (connectionId: string, modelId: string) => JSON.stringify([connectionId, modelId]);
@@ -17,8 +18,7 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, run } = useAction();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(-1);
@@ -50,10 +50,7 @@ export function BotModelControls({ bot, connections, onSaved, onManage }: {
   function openMenu(value: boolean) { setOpen(value); setQuery(""); setActive(-1); }
   async function choose(connectionId: string, modelId: string, thinkingLevel: string) {
     openMenu(false);
-    setBusy(true); setError("");
-    try { onSaved(await api.selectBotModel(bot.id, connectionId, modelId, thinkingLevel, getLocale())); }
-    catch (reason) { setError(errorText(reason, "botModel.switchFailed")); }
-    finally { setBusy(false); }
+    await run("choose", async () => onSaved(await api.selectBotModel(bot.id, connectionId, modelId, thinkingLevel, getLocale())), "botModel.switchFailed");
   }
   function navigate(event: KeyboardEvent) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {

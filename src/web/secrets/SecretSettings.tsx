@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { errorText } from "../errors";
+import { useAction } from "../action";
 import { SecretItem } from "./SecretItem";
 import { SecretInput } from "./SecretInput";
 import "../styles/secrets.css";
@@ -48,11 +49,10 @@ export function SecretSettings() {
 /** A new secret: name, an optional description and the value, hidden while typed unless shown. */
 function SecretForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (secret: Secret) => void }) {
   const [name, setName] = useState(""), [description, setDescription] = useState(""), [value, setValue] = useState("");
-  const [visible, setVisible] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const [visible, setVisible] = useState(false), { busy, error, run } = useAction();
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); setBusy(true); setError(null);
-    try { onSaved(await api.createSecret({ name: name.trim(), description: description.trim(), value })); }
-    catch (reason) { setError(errorText(reason)); } finally { setBusy(false); }
+    event.preventDefault();
+    await run("add", async () => onSaved(await api.createSecret({ name: name.trim(), description: description.trim(), value })));
   };
   return <form className="jv-panel jv-secret-form" onSubmit={event => void submit(event)} aria-label={t("secrets.add")}>
     <label className="jv-field"><span>{t("secrets.name")}</span>

@@ -10,6 +10,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { t } from "./i18n";
 import { errorText } from "./errors";
+import { useAction } from "./action";
 
 let draftSequence = 0;
 const draftModel = (model: ConfiguredModel, selected: boolean, existing = false): ModelDraft => ({ key: `draft-${++draftSequence}`, model, selected, ...(existing ? { originalId: model.id } : {}) });
@@ -26,8 +27,8 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
   const [drafts, setDrafts] = useState<ModelDraft[]>(() => (connection?.models ?? []).map(model => draftModel(model, true, true)));
   const [removed, setRemoved] = useState<string[]>([]);
   const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false), [fetching, setFetching] = useState(false);
-  const [error, setError] = useState(""), [notice, setNotice] = useState(saved ? t("editor.saved") : "");
+  const { busy, error, setError, run } = useAction(), [fetching, setFetching] = useState(false);
+  const [notice, setNotice] = useState(saved ? t("editor.saved") : "");
   const id = useRef(connection?.id);
   function merge(models: ConfiguredModel[]) {
     setDrafts(current => { const ids = new Set(current.map(item => item.model.id)); return [...current, ...models.filter(model => !ids.has(model.id)).map(model => draftModel(model, false))]; });
@@ -71,8 +72,8 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
     return id.current;
   }
   async function save(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try {
+    event.preventDefault(); setNotice("");
+    await run("save", async () => {
       let saved: ModelConnection;
       if (!id.current) {
         saved = await api.createModelConnection({ providerName: custom ? name : preset!.id, displayName: name, kind: custom ? "custom" : "builtin", authType, baseUrl: url, api: protocol, ...(custom && key.trim() ? { apiKey: key } : {}) });
@@ -85,15 +86,11 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
       for (const original of new Set([...removed, ...drafts.filter(item => item.originalId && !item.selected).map(item => item.originalId!)])) await api.deleteConnectionModel(saved.id, original);
       setKey("");
       await onSaved(saved.id); setNotice(t("editor.saved"));
-    } catch (reason) { setError(errorText(reason, "editor.saveFailed")); }
-    finally { setBusy(false); }
+    }, "editor.saveFailed");
   }
   async function remove() {
     if (!connection || !confirm(t("editor.confirmDelete", { name: connection.displayName }))) return;
-    setBusy(true); setError("");
-    try { await api.deleteModelConnection(connection.id); await onChanged(); onBack(); }
-    catch (reason) { setError(errorText(reason, "editor.deleteFailed")); }
-    finally { setBusy(false); }
+    await run("delete", async () => { await api.deleteModelConnection(connection.id); await onChanged(); onBack(); }, "editor.deleteFailed");
   }
   const visible = drafts.filter(item => `${item.model.id} ${item.model.name}`.toLowerCase().includes(query.toLowerCase()));
   const selected = drafts.filter(item => item.selected).length;

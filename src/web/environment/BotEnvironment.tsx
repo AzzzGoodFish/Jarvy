@@ -1,9 +1,9 @@
 import { useId, useState } from "react";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { api, type Bot, type EnvironmentKind } from "../api";
-import { t } from "../i18n";
+import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
-import { errorText } from "../errors";
+import { useAction } from "../action";
 import "../styles/environment.css";
 
 const STATE = {
@@ -17,15 +17,11 @@ const STATE = {
 /** Where a Bot's file and command tools run (A50): its sandbox, or the owner's. A change applies from the Bot's
  * next command. Used in Bot info and in a new Bot's first setup. */
 export function EnvironmentChoice({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, run } = useAction();
   const { home, docker } = bot.environment;
   async function pick(kind: EnvironmentKind) {
     if (kind === home || busy) return;
-    setBusy(true); setError("");
-    try { onSaved(await api.setBotEnvironment(bot.id, kind)); }
-    catch (reason) { setError(errorText(reason, "environment.changeFailed")); }
-    finally { setBusy(false); }
+    await run("pick", async () => onSaved(await api.setBotEnvironment(bot.id, kind)), "environment.changeFailed");
   }
   const option = (kind: EnvironmentKind, title: string, hint: string, disabled: boolean) =>
     <button key={kind} type="button" role="radio" aria-checked={home === kind} disabled={busy || disabled} className="jv-list-row jv-choice-row jv-env-option" onClick={() => void pick(kind)}>
@@ -43,19 +39,13 @@ export function EnvironmentChoice({ bot, onSaved }: { bot: Bot; onSaved: (bot: B
  * computer, with the sandbox's details to open when that is the default. Then the external environments it may
  * switch to: the owner's computer, for a Bot whose default is its sandbox, and each SSH machine (A57). */
 export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
-  const [busy, setBusy] = useState<"move" | "grant" | "start" | "stop" | "reset" | null>(null);
+  const { doing: busy, error, run: perform } = useAction<"move" | "grant" | "start" | "stop" | "reset">();
   const [open, setOpen] = useState(false);
   /** Stopping and resetting are destructive: both ask in place first. */
   const [confirming, setConfirming] = useState<"stop" | "reset" | null>(null);
-  const [error, setError] = useState("");
   const details = useId();
   const { computer, home, current, currentName, hostGranted, docker, machines = [] } = bot.environment;
-  async function act(what: NonNullable<typeof busy>, work: () => Promise<Bot>, fallback: Parameters<typeof errorText>[1]) {
-    setBusy(what); setError("");
-    try { onSaved(await work()); }
-    catch (reason) { setError(errorText(reason, fallback)); }
-    finally { setBusy(null); }
-  }
+  const act = (what: NonNullable<typeof busy>, work: () => Promise<Bot>, fallback: Key) => perform(what, async () => onSaved(await work()), fallback);
   const pick = (kind: EnvironmentKind) => { if (kind !== home && !busy) void act("move", () => api.setBotEnvironment(bot.id, kind), "environment.changeFailed"); };
   const run = (what: "start" | "stop" | "reset") => void act(what, () => api.computer(bot.id, what), "common.failed");
   const state = computer?.state;
