@@ -8,6 +8,8 @@ Frontend → API → Service (business objects such as Chat and Bot) → Infra. 
 src/
   contract/                  the HTTP contract (A63): types the server sends and the web reads, written once; plain, no imports
     chat.ts bots.ts models.ts environment.ts tasks.ts secrets.ts connection.ts
+    errors.ts                failure codes (A45) and their parameters
+    mentions.ts              the @ rule, used by the server to decide who is mentioned and by the web to highlight
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
     activity/ usage/ avatar/ files/ question/ bot/ environment/ connection/ secrets/ styles/ theme/ components/ui/
@@ -70,7 +72,7 @@ The interface comes in Chinese and English (A45), more can be added; everything 
 - The language is picked from the browser on first visit (`zh*` → Chinese, anything else English), switchable in 设置 → 通用 and on the login page, and remembered in this browser. `<html lang>` follows it.
 - Strings are resolved while rendering, never at module top level; a module-level constant holds a key. The app root subscribes through `useLocale()`, so switching re-renders in place and open dialogs and panes stay; a `memo` component that shows text (Markdown) calls `useLocale()` itself, since memo skips that re-render. Styles and selectors never match translated text (`aria-label`); they use classes or `data-slot`.
 - `scripts/check-i18n.mjs` (part of `check:architecture`) checks key parity, placeholders and empty values, and scans every component for Chinese text (the vendored `components/` copies are translated where they are used).
-- Failures: `web/errors.ts` words the server's failure codes; `errorText(reason, fallback)` is what a component shows for a failed request, `statusError(status)` for a Bot's run error. A component never shows a server message it did not get through these.
+- Failures: the codes are listed once, as `ErrorCode` in `contract/errors.ts`; the server throws only those, and `web/errors.ts` words every one (a `Record<ErrorCode, Key>`), or neither compiles; `errorText(reason, fallback)` is what a component shows for a failed request, `statusError(status)` for a Bot's run error. A component never shows a server message it did not get through these.
 - Previews: the server sends a message excerpt as its content and quotes (`lastMessage`, `replyTo`, a thread's `root`; content `""` is attachments only), and `previewText()` in `channel/quotes.tsx` words it. A History summary comes as its text, tool steps and image count, worded by the activity timeline. Titles the server stores carry no interface words: an untitled DM is `""`, an attachment-only first message gives its file's name, quotes are `"passage"`, a DM between two Bots is `A · B`. A new Bot's default name comes from `freeBotName()` in `members.ts`.
 - What people write — Bot personas, notices, summaries, messages — is never translated.
 - Little text on screen: a heading, an icon or the group a row sits in already says what it is, so no subtitle, page description or empty-state second line repeats it. A second line stays only for what the layout can't show: a safety warning, a side effect (an @ adding someone to the channel, files kept when a Bot is deleted), a limit (the 5-minute minimum) or a step in a flow.

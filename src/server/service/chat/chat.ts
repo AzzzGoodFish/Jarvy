@@ -1,5 +1,5 @@
 import type { ChatMessage, DeliveryMessage } from "../../shared/chat.js";
-import { findMentions } from "./mentions.js";
+import { mentionedMembers } from "../../../contract/mentions.js";
 import { echoTargets, messageTargets } from "../delivery/routes.js";
 import { plan } from "../delivery/delivery.js";
 import type {
@@ -37,7 +37,7 @@ export class Chat {
     const sender = await this.members.requireSender(senderId);
     const members = (await this.members.list()).filter(membership => membership.canRead).map(membership => membership.member);
     const dm = this.info.snapshot().type === "dm";
-    const mentioned = dm ? [] : findMentions(message.content, members).filter(member => member.id !== sender.id);
+    const mentioned = dm ? [] : mentionedMembers(message.content, members).filter(member => member.id !== sender.id);
     const quoted = !dm && message.replyTo ? (await this.messages.read(message.replyTo))?.sender : undefined;
     const replied = quoted && quoted.id !== sender.id ? members.find(member => member.id === quoted.id) : undefined;
     const targets = messageTargets({ dm, sender, members, mentioned, replied, subscribers: dm ? [] : await this.members.subscribers() });

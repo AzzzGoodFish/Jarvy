@@ -1,4 +1,4 @@
-import type { ErrorParams } from "./errors.js";
+import type { ErrorCode, ErrorParams } from "../../contract/errors.js";
 import type { Attachment, ChatHint, ChatNote, Member, MessageDraft, MessageQuote, MessageSource, Question, QuestionSpec, ThreadInfo } from "../../contract/chat.js";
 export interface Chat {
   id: string; type: "dm" | "channel" | "thread"; title: string; ownerId: string;
@@ -44,7 +44,7 @@ export interface ChatMessage {
   folded: boolean;
 }
 export class ChatError extends Error {
-  constructor(readonly status: 400 | 403 | 404 | 409, message: string, readonly code?: string, readonly params?: ErrorParams) { super(message); }
+  constructor(readonly status: 400 | 403 | 404 | 409, message: string, readonly code?: ErrorCode, readonly params?: ErrorParams) { super(message); }
 }
 
 export interface DeliveryMessage extends MessageDraft {
