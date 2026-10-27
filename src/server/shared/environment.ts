@@ -47,6 +47,8 @@ export interface EnvironmentRecord {
   name: string;
   /** Where the tools start, when it isn't fixed by the kind (SSH machines). */
   directory: string | null;
+  /** What the owner wrote about it (SSH machines; empty otherwise): what it is for, what to watch out for. */
+  description: string;
   /** How to reach it: a container's name; an SSH machine's host, port, user, home and system. */
   spec: Record<string, string>;
 }

@@ -9,7 +9,7 @@ import type { HostKeys, SshMachine } from "../../../contract/environment.js";
 import type { ChatService } from "../chat/service.js";
 
 /** What adding a machine takes, from Settings or from a Bot's request card. */
-export interface MachineInput { name?: unknown; host: unknown; port?: unknown; user: unknown; directory?: unknown }
+export interface MachineInput { name?: unknown; host: unknown; port?: unknown; user: unknown; directory?: unknown; description?: unknown }
 
 const HOST = /^(?!-)[A-Za-z0-9._:-]{1,253}$/, USER = /^(?!-)[A-Za-z0-9._][A-Za-z0-9._-]{0,63}$/;
 
@@ -59,7 +59,7 @@ export class SshMachines {
       const key = prepared && !password ? prepared : await generateKey(this.runtime, comment);
       const access: SshAccess = { ...where, runtime: this.runtime, alias: alias(id), hostKeys: input.hostKeys.keys, privateKey: key.privateKey };
       const save = (remote: { platform: string; home: string }, kept?: string) => this.store.environments.addSsh({ name, ...where, ...remote,
-        directory: directoryIn(remote.home, input.directory), hostKeys: input.hostKeys, privateKey: key.privateKey, ...(kept ? { password: kept } : {}) }, id);
+        directory: directoryIn(remote.home, input.directory), description: text(input.description, 2000), hostKeys: input.hostKeys, privateKey: key.privateKey, ...(kept ? { password: kept } : {}) }, id);
       if (!password) return save(await probeHost(access));
       await installKey(where, this.runtime, input.hostKeys.keys, password, key.publicKey);
       try {
@@ -88,13 +88,14 @@ export class SshMachines {
     this.store.environments.updateSsh(id, { password });
     return this.get(id);
   }
-  update(id: string, input: { name?: unknown; directory?: unknown }): SshMachine {
+  update(id: string, input: { name?: unknown; directory?: unknown; description?: unknown }): SshMachine {
     const record = this.need(id);
     const name = input.name === undefined ? undefined : text(input.name, 40);
     if (name !== undefined && !name) throw new ChatError(400, "A name is needed");
     if (name !== undefined && name !== record.name) this.freeName(name);
     this.store.environments.updateSsh(id, { ...(name !== undefined ? { name } : {}),
-      ...(input.directory !== undefined ? { directory: directoryIn(record.spec.home ?? "/", input.directory) } : {}) });
+      ...(input.directory !== undefined ? { directory: directoryIn(record.spec.home ?? "/", input.directory) } : {}),
+      ...(input.description !== undefined ? { description: text(input.description, 2000) } : {}) });
     this.changed();
     return this.get(id);
   }
@@ -176,7 +177,7 @@ export class SshMachines {
   private view(record: EnvironmentRecord): SshMachine {
     const { spec } = record, secrets = this.store.environments.sshSecrets(record.id);
     return { id: record.id, name: record.name, host: spec.host ?? "", port: Number(spec.port ?? 22), user: spec.user ?? "", home: spec.home ?? "",
-      directory: record.directory ?? spec.home ?? "", platform: spec.platform ?? "", fingerprints: secrets?.hostKeys.fingerprints ?? [],
+      directory: record.directory ?? spec.home ?? "", description: record.description, platform: spec.platform ?? "", fingerprints: secrets?.hostKeys.fingerprints ?? [],
       botIds: this.store.environments.grantees(record.id), login: secrets?.password || secrets?.passwordUnreadable ? "password" : "key",
       publicKey: secrets?.privateKey ? publicKeyOf(secrets.privateKey, keyComment(record.id)) : null };
   }

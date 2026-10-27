@@ -74,7 +74,7 @@ export class BotEnvironments {
     const { home, current } = this.store.environments.placement(botId);
     return { current: current.id, environments: this.usable(botId).map(record => ({ ...this.place(botId, record, workspacePath),
       ...(record.id === home.id ? { default: true } : {}), ...(record.kind === "computer" ? { state: this.computers.status(record.botId ?? botId)?.state ?? "stopped" } : {}),
-      ...(record.kind === "ssh" ? { address: this.machines.address(record) } : {}) })) };
+      ...(record.kind === "ssh" ? { address: this.machines.address(record), ...(record.description ? { description: record.description } : {}) } : {}) })) };
   }
   /** environments.switch: the Bot moves itself, like cd, until it switches back. A sandbox is started first, an SSH
    * machine connected first; if that fails, the Bot stays where it was. */

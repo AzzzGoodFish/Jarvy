@@ -19,7 +19,7 @@ export function environmentRoutes(bots: ApiServices["bots"]) {
   routes.post("/keys", async c => c.json(await machines.prepareKey(), 201));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    return c.json(await machines.add({ name: input.name, host: input.host, port: input.port, user: input.user, directory: input.directory,
+    return c.json(await machines.add({ name: input.name, host: input.host, port: input.port, user: input.user, directory: input.directory, description: input.description,
       password: input.password, ...(input.keyId !== undefined ? { keyId: input.keyId } : {}), hostKeys: hostKeys(input.hostKeys) }), 201);
   });
   /** A new password for a machine reached with its password, checked with a login first. */
@@ -29,7 +29,7 @@ export function environmentRoutes(bots: ApiServices["bots"]) {
   });
   routes.put("/:id", jsonBody, async c => {
     const input = await readJson(c);
-    return c.json(machines.update(c.req.param("id"), { name: input.name, directory: input.directory }));
+    return c.json(machines.update(c.req.param("id"), { name: input.name, directory: input.directory, description: input.description }));
   });
   /** Scans again, to see whether the machine still presents the accepted keys. */
   routes.post("/:id/check", async c => c.json(await machines.check(c.req.param("id"))));

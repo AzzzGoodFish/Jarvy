@@ -6,6 +6,7 @@ import { type HostKeys, type SshMachine } from "../../contract/environment";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { errorText } from "../errors";
 import { useAction } from "../action";
 import { SecretInput } from "../secrets/SecretInput";
@@ -46,7 +47,7 @@ export function MachineSettings() {
 
 /** A new machine: where it is first; then, once scanned, the fingerprint to check and the password or Jarvy's key. */
 function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (machine: SshMachine) => void }) {
-  const [host, setHost] = useState(""), [port, setPort] = useState("22"), [user, setUser] = useState(""), [name, setName] = useState(""), [directory, setDirectory] = useState("");
+  const [host, setHost] = useState(""), [port, setPort] = useState("22"), [user, setUser] = useState(""), [name, setName] = useState(""), [directory, setDirectory] = useState(""), [description, setDescription] = useState("");
   const [hostKeys, setHostKeys] = useState<HostKeys | null>(null);
   const [password, setPassword] = useState(""), [visible, setVisible] = useState(false), [login, setLogin] = useState<MachineLogin>("password");
   const { busy, error, setError, run: perform } = useAction();
@@ -58,7 +59,7 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!hostKeys) void run(async () => setHostKeys(await api.scanMachine(address)));
-    else void run(async () => onSaved(await api.addMachine({ ...address, name: name.trim(), directory: directory.trim(), hostKeys,
+    else void run(async () => onSaved(await api.addMachine({ ...address, name: name.trim(), directory: directory.trim(), description: description.trim(), hostKeys,
       ...(login === "key" ? { keyId: prepared.key!.keyId } : { password }) })));
   };
   const where = address.user && address.host ? `${address.user}@${address.host}` : "";
@@ -74,6 +75,8 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
         <Input maxLength={40} placeholder={where} value={name} onChange={event => setName(event.target.value)}/></label>
       <label className="jv-field jv-machine-wide"><span>{t("machines.directory")}</span>
         <Input className="jv-mono" maxLength={1000} spellCheck={false} placeholder={t("machines.directoryPlaceholder")} value={directory} onChange={event => setDirectory(event.target.value)}/></label>
+      <label className="jv-field jv-machine-wide"><span>{t("machines.description")}</span>
+        <Textarea maxLength={2000} rows={3} placeholder={t("machines.descriptionPlaceholder")} value={description} onChange={event => setDescription(event.target.value)}/></label>
     </div> : <>
       <p className="jv-machine-where">{name.trim() && <strong>{name.trim()}</strong>}<code>{address.user}@{address.host}{address.port === 22 ? "" : `:${address.port}`}</code></p>
       <div className="jv-field"><span>{t("machines.fingerprint")}</span>
