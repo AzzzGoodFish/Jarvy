@@ -5,8 +5,15 @@ import type { ConfiguredModel, ModelConnection } from "../../shared/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
 const FORMATS = new Set(["openai", "openrouter", "deepseek", "together", "baseten", "zai", "qwen", "chat-template", "qwen-chat-template", "string-thinking", "ant-ling"]);
-export function installModel(runtime: ModelRuntime, connection: ModelConnection, configured: ConfiguredModel, headers: Record<string, string> = {}): Model<Api> {
-  const builtin = runtime.getModel(connection.providerName, configured.id);
+/** Registers a saved model with the session's Pi runtime. What the saved model leaves out — its compat flags, and the
+ * address, context window, max output and price when not filled in — comes from the catalog entry with the same ID and
+ * protocol: pi.dev's newer one if `catalog` has it, else the one Pi bundles (A49, A62). Compat is never saved from the
+ * catalog, so a newer entry reaches models already saved. */
+export function installModel(runtime: ModelRuntime, connection: ModelConnection, configured: ConfiguredModel, headers: Record<string, string> = {}, catalog?: ModelCatalog): Model<Api> {
+  const api = (configured.api || connection.api) as Api;
+  const bundled = runtime.getModel(connection.providerName, configured.id);
+  const listed = catalog?.overlay(connection.providerName, bundled ? [bundled] : []).find(model => model.id === configured.id);
+  const builtin = listed?.api === api ? listed : bundled;
   const contextWindow = configured.contextWindow ?? builtin?.contextWindow;
   const maxTokens = configured.maxTokens ?? builtin?.maxTokens;
   // The connection's own address first; then the one saved with the model from the catalog (A62), which goes with its
@@ -17,10 +24,10 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
   // Precedence: builtin provider defaults < saved compat (catalog/autoconfig/user) < thinking format field.
   const compat = { ...builtin?.compat, ...configured.compat, ...(configured.thinkingFormat ? { thinkingFormat: configured.thinkingFormat as OpenAICompletionsCompat["thinkingFormat"] } : {}) } as Model<Api>["compat"];
   runtime.registerProvider(connection.providerName, {
-    baseUrl, api: (configured.api || connection.api) as Api,
+    baseUrl, api,
     // Secrets come from CredentialStore only; apiKey here would invoke Pi's
     // environment/command config resolver, not our literal-key contract.
-    models: [{ id: configured.id, name: configured.name, api: (configured.api || connection.api) as Api, baseUrl,
+    models: [{ id: configured.id, name: configured.name, api, baseUrl,
       reasoning: configured.reasoning, input: configured.input, contextWindow, maxTokens,
       cost: configured.cost ?? builtin?.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       thinkingLevelMap: configured.thinkingLevelMap, compat }],
@@ -46,8 +53,8 @@ export function catalogCompat(model: Model<Api>): Record<string, unknown> {
   const { thinkingFormat: _format, ...compat } = (model.compat ?? {}) as Record<string, unknown>;
   return structuredClone(compat);
 }
-// Catalog listings leave compat empty: builtin connections read live SDK compat in installModel,
-// and a saved snapshot would override newer SDK values after an upgrade. Autoconfigure fills it
+// Catalog listings leave compat empty: built-in connections read it live from the catalog entry in installModel,
+// and a saved snapshot would override newer values after an upgrade. Autoconfigure fills it
 // explicitly for connections that cannot inherit it.
 export function publicModel(model: Model<Api>): ConfiguredModel {
   return {

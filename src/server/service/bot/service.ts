@@ -11,6 +11,7 @@ import type { ChatService } from "../chat/service.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
+import type { ModelCatalog } from "../../infra/pi/catalog.js";
 import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
 import type { HomeKind } from "../../shared/environment.js";
@@ -45,6 +46,8 @@ export interface BotDependencies {
   secrets: SecretService;
   /** Scheduled tasks (A58): each Bot manages its own with the tasks tools. */
   tasks: TaskService;
+  /** The model catalog (A49), for the models a session installs (A62). */
+  catalog: ModelCatalog;
   changed: (botId: string) => void; factory?: SessionFactory;
   /** Bots were created, renamed or deleted by the agent Bot (A48): the owner's page reloads them. */
   listChanged?: () => void;
@@ -81,7 +84,7 @@ export class BotService {
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
-        environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id) }));
+        environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
