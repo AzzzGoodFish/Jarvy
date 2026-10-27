@@ -15,6 +15,7 @@ src/
       app.ts                 Hono app and route registration
       server.ts              Node HTTP adapter; HTTP and HTTPS on one port beyond this machine (A51)
       routes/                account, bots, chats, channels, models, history, activity, events, live (SSE), connection and secrets
+      event-stream.ts        the SSE stream both events and live use: heartbeat, back-pressure, sign-out, cleanup
       middleware/            same-origin and security headers, request bodies, error mapping
       views/                 HTTP projections
     service/
@@ -91,6 +92,6 @@ Pi tool call → Tools → Bot.send (bound to its History source) → Chat.deliv
 - Hono 4.13 with `@hono/node-server` 2.1, which does not replace the global `Request` / `Response`, so the Fetch objects Pi uses in the same process are untouched.
 - Cookie login, same-origin checks, JSON and upload limits, read-only History, SSE with re-read after reconnect. Errors map by type, not by message text.
 - Bot state is `stop / idle / running`; while running, activity is `reasoning / texting / tool_calling / asking` or null while waiting. `POST /api/bots/:id/start|stop|abort` call the matching Bot methods.
-- SSE subscriptions belong to services; encoding, auth and closing the stream belong to the API.
+- SSE subscriptions belong to services; encoding, auth and closing the stream belong to the API, in one place (`api/event-stream.ts`): a route only says what it subscribes to and what it sends first.
 
 The activity timeline is a read-only composition: the activity route → `BotService.activity` → `ChatService.sentActivity` and `Memory.timeline` → their repositories. It is not an eighth Bot part and has no storage of its own.
