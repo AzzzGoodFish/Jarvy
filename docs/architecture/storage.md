@@ -56,6 +56,8 @@ Up to 10 MB each and 5 per message; the database holds them. Into a Bot: the XML
 
 Migrations run at startup, in `infra/storage/migrations/`, and only move forward. Each keeps existing IDs and data. A downgrade means restoring a backup taken before the upgrade, with the matching build.
 
+A write that spans several statements goes through `transaction(db, work)` (`infra/storage/transaction.ts`): BEGIN IMMEDIATE, then COMMIT, or ROLLBACK when `work` throws. A new migration (v26 on) is `migration(db, version, work)`: it skips a database already at that version, runs `work` in a transaction and sets `user_version`; `{ rebuild: true }`, for recreating tables, turns foreign keys off around it and checks them before the commit. v25 and earlier keep the code that already ran on people's databases.
+
 | Version | Change |
 | --- | --- |
 | v7 | `messages.history_id` / `tool_call_id` (send source); `chat_members.can_read` |

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { EnvironmentKind, EnvironmentRecord, HostKeys } from "../../shared/environment.js";
 import type { Cipher } from "../vault/cipher.js";
+import { transaction } from "./transaction.js";
 
 interface Row { id: string; ownerId: string; kind: EnvironmentKind; botId: string | null; name: string; directory: string | null; connection: string }
 const FIELDS = (table: string) => ["id", "owner_id AS ownerId", "kind", "bot_id AS botId", "name", "directory", "connection"].map(column => `${table}${column}`).join(", ");
@@ -52,14 +53,12 @@ export class EnvironmentRepository {
   dropComputer(botId: string): void {
     const computer = this.computerOf(botId);
     if (!computer) return;
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    transaction(this.db, () => {
       this.db.prepare("UPDATE bots SET home_environment_id=NULL WHERE home_environment_id=?").run(computer.id);
       this.db.prepare("UPDATE bots SET current_environment_id=NULL WHERE current_environment_id=?").run(computer.id);
       this.db.prepare("DELETE FROM environment_grants WHERE environment_id=?").run(computer.id);
       this.db.prepare("UPDATE environments SET deleted_at=? WHERE id=?").run(Date.now(), computer.id);
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   /** The Bot's default environment and the one it works in now. */
   placement(botId: string): { home: EnvironmentRecord; current: EnvironmentRecord } {
@@ -130,14 +129,12 @@ export class EnvironmentRepository {
   }
   /** Deletes an SSH machine with its key: Bots working there are back in their default. Returns those Bots. */
   dropSsh(id: string): string[] {
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    return transaction(this.db, () => {
       const moved = (this.db.prepare("SELECT id FROM bots WHERE current_environment_id=?").all(id) as { id: string }[]).map(row => row.id);
       this.db.prepare("UPDATE bots SET current_environment_id=home_environment_id WHERE current_environment_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE environment_id=?").run(id);
       this.db.prepare("UPDATE environments SET deleted_at=?, key=NULL, password=NULL WHERE id=? AND kind='ssh'").run(Date.now(), id);
-      this.db.exec("COMMIT");
       return moved;
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
 }

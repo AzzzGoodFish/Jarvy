@@ -11,6 +11,7 @@ import { ThreadRepository } from "./thread-repository.js";
 import { InteractionRepository } from "./interaction-repository.js";
 import { QuoteRepository } from "./quote-repository.js";
 import { clipMarked, previewQuotes } from "../../shared/quotes.js";
+import { transaction } from "./transaction.js";
 type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; foldedAt: number | null; };
 const MESSAGE_COLUMNS = "id,chat_id AS chatId,sequence,sender_id AS senderId,content,created_at AS createdAt,history_id AS historyId,tool_call_id AS toolCallId,question,echo_of AS echoOf,reply_to AS replyTo,folded_at AS foldedAt";
 const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_at AS createdAt,c.updated_at AS updatedAt,
@@ -104,19 +105,17 @@ export class ChatRepository {
   openDirect(actorId: string, targetId: string, ownerId: string, title: string): Chat {
     if (actorId === targetId) throw new ChatError(400, "Cannot message yourself");
     const now = Date.now();
-    let id: string;
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    const id = transaction(this.db, () => {
       const existing = this.db.prepare(`SELECT c.id FROM chats c JOIN chat_members a ON a.chat_id=c.id AND a.member_id=?
         JOIN chat_members b ON b.chat_id=c.id AND b.member_id=? WHERE c.type='dm' ORDER BY c.updated_at DESC,c.id DESC LIMIT 1`).get(actorId, targetId) as { id: string } | undefined;
-      id = existing?.id ?? randomUUID();
+      const id = existing?.id ?? randomUUID();
       if (!existing) {
         this.db.prepare("INSERT INTO chats(id,type,title,owner_id,created_at,updated_at) VALUES(?,'dm',?,?,?,?)").run(id, title, ownerId, now, now);
         this.db.prepare("INSERT INTO chat_members(chat_id,member_id) VALUES(?,?),(?,?)").run(id, actorId, id, targetId);
         this.db.prepare("INSERT INTO chat_states(chat_id,member_id) VALUES(?,?),(?,?)").run(id, actorId, id, targetId);
       }
-      this.db.exec("COMMIT");
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+      return id;
+    });
     return this.getChat(actorId, id)!;
   }
   memberships(actorId: string, chatId: string) {
@@ -229,8 +228,7 @@ export class ChatRepository {
   }
   append(actorId: string, chatId: string, draft: DeliveryMessage, requestHash: string, files: readonly OutgoingFile[] = [],
     deliveries: { message: readonly Delivery[]; echo: readonly Delivery[] } = { message: [], echo: [] }, mentions: readonly string[] = []): { message: ChatMessage; duplicate: boolean; echo?: ChatMessage } {
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    return transaction(this.db, () => {
       this.assertAccess(actorId, chatId, true);
       if ((draft.source || draft.question) && this.member(actorId)?.kind !== "bot") throw new ChatError(403, "Only Bot messages have History sources or questions");
       if (draft.clientMessageId) {
@@ -238,7 +236,6 @@ export class ChatRepository {
         if (prior) {
           if (prior.requestHash !== requestHash) throw new ChatError(409, "Message key already used with different content");
           const message = this.messageFromRow(prior);
-          this.db.exec("COMMIT");
           return { message, duplicate: true };
         }
       }
@@ -290,9 +287,8 @@ export class ChatRepository {
       this.db.prepare("UPDATE chats SET title=CASE WHEN title='' AND ?=1 THEN ? ELSE title END,updated_at=? WHERE id=?")
         .run(sequence, title, createdAt, chatId);
       const message = this.messageFromRow({ id, chatId, sequence, senderId: actorId, content: draft.content, createdAt, historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question, echoOf: null, replyTo: draft.replyTo ?? null, foldedAt: null });
-      this.db.exec("COMMIT");
       return { message, duplicate: false, ...(echo ? { echo } : {}) };
-    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    });
   }
   /** A message's deliveries go into the inbox with the message (A04, A41), for people and Bots alike. */
   private inbox(deliveries: readonly Delivery[], chatId: string, messageId: string, actorId: string, createdAt: number): void {
