@@ -9,7 +9,7 @@ import { ChatMain } from "./ChatMain";
 import { SidePane } from "./SidePane";
 import { SettingsDialog, type SettingsTab } from "./Settings";
 import { hintThread } from "./sidebar/Sidebar";
-import { findMentions } from "./channel/mentions";
+import { findMentions } from "../contract/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
 import { useBotDirects } from "./bot/BotDirects";
 import { useTabBadge } from "./tabBadge";

@@ -7,7 +7,7 @@ import { quoteMessage, type DraftStore } from "../composer/drafts";
 import { ChannelMessages } from "../channel/ChannelView";
 import { highlightPassage, jumpToPassage, QuoteSelection } from "../channel/quotes";
 import type { Focus } from "../pane";
-import { findMentions } from "../channel/mentions";
+import { findMentions } from "../../contract/mentions";
 import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
 import { t } from "../i18n";
