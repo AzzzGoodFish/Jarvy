@@ -244,3 +244,9 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
   .jv-thinking-level > input { grid-column: 2; }
   .jv-thinking-level > span:last-child:empty { display: none; }
 }
+/* Resetting a connection's models (A62), asked in place above the model cards. */
+.jv-reset-confirm { display: grid; gap: 6px; margin-bottom: 10px; padding: 12px 14px; border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field); }
+.jv-reset-confirm strong { font-size: 13px; }
+.jv-reset-confirm p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--jv-muted); }
+.jv-reset-confirm .jv-reset-bots { color: var(--jv-danger); }
+.jv-reset-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
