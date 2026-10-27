@@ -426,6 +426,7 @@ The web and the server are separate programs joined by HTTP, and what crosses it
 - **Imports**: the contract imports only itself, no package, Node or browser module. Every server layer may import it, as it imports `shared`; the web imports only `src/web` and `src/contract`. `check-boundaries` enforces both.
 - **Server types stay the server's**: where the server holds more or other than it sends (a chat with its owner, a message with its sender's identity, a stored Bot with its workspace), its type stays in `shared/`, and `api/views` (or the service that builds a view) is typed to return the contract's. A field changed on one side fails to compile on the other.
 - **No forwarding**: moved types are imported from the contract where they are used; `shared/` and `web/api.ts` do not re-export them.
+- **Rules both sides apply**: the @ rule (`contract/mentions.ts`) is one function; the server takes who is mentioned from it, the web highlights and warns with it. Failure codes are one union (`ErrorCode`, `contract/errors.ts`): the server's error classes take only those, and the web's wording table is a `Record<ErrorCode, Key>`, so a code thrown without wording, or worded without being listed, fails to compile; `check-i18n` keeps only what types can't see, a code no longer used.
 - The contract is the HTTP boundary written down, not a layer: the call path stays web → api → service → infra.
 
 Why: one definition of what crosses HTTP, checked on both sides, so the web and the server cannot drift apart unnoticed.
