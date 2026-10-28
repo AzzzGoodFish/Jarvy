@@ -28,3 +28,11 @@
 .jv-machine-card-field .jv-machine-prints { border: 0; background: var(--ui-fill-control-track); }
 .jv-machine-card-field > small { font-size: 12px; line-height: 17px; color: var(--ui-text-tertiary); }
 .jv-machine-card-field .jv-machine-key { border: 0; background: var(--ui-fill-control-track); }
+/* Machine details in three parts: the machine (name, directory, description, its own Save), how Jarvy connects, who may use it. */
+.jv-machine-edit .jv-machine-description { grid-column: 1 / -1; }
+.jv-machine-edit textarea { min-height: 72px; resize: vertical; }
+.jv-machine-part { display: grid; gap: 14px; padding-top: 14px; border-top: 1px solid var(--jv-line); }
+.jv-machine-fingerprint { align-items: center; }
+.jv-machine-codes { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.jv-machine-codes code { font-size: 12px; color: var(--jv-text); overflow-wrap: anywhere; }
+.jv-machine-codes code[data-new] { color: var(--ui-text-warning); }

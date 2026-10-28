@@ -4,7 +4,7 @@ import { None, tool } from "./registry.js";
 
 /** Where the Bot's file and command tools run (A50), and SSH machines it asks its owner for (A57). */
 export const environmentTools = [
-  tool("environments.list", "List the work environments you may use: your sandbox, your default and the ones your owner granted you. current is the id of the one you are in. Each has its id, name, the directory your file and command tools start in there, default=true for your default, and state for a sandbox (it starts when you switch to it).",
+  tool("environments.list", "List the work environments you may use: your sandbox, your default and the ones your owner granted you. current is the id of the one you are in. Each has its id, name, the directory your file and command tools start in there, default=true for your default, state for a sandbox (it starts when you switch to it), and for an SSH machine its address and, when your owner wrote one, their description of it: what it is for and what to watch out for.",
     None, (_args, context) => context.scope.places.list()),
   tool("environments.switch", "Move your file and command tools (bash, read, write, edit) to another work environment from environments.list, like cd one level up: you stay there, across turns, until you switch back. The result has your directory there and what you can do there. Commands already running finish where they started.",
     Type.Object({ id: Type.String({ minLength: 1, maxLength: 80, description: "The environment's id from environments.list" }) }, { additionalProperties: false }), ({ id }, context) => context.scope.places.switch(id)),

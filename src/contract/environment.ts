@@ -9,6 +9,8 @@ export interface SshMachine {
   id: string; name: string; host: string; port: number; user: string;
   /** Where tools start there; its home unless the owner chose another. */
   directory: string; home: string; platform: string;
+  /** The owner's notes on it, several lines at most 2000 characters; empty when none. */
+  description: string;
   /** The host keys the owner accepted, as `ssh-keygen -l` words them. */
   fingerprints: string[];
   /** How Jarvy logs in (A59): with its key, or with the password when the machine refuses keys. */

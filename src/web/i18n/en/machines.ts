@@ -9,6 +9,8 @@ export const machines = {
   "machines.user": "User",
   "machines.name": "Name",
   "machines.directory": "Start directory",
+  "machines.description": "Description",
+  "machines.descriptionPlaceholder": "What it's for, what's installed, what to watch out for",
   "machines.directoryPlaceholder": "Home",
   "machines.next": "Next",
   "machines.scanning": "Connecting…",

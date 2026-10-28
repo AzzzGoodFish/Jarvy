@@ -119,11 +119,11 @@ export const api = {
   machines: () => request<{ machines: SshMachine[] }>("/environments"),
   scanMachine: (input: { host: string; port: number; user: string }) => request<HostKeys>("/environments/scan", { method: "POST", body: body(input) }),
   /** `keyId`: a key from prepareMachineKey the owner added to the machine, instead of the password (A59). */
-  addMachine: (input: { name: string; host: string; port: number; user: string; directory: string; password?: string; keyId?: string; hostKeys: HostKeys }) =>
+  addMachine: (input: { name: string; host: string; port: number; user: string; directory: string; description?: string; password?: string; keyId?: string; hostKeys: HostKeys }) =>
     request<SshMachine>("/environments", { method: "POST", body: body(input) }),
   prepareMachineKey: () => request<{ keyId: string; publicKey: string }>("/environments/keys", { method: "POST" }),
   setMachinePassword: (id: string, password: string) => request<SshMachine>(`/environments/${id}/password`, { method: "PUT", body: body({ password }) }),
-  updateMachine: (id: string, input: { name?: string; directory?: string }) => request<SshMachine>(`/environments/${id}`, { method: "PUT", body: body(input) }),
+  updateMachine: (id: string, input: { name?: string; directory?: string; description?: string }) => request<SshMachine>(`/environments/${id}`, { method: "PUT", body: body(input) }),
   checkMachine: (id: string) => request<{ hostKeys: HostKeys; changed: boolean; machine: SshMachine }>(`/environments/${id}/check`, { method: "POST" }),
   trustMachine: (id: string, fingerprints: string[]) => request<SshMachine>(`/environments/${id}/trust`, { method: "POST", body: body({ fingerprints }) }),
   deleteMachine: (id: string, force = false) => request<{ ok: boolean }>(`/environments/${id}${force ? "?force=1" : ""}`, { method: "DELETE" }),

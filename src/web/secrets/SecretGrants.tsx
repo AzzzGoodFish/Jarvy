@@ -33,7 +33,7 @@ export function BotGrants({ grantedIds, onceIds, bots, onGrant }: { grantedIds: 
     <div className="jv-secret-grants-head"><h4 className="jv-secret-heading">{t("secrets.grants")}{granted.length > 0 && <span> · {granted.length}</span>}</h4>
       {!picking && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setPicking(true)}><PlusIcon/>{t("secrets.addBots")}</Button>}</div>
     {granted.length > 0 ? <ul className="jv-secret-granted">{granted.map(bot => <li key={bot.id}>
-      <BotAvatar color={bot.color} mood={bot.mood} size={24} crown={bot.agent}/><span className="jv-secret-bot-name">{bot.name}</span>
+      <BotAvatar color={bot.color} mood={bot.mood} size={20} crown={bot.agent}/><span className="jv-secret-bot-name">{bot.name}</span>
       {once.has(bot.id) && <span className="jv-secret-once">{t("secrets.onceTag")}</span>}
       <Button type="button" variant="ghost" size="icon-sm" className="jv-secret-revoke" disabled={busy} aria-label={t("secrets.revoke", { name: bot.name })}
         onClick={() => void run(() => onGrant([bot.id], false))}><XIcon/></Button>

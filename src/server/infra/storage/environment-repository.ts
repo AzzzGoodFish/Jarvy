@@ -5,13 +5,13 @@ import type { EnvironmentKind, HostKeys } from "../../../contract/environment.js
 import type { Cipher } from "../vault/cipher.js";
 import { transaction } from "./transaction.js";
 
-interface Row { id: string; ownerId: string; kind: EnvironmentKind; botId: string | null; name: string; directory: string | null; connection: string }
-const FIELDS = (table: string) => ["id", "owner_id AS ownerId", "kind", "bot_id AS botId", "name", "directory", "connection"].map(column => `${table}${column}`).join(", ");
+interface Row { id: string; ownerId: string; kind: EnvironmentKind; botId: string | null; name: string; directory: string | null; description: string; connection: string }
+const FIELDS = (table: string) => ["id", "owner_id AS ownerId", "kind", "bot_id AS botId", "name", "directory", "description", "connection"].map(column => `${table}${column}`).join(", ");
 const COLUMNS = FIELDS("");
-const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.ownerId, kind: row.kind, botId: row.botId, name: row.name, directory: row.directory,
+const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.ownerId, kind: row.kind, botId: row.botId, name: row.name, directory: row.directory, description: row.description,
   spec: JSON.parse(row.connection) as Record<string, string> });
 /** What a new SSH machine is saved with (A57); `password` only for one that refuses Jarvy's key (A59). */
-export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; hostKeys: HostKeys; privateKey: string; password?: string }
+export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; description: string; hostKeys: HostKeys; privateKey: string; password?: string }
 
 /** Work environments and where each Bot works (v20, A50). A Bot's home or current environment left NULL is its
  * owner's computer, whose row is made when first needed. SSH machines (v22, A57) keep their key sealed under the
@@ -95,18 +95,19 @@ export class EnvironmentRepository {
   }
   addSsh(input: NewSshMachine, id: string = randomUUID()): EnvironmentRecord {
     const { host, port, user, home, platform } = input;
-    this.db.prepare("INSERT INTO environments(id,owner_id,kind,name,connection,directory,key,host_keys,password,created_at) VALUES(?,?,'ssh',?,?,?,?,?,?,?)")
-      .run(id, this.ownerId(), input.name, JSON.stringify({ host, port: String(port), user, home, platform }), input.directory,
+    this.db.prepare("INSERT INTO environments(id,owner_id,kind,name,connection,directory,description,key,host_keys,password,created_at) VALUES(?,?,'ssh',?,?,?,?,?,?,?,?)")
+      .run(id, this.ownerId(), input.name, JSON.stringify({ host, port: String(port), user, home, platform }), input.directory, input.description,
         this.cipher.seal(input.privateKey, `environment:${id}`), JSON.stringify(input.hostKeys),
         input.password ? this.cipher.seal(input.password, `environment-password:${id}`) : null, Date.now());
     return this.get(id)!;
   }
   /** `password`: a new one for a machine reached with its password; null goes back to the key (A59). */
-  updateSsh(id: string, input: { name?: string; directory?: string; hostKeys?: HostKeys; password?: string | null }): void {
+  updateSsh(id: string, input: { name?: string; directory?: string; description?: string; hostKeys?: HostKeys; password?: string | null }): void {
     if (input.password !== undefined) this.db.prepare("UPDATE environments SET password=? WHERE id=? AND kind='ssh'")
       .run(input.password === null ? null : this.cipher.seal(input.password, `environment-password:${id}`), id);
     if (input.name !== undefined) this.db.prepare("UPDATE environments SET name=? WHERE id=? AND kind='ssh'").run(input.name, id);
     if (input.directory !== undefined) this.db.prepare("UPDATE environments SET directory=? WHERE id=? AND kind='ssh'").run(input.directory, id);
+    if (input.description !== undefined) this.db.prepare("UPDATE environments SET description=? WHERE id=? AND kind='ssh'").run(input.description, id);
     if (input.hostKeys !== undefined) this.db.prepare("UPDATE environments SET host_keys=? WHERE id=? AND kind='ssh'").run(JSON.stringify(input.hostKeys), id);
   }
   /** The machine's private key (null when it doesn't open under this installation's key), its password when it is
