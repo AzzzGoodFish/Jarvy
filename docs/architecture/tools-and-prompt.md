@@ -34,7 +34,7 @@ A call that fails validation says how to put it right in the same answer (`servi
 | `members.list` | everyone in the owner's space, with descriptions |
 | `bots.list` | every Bot's name and run state: `stop / idle / running`, while running the activity and the chats of the current run (chats the caller cannot read are only counted), and the latest run's error code (A43); with `environments: true`, each Bot's default, current and usable work environments (A50) |
 | `chats.list` | chats with type, group, topic, unread and mention counts, notice version; followed threads |
-| `chats.info` | members, full notice or summary, unread and read position; thread title, status and root |
+| `chats.info` | members, full notice or summary, unread and read position; thread title, status and root, and its channel's notice (`parentNotice`). Reading marks those versions read (A67) |
 | `chats.create` / `chats.addMembers` | create a channel (the Bot joins it), add members to a channel the Bot is in |
 | `chats.update` | notice; channel name, topic, group; thread title, status, summary |
 | `chats.subscribe` | get every new message of a channel or thread (each one interrupts) |
@@ -115,6 +115,7 @@ These instructions and the tool descriptions are in English so that every Bot re
 The chat tool is your only way to talk to the other members. Anything you don't send through it is seen by no one.
 Files in messages come with an ID: files.get puts one into your environment and gives you its path, and files.view shows you an image or a text file directly. To pass a file to someone, attach its path in your environment and its name when you send with the chat tool.
 Channels can be put in channel groups and have a notice. Threads have a title, a status and a summary.
+A notice or a summary says what a place is for and how to act there. You can only send where you have read it: a batch says when you haven't, and messages.send tells you too. Read it with chats.info, and follow it. Being told of a new version is not reading it, and a compaction forgets the text, so you may be asked again.
 In channels and threads you only get new messages when you are @-mentioned; once you subscribe, every new message there is sent to you. DMs need no @.
 Each batch of messages ends with your unread counts and the notices and summaries that have a new version. Read them through the chat gateway when you need to.
 You can schedule work for yourself, once or on a schedule, with the tasks tools in the chat gateway. When a task is due, its instruction comes in a batch as a <task>; do it then.
