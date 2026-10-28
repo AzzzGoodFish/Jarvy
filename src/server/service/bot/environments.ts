@@ -1,23 +1,17 @@
-import { COMPUTER_CWD } from "../../infra/env/docker.js";
-import { hostEnvironment } from "../../infra/env/host.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError } from "../../shared/chat.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import type { BotPlacement, HomeKind } from "../../../contract/environment.js";
 import type { Computers } from "./computers.js";
 import type { SshMachines } from "./machines.js";
+import { KINDS } from "./kinds/index.js";
+import type { KindDeps } from "./kinds/kind.js";
 
 /** An environment as a Bot is told of it (A50): what to call it and the directory its tools start in there. A
  * sandbox is what the code calls a `computer`; an SSH machine (A57) is called by the name its owner gave it. */
 export interface Place { id: string; kind: "sandbox" | "host" | "ssh"; name: string; directory: string }
 /** What an owner's change did to where the Bot works; the service tells the Bot (A41). */
 export interface Moved { from: Place; to: Place }
-
-/** What a Bot learns about an environment when it switches there. */
-const ABOUT: Record<HomeKind, string> = {
-  computer: "A Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox, and /workspace, your home there, is kept when it is reset.",
-  host: "The machine where this chat platform's server runs. Your tools run there as your owner and can reach their files: work in your directory, and leave other members' workspaces, live data directories (such as ~/.jarvy), main repository checkouts and system directories alone unless the task needs it; say in your reply what you changed there.",
-};
 
 interface Opened { id: string; env: WorkEnvironment; view: WorkEnvironment; busy: number; retired: boolean }
 
@@ -28,15 +22,17 @@ interface Opened { id: string; env: WorkEnvironment; view: WorkEnvironment; busy
  * process alive, so all close when Jarvy stops. */
 export class BotEnvironments {
   private readonly open = new Map<string, Opened>();
-  constructor(private readonly store: Store, private readonly computers: Computers, private readonly machines: SshMachines) {}
+  private readonly kinds: KindDeps;
+  constructor(private readonly store: Store, private readonly computers: Computers, machines: SshMachines) {
+    this.kinds = { computers, machines };
+  }
 
   current(botId: string, workspacePath: string): WorkEnvironment {
     const target = this.store.environments.placement(botId).current, signature = this.signature(target);
     const open = this.open.get(botId);
     if (open?.id === signature) return open.view;
     if (open) this.retire(open);
-    const opened = this.track(signature, target.kind === "computer" ? this.computers.environment(target.botId ?? botId, target)
-      : target.kind === "ssh" ? this.machines.environment(target, botId) : hostEnvironment(workspacePath));
+    const opened = this.track(signature, KINDS[target.kind].open(target, botId, workspacePath, this.kinds));
     this.open.set(botId, opened);
     return opened.view;
   }
@@ -53,15 +49,10 @@ export class BotEnvironments {
     const all = [environments.computerOf(botId), environments.placement(botId).home, ...environments.grants(botId)];
     return [...new Map(all.filter((record): record is EnvironmentRecord => !!record).map(record => [record.id, record])).values()];
   }
-  place(botId: string, record: EnvironmentRecord, workspacePath: string): Place {
-    if (record.kind === "host") return { id: record.id, kind: "host", name: "your owner's computer", directory: workspacePath };
-    if (record.kind === "ssh") return { id: record.id, kind: "ssh", name: record.name, directory: record.directory ?? record.spec.home ?? "/" };
-    return { id: record.id, kind: "sandbox", name: record.botId === botId ? "your sandbox" : "another Bot's sandbox", directory: COMPUTER_CWD };
-  }
+  place(botId: string, record: EnvironmentRecord, workspacePath: string): Place { return KINDS[record.kind].place(record, botId, workspacePath); }
   /** A Bot's environments as other Bots see them in bots.list. */
   summary(botId: string) {
-    const name = (record: EnvironmentRecord) => record.kind === "host" ? "owner's computer" : record.kind === "ssh" ? record.name
-      : record.botId === botId ? "own sandbox" : "another Bot's sandbox";
+    const name = (record: EnvironmentRecord) => KINDS[record.kind].summary(record, botId);
     const { home, current } = this.store.environments.placement(botId);
     return { default: name(home), current: name(current), usable: this.usable(botId).map(name) };
   }
@@ -73,18 +64,17 @@ export class BotEnvironments {
   list(botId: string, workspacePath: string) {
     const { home, current } = this.store.environments.placement(botId);
     return { current: current.id, environments: this.usable(botId).map(record => ({ ...this.place(botId, record, workspacePath),
-      ...(record.id === home.id ? { default: true } : {}), ...(record.kind === "computer" ? { state: this.computers.status(record.botId ?? botId)?.state ?? "stopped" } : {}),
-      ...(record.kind === "ssh" ? { address: this.machines.address(record), ...(record.description ? { description: record.description } : {}) } : {}) })) };
+      ...(record.id === home.id ? { default: true } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) })) };
   }
   /** environments.switch: the Bot moves itself, like cd, until it switches back. A sandbox is started first, an SSH
    * machine connected first; if that fails, the Bot stays where it was. */
   async switch(botId: string, environmentId: string, workspacePath: string) {
     const target = this.usable(botId).find(record => record.id === environmentId);
     if (!target) throw new ChatError(404, "No work environment with this id that you may use; see environments.list");
-    const previous = this.store.environments.placement(botId).current, already = previous.id === target.id;
-    if (target.kind === "computer") await this.computers.ensure(target.botId ?? botId);
+    const previous = this.store.environments.placement(botId).current, already = previous.id === target.id, entry = KINDS[target.kind];
+    await entry.ensure?.(target, botId, this.kinds);
     this.store.environments.setCurrent(botId, target.id);
-    if (target.kind === "ssh" && !already) {
+    if (entry.connects && !already) {
       const place = this.place(botId, target, workspacePath);
       try { if (!await this.current(botId, workspacePath).exists(place.directory)) throw new Error(`${place.directory} doesn't exist there; ask your owner to change the machine's directory, or switch back`); }
       catch (error) {
@@ -94,7 +84,7 @@ export class BotEnvironments {
         throw new ChatError(409, `Couldn't connect to ${target.name}, so you stay where you were: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    return { ...this.place(botId, target, workspacePath), about: target.kind === "ssh" ? this.machines.about(target, botId) : ABOUT[target.kind],
+    return { ...this.place(botId, target, workspacePath), about: entry.about(target, botId, this.kinds),
       ...(already ? { note: "You were already here." } : {}) };
   }
   /** The owner makes the Bot's sandbox (given it on first use) or their computer its default, and moves it there. */
@@ -113,7 +103,7 @@ export class BotEnvironments {
    * there sends it home. */
   grant(botId: string, environmentId: string | "host", granted: boolean, by: string, workspacePath: string): { changed: boolean; moved: Moved | null; name: string } {
     const environments = this.store.environments, target = environmentId === "host" ? environments.host() : environments.get(environmentId);
-    if (!target || target.kind === "computer") throw new ChatError(404, "No such environment");
+    if (!target || !KINDS[target.kind].grantable) throw new ChatError(404, "No such environment");
     const name = this.place(botId, target, workspacePath).name;
     if (granted) return { changed: environments.grant(target.id, botId, by), moved: null, name };
     const changed = environments.revoke(target.id, botId), { home, current } = environments.placement(botId);
@@ -136,7 +126,7 @@ export class BotEnvironments {
   }
 
   /** What an open environment is for: changing a machine's directory reopens it where the owner put it. */
-  private signature(record: EnvironmentRecord): string { return record.kind === "ssh" ? `${record.id}@${record.directory ?? ""}` : record.id; }
+  private signature(record: EnvironmentRecord): string { return KINDS[record.kind].signature(record); }
   private retire(open: Opened) {
     open.retired = true;
     if (!open.busy) void open.env.close();
@@ -150,7 +140,7 @@ export class BotEnvironments {
       finally { if (--opened.busy === 0 && opened.retired) void env.close(); }
     };
     opened.view = {
-      id: env.id, kind: env.kind, cwd: env.cwd, ...(env.temp ? { temp: env.temp } : {}),
+      id: env.id, kind: env.kind, local: env.local, cwd: env.cwd, ...(env.temp ? { temp: env.temp } : {}),
       exec: (command, options) => run(() => env.exec(command, options)),
       readFile: path => run(() => env.readFile(path)),
       head: (path, bytes) => run(() => env.head(path, bytes)),

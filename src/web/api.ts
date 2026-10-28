@@ -2,7 +2,7 @@ import type { Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
 import type { EnvironmentKind, HostKeys, SshMachine } from "../contract/environment";
-import type { AutoconfigResult, BotColor, BotModelGroup, BotMood, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
+import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
 import type { Task, TaskInput } from "../contract/tasks";
 import { t } from "./i18n";

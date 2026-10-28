@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
+import type { AuthPrompt } from "@earendil-works/pi-ai";
 import type { Store } from "../storage/store.js";
 import type { CredentialCoordinator } from "../credentials/coordinator.js";
 import { RuntimeFault } from "../../shared/runtime.js";

@@ -72,7 +72,7 @@ function relocated(definition: ToolDefinition, current: () => WorkEnvironment): 
   const execute = definition.execute.bind(definition) as (...args: unknown[]) => Promise<Output>;
   return { ...definition, execute: (async (...args: unknown[]) => {
     const env = current();
-    if (env.kind === "host") return execute(...args);
+    if (env.local) return execute(...args);
     try {
       const result = await execute(...args), path = result.details?.fullOutputPath;
       if (typeof path !== "string") return result;

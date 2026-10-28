@@ -86,7 +86,7 @@ export class Computers {
       }
     };
     return {
-      id: record.id, kind: "computer", cwd: COMPUTER_CWD,
+      id: record.id, kind: "computer", local: false, cwd: COMPUTER_CWD,
       exec: (command, options) => run(env => env.exec(command, options)),
       readFile: path => run(env => env.readFile(path)),
       head: (path, bytes) => run(env => env.head(path, bytes)),
