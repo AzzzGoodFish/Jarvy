@@ -1,9 +1,12 @@
+import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
-import { jsonBody, attachmentBody, readJson } from "../middleware/body.js";
+import { jsonBody, readJson } from "../middleware/body.js";
 import { chatView, messageView } from "../views/chat.js";
 import { byteRange, downloadType } from "../views/download.js";
+import { ATTACHMENT_MAX_BYTES } from "../../../contract/chat.js";
+import { tooLarge } from "../../service/chat/attachments.js";
 
 export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">) {
   const routes = new Hono<ApiEnv>();
@@ -33,14 +36,17 @@ export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">)
     const message = chats.questions.respond(c.get("actorId"), c.req.param("id"), c.req.param("messageId"), await readJson(c));
     return c.json(messageView(message));
   });
-  routes.post("/:id/attachments", attachmentBody, async c => {
+  routes.post("/:id/attachments", async c => {
     let name: string;
     try { name = decodeURIComponent(c.req.header("x-file-name") ?? ""); }
     catch { throw new HTTPException(400, { message: "Invalid filename" }); }
-    const data = Buffer.from(await c.req.arrayBuffer());
-    if (!data.length) throw new HTTPException(400, { message: "Empty attachment" });
+    // A declared size past the limit is refused before a byte is read; the stream is counted either way (A66).
+    const declared = Number(c.req.header("content-length") ?? NaN);
+    if (declared > ATTACHMENT_MAX_BYTES) throw tooLarge();
+    const body = c.req.raw.body;
+    if (!body) throw new HTTPException(400, { message: "Empty attachment" });
     const mime = (c.req.header("content-type") ?? "application/octet-stream").slice(0, 100);
-    return c.json(chats.upload(c.get("actorId"), c.req.param("id"), name, mime, data), 201);
+    return c.json(await chats.attachments.upload(c.get("actorId"), c.req.param("id"), name, mime, idle(body, c.req.raw.signal)), 201);
   });
   routes.delete("/:id", async c => {
     const id = c.req.param("id");
@@ -55,27 +61,47 @@ export function attachmentRoutes(chats: ApiServices["chats"]) {
   const routes = new Hono<ApiEnv>();
   routes.get("/:id", c => {
     // Access first: someone who cannot read the attachment learns nothing, not even its size.
-    const attachment = chats.download(c.get("actorId"), c.req.param("id"));
-    if (!attachment) throw new HTTPException(404, { message: "Attachment not found" });
-    const size = attachment.data.length, range = byteRange(c.req.header("Range"), size);
-    const headers = { "Content-Type": downloadType(attachment.file.mimeType), "Accept-Ranges": "bytes",
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.file.name)}` };
+    const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));
+    if (!file) throw new HTTPException(404, { message: "Attachment not found" });
+    const size = file.size, range = byteRange(c.req.header("Range"), size);
+    const headers = { "Content-Type": downloadType(file.mimeType), "Accept-Ranges": "bytes",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}` };
     if (range === "unsatisfiable") return c.body(null, 416, { ...headers, "Content-Range": `bytes */${size}` });
-    if (!range) return c.body(new Uint8Array(attachment.data), 200, { ...headers, "Content-Length": String(size) });
-    return c.body(new Uint8Array(attachment.data.subarray(range.start, range.end + 1)), 206,
+    if (!range) return c.body(web(chats.attachments.stream(file)), 200, { ...headers, "Content-Length": String(size) });
+    return c.body(web(chats.attachments.stream(file, range)), 206,
       { ...headers, "Content-Length": String(range.end - range.start + 1), "Content-Range": `bytes ${range.start}-${range.end}/${size}` });
   });
   routes.get("/:id/run", c => {
-    const attachment = chats.download(c.get("actorId"), c.req.param("id"));
-    if (!attachment) throw new HTTPException(404, { message: "Attachment not found" });
-    const { name, mimeType } = attachment.file;
-    if (!/\.html?$/i.test(name) && mimeType !== "text/html") throw new HTTPException(415, { message: "Only HTML attachments can run" });
+    const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));
+    if (!file) throw new HTTPException(404, { message: "Attachment not found" });
+    if (!/\.html?$/i.test(file.name) && file.mimeType !== "text/html") throw new HTTPException(415, { message: "Only HTML attachments can run" });
     c.set("sandboxedDocument", true);
-    return c.body(new Uint8Array(attachment.data), 200, { "Content-Type": "text/html; charset=utf-8", "Content-Length": String(attachment.data.length) });
+    return c.body(web(chats.attachments.stream(file)), 200, { "Content-Type": "text/html; charset=utf-8", "Content-Length": String(file.size) });
   });
-  routes.delete("/:id", c => {
-    if (!chats.removePendingAttachment(c.get("actorId"), c.req.param("id"))) throw new HTTPException(404, { message: "Pending attachment not found" });
+  routes.delete("/:id", async c => {
+    if (!await chats.attachments.removePending(c.get("actorId"), c.req.param("id"))) throw new HTTPException(404, { message: "Pending attachment not found" });
     return c.json({ ok: true });
   });
   return routes;
 }
+
+/** An upload's body, cut off when nothing arrives for a minute: the server has no overall time limit on a request,
+ * so a file of gigabytes can take as long as it needs while it keeps moving (A66). */
+async function* idle(body: ReadableStream<Uint8Array>, signal: AbortSignal): AsyncGenerator<Uint8Array> {
+  const reader = body.getReader();
+  try {
+    for (;;) {
+      if (signal.aborted) throw new HTTPException(400, { message: "Upload cancelled" });
+      let timer: NodeJS.Timeout | undefined;
+      const stalled = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new HTTPException(408, { message: "Upload stalled" })), UPLOAD_IDLE_MS); });
+      try {
+        const { done, value } = await Promise.race([reader.read(), stalled]);
+        if (done) return;
+        yield value;
+      } finally { clearTimeout(timer); }
+    }
+  } finally { void reader.cancel().catch(() => undefined); }
+}
+const UPLOAD_IDLE_MS = 60_000;
+/** A Node stream as the web stream a response body takes. */
+const web = (stream: Readable) => Readable.toWeb(stream) as ReadableStream<Uint8Array>;

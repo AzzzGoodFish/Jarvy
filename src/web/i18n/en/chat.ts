@@ -122,10 +122,11 @@ export const chat = {
 
   "composer.busy": "Still uploading. Add more once it's done.",
   "composer.tooMany": "A message can have up to {count} attachments.",
-  "composer.size": "Attachments can't be empty or larger than 10 MB.",
+  "composer.size": "Attachments can't be empty or larger than {limit}.",
   "composer.pasted": "pasted-image",
   "composer.removeFile": "Remove attachment: {name}",
   "composer.uploading": "Uploading: {name}",
+  "composer.cancelUpload": "Cancel upload: {name}",
   "composer.replying": "Replying to",
   "composer.cancelReply": "Cancel reply",
   "composer.drop": "Drop to attach",

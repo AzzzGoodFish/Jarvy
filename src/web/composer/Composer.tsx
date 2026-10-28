@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
-import { type Member } from "../../contract/chat";
+import { ATTACHMENT_MAX_BYTES, type Member } from "../../contract/chat";
 import { useMentionMenu } from "../channel/MentionMenu";
 import { putBack, useDraft, type DraftStore } from "./drafts";
 import { QuoteTags } from "../channel/quotes";
@@ -32,6 +32,8 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   /** Files on their way up: chips above the input with a progress bar until they join the draft. */
   const [uploads, setUploads] = useState<{ key: string; chatId: string; name: string; done: number }[]>([]), [dropping, setDropping] = useState(false);
   const pending = uploads.filter(item => item.chatId === chatId), uploading = pending.length > 0;
+  /** One per file on its way up, to cancel it from its chip. */
+  const cancels = useRef(new Map<string, AbortController>());
   const textarea = useRef<HTMLTextAreaElement>(null);
   const draft = saved.text ?? initialText ?? "", files = saved.files, quote = saved.quote;
   const setDraft = (value: string) => drafts.update(chatId, { text: value });
@@ -43,18 +45,27 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     if (!list.length) return;
     if (uploading) { onNotice(t("composer.busy")); return; }
     if (files.length + list.length > 5) { onNotice(t("composer.tooMany", { count: 5 })); return; }
-    if (list.some(file => file.size === 0 || file.size > 10 * 1024 * 1024)) { onNotice(t("composer.size")); return; }
+    if (list.some(file => file.size === 0 || file.size > ATTACHMENT_MAX_BYTES)) { onNotice(t("composer.size", { limit: `${ATTACHMENT_MAX_BYTES / 1024 ** 3} GB` })); return; }
     const entries = list.map(file => ({ key: newKey(), chatId: target, name: file.name, done: 0 })), keys = entries.map(entry => entry.key);
     const progress = (key: string, done: number) => setUploads(previous => previous.map(item => item.key === key ? { ...item, done } : item));
     setUploads(previous => [...previous, ...entries]);
+    for (const key of keys) cancels.current.set(key, new AbortController());
     try {
       for (const [index, file] of list.entries()) {
-        const key = keys[index]!, uploaded = await api.uploadAttachment(target, file, done => progress(key, done));
-        drafts.update(target, current => ({ files: [...current.files, uploaded] }));
-        setUploads(previous => previous.filter(item => item.key !== key));
+        const key = keys[index]!;
+        try {
+          const uploaded = await api.uploadAttachment(target, file, done => progress(key, done), cancels.current.get(key)?.signal);
+          drafts.update(target, current => ({ files: [...current.files, uploaded] }));
+        } catch (error) {
+          // A cancelled file only drops out; the rest of the batch goes on.
+          if (!(error instanceof DOMException && error.name === "AbortError")) throw error;
+        } finally { setUploads(previous => previous.filter(item => item.key !== key)); }
       }
     } catch (error) { onError(error); }
-    finally { setUploads(previous => previous.filter(item => !keys.includes(item.key))); }
+    finally {
+      setUploads(previous => previous.filter(item => !keys.includes(item.key)));
+      for (const key of keys) cancels.current.delete(key);
+    }
   }
   async function remove(fileId: string) {
     const target = chatId;
@@ -122,6 +133,8 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     {files.length + pending.length > 0 && <div className="jarvy-pending-files">{files.map(file => <span className="jarvy-file-chip" key={file.id}><Icon name="paperclip"/><span title={file.name}>{file.name}</span>
       <button type="button" aria-label={t("composer.removeFile", { name: file.name })} onClick={() => void remove(file.id)}>×</button></span>)}
       {pending.map(item => <span className="jarvy-file-chip" data-uploading key={item.key}><Icon name="paperclip"/><span title={item.name}>{item.name}</span>
+        <span className="jarvy-file-percent">{Math.floor(item.done * 100)}%</span>
+        <button type="button" aria-label={t("composer.cancelUpload", { name: item.name })} onClick={() => cancels.current.get(item.key)?.abort()}>×</button>
         <span className="jarvy-file-progress" role="progressbar" aria-label={t("composer.uploading", { name: item.name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(item.done * 100)}>
           <span style={{ width: `${item.done * 100}%` }}/></span></span>)}</div>}
     {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">{t("composer.replying")}</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || t("common.attachment")}</span>

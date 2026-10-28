@@ -129,6 +129,7 @@ export const common: Part<typeof en> = {
   "error.computerFailed": "沙箱启动失败。",
   "error.computerMissing": "这个 Bot 没有沙箱。",
   "error.dockerUnavailable": "运行 Jarvy 的电脑上没有可用的 Docker。",
+  "error.fileTooLarge": "文件不能超过 {limit}。",
   "error.connectionMissing": "找不到这个模型连接，它可能已被删除。",
   "error.credentialChanged": "凭证已更改，请重试。",
   "error.credentialScope": "凭证连接不匹配。",

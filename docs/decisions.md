@@ -454,3 +454,19 @@ Why: a tool is one thing — what the Bot reads about it and what it does — an
 - **Behaviour unchanged**: `place`, `list`, `summary`, `placement`, `usable` and every `switch` and `grant` result were recorded before and after over a stub store and compared; they are identical, as are the tool copy and the schema.
 
 Why: three kinds is already one more than a chain of `if`s holds well, and an SSH machine is the kind most likely to gain fields. One entry per kind makes each such change one file the compiler checks.
+
+## A66 Attachment contents in files, up to 4 GB
+
+Attachments were BLOBs in `jarvy.db`, up to 10 MB, read and written whole in memory. People need to send files of gigabytes (screen recordings, installers, log archives), which neither the database nor memory should hold.
+
+- **Where**: the `attachments` table keeps what an attachment is (name, type, size, chat, message, uploader); its contents are one file, `<data>/attachments/<first two characters of the id>/<id>`, mode 0600. `infra/files/attachments.ts` owns the files; `service/chat/attachments.ts` puts the two together.
+- **Limit**: 4 GB a file, five a message, the same for people and Bots: `ATTACHMENT_MAX_BYTES` in the contract, which the composer's check, the upload route, the service and the Bot's `messages.send` all read. Past it the server answers 413 `file_too_large`.
+- **Streams, not buffers**: an upload goes to a part file as it arrives and moves into place once whole; a download streams from the file, ranges included. A Bot's files move between the chat and its environment 4 MB at a time, through two new `WorkEnvironment` operations, `readRange` and `appendFile`, so an SSH machine or a sandbox takes a large file the same way the host does.
+- **Time**: the HTTP server has no overall request time limit; the upload route cuts a body off after 60 seconds without data instead, so a slow link can take as long as the file needs.
+- **Removal**: rows go by cascade from many places (a chat, a Bot's DMs, a draft's pending file). A trigger records each removed id; the files are deleted after those operations and at startup, and startup also removes part files, files no row owns, and anything else under `attachments/`, such as the readable copies (`<id>/<name>`) that versions before A50 wrote there and never removed, with the folders left empty. The startup sweep runs before the server listens and Bots start, while no file can be between being put in place and getting its row. The files follow the database, never the other way round.
+- **Bots' messages**: a Bot's file is written aside as it is read, hashed on the way for the message's idempotency key, and put in place just before the message row; it is dropped when the message isn't written or a retry with the same key finds it already written.
+- **Upgrade (v28)**: each row's bytes are written out before the column is dropped, so a stop midway loses nothing and the next start finishes the job; the database is compacted after. On a copy of a real database (571 attachments, 157 MB) it took about two seconds, and the database went from 163 MB to 5 MB.
+- **Composer**: an uploading file's chip shows its progress in percent and can be cancelled.
+- **Not changed**: the in-page preview still stops at 1 MB for files that aren't pictures, audio or video, and `files.view` still shows pictures up to 4 MB and text up to 64 KB.
+
+Why: a file of gigabytes belongs in the file system, where it can stream, and a database of metadata stays small, fast to back up and quick to migrate.

@@ -10,6 +10,7 @@ import { Store } from "./infra/storage/store.js";
 import { ModelCatalog } from "./infra/pi/catalog.js";
 import { ChatService } from "./service/chat/service.js";
 import { ChatFiles } from "./service/chat/files.js";
+import { AttachmentFiles } from "./infra/files/attachments.js";
 import { Changes } from "./service/events.js";
 import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
@@ -41,7 +42,7 @@ export class Application {
     // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
     this.deliveries = new Deliveries(store.chats.inbox, {
       bot: (id, urgency) => this.bots.deliver(id, urgency), user: (id, urgency) => { if (id === this.user.id) this.user.deliver(urgency); } });
-    this.chats = new ChatService(store.chats, this.deliveries, {
+    this.chats = new ChatService(store.chats, this.deliveries, new AttachmentFiles(dataDir), {
       saved: id => this.user.changed(id), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
     this.user = new User(store.account.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }), id => this.events.publish({ kind: "chat", id }),
       () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
@@ -69,7 +70,13 @@ export class Application {
         onCompromised: () => { console.error("[runtime] data lock compromised"); options.onCompromised?.(); void app?.close().catch(() => console.error("[runtime] shutdown after lock loss failed")); } });
     } catch { throw new RuntimeFault("data_locked", "The data directory is in use, or its run lock can't be taken.", 409); }
     let store: Store | undefined;
-    try { store = new Store(root); app = new Application(store, root, release, options.factory); return app; }
+    try {
+      store = new Store(root); app = new Application(store, root, release, options.factory);
+      // Before the server listens and Bots start (A66): nothing is uploading or sending yet, so the sweep can't take
+      // a file that is between being put in place and getting its row.
+      await app.chats.attachments.sweep().catch(error => console.error("[chat] attachment sweep failed", { error: error instanceof Error ? error.message : String(error) }));
+      return app;
+    }
     catch (error) { store?.close(); await release(); throw error; }
   }
   start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); }

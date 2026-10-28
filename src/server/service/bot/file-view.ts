@@ -7,15 +7,16 @@ const TEXT_LIMIT = 64 * 1024;
 const PICTURE_LIMIT = 4 * 1024 * 1024;
 
 /** files.view (A50): a picture goes to the model as a picture, a short text file as its text; anything else is for
- * files.get. A model that can't see pictures is told so by Pi in place of the picture. */
-export function viewFile(file: Attachment, data: Buffer): ToolMedia | string {
+ * files.get. A model that can't see pictures is told so by Pi in place of the picture. Only the first bytes are read
+ * to tell the kind, and the whole file only when it is small enough to show (A66). */
+export async function viewFile(file: Attachment, contents: { head(file: Attachment, bytes: number): Promise<Buffer>; read(file: Attachment, limit: number): Promise<Buffer> }): Promise<ToolMedia | string> {
   const head = `${file.name} (${file.mimeType || "application/octet-stream"}, ${byteSize(file.size)})`;
-  const picture = pictureType(data);
+  const picture = pictureType(await contents.head(file, 12));
   if (picture) {
-    if (data.length > PICTURE_LIMIT) throw new ChatError(400, "This picture is over 4 MB; use files.get and look at a smaller copy");
-    return { kind: "media", text: head, images: [{ data: data.toString("base64"), mimeType: picture }] };
+    if (file.size > PICTURE_LIMIT) throw new ChatError(400, "This picture is over 4 MB; use files.get and look at a smaller copy");
+    return { kind: "media", text: head, images: [{ data: (await contents.read(file, PICTURE_LIMIT)).toString("base64"), mimeType: picture }] };
   }
-  const text = data.length <= TEXT_LIMIT ? asText(data) : null;
+  const text = file.size <= TEXT_LIMIT ? asText(await contents.read(file, TEXT_LIMIT)) : null;
   if (text !== null) return `${head}\n\n${text}`;
   throw new ChatError(400, "files.view shows pictures and text files up to 64 KB; use files.get to work on this file with your tools");
 }

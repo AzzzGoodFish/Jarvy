@@ -8,6 +8,11 @@ import type { EnvironmentKind } from "../../../contract/environment.js";
  * Pi built for it (only on this machine). */
 export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv, options: { passEnv: boolean; temp?: string; close?: () => void | Promise<void> }): WorkEnvironment {
   let closed = false;
+  const range = async (path: string, offset: number, length: number) => {
+    const reader = unwrap(await env.openBinaryReader(path, undefined, BACKGROUND_CONTEXT));
+    try { return Buffer.from(unwrap(await reader.read(offset, length, BACKGROUND_CONTEXT))); }
+    finally { await reader.close(BACKGROUND_CONTEXT); }
+  };
   return {
     id, kind, local: options.passEnv, cwd: env.cwd, ...(options.temp ? { temp: options.temp } : {}),
     async exec(command: string, exec: ExecOptions) {
@@ -24,12 +29,10 @@ export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv
       throw fault(result.error);
     },
     async readFile(path) { return Buffer.from(unwrap(await env.readBinaryFile(path, BACKGROUND_CONTEXT))); },
-    async head(path, bytes) {
-      const reader = unwrap(await env.openBinaryReader(path, undefined, BACKGROUND_CONTEXT));
-      try { return Buffer.from(unwrap(await reader.read(0, bytes, BACKGROUND_CONTEXT))); }
-      finally { await reader.close(BACKGROUND_CONTEXT); }
-    },
+    head: (path, bytes) => range(path, 0, bytes),
+    readRange: range,
     async writeFile(path, content) { unwrap(await env.writeFile(path, content, BACKGROUND_CONTEXT)); },
+    async appendFile(path, content) { unwrap(await env.appendFile(path, content, BACKGROUND_CONTEXT)); },
     async mkdir(path) { unwrap(await env.createDir(path, { recursive: true }, BACKGROUND_CONTEXT)); },
     async exists(path) { return unwrap(await env.exists(path, BACKGROUND_CONTEXT)); },
     async fileSize(path) {

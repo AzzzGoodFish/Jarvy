@@ -29,12 +29,16 @@ export class ChatFiles {
     const sender = message.replyTo ? this.chats.member(message.replyTo.senderId) : null;
     return message.replyTo && sender ? { replyTo: { id: message.replyTo.id, sender, text: replyExcerpt(message.replyTo) } } : {};
   }
-  /** A file of a message the actor can read, with its contents. */
-  open(actorId: string, attachmentId: string): { file: Attachment; data: Buffer } {
-    const found = this.chats.download(actorId, attachmentId);
+  /** A file of a message the actor can read. */
+  open(actorId: string, attachmentId: string): Attachment {
+    const found = this.chats.attachments.find(actorId, attachmentId);
     if (!found) throw new ChatError(404, "File not found, or in a message you can't read");
     return found;
   }
+  /** Its contents in pieces, for a copy into a Bot's environment. */
+  chunks(file: Attachment): AsyncIterable<Uint8Array> { return this.chats.attachments.stream(file); }
+  head(file: Attachment, bytes: number): Promise<Buffer> { return this.chats.attachments.head(file, bytes); }
+  read(file: Attachment, limit: number): Promise<Buffer> { return this.chats.attachments.read(file, limit); }
 }
 
 /** A message's files as a Bot reads them. */
@@ -44,5 +48,6 @@ export function listing(message: ChatMessage): FileListing[] {
 export function byteSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }

@@ -35,6 +35,8 @@
 .jarvy-dropping .ui-composer { border-style: dashed; border-color: var(--ui-border-focus); background: var(--ui-fill-ghost-hover); }
 /* A file being uploaded: its chip, with the progress along the bottom edge until it joins the draft. */
 .jarvy-file-chip[data-uploading] { position: relative; overflow: hidden; color: var(--ui-text-secondary); }
+.jarvy-file-chip span.jarvy-file-percent { flex: none; overflow: visible; font-variant-numeric: tabular-nums; }
+.jarvy-file-chip[data-uploading] button { color: var(--ui-text-primary); }
 .jarvy-file-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: color-mix(in srgb, var(--ui-text-primary) 10%, transparent); }
 .jarvy-file-progress > span { display: block; height: 100%; background: var(--ui-text-primary); transition: width .15s linear; }
 /* Dragging files over the composer: the hint sits inside the input, over its content. */

@@ -258,8 +258,8 @@ export class ChatRepository {
         throw new ChatError(400, "Reply target is not in this chat");
       this.db.prepare("INSERT INTO messages(position,id,chat_id,sequence,sender_id,content,created_at,client_key,request_hash,history_id,tool_call_id,question,reply_to) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .run(position, id, chatId, sequence, actorId, draft.content, createdAt, draft.clientMessageId ?? null, requestHash, draft.source?.historyId ?? null, draft.source?.toolCallId ?? null, question, draft.replyTo ?? null);
-      for (const file of files) this.db.prepare("INSERT INTO attachments(id,chat_id,message_id,uploaded_by,name,mime_type,size,data,created_at) VALUES(?,?,?,?,?,?,?,?,?)")
-        .run(randomUUID(), chatId, id, actorId, file.name, file.mimeType, file.data.length, file.data, createdAt);
+      for (const file of files) this.db.prepare("INSERT INTO attachments(id,chat_id,message_id,uploaded_by,name,mime_type,size,created_at) VALUES(?,?,?,?,?,?,?,?)")
+        .run(file.id, chatId, id, actorId, file.name, file.mimeType, file.size, createdAt);
       this.quotes.insert(id, draft.quotes ?? []);
       for (const attachmentId of draft.attachmentIds) this.db.prepare("UPDATE attachments SET message_id=? WHERE id=?").run(id, attachmentId);
       // Who gets it was decided by the route (A41); storage writes the plan with the message.
@@ -311,17 +311,24 @@ export class ChatRepository {
   expirePendingQuestions(): void {
     this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state','ignored','$.settledAt',?) WHERE json_extract(question,'$.state')='pending'`).run(Date.now());
   }
-  createAttachment(actorId: string, chatId: string, name: string, mimeType: string, data: Buffer): Attachment {
+  /** A file uploaded for a message not yet sent; its contents are already in place under `file.id` (A66). */
+  createAttachment(actorId: string, chatId: string, file: Attachment): Attachment {
     this.assertAccess(actorId, chatId, true);
-    const file = { id: randomUUID(), name, mimeType, size: data.length };
-    this.db.prepare("INSERT INTO attachments(id,chat_id,message_id,uploaded_by,name,mime_type,size,data,created_at) VALUES(?,?,NULL,?,?,?,?,?,?)")
-      .run(file.id, chatId, actorId, name, mimeType, data.length, data, Date.now());
+    this.db.prepare("INSERT INTO attachments(id,chat_id,message_id,uploaded_by,name,mime_type,size,created_at) VALUES(?,?,NULL,?,?,?,?,?)")
+      .run(file.id, chatId, actorId, file.name, file.mimeType, file.size, Date.now());
     return file;
   }
-  attachment(actorId: string, id: string): { file: Attachment; data: Buffer } | null {
-    const row = this.db.prepare(`SELECT id,chat_id AS chatId,name,mime_type AS mimeType,size,data FROM attachments WHERE id=? AND message_id IS NOT NULL`)
-      .get(id) as (Attachment & { chatId: string; data: Uint8Array }) | undefined;
-    return row && this.canAccess(actorId, row.chatId) ? { file: { id: row.id, name: row.name, mimeType: row.mimeType, size: row.size }, data: Buffer.from(row.data) } : null;
+  attachment(actorId: string, id: string): Attachment | null {
+    const row = this.db.prepare(`SELECT id,chat_id AS chatId,name,mime_type AS mimeType,size FROM attachments WHERE id=? AND message_id IS NOT NULL`)
+      .get(id) as (Attachment & { chatId: string }) | undefined;
+    return row && this.canAccess(actorId, row.chatId) ? { id: row.id, name: row.name, mimeType: row.mimeType, size: row.size } : null;
+  }
+  hasAttachment(id: string): boolean { return Boolean(this.db.prepare("SELECT 1 FROM attachments WHERE id=?").get(id)); }
+  /** Ids of attachments deleted since the last call, cascades included (the trigger of v28), whose files can go. */
+  removedAttachments(): string[] { return (this.db.prepare("SELECT id FROM attachment_removals").all() as { id: string }[]).map(row => row.id); }
+  forgetRemoved(ids: readonly string[]): void {
+    const forget = this.db.prepare("DELETE FROM attachment_removals WHERE id=?");
+    for (const id of ids) forget.run(id);
   }
   removePendingAttachment(actorId: string, id: string): boolean {
     return Number(this.db.prepare(`DELETE FROM attachments WHERE id=? AND uploaded_by=? AND message_id IS NULL AND chat_id IN

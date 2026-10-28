@@ -21,6 +21,8 @@ export interface MessageQuote {
 /** A thread as seen from its channel: under the root message and in the thread list. */
 export interface ThreadInfo { id: string; title: string; status: "open" | "done"; replies: number; lastReplyAt: number | null; }
 export interface Attachment { id: string; name: string; mimeType: string; size: number; }
+/** The largest file a message carries, from people and Bots alike (A66). */
+export const ATTACHMENT_MAX_BYTES = 4 * 1024 ** 3;
 /** The Bot turn and tool call that sent a message, to open it in the Bot's history. */
 export interface MessageSource { historyId: number; toolCallId: string; }
 /** A Bot's question card (messages.ask, A36). The Bot's tool call waits for it to settle. */

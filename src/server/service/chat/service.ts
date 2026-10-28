@@ -5,7 +5,7 @@ import { ChatMembers } from "./members.js";
 import { ChatMessages } from "./messages.js";
 import type { DeliveryMessage } from "../../shared/chat.js";
 import { ChatError, type ChatMessage, type Chat as ChatSnapshot } from "../../shared/chat.js";
-import { type MessageDraft } from "../../../contract/chat.js";
+import { ATTACHMENT_MAX_BYTES, type MessageDraft } from "../../../contract/chat.js";
 import { ChatRepository } from "../../infra/storage/chat-repository.js";
 import { ChatQuestions, questionSpec } from "./questions.js";
 import { ChatChannels } from "./channels.js";
@@ -13,6 +13,8 @@ import { ChatThreads } from "./threads.js";
 import { plan, type Deliveries } from "../delivery/delivery.js";
 import { reactionTargets } from "../delivery/routes.js";
 import { quoteDrafts, resolveQuotes } from "./quotes.js";
+import { ChatAttachments, fileName } from "./attachments.js";
+import type { AttachmentFiles } from "../../infra/files/attachments.js";
 
 function titleValue(value: unknown): string {
   if (value === undefined) return "";
@@ -52,8 +54,10 @@ export class ChatService {
   readonly questions: ChatQuestions;
   readonly channels: ChatChannels;
   readonly threads: ChatThreads;
+  readonly attachments: ChatAttachments;
   /** `deliveries`: the delivery module (A41, A61); chat sources hand their committed deliveries off there. */
-  constructor(private readonly repository: ChatRepository, private readonly deliveries: Deliveries, private readonly notifications: ChatNotifications = {}) {
+  constructor(private readonly repository: ChatRepository, private readonly deliveries: Deliveries, files: AttachmentFiles, private readonly notifications: ChatNotifications = {}) {
+    this.attachments = new ChatAttachments(repository, files);
     this.threads = new ChatThreads(repository, chatId => this.notifySaved(chatId));
     this.questions = new ChatQuestions(repository, chatId => this.notifySaved(chatId));
     this.channels = new ChatChannels(repository, chatId => this.notifySaved(chatId), ownerId => {
@@ -185,7 +189,7 @@ export class ChatService {
         if (parentId) this.notifySaved(parentId);
         this.deliveries.dispatch(deliveries, message);
       }),
-      messages: new ChatMessages(chatId, actorId, this.repository),
+      messages: new ChatMessages(chatId, actorId, this.repository, this.attachments),
     }, { delete: async id => { this.repository.assertOwner(actorId, id); this.repository.deleteChat(actorId, id); } });
   }
   async send(actorId: string, chatId: string, input: Record<string, unknown>): Promise<ChatMessage> {
@@ -197,8 +201,7 @@ export class ChatService {
     const files = message.files ?? [];
     if (files.length > 5) throw new ChatError(400, "Too many attachments");
     for (const file of files) {
-      if (!file.name.trim() || file.name.length > 200 || /[\x00-\x1f\x7f\\/]/.test(file.name) || [".", ".."].includes(file.name) || !file.data.length || file.data.length > 10 * 1024 * 1024)
-        throw new ChatError(400, "Invalid attachment");
+      if (fileName(file.name) !== file.name || !file.size || file.size > ATTACHMENT_MAX_BYTES) throw new ChatError(400, "Invalid attachment");
     }
     const draft = messageDraft({ content: message.content, attachmentIds: message.attachmentIds, clientMessageId: message.clientMessageId, replyTo: message.replyTo }, files.length > 0);
     const question = message.question ? questionSpec(message.question as unknown as Record<string, unknown>) : undefined;
@@ -214,18 +217,11 @@ export class ChatService {
     try { this.notifications.saved?.(chatId); }
     catch { console.error("[chat] committed-message notification failed", { chatId }); }
   }
-  upload(actorId: string, chatId: string, rawName: unknown, mimeType: string, data: Buffer) {
-    if (typeof rawName !== "string" || !rawName.trim() || rawName.length > 200 || /[\x00-\x1f\x7f\\/]/.test(rawName) || [".", ".."].includes(rawName.trim()))
-      throw new ChatError(400, "Invalid filename");
-    if (typeof mimeType !== "string" || mimeType.length > 100 || !data.length || data.length > 10 * 1024 * 1024) throw new ChatError(400, "Invalid attachment");
-    return this.repository.createAttachment(actorId, chatId, rawName.trim(), mimeType, data);
-  }
-  download(actorId: string, id: string) { return this.repository.attachment(actorId, id); }
-  removePendingAttachment(actorId: string, id: string) { return this.repository.removePendingAttachment(actorId, id); }
   async delete(actorId: string, chatId: string): Promise<boolean> {
     const chat = this.repository.getChat(actorId, chatId);
     if (!chat || chat.ownerId !== actorId) return false;
     await this.instance(actorId, chatId).delete();
+    await this.attachments.clean();
     return true;
   }
 }

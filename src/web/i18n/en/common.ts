@@ -126,6 +126,7 @@ export const common = {
   "error.computerFailed": "The sandbox couldn't start.",
   "error.computerMissing": "This Bot has no sandbox.",
   "error.dockerUnavailable": "Docker isn't available on the computer running Jarvy.",
+  "error.fileTooLarge": "Files can't be larger than {limit}.",
   "error.connectionMissing": "Can't find this model connection. It may have been deleted.",
   "error.credentialChanged": "The credential changed. Please try again.",
   "error.credentialScope": "The credential belongs to another connection.",

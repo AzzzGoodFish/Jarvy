@@ -25,10 +25,13 @@ const failure = (status: number, body: unknown) => {
   return new ApiError(status, value.error === undefined ? `HTTP ${status}` : String(value.error), typeof value.code === "string" ? value.code : undefined, value.params);
 };
 /** Uploads one attachment; fetch cannot report upload progress, so this one goes through XMLHttpRequest and tells
- * `onProgress` how much of the file has gone out (0–1). */
-function upload(chatId: string, file: File, onProgress?: (done: number) => void) {
+ * `onProgress` how much of the file has gone out (0–1). Aborting `signal` stops it and rejects with an AbortError. */
+function upload(chatId: string, file: File, onProgress?: (done: number) => void, signal?: AbortSignal) {
   return new Promise<Attachment>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    if (signal?.aborted) { reject(new DOMException("Upload cancelled", "AbortError")); return; }
+    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
     xhr.open("POST", `/api/chats/${chatId}/attachments`);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
