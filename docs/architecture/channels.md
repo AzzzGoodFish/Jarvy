@@ -10,6 +10,7 @@
 - An @ is whatever the text says: writing 「@名字」 mentions that member. Names of people and Bots are unique (case-insensitive) and contain no 「@」. The rule (`contract/mentions.ts`) is one function: the server decides with it who is mentioned, the web highlights with it.
 - Unread: one read position per member per chat, shared by people and Bots. Messages already delivered to a Bot do not count as its unread; it reads the rest with `messages.read`.
 - New notice and summary versions are delivered as queued notes: a Bot is told where and which version, and reads the content with `chats.info`.
+- A Bot sends in a channel or thread only once it has read its notice, and in a thread also its channel's (A67). Being told of a version is not reading it; `chats.info` is, and on a thread it returns the channel's notice too. A compaction forgets what the Bot read. Until it reads them, each batch names them in `<notice_unread>` and a send there (`messages.send`, `messages.ask`, the request cards) is refused with what to read. A DM has no notice. People are not checked.
 - People and Bots can edit notices. Threads have a title (default: the root message's first line without leading @ and Markdown, or its first file's name), a status (open / done) and a summary; finishing a thread can post the summary to the channel as a conclusion.
 - Bots can create channels, rename them, set topic and group, add members, and create and edit groups. Removing members and deleting channels or groups is for people only.
 - Between any two members there is one DM.
