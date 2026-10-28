@@ -70,13 +70,16 @@ export class Application {
         onCompromised: () => { console.error("[runtime] data lock compromised"); options.onCompromised?.(); void app?.close().catch(() => console.error("[runtime] shutdown after lock loss failed")); } });
     } catch { throw new RuntimeFault("data_locked", "The data directory is in use, or its run lock can't be taken.", 409); }
     let store: Store | undefined;
-    try { store = new Store(root); app = new Application(store, root, release, options.factory); return app; }
+    try {
+      store = new Store(root); app = new Application(store, root, release, options.factory);
+      // Before the server listens and Bots start (A66): nothing is uploading or sending yet, so the sweep can't take
+      // a file that is between being put in place and getting its row.
+      await app.chats.attachments.sweep().catch(error => console.error("[chat] attachment sweep failed", { error: error instanceof Error ? error.message : String(error) }));
+      return app;
+    }
     catch (error) { store?.close(); await release(); throw error; }
   }
-  start(): void {
-    this.bots.start(); this.tasks.start(); this.models.startCatalog();
-    void this.chats.attachments.sweep().catch(error => console.error("[chat] attachment sweep failed", { error: error instanceof Error ? error.message : String(error) }));
-  }
+  start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
       this.tasks.stop(); this.models.stopCatalog(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
