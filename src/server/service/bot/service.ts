@@ -15,7 +15,6 @@ import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
 import type { ModelCatalog } from "../../infra/pi/catalog.js";
 import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
-import type { HomeKind } from "../../../contract/environment.js";
 import { SshMachines } from "./machines.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
@@ -87,7 +86,7 @@ export class BotService {
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
-      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);
+      const place = this.environments.default(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
@@ -132,19 +131,12 @@ export class BotService {
     return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
   }
   list() { return this.deps.store.bots.list().map(record => this.details(record)); }
-  /** A new Bot works in its sandbox when this machine has Docker, unless asked for the owner's computer (A50). */
-  create(name: string, environment?: HomeKind) {
-    const kind = environment ?? (this.computers.available ? "computer" : "host");
-    if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
+  /** A new Bot gets its own computer, which is its default (A67); the container is made in the background when Docker
+   * is there. */
+  create(name: string) {
     const record = this.deps.store.bots.create(name);
-    this.environments.setHome(record.id, kind, record.workspacePath);
+    this.computers.create(record.id);
     return this.details(record);
-  }
-  /** The owner moves a Bot to its sandbox or to their computer, as its default; the next tool call runs there. */
-  setHome(id: string, kind: HomeKind) {
-    const moved = this.environments.setHome(id, kind, this.record(id).workspacePath);
-    if (moved) this.tellOwner(id, [{ what: "environment", value: where(moved) }], true);
-    return this.describe(id);
   }
   /** The owner lets a Bot use their computer, or takes it back; taking it back while the Bot is there sends it home. */
   grantHost(id: string, granted: boolean) { return this.grant(id, "host", granted); }

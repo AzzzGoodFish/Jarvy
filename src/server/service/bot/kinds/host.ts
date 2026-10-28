@@ -1,10 +1,11 @@
 import { hostEnvironment } from "../../../infra/env/host.js";
 import type { EnvironmentKindEntry } from "./kind.js";
 
-/** The owner's computer, the machine running Jarvy (A50). Commands run there as Jarvy's own user, with the
- * environment Pi builds for them; the tools start in the Bot's workspace. */
+/** The owner's computer, the machine running Jarvy (A50): an external environment a Bot is granted and switches to
+ * (A67), never its default. Commands run there as Jarvy's own user, with the environment Pi builds for them; the tools
+ * start in the Bot's workspace. */
 export const host: EnvironmentKindEntry = {
-  kind: "host", home: true, grantable: true,
+  kind: "host", home: false, grantable: true,
   open: (_record, _botId, workspacePath) => hostEnvironment(workspacePath),
   place: (record, _botId, workspacePath) => ({ id: record.id, kind: "host", name: "your owner's computer", directory: workspacePath }),
   connects: false,

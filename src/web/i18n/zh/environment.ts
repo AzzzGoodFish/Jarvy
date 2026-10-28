@@ -4,15 +4,10 @@ import type { environment as en } from "../en/environment";
 /** 中文：工作环境 (A50)。 */
 export const environment: Part<typeof en> = {
   "environment.title": "工作环境",
-  "environment.computer": "沙箱",
-  "environment.computerHint": "由 Jarvy 创建和管理、只供这个 Bot 使用的 Linux 容器，工作区就在其中。推荐。",
-  "environment.noDocker": "需要运行 Jarvy 的电脑装有 Docker。",
   "environment.host": "你的电脑",
-  "environment.hostHint": "运行 Jarvy 的这台电脑，可以访问你的文件。",
-  "environment.default": "默认环境",
+  "environment.own": "自己的沙箱",
   "environment.awayHost": "当前在你的电脑上（由 Bot 自行切换）。",
   "environment.awayComputer": "当前在它的沙箱里（由 Bot 自行切换）。",
-  "environment.details": "沙箱详情",
   "environment.sandboxAbout": "只供这个 Bot 使用的 Linux 容器，工作区是它在其中的主目录。",
   "environment.external": "可以使用的外部环境",
   "environment.accessFailed": "无法修改可使用的环境",
@@ -37,5 +32,4 @@ export const environment: Part<typeof en> = {
   "environment.resetTitle": "重置 {name} 的沙箱？",
   "environment.resetBody": "沙箱里安装的软件会被清除，恢复到初始状态。工作区文件会保留。",
   "environment.resetConfirm": "重置",
-  "environment.changeFailed": "无法切换工作环境",
 };

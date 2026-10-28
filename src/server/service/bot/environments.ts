@@ -37,9 +37,9 @@ export class BotEnvironments {
     return opened.view;
   }
   placement(botId: string): BotPlacement {
-    const environments = this.store.environments, { home, current } = environments.placement(botId);
+    const environments = this.store.environments, { current } = environments.placement(botId);
     const hostId = environments.host().id, granted = new Set(environments.grants(botId).map(grant => grant.id));
-    return { home: home.kind === "computer" ? "computer" : "host", current: current.kind, ...(current.kind === "ssh" ? { currentName: current.name } : {}),
+    return { current: current.kind, ...(current.kind === "ssh" ? { currentName: current.name } : {}),
       computer: this.computers.status(botId), docker: this.computers.available, hostGranted: granted.has(hostId),
       machines: environments.sshMachines().map(machine => ({ id: machine.id, name: machine.name, granted: granted.has(machine.id) })) };
   }
@@ -56,8 +56,8 @@ export class BotEnvironments {
     const { home, current } = this.store.environments.placement(botId);
     return { default: name(home), current: name(current), usable: this.usable(botId).map(name) };
   }
-  /** The Bot's default environment, which its instructions describe. */
-  home(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).home, workspacePath); }
+  /** The Bot's default environment (A67): its own sandbox. */
+  default(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).home, workspacePath); }
   /** Where the Bot works now, for the end of each batch. */
   here(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).current, workspacePath); }
   /** environments.list: where the Bot is and where else it may go. */
@@ -86,18 +86,6 @@ export class BotEnvironments {
     }
     return { ...this.place(botId, target, workspacePath), about: entry.about(target, botId, this.kinds),
       ...(already ? { note: "You were already here." } : {}) };
-  }
-  /** The owner makes the Bot's sandbox (given it on first use) or their computer its default, and moves it there. */
-  setHome(botId: string, kind: HomeKind, workspacePath: string): Moved | null {
-    const environments = this.store.environments, from = this.here(botId, workspacePath);
-    if (kind === "host") environments.setHome(botId, environments.host().id);
-    else {
-      const computer = environments.computerOf(botId);
-      if (computer) { environments.setHome(botId, computer.id); void this.computers.ensure(botId).catch(() => {}); }
-      else this.computers.create(botId);
-    }
-    const to = this.here(botId, workspacePath);
-    return from.id === to.id ? null : { from, to };
   }
   /** The owner grants or takes back their computer (A50) or an SSH machine (A57); taking it back while the Bot works
    * there sends it home. */

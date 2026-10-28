@@ -11,19 +11,18 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.get("/", c => c.json({ bots: bots.list() }));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    // Names are unique (A37); a taken one is name_taken. Without `environment` a Bot gets a sandbox when
-    // Docker is there (A50).
-    return c.json(bots.create(textField(input, "name"), input.environment === undefined ? undefined : environmentKind(input.environment)), 201);
+    // Names are unique (A37); a taken one is name_taken. Every Bot gets its own computer (A67).
+    return c.json(bots.create(textField(input, "name")), 201);
   });
-  // The default environment (`home`), whether the Bot may use the owner's computer (`hostGranted`), or an SSH
-  // machine (`machineId` with `granted`, A57).
+  // Whether the Bot may use the owner's computer (`hostGranted`), or an SSH machine (`machineId` with `granted`,
+  // A57). A Bot's default is its own computer (A67), so there is nothing to choose there.
   routes.put("/:id/environment", jsonBody, async c => {
     const input = await readJson(c), id = c.req.param("id");
     if (input.machineId !== undefined) {
       if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
       return c.json(bots.grantMachine(id, input.machineId, input.granted));
     }
-    if (input.hostGranted === undefined) return c.json(bots.setHome(id, environmentKind(input.home)));
+    if (input.hostGranted === undefined) throw new HTTPException(400, { message: "hostGranted or machineId are needed" });
     if (typeof input.hostGranted !== "boolean") throw new HTTPException(400, { message: "hostGranted must be true or false" });
     return c.json(bots.grantHost(id, input.hostGranted));
   });
@@ -75,9 +74,4 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.route("/", historyRoutes(bots));
   routes.route("/", activityRoutes(bots));
   return routes;
-}
-
-function environmentKind(value: unknown): "computer" | "host" {
-  if (value !== "computer" && value !== "host") throw new HTTPException(400, { message: "environment must be computer or host" });
-  return value;
 }

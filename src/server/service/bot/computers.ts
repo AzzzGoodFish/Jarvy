@@ -66,12 +66,13 @@ export class Computers {
     return this.states.get(botId) ?? { state: "stopped" };
   }
 
-  /** Gives a Bot its computer and makes it the Bot's default environment; the container is made in the background. */
+  /** Gives a Bot its computer and makes it the Bot's default environment; the container is made in the background
+   * when Docker is there (A67). Without Docker the Bot keeps its computer as its default and still runs: only its file
+   * and command tools fail until Docker is available, and chat works as usual. */
   create(botId: string): void {
-    if (!this.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
     const computer = this.deps.store.environments.addComputer(botId, `jarvy-${this.tag.slice(0, 6)}-${botId.slice(0, 8)}`);
     this.deps.store.environments.setHome(botId, computer.id);
-    void this.ensure(botId).catch(() => {});
+    if (this.available) void this.ensure(botId).catch(() => {});
   }
   /** What the Bot's tools use while it works on its computer: every call first makes sure the container runs. */
   environment(botId: string, record: EnvironmentRecord): WorkEnvironment {

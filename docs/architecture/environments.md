@@ -7,9 +7,9 @@ A work environment is where a Bot's `bash`, `read`, `write` and `edit` run. The 
 Two words, kept apart:
 
 - **Workspace**: the Bot's own folder, `bots/<id>/`, which every Bot has and never shares; it tells people where the Bot's private, lasting files are. Its tools see `workspace/` inside it; its sessions and History sit beside that and never enter an environment.
-- **Work environment**: where its tools run. A Bot's default is one of two kinds: its **sandbox**, which Jarvy makes and manages for it alone (a container; later a VM; the code calls it a `computer`), where the workspace is mounted as `/workspace`; or **the owner's computer** (`host`), where the workspace is the folder itself. **External environments** the owner adds, so far **SSH machines** (A57), are places a Bot is granted and switches to, never a default.
+- **Work environment**: where its file and command tools run. Every Bot's default is its own **sandbox**, which Jarvy makes and manages for it alone (a container; later a VM; the code calls it a `computer`), where the workspace is mounted as `/workspace` (A67). **External environments** are places a Bot is granted and switches to, never a default: **the owner's computer** (`host`), where the workspace is the folder itself, and the **SSH machines** the owner adds (A57). Without Docker a Bot still has its sandbox as its default; its file and command tools fail until Docker is there, and its chat tools work as usual.
 
-People read 沙箱 / "Sandbox" and 你的电脑 / "Your computer"; a Bot reads "your sandbox" and "your owner's computer". An SSH machine goes by the name the owner gave it.
+People read 自己的沙箱 / "Its own sandbox" and 你的电脑 / "Your computer"; a Bot reads "your own computer" (its sandbox) and "your owner's computer". An SSH machine goes by the name the owner gave it.
 
 ## Layers
 
@@ -41,28 +41,26 @@ A new kind is one file there and one row in `KINDS`; the compiler names the fiel
 
 ## Where a Bot works
 
-Storage (v20): `environments` rows belong to a person; a Bot has a default (`home_environment_id`) and a current environment (`current_environment_id`). NULL is the owner's computer, whose row is made when first needed, so Bots from before environments stay there. `BotEnvironments.current()` reads the current one at every tool call and opens it on first use. The one a Bot leaves closes once the operations still running there end, so a switch never cuts a command short.
+Storage (v20): `environments` rows belong to a person; a Bot has a default (`home_environment_id`) and a current environment (`current_environment_id`). Since v29 every Bot's default is its own sandbox's row (A67); the owner's computer's row is made when first needed, for the Bots granted it. `BotEnvironments.current()` reads the current one at every tool call and opens it on first use. The one a Bot leaves closes once the operations still running there end, so a switch never cuts a command short.
 
 - **The owner's computer** (`host`): Pi Durable's `NodeExecutionEnv` in the Bot's `bots/<id>/workspace`, with the environment Pi builds for each command.
 - **Its sandbox** (`computer`): a Docker container only that Bot uses (below). Commands get the container's own environment variables.
 - **An SSH machine** (`ssh`): pi-env over `ssh`, logging in with the key Jarvy made for it (below). Commands get the login's own environment.
 
-A new Bot gets a sandbox when this machine has Docker, unless whoever creates it asks for the owner's computer (`POST /bots {environment}`, the agent's `bots.create {environment: sandbox | host}`); the owner can change the default in Bot info or the new Bot's first setup (`PUT /bots/:id/environment {home}`), which moves the Bot there too.
+A new Bot gets its sandbox when it is created (`POST /bots`, the agent's `bots.create`): the row at once, the container in the background when Docker is there. There is no other default to choose, so neither takes an environment, and the new Bot's first setup asks only for a model.
 
 ## In Bot info
 
 The section has two parts:
 
-- **Where it works**: its default, picked with a two-way switch between the sandbox and the owner's computer, and a line saying where it is now when it switched away. When the default is the sandbox, its details open below: what it is, its state, Start or Stop, and Reset. Stopping closes what the Bot left running and resetting removes what it installed, so both ask in place first (Bot info is itself a dialog).
-- **External environments it may use**: one switch each, a grant: the owner's computer, shown for a Bot whose default is its sandbox, and each SSH machine by its name. Turning one off while the Bot is there sends it back to its default. Bot info says which machine a Bot is on when it switched there.
-
-A new Bot's first setup offers the same two defaults as a list with a sentence each.
+- **Its own sandbox**: one row, 「自己的沙箱」, with its state and a line saying where the Bot is now when it switched away; its details open below: what it is, Start or Stop, and Reset. Stopping closes what the Bot left running and resetting removes what it installed, so both ask in place first (Bot info is itself a dialog).
+- **External environments it may use**: one switch each, a grant: the owner's computer and each SSH machine by its name. Turning one off while the Bot is there sends it back to its default. Bot info says which machine a Bot is on when it switched there.
 
 ## Grants and switching
 
-- **May use**: a Bot may be in its sandbox, its default, and what its owner granted it (`environment_grants`): the owner's computer, for a Bot whose default is its sandbox (`PUT /bots/:id/environment {hostGranted}`), and SSH machines (`PUT /bots/:id/environment {machineId, granted}`, or from the machine in Settings). A grant lasts until it is taken back; only the owner grants, not the agent Bot.
+- **May use**: a Bot may be in its sandbox and what its owner granted it (`environment_grants`): the owner's computer (`PUT /bots/:id/environment {hostGranted}`), and SSH machines (`PUT /bots/:id/environment {machineId, granted}`, or from the machine in Settings). A grant lasts until it is taken back; only the owner grants, not the agent Bot.
 - **Switching**: `environments.list` gives the environments the Bot may use, with ids, names, the directory its tools start in, its default, a sandbox's state, and an SSH machine's address and description; `environments.switch` moves it, like `cd`, until it switches back, starting a stopped sandbox first and answering with the directory and what the Bot can do there. On the owner's computer it starts in its workspace there. Bot info shows where a Bot is when it switched away from its default.
-- **Telling the Bot**: the system prompt's Workspace and Work environment sections describe the Bot's workspace and default and never change with a switch, so the prompt cache survives one; each batch ends with `<environment name directory/>`, where it is now ([envelope](envelope.md)). What the owner changes reaches the Bot as a `change` delivery ([delivery](delivery.md), A41), told once and kept in its History: a move (a new default, or taking the owner's computer back while the Bot is there) interrupts a running turn like an @, stopping its commands but not the processes it left running in the background, and starts a new one with the news; a Bot that isn't running, and a change of access alone, hear of it with their next batch.
+- **Telling the Bot**: the system prompt's Workspace and Work environment sections are the same for every Bot (A67): its workspace on its own computer, that other members work on their own machines and can't reach its files, addresses or what it starts (nor it theirs), that files go across as attachments, and how to switch to an external environment. They never change with a switch, so the prompt cache survives one; each batch ends with `<environment name directory/>`, where it is now ([envelope](envelope.md)). What the owner changes reaches the Bot as a `change` delivery ([delivery](delivery.md), A41), told once and kept in its History: a move (taking the owner's computer or an SSH machine back while the Bot is there) interrupts a running turn like an @, stopping its commands but not the processes it left running in the background, and starts a new one with the news; a Bot that isn't running, and a change of access alone, hear of it with their next batch.
 - `bots.list {environments: true}` adds each Bot's default, current and usable environments.
 
 ## A Bot's sandbox

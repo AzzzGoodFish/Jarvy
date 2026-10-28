@@ -1,15 +1,10 @@
 /** English: where a Bot's file and command tools run (A50) — Bot info and a new Bot's first setup. A part of the reference dictionary (./index.ts). */
 export const environment = {
   "environment.title": "Work environment",
-  "environment.computer": "Sandbox",
-  "environment.computerHint": "A Linux container that Jarvy makes and manages, used only by this Bot, with its workspace inside. Recommended.",
-  "environment.noDocker": "Needs Docker on the computer running Jarvy.",
   "environment.host": "Your computer",
-  "environment.hostHint": "The computer running Jarvy, where it can access your files.",
-  "environment.default": "Default",
+  "environment.own": "Its own sandbox",
   "environment.awayHost": "Now on your computer (the Bot switched there itself).",
   "environment.awayComputer": "Now in its sandbox (the Bot switched there itself).",
-  "environment.details": "Sandbox details",
   "environment.sandboxAbout": "A Linux container only this Bot uses, with its workspace as its home directory.",
   "environment.external": "External environments it may use",
   "environment.accessFailed": "Couldn't change the environments it may use",
@@ -34,5 +29,4 @@ export const environment = {
   "environment.resetTitle": "Reset {name}'s sandbox?",
   "environment.resetBody": "Software installed in the sandbox will be removed, returning it to its initial state. Workspace files are kept.",
   "environment.resetConfirm": "Reset",
-  "environment.changeFailed": "Couldn't change the work environment",
 } as const;

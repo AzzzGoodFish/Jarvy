@@ -2,8 +2,9 @@
 /** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's sandbox, a Docker container
  * only it uses; `ssh` a machine the owner added, reached over SSH (A57). */
 export type EnvironmentKind = "host" | "computer" | "ssh";
-/** What can be a Bot's default: never an SSH machine, which is a place a Bot is granted and switches to. */
-export type HomeKind = "host" | "computer";
+/** What can be a Bot's default (A67): only its own sandbox. The owner's computer and SSH machines are external
+ * environments, granted to a Bot and switched to, never a default. */
+export type HomeKind = "computer";
 /** An SSH machine (A57) as Settings shows it: never its key. */
 export interface SshMachine {
   id: string; name: string; host: string; port: number; user: string;
@@ -26,8 +27,7 @@ export interface HostKeys { keys: string[]; fingerprints: string[] }
  * container; `unavailable` means this machine has no usable Docker. */
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 export interface ComputerStatus { state: ComputerState; error?: string }
-/** Where a Bot works, for the interface: its default and current environment (and the SSH machine's name when it is
- * on one), its computer when it has one, whether the owner lets it use their computer, and each SSH machine with
- * whether the Bot may use it. */
-export interface BotPlacement { home: HomeKind; current: EnvironmentKind; currentName?: string; computer: ComputerStatus | null; docker: boolean;
+/** Where a Bot works, for the interface: whether it is in its own sandbox or on an external environment (and the SSH
+ * machine's name when it is on one), its sandbox's state, and the external environments its owner lets it use. */
+export interface BotPlacement { current: EnvironmentKind; currentName?: string; computer: ComputerStatus | null; docker: boolean;
   hostGranted: boolean; machines: { id: string; name: string; granted: boolean }[] }

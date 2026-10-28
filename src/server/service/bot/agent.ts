@@ -46,17 +46,17 @@ export class AgentOps {
     if (!connectionId) throw new ChatError(400, "This Bot has no model yet; give model too");
     return { connectionId, modelId, ...(input.thinking === undefined ? {} : { thinkingLevel: input.thinking }) };
   }
-  /** Where a Bot works now: computer or host (A50). */
-  environment(botId: string) { return this.bots.describe(botId).environment.home; }
+  /** Where a Bot's tools run when it is at home: its own computer (A67). */
+  environment(botId: string) { return this.bots.describe(botId).environment.docker ? "computer" : "unavailable"; }
   /** "model (connection)", as the agent and the changed Bot read it. */
   modelLabel(bot: BotRecord) {
     const connection = bot.connectionId ? this.store.connections.get(bot.connectionId) : null;
     const model = connection?.models.find(item => item.id === bot.modelId);
     return model ? `${model.name} (${connection!.displayName})` : bot.modelId;
   }
-  async create(input: BotSettings & { name: string; environment?: "computer" | "host" }) {
+  async create(input: BotSettings & { name: string }) {
     const selection = this.selection(null, input);
-    const created = this.bots.create(input.name, input.environment);
+    const created = this.bots.create(input.name);
     if (input.description !== undefined || input.persona !== undefined)
       this.bots.get(created.id).identity.update({ name: created.name, description: input.description ?? "", persona: input.persona ?? "" });
     if (selection) await this.bots.selectModel(created.id, selection);

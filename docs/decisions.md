@@ -470,3 +470,17 @@ Attachments were BLOBs in `jarvy.db`, up to 10 MB, read and written whole in mem
 - **Not changed**: the in-page preview still stops at 1 MB for files that aren't pictures, audio or video, and `files.view` still shows pictures up to 4 MB and text up to 64 KB.
 
 Why: a file of gigabytes belongs in the file system, where it can stream, and a database of metadata stays small, fast to back up and quick to migrate.
+
+## A67 Every Bot works on a computer of its own
+
+A Bot's default environment was either its sandbox or the owner's computer, and most Bots defaulted to the owner's computer. Bots on it shared one machine, and nothing in their instructions said that the others might not: a Bot would hand another a path, a `localhost` address or a machine only it could reach.
+
+- **One default**: every Bot's default is its own sandbox, the container Jarvy makes for it alone with its workspace as `/workspace`. `HomeKind` is `computer` only; the choice of default is gone from Bot info, a new Bot's first setup, `POST /bots` and the agent's `bots.create`.
+- **The owner's computer is external**: like an SSH machine, it is granted to a Bot and switched to, never a default (`kinds/host.ts`, `home: false`).
+- **New Bots**: get their sandbox when they are created, the row at once and the container in the background when Docker is there.
+- **Without Docker**: a Bot still has its sandbox as its default and still runs. Its file and command tools fail until Docker is available; its chat tools work as usual, and Bot info shows 「没有 Docker」.
+- **Upgrade (v29)**: every Bot whose default wasn't its sandbox gets one (the row only; the container is made on first use) and is placed there, as its default and where it is now. Its files stay where they were: the sandbox mounts the same workspace folder. A Bot whose default was already its sandbox is left as it is, including one that has switched to an environment it was granted; grants of the owner's computer and SSH machines are kept.
+- **Instructions**: one Workspace and Work environment text for every Bot: its workspace on its own computer; other members work on their own machines and can't reach its files, addresses or what it starts, nor it theirs; files go across as attachments, anything else in the chat; how to switch to an external environment. A Bot's prompt changes once with the upgrade and is told so (A56).
+- **Bot info**: one row, 「自己的沙箱」, with its state, details and where the Bot is when it switched away; then the external environments it may use, the owner's computer first.
+
+Why: each Bot works as one person with one computer, and what it shares, it shares through the chat. One kind of default also leaves one text to tell Bots where they are.

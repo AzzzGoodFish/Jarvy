@@ -1,7 +1,7 @@
 import type { Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
-import type { EnvironmentKind, HostKeys, SshMachine } from "../contract/environment";
+import type { HostKeys, SshMachine } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
 import type { Task, TaskInput } from "../contract/tasks";
@@ -115,7 +115,6 @@ export const api = {
   deleteTask: (botId: string, id: string) => request<{ ok: true }>(`/bots/${botId}/tasks/${id}`, { method: "DELETE" }),
   botSubscriptions: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/subscriptions`),
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
-  setBotEnvironment: (id: string, home: EnvironmentKind) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ home }) }),
   grantHost: (id: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ hostGranted: granted }) }),
   grantBotMachine: (id: string, machineId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ machineId, granted }) }),
   /** The owner's SSH machines (A57, A59); private keys and kept passwords never come back. */
