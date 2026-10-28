@@ -21,7 +21,9 @@ chat({ action: "call", tool: "messages.send", args: {
 | `describe` | the description and argument schema of one tool |
 | `call` | validate `args` against that schema and run it |
 
-There is no fourth action and no flattened top-level schema. The server validates every call, whether or not the model has seen the schema. Definitions and descriptions live in `service/bot/tool-schemas.ts`.
+There is no fourth action and no flattened top-level schema. The server validates every call, whether or not the model has seen the schema.
+
+Each tool is registered once (`service/bot/tools/`, A64): its name, the description the Bot reads, its parameters and its handler, together, in a file per area — `history`, `chats` (members, Bots, chats, threads, channel groups), `messages`, `files`, `environments`, `secrets`, `tasks`, and `agent` for the agent Bot's own. The handler's arguments are typed from its parameters. The gateway (`service/bot/tools.ts`) does only what is the same for every tool: list, describe, check the arguments, run; `list` gives the tools by area in that order. What several tools share — finding a chat, member or group by what the Bot wrote, sending, asking on a card, the unread hint, the check that a person can answer — is in `tools/context.ts`.
 
 A call that fails validation says how to put it right in the same answer (`service/bot/tool-errors.ts`), so the Bot needs no `describe` first: wrong arguments list up to five problems (a missing or mistyped field, a parameter the tool doesn't have) followed by the tool's argument schema; an unknown name lists the names the Bot has; a malformed gateway request says which actions take `tool` and `args`.
 
@@ -57,7 +59,7 @@ A call that fails validation says how to put it right in the same answer (`servi
 
 Removing members and deleting channels or groups are left to people (A38), and to the agent Bot once the owner confirms (below). `messages.ask` needs a person in the chat.
 
-## The agent Bot's tools (`service/bot/agent-schemas.ts`)
+## The agent Bot's tools (`service/bot/tools/agent.ts`)
 
 Only the agent Bot (A48) lists these; for any other Bot they are unknown tools. They go through `AgentOps` (`service/bot/agent.ts`), the same services the owner's page uses.
 

@@ -5,7 +5,7 @@ import type { ToolDefinition } from "../../shared/tools.js";
 import type { HistoryDraft, HistoryPage, HistoryRecord, HistoryLink, HistoryReadMode, HistoryReadResult, HistorySummary, ModelUsage } from "../../shared/history.js";
 import type { ModelSelection } from "../../shared/runtime.js";
 import type { QuestionSpec } from "../../../contract/chat.js";
-import type { ErrorParams } from "../../shared/errors.js";
+import type { ErrorCode, ErrorParams } from "../../../contract/errors.js";
 
 /** Bot 使用各组成对象的类型契约；组件实现独立展开，不在 Bot 内代实现。 */
 export interface BotParts {
@@ -90,7 +90,7 @@ export interface BotStatus {
   activity: "reasoning" | "texting" | "tool_calling" | "asking" | null;
   /** stale: a failed request was dropped from the context after the reply that reported `tokens`. */
   context: { tokens: number | null; limit: number; stale: boolean } | null;
-  error: { code: string; message: string; params?: ErrorParams } | null;
+  error: { code: ErrorCode; message: string; params?: ErrorParams } | null;
 }
 export interface OutgoingMessage {
   content: string;

@@ -1,10 +1,11 @@
 import { ApiError } from "./api";
 import { type BotStatus } from "../contract/bots";
+import type { ErrorCode } from "../contract/errors";
 import { t, type Key } from "./i18n";
 
-/** Failures the server names with a code (A45), worded here. scripts/check-i18n.mjs keeps this table and the
- * server's codes in step: a code thrown there must be here, and an entry here must still be thrown there. */
-const ERROR_KEYS: Record<string, Key> = {
+/** Failures the server names with a code (A45), worded here: every code in the contract has its key, or this fails to
+ * compile; scripts/check-i18n.mjs checks that each is still thrown by the server. */
+const ERROR_KEYS: Record<ErrorCode, Key> = {
   agent_undeletable: "error.agentUndeletable", autoconfig_model: "error.autoconfigModel", autoconfig_source: "error.autoconfigSource",
   bot_missing: "error.botMissing", chat_access_changed: "error.chatAccessChanged",
   computer_failed: "error.computerFailed", computer_missing: "error.computerMissing", docker_unavailable: "error.dockerUnavailable",
@@ -32,7 +33,8 @@ const ERROR_KEYS: Record<string, Key> = {
   thinking_format: "error.thinkingFormat", tools_missing: "error.toolsMissing", unsafe_replay: "error.unsafeReplay",
 };
 const worded = (code: string | null | undefined, params?: Record<string, string | number>) => {
-  const key = code ? ERROR_KEYS[code] : undefined;
+  // A code comes from the server's JSON: only a listed one is worded.
+  const key = code && Object.hasOwn(ERROR_KEYS, code) ? ERROR_KEYS[code as ErrorCode] : undefined;
   return key ? t(key, params) : null;
 };
 

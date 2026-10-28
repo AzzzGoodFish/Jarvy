@@ -1,7 +1,7 @@
 // Interface languages (A45): the English reference and every other dictionary must cover the same keys with the same
 // placeholders, no translation may be empty, and no component may carry its own Chinese text. A dictionary is a folder
-// of parts put together in its index.ts: every language has the same parts, and a key lives in one part only. The server names
-// failures with codes and the web words them (web/errors.ts): the two lists must match.
+// of parts put together in its index.ts: every language has the same parts, and a key lives in one part only. Failure
+// codes listed in the contract must still be used by the server.
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import ts from 'typescript';
@@ -89,30 +89,24 @@ for (const file of files(web)) {
   for (const line of lines) failures.push(`${name}:${line}: Chinese text — use t()`);
 }
 
-/** Failure codes (A45): the server's coded throws against the table in web/errors.ts. */
-const CODE_ARGUMENT = { RuntimeFault: 0, ChatError: 2, ValidationError: 1, ConflictError: 1 };
-const thrown = new Map();
-for (const file of files(resolve('src/server'))) {
-  const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
-  const walk = node => {
-    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text in CODE_ARGUMENT) {
-      const code = node.arguments?.[CODE_ARGUMENT[node.expression.text]];
-      if (code && ts.isStringLiteralLike(code) && !thrown.has(code.text)) thrown.set(code.text, `${relative(resolve('src'), file)}:${source.getLineAndCharacterOfPosition(code.getStart(source)).line + 1}`);
-    }
-    ts.forEachChild(node, walk);
-  };
-  walk(source);
-}
-const errorsFile = resolve(web, 'errors.ts'), worded = new Set();
-const findTable = node => {
-  if (ts.isVariableDeclaration(node) && node.name.getText() === 'ERROR_KEYS' && node.initializer && ts.isObjectLiteralExpression(node.initializer))
-    for (const property of node.initializer.properties) if (property.name) worded.add(property.name.getText().replace(/^['"]|['"]$/g, ''));
-  ts.forEachChild(node, findTable);
+/** Failure codes (A45): the contract lists them, and types make the server throw only those and the web word every one
+ * (contract/errors.ts, web/errors.ts). What types can't tell is a code nobody throws any more: each must still appear in
+ * the server as a string. */
+const listed = [];
+const errorsContract = resolve('src/contract/errors.ts');
+const findUnion = node => {
+  if (ts.isTypeAliasDeclaration(node) && node.name.text === 'ErrorCode' && ts.isUnionTypeNode(node.type))
+    for (const member of node.type.types) if (ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal)) listed.push(member.literal.text);
+  ts.forEachChild(node, findUnion);
 };
-findTable(ts.createSourceFile(errorsFile, read(errorsFile), ts.ScriptTarget.Latest, true));
-if (!worded.size) failures.push('web/errors.ts: no ERROR_KEYS table found');
-for (const [code, place] of thrown) if (!worded.has(code)) failures.push(`${place}: failure code "${code}" has no wording in web/errors.ts`);
-for (const code of worded) if (!thrown.has(code)) failures.push(`web/errors.ts: "${code}" is no longer thrown by the server — remove it`);
+findUnion(ts.createSourceFile(errorsContract, read(errorsContract), ts.ScriptTarget.Latest, true));
+if (!listed.length) failures.push('contract/errors.ts: no ErrorCode union found');
+const used = new Set();
+for (const file of files(resolve('src/server'))) {
+  const walk = node => { if (ts.isStringLiteralLike(node)) used.add(node.text); ts.forEachChild(node, walk); };
+  walk(ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true));
+}
+for (const code of listed) if (!used.has(code)) failures.push(`contract/errors.ts: "${code}" is no longer used by the server — remove it and its wording`);
 
 if (failures.length) { console.error(`i18n:\n${failures.join('\n')}`); process.exitCode = 1; }
 else console.log('i18n: OK');

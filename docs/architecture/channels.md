@@ -7,7 +7,7 @@
 - Information is organised like a book's contents: **channel group → channel → thread**. A channel is a kind of work and its notice holds the key facts; a thread is one specific matter. The channel stays concise; details go into threads.
 - **People and Bots are equal participants**; only their interface and implementation differ. Anyone can @ anyone, Bots included.
 - Delivery: everything in a DM; in channels and threads, only messages that @ you, reply to you, or arrive where you subscribed ([delivery](delivery.md)).
-- An @ is whatever the text says: writing 「@名字」 mentions that member. Names of people and Bots are unique (case-insensitive) and contain no 「@」.
+- An @ is whatever the text says: writing 「@名字」 mentions that member. Names of people and Bots are unique (case-insensitive) and contain no 「@」. The rule (`contract/mentions.ts`) is one function: the server decides with it who is mentioned, the web highlights with it.
 - Unread: one read position per member per chat, shared by people and Bots. Messages already delivered to a Bot do not count as its unread; it reads the rest with `messages.read`.
 - New notice and summary versions are delivered as queued notes: a Bot is told where and which version, and reads the content with `chats.info`.
 - People and Bots can edit notices. Threads have a title (default: the root message's first line without leading @ and Markdown, or its first file's name), a status (open / done) and a summary; finishing a thread can post the summary to the channel as a conclusion.

@@ -1,7 +1,7 @@
 import { ChatError } from "../../shared/chat.js";
 import { type ChatNote, type Member, type Section } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
-import { findMentions } from "./mentions.js";
+import { mentionedMembers } from "../../../contract/mentions.js";
 import type { Delivery } from "../../shared/delivery.js";
 import { plan } from "../delivery/delivery.js";
 import { noteTargets } from "../delivery/routes.js";
@@ -104,7 +104,7 @@ export class ChatChannels {
   /** Who an @ in this text reached, and the names it named that are not in the channel (not notified). */
   mentionReport(actorId: string, chatId: string, content: string): { notified: string[]; notInChannel: string[] } {
     const members = this.repository.memberships(actorId, chatId).filter(item => item.canRead).map(item => item.member);
-    const named = findMentions(content, this.directory(actorId)).filter(member => member.id !== actorId);
+    const named = mentionedMembers(content, this.directory(actorId)).filter(member => member.id !== actorId);
     return { notified: named.filter(member => members.some(item => item.id === member.id)).map(member => member.name),
       notInChannel: named.filter(member => !members.some(item => item.id === member.id)).map(member => member.name) };
   }
