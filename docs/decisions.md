@@ -443,3 +443,14 @@ The `chat` gateway's 33 tools (43 for the agent Bot) were dispatched four ways: 
 - **What a Bot sees is unchanged** except the order of `list`, now by area: names, descriptions, parameters, results and every error text are the same (compared tool by tool for an ordinary Bot and the agent Bot).
 
 Why: a tool is one thing — what the Bot reads about it and what it does — and adding or changing one should be one edit the compiler checks.
+
+## A65 Each kind of work environment once
+
+`BotEnvironments` branched on `record.kind` in fourteen places: opening, the name and directory a Bot sees, `environments.list`, what a switch prepares, the `about` text, the key an open environment is cached under, which records may be a default or be granted. Two more such branches sat in `service/bot/workspace.ts` and `infra/pi/environment-tools.ts`, where `kind === "host"` meant "runs on this machine". Adding a kind meant finding all of them, and the ones missed failed quietly.
+
+- **`service/bot/kinds/`**, one file per kind (`host.ts`, `sandbox.ts`, `ssh.ts`), each an `EnvironmentKindEntry`: `open`, `place`, `ensure`, `connects`, `summary`, `describe`, `about`, `signature`, `home`, `grantable`. `kinds/index.ts` maps `EnvironmentKind` to them, and `BotEnvironments` looks the entry up.
+- **`WorkEnvironment.local`**: whether the environment runs on the machine Jarvy does. The two infra branches ask that instead of the kind, which keeps the interface, not the service layer, as what they depend on.
+- **Left as they are**: the prompt's Workspace and Work environment sections (they describe the Bot's *default*, which is chosen by `HomeKind`, not by a kind), and `placement`/`setHome`, which take a `HomeKind`.
+- **Behaviour unchanged**: `place`, `list`, `summary`, `placement`, `usable` and every `switch` and `grant` result were recorded before and after over a stub store and compared; they are identical, as are the tool copy and the schema.
+
+Why: three kinds is already one more than a chain of `if`s holds well, and an SSH machine is the kind most likely to gain fields. One entry per kind makes each such change one file the compiler checks.

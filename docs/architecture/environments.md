@@ -19,8 +19,17 @@ People read 沙箱 / "Sandbox" and 你的电脑 / "Your computer"; a Bot reads "
 | Execution | `infra/env/` | Pi Durable's `NodeExecutionEnv`, pi-env, the docker command line for Bots' sandboxes, and `ssh`/`ssh-keygen` for SSH machines (`ssh.ts`); nothing else imports pi-env or Pi Durable (`check-boundaries`) |
 | Tools | `infra/pi/environment-tools.ts` | Pi's tool definitions with operations on the interface |
 | Rules | `service/bot/environments.ts` (`BotEnvironments`), `service/bot/computers.ts` (`Computers`), `service/bot/machines.ts` (`SshMachines`) | which environment a Bot is in; the life of Bots' sandboxes; adding, checking and removing SSH machines |
+| Kinds | `service/bot/kinds/` (`host.ts`, `sandbox.ts`, `ssh.ts`, A65) | what differs by kind and nothing else: how to reach it, what the Bot calls it, what a switch does first, which fields `environments.list` adds, what the Bot is told about it, and what an open environment is keyed by |
 
 `infra/env/durable.ts` adapts any Pi Durable execution environment to the interface: results become values or thrown errors, an abort or a timeout becomes the `aborted` / `timeout:<s>` error Pi's bash tool words, and `close()` releases what it holds.
+
+`WorkEnvironment` also says whether it is `local`: it runs on the machine Jarvy does. Only there are Pi's own file paths the tools' paths, so a long command output needs no moving (`infra/pi/environment-tools.ts`) and a temporary file is written in the workspace (`service/bot/workspace.ts`).
+
+## Kinds
+
+`BotEnvironments` never asks what kind an environment is. `kinds/index.ts` maps each `EnvironmentKind` to one entry with `open` (the `WorkEnvironment`), `place` (the name the Bot knows it by and the directory its tools start in), `ensure` (a switch starts a sandbox first), `connects` (a switch to an SSH machine connects and stays where the Bot was if its directory isn't there), `summary` (its name in `bots.list`), `describe` (the extra fields in `environments.list`: a sandbox's state, a machine's address and description), `about` (what the Bot is told when it switches there) and `signature` (a machine reopens when the owner changes its directory). `home` and `grantable` say whether it can be a default and whether the owner grants it.
+
+A new kind is one file there and one row in `KINDS`; the compiler names the fields it lacks.
 
 ## How the tools use it
 

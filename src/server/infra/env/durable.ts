@@ -9,7 +9,7 @@ import type { EnvironmentKind } from "../../../contract/environment.js";
 export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv, options: { passEnv: boolean; temp?: string; close?: () => void | Promise<void> }): WorkEnvironment {
   let closed = false;
   return {
-    id, kind, cwd: env.cwd, ...(options.temp ? { temp: options.temp } : {}),
+    id, kind, local: options.passEnv, cwd: env.cwd, ...(options.temp ? { temp: options.temp } : {}),
     async exec(command: string, exec: ExecOptions) {
       const result = await env.exec(command, {
         cwd: exec.cwd,

@@ -20,7 +20,7 @@ export class Workspace implements WorkspacePort {
   /** A file in the temporary directory of the environment the Bot works in, by the path it sees there. */
   async writeTempFile(name: string, content: string, signal?: AbortSignal) {
     const env = this.current();
-    if (env.kind === "host") return this.local.writeTempFile(name, content, signal);
+    if (env.local) return this.local.writeTempFile(name, content, signal);
     const path = `${tempOf(env)}/${name}`;
     await env.writeFile(path, content);
     return path;

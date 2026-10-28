@@ -6,6 +6,9 @@ export interface WorkEnvironment {
   /** Stable name, such as `host`. */
   readonly id: string;
   readonly kind: EnvironmentKind;
+  /** Runs on the machine Jarvy itself runs on (A65): Pi's own file paths are the tools' paths there, so long outputs
+   * need no moving and the workspace is a local folder. */
+  readonly local: boolean;
   /** The directory the tools start in. */
   readonly cwd: string;
   /** Where Jarvy puts files for the Bot there (long outputs, files from the chat); `cwd`/temp when unset. */
