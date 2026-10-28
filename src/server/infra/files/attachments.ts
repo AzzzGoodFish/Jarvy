@@ -9,6 +9,7 @@ import { Readable } from "node:stream";
 export const attachmentPath = (root: string, id: string) => join(root, id.slice(0, 2), id);
 /** Files on their way in: written here first, moved into place once whole. */
 const INCOMING = "incoming";
+const SHARD = /^[a-f\d]{2}$/;
 const ID = /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/;
 
 /** A file written under a new id and not yet in place: `commit` moves it there, `discard` drops it. */
@@ -82,16 +83,26 @@ export class AttachmentFiles {
   async size(id: string): Promise<number | null> {
     try { return (await stat(this.path(id))).size; } catch { return null; }
   }
-  /** Removes what no attachment owns: files left in incoming/ by a stop mid-upload, and files whose attachment is
-   * gone (`known` says which ids still have one). Returns how many files went. */
+  /** Removes what no attachment owns: files left in incoming/ by a stop mid-upload, files whose attachment is gone
+   * (`known` says which ids still have one), and anything else under the root, such as the readable copies older
+   * versions kept in `<id>/<name>` folders. Folders left empty go too. Returns how many files went. */
   async sweep(known: (id: string) => boolean): Promise<number> {
     let removed = 0;
-    for (const folder of await entries(this.root)) {
-      if (!folder.isDirectory()) continue;
-      const path = join(this.root, folder.name);
-      for (const file of await entries(path)) {
-        if (folder.name === INCOMING || !ID.test(file.name) || !known(file.name)) { await rm(join(path, file.name), { force: true, recursive: true }); removed++; }
+    for (const entry of await entries(this.root)) {
+      const path = join(this.root, entry.name);
+      if (!entry.isDirectory() || !(SHARD.test(entry.name) || entry.name === INCOMING)) {
+        removed += await count(path);
+        await rm(path, { force: true, recursive: true });
+        continue;
       }
+      const files = await entries(path);
+      for (const file of files) {
+        if (entry.name === INCOMING || !ID.test(file.name) || !file.name.startsWith(entry.name) || !known(file.name)) {
+          removed += await count(join(path, file.name));
+          await rm(join(path, file.name), { force: true, recursive: true });
+        }
+      }
+      if (entry.name !== INCOMING && !(await entries(path)).length) await rm(path, { force: true, recursive: true });
     }
     return removed;
   }
@@ -102,6 +113,14 @@ export class AttachmentFiles {
   private part(id: string): string { return join(this.root, INCOMING, `${id}.part`); }
 }
 
+/** How many files a path holds: 1 for a file, its files for a folder. */
+async function count(path: string): Promise<number> {
+  const inside = await entries(path);
+  if (!inside.length) return (await stat(path).catch(() => null))?.isFile() ? 1 : 0;
+  let total = 0;
+  for (const entry of inside) total += entry.isDirectory() ? await count(join(path, entry.name)) : 1;
+  return total;
+}
 async function entries(path: string): Promise<Dirent[]> {
   try { return await readdir(path, { withFileTypes: true }); } catch { return []; }
 }
