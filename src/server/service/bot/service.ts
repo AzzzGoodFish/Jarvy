@@ -100,11 +100,13 @@ export class BotService {
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
-      const outgoing = await workspace.readOutgoing(message.attachments ?? [], message.signal);
-      message.signal?.throwIfAborted();
-      return chats.deliver(id, message.chatId, { content: message.content, attachmentIds: [], files: outgoing, source: message.source, clientMessageId: message.clientMessageId,
-        ...(message.question ? { question: message.question } : {}), ...(message.alsoToChannel ? { alsoToChannel: true } : {}),
-        ...(message.replyTo ? { replyTo: message.replyTo } : {}) });
+      const outgoing = await workspace.readOutgoing(message.attachments ?? [], chats.attachments, message.signal);
+      try {
+        message.signal?.throwIfAborted();
+        return await chats.deliver(id, message.chatId, { content: message.content, attachmentIds: [], files: outgoing, source: message.source, clientMessageId: message.clientMessageId,
+          ...(message.question ? { question: message.question } : {}), ...(message.alsoToChannel ? { alsoToChannel: true } : {}),
+          ...(message.replyTo ? { replyTo: message.replyTo } : {}) });
+      } catch (error) { await chats.attachments.discard(outgoing.map(file => file.id)); throw error; }
     } });
     this.bots.set(id, bot);
     return bot;
@@ -277,6 +279,8 @@ export class BotService {
     this.lives.get(id)?.close(); this.lives.delete(id);
     await this.environments.release(id);
     if (!this.deps.store.bots.delete(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    // Its DMs went with it, and the files of their messages go now (A66).
+    await this.deps.chats.attachments.clean();
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
   }
   async close(): Promise<void> {

@@ -42,7 +42,7 @@ export interface Workspace {
   /** The Bot's default work environment (A50), which its instructions describe; each batch names where it is now. */
   home(): { kind: EnvironmentKind; cwd: string };
   /** Puts a chat file into that environment; returns its path there. */
-  put(name: string, id: string, data: Uint8Array, path?: string): Promise<string>;
+  put(name: string, id: string, chunks: AsyncIterable<Uint8Array>, path?: string, signal?: AbortSignal): Promise<string>;
 }
 export interface Tools {
   bindSend(send: (chatId: string, message: OutgoingMessage) => Promise<SentMessage>): void;

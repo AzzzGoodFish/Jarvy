@@ -19,8 +19,12 @@ export interface WorkEnvironment {
   readFile(path: string): Promise<Buffer>;
   /** The first bytes of a file (fewer when it is shorter), to tell what kind of file it is. */
   head(path: string, bytes: number): Promise<Buffer>;
+  /** Up to `length` bytes from `offset` (fewer at the end of the file): large files move in pieces (A66). */
+  readRange(path: string, offset: number, length: number): Promise<Buffer>;
   /** Writes the file, creating missing parent directories. */
   writeFile(path: string, content: string | Uint8Array): Promise<void>;
+  /** Adds to the end of the file. */
+  appendFile(path: string, content: Uint8Array): Promise<void>;
   /** Creates the directory and any missing parents. */
   mkdir(path: string): Promise<void>;
   exists(path: string): Promise<boolean>;

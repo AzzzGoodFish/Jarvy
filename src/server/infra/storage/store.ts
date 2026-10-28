@@ -50,7 +50,7 @@ export class Store {
     this.db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;");
     this.account = new AccountRepository(this.db);
     this.cipher = new Cipher(() => masterKey(this.account.installationDeviceId()));
-    try { migrateDatabase(this.db, this.cipher); }
+    try { migrateDatabase(this.db, this.cipher, root); }
     catch (error) { this.db.close(); throw error; }
     this.chats = new ChatRepository(this.db);
     this.runtime = new RuntimeRepository(this.db, this.chats.inbox);

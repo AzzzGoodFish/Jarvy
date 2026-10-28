@@ -4,7 +4,6 @@ import { HTTPException } from "hono/http-exception";
 import type { ApiEnv } from "../context.js";
 
 export const jsonBody = bodyLimit({ maxSize: 64 * 1024, onError: () => { throw new HTTPException(413, { message: "Request is too large" }); } });
-export const attachmentBody = bodyLimit({ maxSize: 10 * 1024 * 1024, onError: () => { throw new HTTPException(413, { message: "File is too large" }); } });
 
 export async function readJson(c: Context<ApiEnv>): Promise<Record<string, unknown>> {
   if (!c.req.header("content-type")?.toLowerCase().startsWith("application/json")) throw new HTTPException(415, { message: "JSON content type required" });

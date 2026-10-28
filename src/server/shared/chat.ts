@@ -24,7 +24,9 @@ export interface Chat {
   /** Pinned to the top of its sidebar group by the asking member (v15). */
   pinned: boolean;
 }
-export interface OutgoingFile { name: string; mimeType: string; data: Uint8Array; }
+/** A file a Bot sends (A66): its contents already written aside under `id` by the chat's file store; the message
+ * that carries it puts it in place. `sha256` names the contents in the message's idempotency hash. */
+export interface OutgoingFile { id: string; name: string; mimeType: string; size: number; sha256: string; }
 export interface ChatMessage {
   id: string; chatId: string; sequence: number; sender: Member;
   content: string; createdAt: number; attachments: Attachment[]; source: MessageSource | null; question: Question | null;
@@ -44,7 +46,7 @@ export interface ChatMessage {
   folded: boolean;
 }
 export class ChatError extends Error {
-  constructor(readonly status: 400 | 403 | 404 | 409, message: string, readonly code?: ErrorCode, readonly params?: ErrorParams) { super(message); }
+  constructor(readonly status: 400 | 403 | 404 | 409 | 413, message: string, readonly code?: ErrorCode, readonly params?: ErrorParams) { super(message); }
 }
 
 export interface DeliveryMessage extends MessageDraft {

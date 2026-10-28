@@ -5,7 +5,7 @@ export type ErrorCode =
   | "computer_failed" | "computer_missing" | "connection_in_use" | "connection_missing" | "credential_changed"
   | "credential_scope" | "credential_unreadable" | "credentials_missing" | "data_locked" | "discovery_format"
   | "discovery_http" | "discovery_key" | "discovery_protocol" | "discovery_unreachable" | "discovery_url"
-  | "discovery_url_missing" | "docker_unavailable" | "history_missing" | "invalid_credential" | "invalid_run"
+  | "discovery_url_missing" | "docker_unavailable" | "file_too_large" | "history_missing" | "invalid_credential" | "invalid_run"
   | "login_input" | "login_option" | "login_step" | "machine_missing" | "machine_name_taken" | "message_missing"
   | "model_incomplete" | "model_missing" | "model_request_failed" | "model_required" | "model_switch_uncertain"
   | "name_taken" | "provider_name_taken" | "question_closed" | "question_expired" | "reset_custom" | "runtime_failed"

@@ -125,10 +125,11 @@ export const chat: Part<typeof en> = {
 
   "composer.busy": "附件上传中，请稍后再添加。",
   "composer.tooMany": "每条消息最多添加 {count} 个附件。",
-  "composer.size": "附件不能为空，也不能超过 10 MB。",
+  "composer.size": "附件不能为空，也不能超过 {limit}。",
   "composer.pasted": "粘贴图片",
   "composer.removeFile": "移除附件：{name}",
   "composer.uploading": "正在上传：{name}",
+  "composer.cancelUpload": "取消上传：{name}",
   "composer.replying": "回复",
   "composer.cancelReply": "取消回复",
   "composer.drop": "松开以添加附件",

@@ -28,7 +28,10 @@ export function createJarvyServer(services: ApiServices, webRoot: string, tls: {
   const app = createHttpApp(services, webRoot);
   // HTTP/1 bindings are supplied by node:http. Keep Pi's global Fetch objects untouched.
   const handle = getRequestListener((request, bindings) => app.fetch(request, bindings as HttpBindings), { overrideGlobalObjects: false });
-  const plain = createServer((request: IncomingMessage, response: ServerResponse) => {
+  // No overall limit on how long a request may take: an upload of gigabytes needs as long as the link takes, and its
+  // route cuts it off when it stops moving instead (A66). Headers still have to arrive within Node's 60 seconds.
+  const options = { requestTimeout: 0 };
+  const plain = createServer(options, (request: IncomingMessage, response: ServerResponse) => {
     if (tls && !fromThisMachine(request.socket.remoteAddress) && !services.connection.allowHttp()) {
       response.writeHead(308, { Location: `https://${request.headers.host ?? ""}${request.url ?? "/"}`, "Cache-Control": "no-store" }).end();
       return;
@@ -39,7 +42,7 @@ export function createJarvyServer(services: ApiServices, webRoot: string, tls: {
     listen: (port, host) => new Promise((resolve, reject) => { plain.once("error", reject); plain.listen(port, host, () => { plain.off("error", reject); resolve(); }); }),
     close: () => { plain.close(); plain.closeAllConnections(); },
   };
-  const secure = createSecureServer({ key: tls.key, cert: tls.cert }, (request, response) => void handle(request, response));
+  const secure = createSecureServer({ ...options, key: tls.key, cert: tls.cert }, (request, response) => void handle(request, response));
   const front = createListener({ pauseOnConnect: true }, (socket: Socket) => {
     socket.on("error", () => socket.destroy());
     // A connection that never says anything (browsers open some ahead of time) is dropped after a while.

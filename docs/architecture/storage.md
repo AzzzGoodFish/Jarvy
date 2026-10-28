@@ -15,6 +15,8 @@ The default is `~/.jarvy`; `JARVY_DATA_DIR` or `--data-dir` replaces the whole r
     workspace/                         Pi cwd; an ordinary folder, mounted as /workspace in the Bot's sandbox
       temp/
     agent/pi/sessions/<timestamp>.jsonl   the Bot's one session file
+  attachments/<id[0:2]>/<id>           a chat attachment's contents, one file each (0600, A66)
+  attachments/incoming/<id>.part       an upload or a Bot's file on its way in; moved into place once whole
   pi/models.json                       pi.dev's model catalog as last fetched (A49)
   computers/bin/pi-env                 the daemon Bots' sandboxes mount read-only (A50)
   computers/build.log                  output of the last build of their image
@@ -30,7 +32,7 @@ The master key that seals secrets, model credentials and the TLS keys is kept ou
 | model conversation, thinking, tool calls and results, compaction | Pi JSONL, written by the SDK |
 | the Bot's interaction messages | `history.db` ([memory](memory.md)) |
 | work files | the Bot's workspace |
-| uploaded attachments | SQLite BLOBs; files on disk are rebuildable copies |
+| attachments | what each one is (name, type, size, message) in SQLite; its contents in `attachments/` |
 | current activity, context usage | the live runtime only; never restored from an old snapshot |
 
 The session file name is chosen once per Bot and stored with the Pi session ID; it is always reopened, never guessed and never created per chat.
@@ -50,7 +52,12 @@ Pending question cards are marked ignored at startup, since no tool call outlive
 
 ## Attachments
 
-Up to 10 MB each and 5 per message; the database holds them. Into a Bot: the XML lists each by id, name, type and size; `files.get` writes it into the Bot's current environment and `files.view` hands a picture or short text to the model (A50). Out of a Bot: `messages.send` takes `{path, name}` in its current environment; the server reads the file through it and saves it to the target chat. Images reach the model only when a Bot asks (`files.view`, or `read` on a file it got); PDFs, audio and so on need tools that can read them. `GET /api/attachments/:id` serves single byte ranges (206 / 416) and the file's own type only for the fixed media list in A34; anything else is `application/octet-stream`, always with `Content-Disposition: attachment`.
+Up to 4 GB each (`ATTACHMENT_MAX_BYTES` in the contract, for the web and the server alike) and 5 per message (A66). The `attachments` table says what each one is; its contents are a file of their own, `attachments/<first two characters of the id>/<id>` in the data directory, never held in memory whole.
+
+- **In**: `POST /api/chats/:id/attachments` streams the body to `attachments/incoming/<id>.part`, counting it; a declared `Content-Length` over the limit is refused (413 `file_too_large`) before a byte is read, and a body that passes it is cut off there. Once whole it is flushed, moved into place and given its row. The server has no overall time limit on a request (`requestTimeout: 0`); an upload is cut off instead after 60 seconds with nothing arriving. A cut-off or cancelled upload removes its part file.
+- **Out**: `GET /api/attachments/:id` streams the file and serves single byte ranges (206 / 416), with the file's own type only for the fixed media list in A34; anything else is `application/octet-stream`, always with `Content-Disposition: attachment`.
+- **Removal**: a trigger records the id of every deleted attachment row in `attachment_removals`, cascades included (a deleted chat, a deleted Bot's DMs, a pending attachment taken out of a draft). After those operations, and at startup, the ids there have their files deleted and are forgotten. Startup also removes part files and any file no row owns (a stop between writing a file and its row).
+- **Bots**: the XML lists each file by id, name, type and size; `files.get` copies it into the Bot's current environment 4 MB at a time (`WorkEnvironment.writeFile` empty, then `appendFile`), and `files.view` reads only the first bytes to tell a picture, and the whole file only when it is a picture up to 4 MB or text up to 64 KB (A50). `messages.send` takes `{path, name}` in the Bot's current environment; the server reads it there 4 MB at a time (`readRange`) into a part file and hashes it as it goes; the message puts the file in place before its row and drops it again if the message isn't written or was already written by an earlier try with the same key. Images reach the model only when a Bot asks (`files.view`, or `read` on a file it got); PDFs, audio and so on need tools that can read them.
 
 ## Schema versions
 
@@ -81,6 +88,7 @@ A write that spans several statements goes through `transaction(db, work)` (`inf
 | v25 | `messages.folded_at`: when the owner folded a message to one line, or null (A60) |
 | v26 | `inbox.category` (`message`, `activity`, `system`); `chat_id` nullable, required by CHECK only for the chat categories and absent for system notices; `kind` checked in code instead of a CHECK; `detail` becomes `payload`, JSON by kind. System rows drop the DM they borrowed; the table is rebuilt with its rows, indexes and id sequence (A61) |
 | v27 | `environments.description`: what the owner wrote about an SSH machine, empty by default (A57). A column added, no rows rewritten |
+| v28 | Attachment contents move to files under `attachments/` (A66): each row's bytes are written out first (temporary name, flushed, renamed; a file of the right size already there is kept, so a stopped run picks up again), then the transaction checks every row has its file and drops `attachments.data`; `attachment_removals` and its trigger are added. The database is compacted afterwards |
 
 ## Search
 

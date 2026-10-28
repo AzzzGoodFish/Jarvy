@@ -28,7 +28,7 @@ export const isMedia = (kind: FileKind): kind is "video" | "audio" => kind === "
 export const KIND_LABEL = { image: "files.kindImage", svg: "files.kindSvg", video: "files.kindVideo", audio: "files.kindAudio", html: "files.kindHtml",
   markdown: "files.kindMarkdown", text: "files.kindText", download: "files.kindFile" } as const;
 export function bytes(size: number) {
-  return size < 1024 ? `${size} B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return size < 1024 ? `${size} B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : size < 1024 ** 3 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024 ** 3).toFixed(2)} GB`;
 }
 /** Attachments are served as same-origin octet-stream downloads; text is read through fetch. */
 export async function readText(file: Attachment, signal?: AbortSignal) {
