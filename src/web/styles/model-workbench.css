@@ -222,10 +222,11 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
 @media (max-width: 700px) {
   .jv-settings-shell { width: calc(100vw - 16px); height: calc(100dvh - 16px); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   /* One row on a phone: the title keeps its width, and only the tabs scroll, in a strip that ends before the close
-     button, so none of them sits under it. Text-only tabs keep the row short in English as well as Chinese. */
+     button, so none of them sits under it; its edge fades, so the ones further on show there are more. Text-only tabs keep the row short in English as well as Chinese. */
   .jv-settings-nav { flex-direction: row; align-items: center; gap: 4px; padding: 10px 52px 10px 12px; border-right: 0; border-bottom: 1px solid var(--jv-line); }
   .jv-settings-title { flex: none; padding: 0 8px 0 4px; white-space: nowrap; }
-  .jv-settings-tabs { flex: 1; min-width: 0; flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .jv-settings-tabs { flex: 1; min-width: 0; flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent); }
   .jv-settings-tabs::-webkit-scrollbar { display: none; }
   .jv-nav-item { height: 30px; flex: none; white-space: nowrap; }
   .jv-nav-item svg { display: none; }
