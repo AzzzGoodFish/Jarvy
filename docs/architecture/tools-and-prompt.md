@@ -23,6 +23,8 @@ chat({ action: "call", tool: "messages.send", args: {
 
 There is no fourth action and no flattened top-level schema. The server validates every call, whether or not the model has seen the schema.
 
+The gateway's own schema is the only one a model gets as a function definition, so it keeps to what every provider accepts: `action` is a string `enum` and `args` a plain `object`. Gemini refuses `anyOf`/`const` and `patternProperties` in a function definition (a relay answers 500), so a union of literals or a record type doesn't belong there. The internal tools keep their own schemas; `describe` hands them over as a result.
+
 Each tool is registered once (`service/bot/tools/`, A64): its name, the description the Bot reads, its parameters and its handler, together, in a file per area — `history`, `chats` (members, Bots, chats, threads, channel groups), `messages`, `files`, `environments`, `secrets`, `tasks`, and `agent` for the agent Bot's own. The handler's arguments are typed from its parameters. The gateway (`service/bot/tools.ts`) does only what is the same for every tool: list, describe, check the arguments, run; `list` gives the tools by area in that order. What several tools share — finding a chat, member or group by what the Bot wrote, sending, asking on a card, the unread hint, the check that a person can answer — is in `tools/context.ts`.
 
 A call that fails validation says how to put it right in the same answer (`service/bot/tool-errors.ts`), so the Bot needs no `describe` first: wrong arguments list up to five problems (a missing or mistyped field, a parameter the tool doesn't have) followed by the tool's argument schema; an unknown name lists the names the Bot has; a malformed gateway request says which actions take `tool` and `args`.
