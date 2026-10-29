@@ -29,11 +29,22 @@ function remember(map: Map<string, string>, id: string, definition: string): voi
   map.set(id, definition);
 }
 
-/** Batch tail for channels (A37): the Bot's unread counts; and where its file and command tools run now (A50). */
+/** Batch tail for channels (A37): the Bot's unread counts, the notices it hasn't read where it is about to act
+ * (A67); and where its file and command tools run now (A50). */
 export interface BatchDigest {
   unread: readonly { chatId: string; title: string; type: string; count: number }[];
+  unreadNotes?: readonly UnreadNote[];
   environment?: BatchEnvironment;
 }
+/** A notice the Bot was told of but has not read (A67); a thread's carries its channel's too. */
+export interface UnreadNote { chatId: string; title: string; type: string; version: number }
+const noticeName = (note: UnreadNote) => note.type === "thread" ? `this thread's summary (version ${note.version})`
+  : `the notice of 「${note.title}」 (${note.type}, version ${note.version})`;
+/** What to read first: the chats named, and what to do about them. */
+const unreadNoteLine = (notes: readonly UnreadNote[]) => notes.length ? `<notice_unread>${notes.map(note => `<chat${attribute("id", note.chatId)}`
+  + `${attribute("title", note.title)}${attribute("type", note.type)}${attribute("version", String(note.version))}/>`).join("")}
+<note>You haven't read ${notes.map(noticeName).join(" or ")} yet. Read ${notes.length === 1 ? "it" : "them"} with chats.info `
+  + `(${notes.map(note => `chatId: "${note.chatId}"`).join(", ")}), make sure your message follows ${notes.length === 1 ? "it" : "them"} before you send here.</note></notice_unread>` : "";
 export interface BatchEnvironment { name: string; directory: string }
 const environmentLine = (place?: BatchEnvironment) => place ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}/>` : "";
 const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z");
@@ -53,11 +64,13 @@ const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just
   + `Write to them in a DM (messages.send with to: "${owner}") and welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
   + "such as building a team of Bots for their work and running the platform for them. Then ask what they want to get done: a software project, writing, research or something else.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
-export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null): string {
+export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null,
+  unreadNotes?: readonly UnreadNote[]): string {
   if (!notices.length && !prompt) throw new Error("Empty notice batch");
   const chats = new Map<string, string>(), members = new Map<string, string>();
   const list = noticeTail(notices, chats, members);
-  return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${instructionsLine(prompt)}${environmentLine(environment)}</notice_batch>`;
+  return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${instructionsLine(prompt)}`
+    + `${unreadNoteLine(unreadNotes ?? [])}${environmentLine(environment)}</notice_batch>`;
 }
 /** Your instructions changed (A56): the system prompt stays as the session has it, so that the conversation stays
  * cached; what changed comes with the batch, once. */
@@ -136,6 +149,7 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
   let tail = (notices?.length ? noticeTail(notices, chats, members) : "") + instructionsLine(prompt);
   if (digest?.unread.length) tail += `<unread${attribute("total", String(digest.unread.reduce((sum, item) => sum + item.count, 0)))}>`
     + `${digest.unread.map(item => `<chat${ref("id", item)}${attribute("count", String(item.count))}/>`).join("")}</unread>`;
+  tail += unreadNoteLine(digest?.unreadNotes ?? []);
   tail += environmentLine(digest?.environment);
   return `<chat_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${encoded.join("")}${tail}</chat_batch>`;
 }

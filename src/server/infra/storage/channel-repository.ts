@@ -124,10 +124,29 @@ export class ChannelRepository {
     });
     return this.chats.note(chatId)!;
   }
-  /** The member knows this version (it wrote it, read it, or was told in a batch); default: the current one. */
+  /** The member read this version of the notice (it wrote it, or read it with chats.info), never the one it was
+   * told of: being told of a version is not knowing what it says, and the text is what the context loses (A67).
+   * Default: the current one. */
   markNoteSeen(memberId: string, chatId: string, version?: number): void {
     this.db.prepare(`INSERT INTO chat_states(chat_id,member_id,note_seen) VALUES(:chat,:member,COALESCE(:version,(SELECT version FROM chat_notes WHERE chat_id=:chat),0))
       ON CONFLICT(chat_id,member_id) DO UPDATE SET note_seen=MAX(note_seen,excluded.note_seen)`).run({ chat: chatId, member: memberId, version: version ?? null });
+  }
+  /** Nothing read survives a compaction (A67): the text is gone from the context, so every notice starts over for
+   * that member. Bots only; a person's reading is theirs. */
+  clearNotesSeen(memberId: string): void {
+    this.db.prepare("UPDATE chat_states SET note_seen=0 WHERE member_id=?").run(memberId);
+  }
+  /** Of these chats, the ones whose current notice this member has not read (A67): what a batch reminds it of,
+   * and what a send there is refused for. A thread's channel is asked by the caller. */
+  unreadNotes(memberId: string, chatIds: readonly string[]): { chatId: string; title: string; type: string; version: number }[] {
+    const rows = [];
+    for (const chatId of new Set(chatIds)) {
+      const row = this.db.prepare(`SELECT c.id AS chatId,c.title,c.type,n.version,s.note_seen AS seen FROM chats c
+        JOIN chat_notes n ON n.chat_id=c.id LEFT JOIN chat_states s ON s.chat_id=c.id AND s.member_id=? WHERE c.id=?`).get(memberId, chatId) as
+        { chatId: string; title: string; type: string; version: number; seen: number | null } | undefined;
+      if (row && (row.seen ?? 0) < row.version) rows.push({ chatId: row.chatId, title: row.title, type: row.type, version: row.version });
+    }
+    return rows;
   }
   /** Moves the read position forward (never back, never past the last message). */
   markRead(memberId: string, chatId: string, sequence: number): number {
