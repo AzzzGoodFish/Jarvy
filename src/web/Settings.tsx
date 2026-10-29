@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DatabaseIcon, GlobeIcon, InfoIcon, KeyRoundIcon, ServerIcon, SlidersHorizontalIcon } from "lucide-react";
 import type { ModelConnection } from "../contract/models";
 import { About } from "./About";
@@ -20,10 +20,14 @@ export function SettingsDialog({ connections, onChanged, onClose, initialTab = "
   connections: ModelConnection[]; onChanged: () => Promise<void>; onClose: () => void; initialTab?: SettingsOpen;
 }) {
   const [tab, setTab] = useState<SettingsTab>(initialTab === "addMachine" ? "machines" : initialTab);
+  // On a phone the tabs are one row that scrolls: keep the open one in view, such as Network opened from elsewhere.
+  const current = useRef<HTMLButtonElement>(null);
+  useEffect(() => { current.current?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [tab]);
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="jv-settings-shell" aria-describedby={undefined}>
     <nav className="jv-settings-nav" aria-label={t("settings.sections")}>
       <DialogTitle className="jv-settings-title">{t("settings.title")}</DialogTitle>
-      {TABS.map(item => <button type="button" key={item.id} className="jv-nav-item" aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}><item.icon/>{t(item.label)}</button>)}
+      <div className="jv-settings-tabs">{TABS.map(item => <button type="button" key={item.id} ref={tab === item.id ? current : undefined} className="jv-nav-item"
+        aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}><item.icon/>{t(item.label)}</button>)}</div>
     </nav>
     <main className="jv-settings-content">{tab === "general" ? <General/> : tab === "models" ? <ModelSettings connections={connections} onChanged={onChanged}/> : tab === "machines" ? <MachineSettings adding={initialTab === "addMachine"}/> : tab === "secrets" ? <SecretSettings/> : tab === "network" ? <NetworkSettings/> : <About/>}</main>
   </DialogContent></Dialog>;
