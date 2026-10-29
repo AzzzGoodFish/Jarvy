@@ -5,7 +5,6 @@ import type { environment as en } from "../en/environment";
 export const environment: Part<typeof en> = {
   "environment.title": "工作环境",
   "environment.own": "Docker 沙箱",
-  "environment.sandboxAbout": "此 Bot 专用的 Linux 容器",
   "environment.container": "容器",
   "environment.image": "镜像",
   "environment.mount": "工作区挂载点",

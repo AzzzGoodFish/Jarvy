@@ -2,7 +2,6 @@
 export const environment = {
   "environment.title": "Work environment",
   "environment.own": "Docker sandbox",
-  "environment.sandboxAbout": "A Linux container for this Bot only",
   "environment.container": "Container",
   "environment.image": "Image",
   "environment.mount": "Workspace mount",
