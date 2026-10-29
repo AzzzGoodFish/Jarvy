@@ -2,6 +2,42 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.10.0 — 2026-10-29
+
+Upgrading moves the database from schema v25 to v29 on first start: the inbox gets a category for each delivery (v26), SSH machines get a description (v27), attachment contents move out of the database into files under `attachments/` in the data directory, after which the database is compacted (v28), and every Bot's default environment becomes its own sandbox (v29). A start interrupted midway finishes the job on the next start. Read **Before you upgrade** first.
+
+### Before you upgrade
+
+- **Bots no longer work on your computer by default.** The computer running Jarvy stops being a work environment of its own: the upgrade removes it and what was granted on it, and a Bot that was working there is back in its own sandbox. For Bots to keep working on this computer, add it under Settings → Environments → Add machine as an SSH machine (address 127.0.0.1 and your user; the computer needs an SSH server running) and turn it on in their Bot info. Adding it on 0.9.0, before upgrading, keeps their work going.
+- **Without Docker, Bots have no file and command tools.** A Bot's sandbox needs Docker. Where there is none, a Bot still runs and chats, but `bash`, `read`, `write` and `edit` report that Docker is missing until Docker is installed and Jarvy restarted, or the Bot switches to an SSH machine.
+- **Back up the whole data directory.** Attachments are files now, so a copy of `jarvy.db` alone no longer holds them.
+
+### Added
+
+- **Every Bot works on a computer of its own.** A new Bot gets its own Docker sandbox, which is its default; a Bot without one gets it at the next start. Bot info shows the sandbox (state, container, image, workspace mount; start, stop and reset) and the external environments the Bot may use, or Add machine when there are none. Every Bot's prompt now says the same: its files are on its own machine, other members can't reach its files, addresses or anything it starts there, and files go to them as attachments.
+- **Attachments up to 4 GB**, up to five per message, for people and Bots alike. Uploads show their progress and can be cancelled; downloads stream and resume. A Bot's files move in 4 MB pieces, to and from SSH machines too.
+- **A Bot reads a chat's notice before it sends there.** Being told that a notice has a new version no longer counts as reading it, and when a Bot's context is compacted it has to read again. Until it has read a channel's notice, or in a thread the thread's summary and its channel's notice, each batch reminds it and a message, card or request it sends there is refused with what to read. `chats.info` on a thread also returns its channel's notice. Direct messages and people are not checked.
+- **Reset models** for a built-in model connection, in Settings → Models: it first shows what will happen (models restored to their defaults, models removed and the Bots that use them), then does it in one step.
+- **Machine descriptions.** An SSH machine can have a description of up to 2000 characters, which Bots read in `environments.list`.
+
+### Changed
+
+- **Machine settings in three parts**: the machine (name, start directory and description), how Jarvy reaches it (fingerprints and login), and the Bots that may use it, shown as tags that can be removed. The add form takes the page's full width. Secrets show their Bots as tags too.
+- **A new Bot's setup asks only for its model**: there is no default environment to choose. The agent Bot's `bots.create` has no `environment` any more.
+- **The model catalog is checked every 4 hours** while Jarvy runs, and when a connection is opened if a check is due, not only at start. A model saved from the catalog keeps the address its entry gives.
+- **Notices about no chat stay out of DMs.** The agent Bot's welcome, a change to a Bot's settings and a due task reach the Bot without opening or using a DM.
+- **API**: `PUT /bots/:id/environment` takes only `{machineId, granted}` (`home` and `hostGranted` are gone), and `POST /bots` takes no `environment`. An upload over 4 GB is refused with 413.
+
+### Fixed
+
+- Models that only pi.dev's catalog lists, such as Kimi K3.1 Pro on Kimi Coding, take their compatibility settings from the catalog, so their requests are in the provider's format.
+- On a phone, the Settings header fits its six sections: the title stays on one line, the tabs scroll on their own and none of them sits under the close button.
+
+### Known limits
+
+- On an SSH machine, `write` and `edit` fail for a path that exists on the machine running Jarvy but that Jarvy's user can't read there. `bash` still works there. This waits on a fix in Pi, the agent library Jarvy uses.
+- A service a Bot starts in its sandbox can't be reached by other members or from the browser. Results go to them as attachments.
+
 ## 0.9.0 — 2026-10-23
 
 Upgrading moves the database from schema v23 to v25 on first start. Each step adds one column and rewrites no rows: `environments.password` holds the sealed password of an SSH machine that refuses keys (v24), and `messages.folded_at` marks a folded message (v25). A v25 database cannot be opened by 0.8.0; keep a copy if you may need to go back.
