@@ -28,6 +28,9 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
     <note>These are reactions to your messages. Act on them if you need to; no reply is required.</note>
   </notices>
   <unread total="9"><chat id="c-dev" count="2"/><chat id="c-req" title="需求" type="channel" count="7"/></unread>
+  <notice_unread><chat id="c-dev" title="研发" type="channel" version="3"/>
+    <note>You haven't read the notice of 「研发」 (channel, version 3) yet. Read it with chats.info (chatId: "c-dev"), make sure your message follows it before you send here.</note>
+  </notice_unread>
   <environment name="your sandbox" directory="/workspace"/>
 </chat_batch>
 ```
@@ -48,6 +51,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `tasks` | the Bot's scheduled tasks that are due (A58), first in the tail: one `task` each with its `id`, `name`, the schedule in words (`schedule`), `due` and the instruction as text, and a fixed note saying they are its own tasks, not messages, and that what is worth sending goes to its owner unless the task says where |
 | `onboard` | to the agent Bot only, once (A48): the owner has just given it a model; its note asks it to write to the owner with `messages.send` to their name and welcome them in their interface language. A system notice (A61): no chat is named, and the DM is made when the Bot first writes |
 | `unread` | the Bot's unread counts; chats not defined above carry `title` and `type` |
+| `notice_unread` | the notices and thread summaries the Bot has not read (A67) among the chats in this batch, a thread's channel included: `id`, `title`, `type`, `version`, and a note naming them and `chats.info`. Being told of a version in `updates` is not reading it; a send there is refused until it reads them |
 | `environment` | where the Bot's file and command tools run now (A50): the environment's name and the directory they start in. Last in every batch, so the system prompt need not change when the Bot switches |
 
 ## Partial quotes
@@ -66,7 +70,7 @@ The source ID is left out when that message is gone; a passage over 200 characte
 Queued deliveries steered into a running turn, or forming a turn of their own when the Bot was idle, use the same shape without messages:
 
 ```xml
-<notice_batch bot="bot_2"><chat …/><member …/><tasks>…</tasks><updates>…</updates><notices>…</notices><changes>…</changes><environment …/></notice_batch>
+<notice_batch bot="bot_2"><chat …/><member …/><tasks>…</tasks><updates>…</updates><notices>…</notices><changes>…</changes><notice_unread>…</notice_unread><environment …/></notice_batch>
 ```
 
 ## Rules

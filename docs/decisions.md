@@ -471,6 +471,19 @@ Attachments were BLOBs in `jarvy.db`, up to 10 MB, read and written whole in mem
 
 Why: a file of gigabytes belongs in the file system, where it can stream, and a database of metadata stays small, fast to back up and quick to migrate.
 
+## A67 A Bot reads a chat's notice before it sends there
+
+A channel's notice holds the rules for working there, but a Bot was only ever told that a new version existed: the version number, not the text. Being told counted as knowing it (A37 `note_seen`), so after a compaction took the text out of its context the Bot was still marked as knowing the version and nothing reminded it. A Bot that had lost a channel's rules went on replying there as if it had none.
+
+- **Reading is not being told**: `chat_states.note_seen` is written only when a Bot reads the text (`chats.info`) or writes the notice itself. Being told of a new version in a batch no longer writes it. No schema change.
+- **A compaction forgets it**: when Pi finishes a compaction, the Bot's `note_seen` is cleared for every chat, because the text it read is gone from the conversation. Existing values were left as they were on upgrade, so a Bot starts being asked after its next compaction.
+- **What counts**: a channel needs its notice; a thread needs its summary and its channel's notice, since the rules usually sit on the channel. A DM has no notice. People are not checked.
+- **Reminded where it acts**: a batch carries `<notice_unread>` for the chats in it (a thread's channel included) whose notice the Bot hasn't read: id, title, type, version, and a note saying to read them with `chats.info` and to make sure the message follows them. A run of notices alone carries it too.
+- **A send waits for it**: `messages.send`, `messages.ask` and the cards of `secrets.request`, `environments.request` and the agent Bot's confirmations all post through one step, which refuses (409) while a notice there is unread. The error names every notice missing, with its version and chat ID, so one round of reading is enough.
+- **One call reads a thread's rules**: `chats.info` on a thread also returns its channel's notice (`parentNotice`) and marks both read.
+- **The prompt** says a channel's notice (a thread's summary) holds the core rules and information of that chat, that a Bot reads it in full and follows it before it works or sends there, and that it gets a system notice when it hasn't read it or it has been updated.
+
+Why: a notice is the long-lived part of a chat, the part a compaction is most likely to cut short; the platform is what can tell when a Bot no longer has it, and stopping a send is cheaper than an off-rule message in a shared channel.
 ## A68 Every Bot works on a computer of its own
 
 A Bot's default environment was either its sandbox or the owner's computer, and most Bots defaulted to the owner's computer. Bots on it shared one machine, and nothing in their instructions said that the others might not: a Bot would hand another a path, a `localhost` address or a machine only it could reach. Jarvy also ran those Bots' commands itself, as the owner.

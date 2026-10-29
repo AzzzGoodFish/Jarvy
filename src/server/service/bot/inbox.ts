@@ -34,7 +34,10 @@ export class BotInbox {
     if (!batch.inputs.length) { const pending = this.notices(prompt); return pending && { xml: pending.xml, notices: pending.ids }; }
     const inputs = await this.files.envelope(this.botId, batch.inputs.map(input => input.messageId));
     for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "Chat access has changed.");
-    const digest = { ...this.chats.channels.digest(this.botId), ...(this.where ? { environment: this.where() } : {}) };
+    // A Bot that was told of a notice but never read it is reminded here, where it is about to act (A67): its own
+    // channels and threads, and the channel a thread belongs to.
+    const unreadNotes = this.chats.channels.unreadNotes(this.botId, [...new Set(batch.inputs.map(input => input.chatId))]);
+    const digest = { ...this.chats.channels.digest(this.botId), ...(unreadNotes.length ? { unreadNotes } : {}), ...(this.where ? { environment: this.where() } : {}) };
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const pending = this.envelope(this.chats.notices(this.botId));
     return { xml: encodeChatBatch(this.botId, inputs, digest, pending.length ? pending : undefined, prompt), notices: pending.map(notice => notice.id) };
@@ -69,7 +72,9 @@ export class BotInbox {
   notices(prompt?: PromptChange | null, steer = false): { xml: string; ids: number[] } | null {
     const pending = this.chats.notices(this.botId).filter(notice => !steer || notice.kind !== "task");
     if (!pending.length) return null;
-    return { xml: encodeNoticeBatch(this.botId, this.envelope(pending), this.where?.(), prompt), ids: pending.map(notice => notice.id) };
+    // A run of notices alone is where a Bot learns of a new version; the ones it still has not read come too (A67).
+    const unreadNotes = this.chats.channels.unreadNotes(this.botId, pending.flatMap(notice => notice.chat ? [notice.chat.id] : []));
+    return { xml: encodeNoticeBatch(this.botId, this.envelope(pending), this.where?.(), prompt, unreadNotes), ids: pending.map(notice => notice.id) };
   }
   /** These notices reached the model. */
   tell(ids: readonly number[]) { this.chats.tellNotices(this.botId, ids); }

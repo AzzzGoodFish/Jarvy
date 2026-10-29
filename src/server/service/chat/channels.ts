@@ -93,6 +93,13 @@ export class ChatChannels {
     return note;
   }
   noteSeen(memberId: string, chatId: string, version?: number): void { this.store.markNoteSeen(memberId, chatId, version); }
+  /** A compaction took the notice text out of a Bot's context: it has read nothing again (A67). */
+  clearNotesSeen(memberId: string): void { this.store.clearNotesSeen(memberId); }
+  /** Notices this Bot has not read in these chats, its channel's included for a thread (A67). */
+  unreadNotes(memberId: string, chatIds: readonly string[]): { chatId: string; title: string; type: string; version: number }[] {
+    const parents = chatIds.flatMap(id => { const parent = this.repository.getChat(memberId, id)?.parentId; return parent ? [parent] : []; });
+    return this.store.unreadNotes(memberId, [...chatIds, ...parents]);
+  }
   markRead(actorId: string, chatId: string, sequence: unknown): number {
     if (!Number.isSafeInteger(sequence) || (sequence as number) < 0) throw new ChatError(400, "Invalid read position");
     return this.store.markRead(actorId, chatId, sequence as number);

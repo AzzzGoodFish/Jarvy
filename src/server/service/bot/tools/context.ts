@@ -60,7 +60,20 @@ export class ToolContext {
     if (!chat.memberIds.some(id => this.chats.member(id)?.kind === "user")) throw new ChatError(400, `No person in this chat to answer; ${otherwise}`);
     return chat;
   }
-  send(chatId: string, message: OutgoingMessage): Promise<SentMessage> { return this.sender()!(chatId, message); }
+  send(chatId: string, message: OutgoingMessage): Promise<SentMessage> { this.unreadNote(chatId); return this.sender()!(chatId, message); }
+  /** A Bot sends only where it has read what the place is for (A67): its notice, or its thread's summary and the
+   * channel's notice. Being told of a new version is not reading it. A DM has no notice. */
+  unreadNote(chatId: string): void {
+    const chat = this.chats.get(this.bot, chatId);
+    if (!chat || chat.type === "dm") return;
+    const missing = this.chats.channels.unreadNotes(this.bot, [chatId]);
+    if (!missing.length) return;
+    const name = (note: { title: string; type: string; version: number }) => note.type === "thread"
+      ? `this thread's summary (version ${note.version})` : `the notice of 「${note.title}」 (${note.type}, version ${note.version})`;
+    const ids = missing.map(note => `chatId: "${note.chatId}"`).join(", ");
+    throw new ChatError(409, `Unread notice: you haven't read ${missing.map(name).join(" or ")} yet. Read ${missing.length === 1 ? "it" : "them"} with chats.info (${ids}), `
+      + `make sure your message follows ${missing.length === 1 ? "it" : "them"}, then send again.`);
+  }
   /** Posts a card and waits for the person's answer (messages.ask, the requests for a secret or a machine, the agent's confirmations). */
   async ask(chatId: string, question: QuestionSpec, call: ToolCall) {
     const sent = await this.send(chatId, { content: question.question, question, toolCallId: call.toolCallId, signal: call.signal });

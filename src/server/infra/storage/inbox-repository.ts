@@ -87,15 +87,11 @@ export class InboxRepository {
       payload: row.payload === null ? null : JSON.parse(row.payload), messageId: row.messageId,
       chat: row.chatId === null ? null : { id: row.chatId, type: row.chatType as "dm" | "channel" | "thread", title: row.chatTitle ?? "" } }) as BotNotice);
   }
-  /** These notices reached the Bot (steered into its run, or in a batch it was given). */
+  /** These notices reached the Bot (steered into its run, or in a batch it was given). A new notice version told
+   * here does not count as read (A67): the text is what a compaction loses. */
   tell(botId: string, ids: readonly number[]): void {
     const now = Date.now();
-    for (const id of ids) {
-      this.db.prepare("UPDATE inbox SET state='told',told_at=? WHERE id=? AND member_id=? AND state='pending'").run(now, id, botId);
-      // Being told of a new notice / summary version is knowing it (A37 note_seen).
-      this.db.prepare(`INSERT INTO chat_states(chat_id,member_id,note_seen) SELECT chat_id,member_id,json_extract(payload,'$.version') FROM inbox WHERE id=? AND kind='note'
-        ON CONFLICT(chat_id,member_id) DO UPDATE SET note_seen=MAX(note_seen,excluded.note_seen)`).run(id);
-    }
+    for (const id of ids) this.db.prepare("UPDATE inbox SET state='told',told_at=? WHERE id=? AND member_id=? AND state='pending'").run(now, id, botId);
   }
 
   // A person's rows: what their chat list shows.
