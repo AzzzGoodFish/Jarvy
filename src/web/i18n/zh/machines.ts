@@ -13,7 +13,7 @@ export const machines: Part<typeof en> = {
   "machines.name": "名称",
   "machines.directory": "起始目录",
   "machines.description": "描述",
-  "machines.descriptionPlaceholder": "用途、装了什么、需要注意的地方",
+  "machines.descriptionPlaceholder": "用途、已安装的软件、注意事项",
   "machines.directoryPlaceholder": "用户主目录",
   "machines.next": "下一步",
   "machines.scanning": "正在连接…",
