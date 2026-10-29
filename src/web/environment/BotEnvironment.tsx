@@ -8,11 +8,8 @@ import { useAction } from "../action";
 import "../styles/environment.css";
 
 const STATE = {
-  preparing: ["environment.state.preparing", "environment.hint.preparing"],
-  running: ["environment.state.running", "environment.hint.running"],
-  stopped: ["environment.state.stopped", "environment.hint.stopped"],
-  failed: ["environment.state.failed", "environment.hint.failed"],
-  unavailable: ["environment.state.unavailable", "environment.hint.unavailable"],
+  preparing: "environment.state.preparing", running: "environment.state.running", stopped: "environment.state.stopped",
+  failed: "environment.state.failed", unavailable: "environment.state.unavailable",
 } as const;
 
 /** Bot info's section (A50, A67), in two parts. Its Docker sandbox, the only default there is: its state,
@@ -27,9 +24,9 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
   const act = (what: NonNullable<typeof busy>, work: () => Promise<Bot>, fallback: Key) => perform(what, async () => onSaved(await work()), fallback);
   const run = (what: "start" | "stop" | "reset") => void act(what, () => api.computer(bot.id, what), "common.failed");
   const state = computer?.state;
-  const [label, hint] = state ? STATE[state] : [null, null];
+  const label = state ? STATE[state] : null;
   return <section className="jv-section" aria-label={t("environment.title")}><h3 className="jv-section-title">{t("environment.title")}</h3>
-    {computer && state && label && hint && <div className="jv-list jv-env-sandbox">
+    {computer && state && label && <div className="jv-list jv-env-sandbox">
       <div className="jv-list-row jv-static-row">
         <span className="jv-row-text"><strong>{t("environment.own")}</strong>
           {current === "ssh" && <span className="jv-env-away">{t("environment.awayMachine", { name: currentName ?? "" })}</span>}</span>
@@ -39,8 +36,8 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
       <div className="jv-list-row jv-static-row jv-env-details">
-        <p>{t(hint)}</p>
-        {state !== "unavailable" && !confirming && <div className="jv-env-actions">
+        {/* The state says the rest; only a missing Docker needs words: what to do about it. */}
+        {state === "unavailable" ? <p>{t("environment.unavailable")}</p> : !confirming && <div className="jv-env-actions">
           <Button type="button" variant="outline" size="sm" disabled={!!busy || state === "preparing"} onClick={() => state === "running" ? setConfirming("stop") : run("start")}>
             {t(busy === "start" ? "environment.starting" : busy === "stop" ? "environment.stopping" : state === "running" ? "environment.stop" : "environment.start")}</Button>
           <Button type="button" variant="ghost" size="sm" disabled={!!busy || state === "preparing"} onClick={() => setConfirming("reset")}>{t("environment.reset")}</Button>

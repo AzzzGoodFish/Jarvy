@@ -63,7 +63,7 @@ export const machines: Part<typeof en> = {
   "machineCard.granted": "已允许使用 {name}",
   "machineCard.declined": "已拒绝添加 {name}",
   "machineCard.ignored": "已忽略 {name} 的请求",
-  "environment.awayMachine": "当前在 {name} 上。",
+  "environment.awayMachine": "正在使用 {name}",
   "error.machineMissing": "找不到这台机器，它可能已被删除。",
   "error.machineNameTaken": "已有同名的机器。",
   "error.sshPasswordMissing": "请输入密码。",
