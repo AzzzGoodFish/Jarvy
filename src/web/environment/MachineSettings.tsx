@@ -19,10 +19,10 @@ import "../styles/machines.css";
  * one takes two steps: where it is, then its fingerprint to check and how Jarvy gets in — the password, which installs
  * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. The computer running Jarvy is
  * added the same way when Bots should work there (A67). */
-export function MachineSettings() {
+export function MachineSettings({ adding: startAdding = false }: { adding?: boolean }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {

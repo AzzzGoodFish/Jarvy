@@ -7,7 +7,7 @@ import { AppDialogs, type Confirm, type Dialog, type Menu } from "./AppDialogs";
 import { AppSidebar } from "./AppSidebar";
 import { ChatMain } from "./ChatMain";
 import { SidePane } from "./SidePane";
-import { SettingsDialog, type SettingsTab } from "./Settings";
+import { SettingsDialog, type SettingsOpen } from "./Settings";
 import { hintThread } from "./sidebar/Sidebar";
 import { findMentions } from "../contract/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
@@ -48,7 +48,7 @@ export function App() {
   const [focusedBotId, setFocusedBotId] = useState<string | null>(null);
   const [infoBotId, setInfoBotId] = useState<string | null>(null);
   const [connections, setConnections] = useState<ModelConnection[]>([]);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const [settingsTab, setSettingsTab] = useState<SettingsOpen | null>(null);
   const [accountMenu, setAccountMenu] = useState(false);
   const [createMenu, setCreateMenu] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -401,7 +401,7 @@ export function App() {
     {settingsTab && <SettingsDialog connections={connections} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
       sections={sections} members={members} connections={connections} meId={meId}
-      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={() => setSettingsTab("models")}
+      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setSettingsTab}
       onChannelInfo={chat => { openChat(chat); setPane({ kind: "info", page: "main" }); }}
       onOpenChatId={id => { setSelected(id); setMobileNav(false); }}
       chatSaved={chatSaved} openChat={openChat}

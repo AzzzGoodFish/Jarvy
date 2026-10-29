@@ -53,7 +53,7 @@ A new Bot gets its sandbox when it is created (`POST /bots`, the agent's `bots.c
 The section has two parts:
 
 - **Its Docker sandbox**: Docker 沙箱 / "Docker sandbox", what it is, its state, and a line saying which machine the Bot is on when it switched to one; then what it is made of (the container's name, its image and the workspace's mount point, `/workspace`), a sentence on the state, Start or Stop, and Reset. Stopping closes what the Bot left running and resetting removes what it installed, so both ask in place first (Bot info is itself a dialog).
-- **External environments**: one switch for each SSH machine, by its name, a grant; with none added, a line pointing to Settings › Environments. Turning one off while the Bot is there sends it back to its sandbox.
+- **External environments**: one switch for each SSH machine, by its name, a grant; with none added, Add machine, which opens Settings › Environments at the form to add one. Turning one off while the Bot is there sends it back to its sandbox.
 
 ## Grants and switching
 

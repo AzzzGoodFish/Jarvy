@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PlusIcon } from "lucide-react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { t, type Key } from "../i18n";
@@ -16,8 +17,9 @@ const STATE = {
 
 /** Bot info's section (A50, A67), in two parts. Its Docker sandbox, the only default there is: what it is, its state,
  * the container, image and mount it is made of, Start or Stop and Reset, and where the Bot is when it switched to a
- * machine. Then the external environments it may switch to, the SSH machines (A57), each with a switch. */
-export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
+ * machine. Then the external environments it may switch to, the SSH machines (A57), each with a switch; with none yet,
+ * a row to add one in Settings. */
+export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSaved: (bot: Bot) => void; onAddMachine: () => void }) {
   const { doing: busy, error, run: perform } = useAction<"grant" | "start" | "stop" | "reset">();
   /** Stopping and resetting are destructive: both ask in place first. */
   const [confirming, setConfirming] = useState<"stop" | "reset" | null>(null);
@@ -53,7 +55,9 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
     </div>}
     <h4 className="jv-env-heading">{t("environment.external")}</h4>
     <div className="jv-list" role="group" aria-label={t("environment.external")}>
-      {machines.length === 0 && <div className="jv-list-row jv-static-row"><span className="jv-row-text"><span>{t("environment.noMachines")}</span></span></div>}
+      {machines.length === 0 && <button type="button" className="jv-list-row jv-env-add" onClick={onAddMachine}>
+        <span className="jv-row-icon"><PlusIcon/></span><span className="jv-row-text"><strong>{t("machines.add")}</strong></span>
+      </button>}
       {machines.map(machine => <button key={machine.id} type="button" role="switch" aria-checked={machine.granted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access"
         onClick={() => void act("grant", () => api.grantBotMachine(bot.id, machine.id, !machine.granted), "environment.accessFailed")}>
         <span className="jv-row-text"><strong>{machine.name}</strong></span>
