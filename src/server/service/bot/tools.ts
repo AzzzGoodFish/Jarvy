@@ -18,8 +18,11 @@ import { agentTools } from "./tools/agent.js";
 /** Every Bot's tools, by area, in the order list gives them; the agent Bot also has its own (A48), after them. */
 const EVERY_BOT: readonly BotTool[] = [...historyTools, ...chatTools, ...messageTools, ...fileTools, ...environmentTools, ...secretTools, ...taskTools];
 
-const Gateway = Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("describe"), Type.Literal("call")]),
-  tool: Type.Optional(Type.String()), args: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }, { additionalProperties: false });
+// The one schema a model gets as a function definition, so it keeps to what every provider takes: Gemini refuses
+// anyOf/const and patternProperties, so action is a plain string enum and args a plain object. The tools behind the
+// gateway keep their own schemas, since describe hands those over as a result.
+const Gateway = Type.Object({ action: Type.Unsafe<"list" | "describe" | "call">({ type: "string", enum: ["list", "describe", "call"] }),
+  tool: Type.Optional(Type.String()), args: Type.Optional(Type.Unsafe<Record<string, unknown>>({ type: "object" })) }, { additionalProperties: false });
 /** The `chat` gateway (A37): one tool in front of the Bot's chat tools. It lists them, describes one, checks the
  * arguments against its parameters and runs it; each tool is registered once (tools/), with what it does. */
 export class Tools implements ToolsPort {
