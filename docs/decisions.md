@@ -481,6 +481,6 @@ A channel's notice holds the rules for working there, but a Bot was only ever to
 - **Reminded where it acts**: a batch carries `<notice_unread>` for the chats in it (a thread's channel included) whose notice the Bot hasn't read: id, title, type, version, and a note saying to read them with `chats.info` and to make sure the message follows them. A run of notices alone carries it too.
 - **A send waits for it**: `messages.send`, `messages.ask` and the cards of `secrets.request`, `environments.request` and the agent Bot's confirmations all post through one step, which refuses (409) while a notice there is unread. The error names every notice missing, with its version and chat ID, so one round of reading is enough.
 - **One call reads a thread's rules**: `chats.info` on a thread also returns its channel's notice (`parentNotice`) and marks both read.
-- **The prompt** says a Bot can send only where it has read the notice, that being told is not reading, and that a compaction may ask it again.
+- **The prompt** says a channel's notice (a thread's summary) holds the core rules and information of that chat, that a Bot reads it in full and follows it before it works or sends there, and that it gets a system notice when it hasn't read it or it has been updated.
 
 Why: a notice is the long-lived part of a chat, the part a compaction is most likely to cut short; the platform is what can tell when a Bot no longer has it, and stopping a send is cheaper than an off-rule message in a shared channel.
