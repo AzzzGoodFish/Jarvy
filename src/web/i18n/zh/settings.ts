@@ -70,7 +70,7 @@ export const settings: Part<typeof en> = {
   "editor.resetModels": { one: "{count} 个模型将恢复为系统默认设置。", other: "{count} 个模型将恢复为系统默认设置。" },
   "editor.resetRemoves": { one: "{count} 个不在系统默认中的模型将被移除：{names}。", other: "{count} 个不在系统默认中的模型将被移除：{names}。" },
   "editor.resetBots": { one: "{bots} 正在使用将被移除的模型，重置后需要重新选择模型。", other: "{bots} 正在使用将被移除的模型，重置后需要重新选择模型。" },
-  "editor.resetKeeps": "API 地址和协议恢复默认；登录信息和 API Key 保留；未保存的修改将丢弃。",
+  "editor.resetKeeps": "API URL 和协议将恢复默认，登录信息和 API Key 会保留。未保存的修改将被丢弃。",
   "editor.resetConfirm": "重置",
   "editor.resetDone": "已重置为系统默认",
   "editor.resetFailed": "重置失败",
