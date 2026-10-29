@@ -471,7 +471,7 @@ Attachments were BLOBs in `jarvy.db`, up to 10 MB, read and written whole in mem
 
 Why: a file of gigabytes belongs in the file system, where it can stream, and a database of metadata stays small, fast to back up and quick to migrate.
 
-## A67 Every Bot works on a computer of its own
+## A68 Every Bot works on a computer of its own
 
 A Bot's default environment was either its sandbox or the owner's computer, and most Bots defaulted to the owner's computer. Bots on it shared one machine, and nothing in their instructions said that the others might not: a Bot would hand another a path, a `localhost` address or a machine only it could reach. Jarvy also ran those Bots' commands itself, as the owner.
 

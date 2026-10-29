@@ -11,7 +11,7 @@ export interface KindDeps { computers: { available: boolean; status(botId: strin
 /** One kind of environment, from `kinds/`. */
 export interface EnvironmentKindEntry {
   kind: EnvironmentKind;
-  /** May be a Bot's default: only its sandbox (A67). An SSH machine is granted and switched to (A57). */
+  /** May be a Bot's default: only its sandbox (A68). An SSH machine is granted and switched to (A57). */
   home: boolean;
   /** The owner may give it to a Bot. A Bot's sandbox is its own already. */
   grantable: boolean;

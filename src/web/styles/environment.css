@@ -1,4 +1,4 @@
-/* Work environments in Bot info (A50, A67): the Bot's Docker sandbox, what it is made of and its actions, then the
+/* Work environments in Bot info (A50, A68): the Bot's Docker sandbox, what it is made of and its actions, then the
    external environments it may use, each with a switch at the row's end. */
 .jv-env-sandbox .jv-row-text > span { white-space: normal; }
 .jv-list .jv-list-row.jv-env-fact { min-height: 0; padding-top: 6px; padding-bottom: 6px; border-top: 0; gap: 12px; font-size: 12px; }

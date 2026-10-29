@@ -12,7 +12,7 @@ import { t } from "./i18n";
 import "./styles/model-workbench.css";
 
 export type SettingsTab = "general" | "models" | "machines" | "secrets" | "network" | "about";
-/** What opens Settings: a page, or the machines page with the form to add one (from Bot info, A67). */
+/** What opens Settings: a page, or the machines page with the form to add one (from Bot info, A68). */
 export type SettingsOpen = SettingsTab | "addMachine";
 const TABS = [{ id: "general", label: "settings.general", icon: SlidersHorizontalIcon }, { id: "models", label: "settings.models", icon: DatabaseIcon },
   { id: "machines", label: "settings.machines", icon: ServerIcon }, { id: "secrets", label: "settings.secrets", icon: KeyRoundIcon }, { id: "network", label: "settings.network", icon: GlobeIcon }, { id: "about", label: "settings.about", icon: InfoIcon }] as const;

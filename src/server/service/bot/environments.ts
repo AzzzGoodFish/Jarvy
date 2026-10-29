@@ -56,7 +56,7 @@ export class BotEnvironments {
     const { home, current } = this.store.environments.placement(botId);
     return { default: name(home), current: name(current), usable: this.usable(botId).map(name) };
   }
-  /** The Bot's default environment (A67): its own sandbox. */
+  /** The Bot's default environment (A68): its own sandbox. */
   default(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).home, workspacePath); }
   /** Where the Bot works now, for the end of each batch. */
   here(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).current, workspacePath); }

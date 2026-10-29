@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { migration } from "../transaction.js";
 
-/** v29 (A67): every Bot's default is its own computer, and the owner's computer is no longer an environment of its
+/** v29 (A68): every Bot's default is its own computer, and the owner's computer is no longer an environment of its
  * own: the owner adds it as an SSH machine when Bots should work there.
  * - A Bot whose default was something else (the owner's computer) gets a computer row, named after this data directory
  *   and its own id, unless it has one, and is placed there as its default and where it is now. A Bot whose default was

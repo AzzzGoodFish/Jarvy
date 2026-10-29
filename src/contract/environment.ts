@@ -1,4 +1,4 @@
-/** Work environments as the interface sees them (A50, A57, A67). `computer` is a Bot's sandbox, a Docker container
+/** Work environments as the interface sees them (A50, A57, A68). `computer` is a Bot's sandbox, a Docker container
  * only it uses and its only default; `ssh` a machine the owner added, reached over SSH (A57), granted to a Bot and
  * switched to. The owner's computer is one of those when the owner adds it. */
 export type EnvironmentKind = "computer" | "ssh";

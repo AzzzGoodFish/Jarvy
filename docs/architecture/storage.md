@@ -89,7 +89,7 @@ A write that spans several statements goes through `transaction(db, work)` (`inf
 | v26 | `inbox.category` (`message`, `activity`, `system`); `chat_id` nullable, required by CHECK only for the chat categories and absent for system notices; `kind` checked in code instead of a CHECK; `detail` becomes `payload`, JSON by kind. System rows drop the DM they borrowed; the table is rebuilt with its rows, indexes and id sequence (A61) |
 | v27 | `environments.description`: what the owner wrote about an SSH machine, empty by default (A57). A column added, no rows rewritten |
 | v28 | Attachment contents move to files under `attachments/` (A66): each row's bytes are written out first (temporary name, flushed, renamed; a file of the right size already there is kept, so a stopped run picks up again), then the transaction checks every row has its file and drops `attachments.data`; `attachment_removals` and its trigger are added. The database is compacted afterwards |
-| v29 | Every Bot's default is its own sandbox (A67): a Bot whose default wasn't gets a `computer` row and is placed there; the owner's computer (`host`) rows are deleted with their grants, and a Bot working there is back on its sandbox. The owner adds that computer as an SSH machine instead |
+| v29 | Every Bot's default is its own sandbox (A68): a Bot whose default wasn't gets a `computer` row and is placed there; the owner's computer (`host`) rows are deleted with their grants, and a Bot working there is back on its sandbox. The owner adds that computer as an SSH machine instead |
 
 ## Search
 

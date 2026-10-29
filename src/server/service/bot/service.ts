@@ -132,7 +132,7 @@ export class BotService {
     return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
   }
   list() { return this.deps.store.bots.list().map(record => this.details(record)); }
-  /** A new Bot gets its own computer, which is its default (A67); the container is made in the background when Docker
+  /** A new Bot gets its own computer, which is its default (A68); the container is made in the background when Docker
    * is there. */
   create(name: string) {
     const record = this.deps.store.bots.create(name);

@@ -12,7 +12,7 @@ const STATE = {
   failed: "environment.state.failed", unavailable: "environment.state.unavailable",
 } as const;
 
-/** Bot info's section (A50, A67), in two parts. Its Docker sandbox, the only default there is: its state,
+/** Bot info's section (A50, A68), in two parts. Its Docker sandbox, the only default there is: its state,
  * the container, image and mount it is made of, Start or Stop and Reset, and where the Bot is when it switched to a
  * machine. Then the external environments it may switch to, the SSH machines (A57), each with a switch; with none yet,
  * a row to add one in Settings. */

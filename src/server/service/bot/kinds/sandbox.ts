@@ -2,7 +2,7 @@ import { COMPUTER_CWD } from "../../../infra/env/docker.js";
 import type { EnvironmentKindEntry } from "./kind.js";
 
 /** A Bot's own container, the code's `computer` (A50): only it uses it, it starts when the Bot switches or works
- * there, and its files are under /workspace. It is the Bot's home even without Docker (A67), so a switch back there
+ * there, and its files are under /workspace. It is the Bot's home even without Docker (A68), so a switch back there
  * always moves the Bot; its file and command tools then say Docker is missing. */
 export const sandbox: EnvironmentKindEntry = {
   kind: "computer", home: true, grantable: false,

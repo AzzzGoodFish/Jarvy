@@ -13,7 +13,7 @@ const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.owne
 /** What a new SSH machine is saved with (A57); `password` only for one that refuses Jarvy's key (A59). */
 export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; description: string; hostKeys: HostKeys; privateKey: string; password?: string }
 
-/** Work environments and where each Bot works (v20, A50): every Bot's default is its own computer (A67), and SSH
+/** Work environments and where each Bot works (v20, A50): every Bot's default is its own computer (A68), and SSH
  * machines (v22, A57), which keep their key sealed under the master key, are granted to it. */
 export class EnvironmentRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
@@ -50,7 +50,7 @@ export class EnvironmentRepository {
       this.db.prepare("UPDATE environments SET deleted_at=? WHERE id=?").run(Date.now(), computer.id);
     });
   }
-  /** The Bot's default environment, its computer, and the one it works in now. Every Bot has its computer (A67):
+  /** The Bot's default environment, its computer, and the one it works in now. Every Bot has its computer (A68):
    * one is made with the Bot, and v29 gave one to every Bot from before. */
   placement(botId: string): { home: EnvironmentRecord; current: EnvironmentRecord } {
     const row = this.db.prepare("SELECT home_environment_id AS home, current_environment_id AS current FROM bots WHERE id=?").get(botId) as { home: string | null; current: string | null } | undefined;

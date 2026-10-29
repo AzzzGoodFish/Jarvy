@@ -71,14 +71,14 @@ export class Computers {
     if (!computer || !status) return null;
     return { ...status, container: computer.spec.container!, image: computerImage(this.uid, this.gid), workspace: this.workspace(botId), mount: COMPUTER_CWD };
   }
-  /** Every Bot has its computer (A67): one restored or made without one, such as the agent Bot on a new installation,
+  /** Every Bot has its computer (A68): one restored or made without one, such as the agent Bot on a new installation,
    * gets it now. */
   adopt(botIds: readonly string[]): void {
     for (const botId of botIds) if (!this.deps.store.environments.computerOf(botId)) this.create(botId);
   }
 
   /** Gives a Bot its computer and makes it the Bot's default environment; the container is made in the background
-   * when Docker is there (A67). Without Docker the Bot keeps its computer as its default and still runs: only its file
+   * when Docker is there (A68). Without Docker the Bot keeps its computer as its default and still runs: only its file
    * and command tools fail until Docker is available, and chat works as usual. */
   create(botId: string): void {
     const computer = this.deps.store.environments.addComputer(botId, `jarvy-${this.tag.slice(0, 6)}-${botId.slice(0, 8)}`);

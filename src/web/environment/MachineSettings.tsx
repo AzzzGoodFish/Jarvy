@@ -18,7 +18,7 @@ import "../styles/machines.css";
 /** Settings → Environments (A57, A59): machines added over SSH, each granted to the Bots that may switch to it. Adding
  * one takes two steps: where it is, then its fingerprint to check and how Jarvy gets in — the password, which installs
  * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. The computer running Jarvy is
- * added the same way when Bots should work there (A67). */
+ * added the same way when Bots should work there (A68). */
 export function MachineSettings({ adding: startAdding = false }: { adding?: boolean }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);

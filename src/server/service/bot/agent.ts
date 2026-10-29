@@ -46,7 +46,7 @@ export class AgentOps {
     if (!connectionId) throw new ChatError(400, "This Bot has no model yet; give model too");
     return { connectionId, modelId, ...(input.thinking === undefined ? {} : { thinkingLevel: input.thinking }) };
   }
-  /** Where a Bot's tools run when it is at home: its own computer (A67). */
+  /** Where a Bot's tools run when it is at home: its own computer (A68). */
   environment(botId: string) { return this.bots.describe(botId).environment.docker ? "computer" : "unavailable"; }
   /** "model (connection)", as the agent and the changed Bot read it. */
   modelLabel(bot: BotRecord) {

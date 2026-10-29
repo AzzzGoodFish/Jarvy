@@ -61,7 +61,7 @@ When something will take a while, post a short progress note partway through, an
 ` },
   ];
 }
-/** The Bot's workspace and the environments it may work in (A67): its own computer and folder are its base, and any
+/** The Bot's workspace and the environments it may work in (A68): its own computer and folder are its base, and any
  * other machine is an external environment its owner granted it. One text for every Bot: a Bot's default is always its
  * own computer, so nothing here depends on where its tools would run. */
 function workspaceSection(setup: RuntimeSetup): string {

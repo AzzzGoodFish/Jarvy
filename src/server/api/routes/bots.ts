@@ -11,11 +11,11 @@ export function botRoutes(bots: ApiServices["bots"]) {
   routes.get("/", c => c.json({ bots: bots.list() }));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    // Names are unique (A37); a taken one is name_taken. Every Bot gets its own computer (A67).
+    // Names are unique (A37); a taken one is name_taken. Every Bot gets its own computer (A68).
     return c.json(bots.create(textField(input, "name")), 201);
   });
   // Whether the Bot may use an SSH machine (`machineId` with `granted`, A57). A Bot's default is its own computer and
-  // the owner's computer is an SSH machine like any other (A67), so there is nothing else to choose.
+  // the owner's computer is an SSH machine like any other (A68), so there is nothing else to choose.
   routes.put("/:id/environment", jsonBody, async c => {
     const input = await readJson(c), id = c.req.param("id");
     if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
