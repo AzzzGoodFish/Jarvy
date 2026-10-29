@@ -9,7 +9,7 @@ import type { HostKeys } from "../../../contract/environment.js";
  * and is kept (sealed) only for a machine that refuses keys; private keys and passwords never come back out. */
 export function environmentRoutes(bots: ApiServices["bots"]) {
   const routes = new Hono<ApiEnv>(), machines = bots.machines;
-  routes.get("/", c => c.json({ machines: machines.list(), local: machines.local() }));
+  routes.get("/", c => c.json({ machines: machines.list() }));
   /** The host keys a machine presents, for the owner to check before typing its password. */
   routes.post("/scan", jsonBody, async c => {
     const input = await readJson(c);

@@ -1,8 +1,7 @@
 /* Settings → Environments: SSH machines (A57). Rows, grants and confirmations share secrets.css. */
-.jv-machine-form { max-width: 560px; }
-.jv-machine-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
-.jv-machine-fields .jv-machine-host { grid-column: 1; }
-.jv-machine-fields .jv-machine-port { grid-column: 2; max-width: 120px; }
+/* The form is as wide as the machines below it; the address row is the host, then a narrow port. */
+.jv-machine-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 14px; }
+.jv-machine-fields .jv-machine-address { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 14px; }
 .jv-machine-fields .jv-machine-wide { grid-column: 1 / -1; }
 .jv-machine-where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; font-size: 13px; }
 .jv-machine-where code { font-size: 12px; color: var(--jv-muted); }
@@ -19,8 +18,7 @@
 .jv-machine-password { display: grid; gap: 8px; }
 .jv-secret-grants > .jv-hint[data-warn] { color: var(--ui-text-warning); }
 @media (max-width: 600px) {
-  .jv-machine-fields { grid-template-columns: 1fr; }
-  .jv-machine-fields .jv-machine-port { grid-column: 1; max-width: none; }
+  .jv-machine-fields { grid-template-columns: minmax(0, 1fr); }
 }
 /* The request card (environment/MachineRequestCard.tsx); the panel is question.css, the password field secret-request.css. */
 .jv-machine-card-field { display: grid; gap: 4px; }
@@ -36,6 +34,3 @@
 .jv-machine-codes { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .jv-machine-codes code { font-size: 12px; color: var(--jv-text); overflow-wrap: anywhere; }
 .jv-machine-codes code[data-new] { color: var(--ui-text-warning); }
-/* The computer running Jarvy, offered until it is added (A67). */
-.jv-machine-local { gap: 12px; }
-.jv-machine-local .jv-row-text > span { white-space: normal; }

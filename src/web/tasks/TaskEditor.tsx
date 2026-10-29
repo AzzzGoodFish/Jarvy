@@ -60,7 +60,7 @@ export function TaskEditor({ task, busy, error, onSave, onDelete, onCancel }: {
     <label className="jv-field"><span>{t("tasks.instruction")}</span>
       <Textarea required maxLength={8000} rows={4} value={instruction} placeholder={t("tasks.instructionPlaceholder")} onChange={event => setInstruction(event.target.value)}/></label>
     <div className="jv-field"><span>{t("tasks.when")}</span>
-      <div className="jv-env-seg jv-task-kinds" role="radiogroup" aria-label={t("tasks.when")}>
+      <div className="jv-seg jv-task-kinds" role="radiogroup" aria-label={t("tasks.when")}>
         {KINDS.map(item => <button key={item} type="button" role="radio" aria-checked={kind === item} onClick={() => setKind(item)}>{t(`tasks.kind.${item}`)}</button>)}
       </div>
       <div className="jv-task-when" data-kind={kind}>

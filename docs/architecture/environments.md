@@ -74,7 +74,7 @@ The section has two parts:
 
 ## SSH machines
 
-Machines the owner adds over SSH (A57), listed in Settings → 工作环境 / Environments and granted to Bots one by one. The computer running Jarvy is added the same way (A67): until a machine at `127.0.0.1`, `localhost` or `::1` is there, Settings offers 这台电脑 / "This computer", which opens the form with `127.0.0.1`, the user Jarvy runs as and the computer's name filled in.
+Machines the owner adds over SSH (A57), listed in Settings → 工作环境 / Environments and granted to Bots one by one. The computer running Jarvy is added the same way when Bots should work there (A67), at `127.0.0.1`.
 
 - **Adding**: the owner gives host, port (22), user, an optional name (default `user@host`), start directory (default the user's home; `~/…` is under it) and description (several lines, up to 2000 characters: what it is for, what to watch out for). Jarvy scans the host's keys without logging in and shows their fingerprints to check against the machine. Then the owner lets Jarvy in one of two ways (A59):
   - **The password**: Jarvy makes an ed25519 key pair (`ssh-keygen`), logs in with the password, appends the public key to `~/.ssh/authorized_keys` (once; its comment is `jarvy-<machine id>`), and logs in again with the key to learn the system and home. When the machine refuses the key (`PubkeyAuthentication no`), Jarvy logs in with the password instead and keeps it sealed; the key stays installed for when keys are allowed. A machine that takes no passwords says so (`ssh_password_refused`) and the owner picks the other way.

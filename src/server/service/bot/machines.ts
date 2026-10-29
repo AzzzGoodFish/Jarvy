@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { hostname, userInfo } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { SshFault, clearRuntime, generateKey, installKey, probeHost, publicKeyOf, removeKey, scanHost, sshEnvironment, type SshAccess, type SshAddress } from "../../infra/env/ssh.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
 import { type MachineAsk, type QuestionSpec } from "../../../contract/chat.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
-import type { HostKeys, LocalMachine, SshMachine } from "../../../contract/environment.js";
+import type { HostKeys, SshMachine } from "../../../contract/environment.js";
 import type { ChatService } from "../chat/service.js";
 
 /** What adding a machine takes, from Settings or from a Bot's request card. */
@@ -32,12 +31,6 @@ export class SshMachines {
     clearRuntime(this.runtime);
   }
   list(): SshMachine[] { return this.store.environments.sshMachines().map(record => this.view(record)); }
-  /** The computer running Jarvy, for Settings to offer: Bots reach it over SSH like any other machine (A67). */
-  local(): LocalMachine {
-    let user = process.env.USER ?? "";
-    try { user = userInfo().username; } catch { /* No passwd entry: the owner types the user. */ }
-    return { host: "127.0.0.1", user, name: hostname() };
-  }
   get(id: string): SshMachine { return this.view(this.need(id)); }
   /** The host keys a machine presents, to show the owner before the password is typed. */
   async scan(input: MachineInput): Promise<HostKeys> { return this.wrap(() => scanHost(address(input), this.runtime)); }

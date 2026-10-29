@@ -18,8 +18,6 @@ export interface SshMachine {
   /** The Bots that may switch to it. */
   botIds: string[];
 }
-/** The computer running Jarvy, as Settings offers to add it (A67): its address and the user Jarvy runs as. */
-export interface LocalMachine { host: string; user: string; name: string }
 /** A host's keys as a scan found them: `type base64` lines, and their fingerprints to show the owner. */
 export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** A Bot's sandbox as people see it. `preparing` covers building the image and creating or starting the
