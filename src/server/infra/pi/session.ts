@@ -33,6 +33,9 @@ export interface SessionOptions {
   activity: (phase: BotPhase) => void;
   /** The turn as it happens, step by step (A47). */
   live?: (event: LiveEvent) => void;
+  /** A compaction rewrote the conversation (A67): whatever it held is gone, so what a Bot had read of its chat
+   * notices is forgotten and told again where it acts. */
+  onCompacted?: () => void;
   /** Where bash, read, write and edit run (A50): the Bot's current environment, asked at every tool call. */
   environment: () => WorkEnvironment;
   /** The Bot's secrets (A52): placeholders in bash, and masking of what reaches the model and the chat. */
@@ -213,7 +216,11 @@ export class PiSession implements BotSession {
     if (event.type === "tool_execution_start") this.options.activity("tool");
     if (event.type === "compaction_start") { this.options.activity("compacting"); console.log("[pi] compaction started", { botId: this.options.bot.id, reason: event.reason }); }
     // A compaction rewrote the conversation, so nothing cached is left to keep: take up the live prompt (A56).
-    if (event.type === "compaction_end" && event.result && !event.aborted && !event.errorMessage) this.prompts.take(this.options.systemPrompt);
+    if (event.type === "compaction_end" && event.result && !event.aborted && !event.errorMessage) {
+      this.prompts.take(this.options.systemPrompt);
+      // What a notice said is out of the conversation too; a Bot has to read it again (A67).
+      this.options.onCompacted?.();
+    }
     if (event.type === "compaction_end") console.log(event.errorMessage ? "[pi] compaction failed" : "[pi] compaction finished",
       { botId: this.options.bot.id, reason: event.reason, aborted: event.aborted, tokensBefore: event.result?.tokensBefore,
         tokensAfter: event.result?.estimatedTokensAfter, error: event.errorMessage });
