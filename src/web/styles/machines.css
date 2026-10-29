@@ -36,3 +36,6 @@
 .jv-machine-codes { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .jv-machine-codes code { font-size: 12px; color: var(--jv-text); overflow-wrap: anywhere; }
 .jv-machine-codes code[data-new] { color: var(--ui-text-warning); }
+/* The computer running Jarvy, offered until it is added (A67). */
+.jv-machine-local { gap: 12px; }
+.jv-machine-local .jv-row-text > span { white-space: normal; }

@@ -12,7 +12,7 @@ These are suggestions, not fixed rules. First ask what the owner is building, wh
 - Start small: you as the lead, plus two engineers, one leaning front end and one back end (`bots.create`). Add an operations Bot once there is a live instance or machines to look after.
 - Each Bot's description states its job. Its persona states what it owns, what it leaves to others and who it reports to.
 - Each Bot works in its own workspace and keeps its own checkout of the code there, never a shared one.
-- Suggest a work environment for each Bot; the owner sets it in Bot info. A sandbox keeps the Bots apart. The owner's computer is for a Bot that needs the owner's own tools.
+- Every Bot works in its own sandbox, which keeps the Bots apart. A Bot that needs another machine, the owner's computer included, asks for it: the owner adds it in Settings › Environments and grants it in Bot info.
 - Access to the code host comes through secrets (`secrets.request`, Settings › Secrets), never through chat.
 
 ## Roles

@@ -14,17 +14,12 @@ export function botRoutes(bots: ApiServices["bots"]) {
     // Names are unique (A37); a taken one is name_taken. Every Bot gets its own computer (A67).
     return c.json(bots.create(textField(input, "name")), 201);
   });
-  // Whether the Bot may use the owner's computer (`hostGranted`), or an SSH machine (`machineId` with `granted`,
-  // A57). A Bot's default is its own computer (A67), so there is nothing to choose there.
+  // Whether the Bot may use an SSH machine (`machineId` with `granted`, A57). A Bot's default is its own computer and
+  // the owner's computer is an SSH machine like any other (A67), so there is nothing else to choose.
   routes.put("/:id/environment", jsonBody, async c => {
     const input = await readJson(c), id = c.req.param("id");
-    if (input.machineId !== undefined) {
-      if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
-      return c.json(bots.grantMachine(id, input.machineId, input.granted));
-    }
-    if (input.hostGranted === undefined) throw new HTTPException(400, { message: "hostGranted or machineId are needed" });
-    if (typeof input.hostGranted !== "boolean") throw new HTTPException(400, { message: "hostGranted must be true or false" });
-    return c.json(bots.grantHost(id, input.hostGranted));
+    if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
+    return c.json(bots.grantMachine(id, input.machineId, input.granted));
   });
   routes.post("/:id/computer/:action", async c => {
     const action = c.req.param("action");

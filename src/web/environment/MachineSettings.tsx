@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { PlusIcon } from "lucide-react";
 import { ApiError, api } from "../api";
 import { type Bot } from "../../contract/bots";
-import { type HostKeys, type SshMachine } from "../../contract/environment";
+import { type HostKeys, type LocalMachine, type SshMachine } from "../../contract/environment";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -17,25 +17,35 @@ import "../styles/machines.css";
 
 /** Settings → Environments (A57, A59): machines added over SSH, each granted to the Bots that may switch to it. Adding
  * one takes two steps: where it is, then its fingerprint to check and how Jarvy gets in — the password, which installs
- * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. */
+ * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. The computer running Jarvy is one
+ * of them too (A67): until it is added, a row offers it with its address filled in. */
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
 export function MachineSettings() {
   const [machines, setMachines] = useState<SshMachine[] | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<Partial<LocalMachine> | null>(null);
+  const [local, setLocal] = useState<LocalMachine | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    void api.machines().then(view => setMachines(view.machines)).catch(reason => setError(errorText(reason)));
+    void api.machines().then(view => { setMachines(view.machines); setLocal(view.local); }).catch(reason => setError(errorText(reason)));
     void api.bots().then(result => setBots(result.bots)).catch(() => setBots([]));
   }, []);
+  const offer = !!machines && !!local && !adding && !machines.some(machine => LOOPBACK.has(machine.host));
   const changed = (machine: SshMachine) => setMachines(list => list && list.map(item => item.id === machine.id ? machine : item));
   return <div className="jv-page">
     <header className="jv-page-header"><h2>{t("settings.machines")}</h2>
-      {!adding && <Button className="jv-primary" onClick={() => setAdding(true)}><PlusIcon/>{t("machines.add")}</Button>}</header>
-    {adding && <MachineForm onCancel={() => setAdding(false)} onSaved={machine => {
-      setAdding(false); setMachines(list => [...(list ?? []), machine]); setOpen(machine.id);
+      {!adding && <Button className="jv-primary" onClick={() => setAdding({})}><PlusIcon/>{t("machines.add")}</Button>}</header>
+    {adding && <MachineForm initial={adding} onCancel={() => setAdding(null)} onSaved={machine => {
+      setAdding(null); setMachines(list => [...(list ?? []), machine]); setOpen(machine.id);
     }}/>}
-    {machines && !machines.length && !adding && <div className="jv-empty"><strong>{t("machines.empty")}</strong></div>}
+    {offer && <section className="jv-section" aria-label={t("machines.local")}><div className="jv-list">
+      <div className="jv-list-row jv-static-row jv-machine-local">
+        <span className="jv-row-text"><strong>{t("machines.local")}</strong><span>{t("machines.localHint")}</span></span>
+        <Button type="button" variant="outline" size="sm" onClick={() => local && setAdding(local)}>{t("machines.localAdd")}</Button>
+      </div>
+    </div></section>}
+    {machines && !machines.length && !adding && !offer && <div className="jv-empty"><strong>{t("machines.empty")}</strong></div>}
     {machines && machines.length > 0 && <section className="jv-section" aria-label={t("settings.machines")}><div className="jv-list">
       {machines.map(machine => <MachineItem key={machine.id} machine={machine} bots={bots} open={open === machine.id}
         onToggle={() => setOpen(open === machine.id ? null : machine.id)} onChanged={changed}
@@ -46,8 +56,8 @@ export function MachineSettings() {
 }
 
 /** A new machine: where it is first; then, once scanned, the fingerprint to check and the password or Jarvy's key. */
-function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (machine: SshMachine) => void }) {
-  const [host, setHost] = useState(""), [port, setPort] = useState("22"), [user, setUser] = useState(""), [name, setName] = useState(""), [directory, setDirectory] = useState(""), [description, setDescription] = useState("");
+function MachineForm({ initial, onCancel, onSaved }: { initial: Partial<LocalMachine>; onCancel: () => void; onSaved: (machine: SshMachine) => void }) {
+  const [host, setHost] = useState(initial.host ?? ""), [port, setPort] = useState("22"), [user, setUser] = useState(initial.user ?? ""), [name, setName] = useState(initial.name ?? ""), [directory, setDirectory] = useState(""), [description, setDescription] = useState("");
   const [hostKeys, setHostKeys] = useState<HostKeys | null>(null);
   const [password, setPassword] = useState(""), [visible, setVisible] = useState(false), [login, setLogin] = useState<MachineLogin>("password");
   const { busy, error, setError, run: perform } = useAction();

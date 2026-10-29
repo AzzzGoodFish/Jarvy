@@ -1,7 +1,7 @@
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError } from "../../shared/chat.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
-import type { BotPlacement, HomeKind } from "../../../contract/environment.js";
+import type { BotPlacement } from "../../../contract/environment.js";
 import type { Computers } from "./computers.js";
 import type { SshMachines } from "./machines.js";
 import { KINDS } from "./kinds/index.js";
@@ -9,15 +9,15 @@ import type { KindDeps } from "./kinds/kind.js";
 
 /** An environment as a Bot is told of it (A50): what to call it and the directory its tools start in there. A
  * sandbox is what the code calls a `computer`; an SSH machine (A57) is called by the name its owner gave it. */
-export interface Place { id: string; kind: "sandbox" | "host" | "ssh"; name: string; directory: string }
+export interface Place { id: string; kind: "sandbox" | "ssh"; name: string; directory: string }
 /** What an owner's change did to where the Bot works; the service tells the Bot (A41). */
 export interface Moved { from: Place; to: Place }
 
 interface Opened { id: string; env: WorkEnvironment; view: WorkEnvironment; busy: number; retired: boolean }
 
 /** Where each Bot works (A50): its current environment, looked up at every tool call, so a move takes effect at the
- * next call without a new session. The owner's computer runs the tools in the Bot's workspace; a Bot's sandbox
- * is a container (see Computers). An environment opens on first use; once the Bot is elsewhere it closes when the
+ * next call without a new session. A Bot's sandbox is a container (see Computers); an SSH machine is reached with
+ * pi-env (see SshMachines). An environment opens on first use; once the Bot is elsewhere it closes when the
  * operations still running there end, so a switch never cuts a command short. Open connections would keep the
  * process alive, so all close when Jarvy stops. */
 export class BotEnvironments {
@@ -38,9 +38,9 @@ export class BotEnvironments {
   }
   placement(botId: string): BotPlacement {
     const environments = this.store.environments, { current } = environments.placement(botId);
-    const hostId = environments.host().id, granted = new Set(environments.grants(botId).map(grant => grant.id));
+    const granted = new Set(environments.grants(botId).map(grant => grant.id));
     return { current: current.kind, ...(current.kind === "ssh" ? { currentName: current.name } : {}),
-      computer: this.computers.status(botId), docker: this.computers.available, hostGranted: granted.has(hostId),
+      computer: this.computers.info(botId), docker: this.computers.available,
       machines: environments.sshMachines().map(machine => ({ id: machine.id, name: machine.name, granted: granted.has(machine.id) })) };
   }
   /** The environments the Bot may be in: its sandbox, its default, and the ones its owner granted it. */
@@ -87,10 +87,9 @@ export class BotEnvironments {
     return { ...this.place(botId, target, workspacePath), about: entry.about(target, botId, this.kinds),
       ...(already ? { note: "You were already here." } : {}) };
   }
-  /** The owner grants or takes back their computer (A50) or an SSH machine (A57); taking it back while the Bot works
-   * there sends it home. */
-  grant(botId: string, environmentId: string | "host", granted: boolean, by: string, workspacePath: string): { changed: boolean; moved: Moved | null; name: string } {
-    const environments = this.store.environments, target = environmentId === "host" ? environments.host() : environments.get(environmentId);
+  /** The owner grants or takes back an SSH machine (A57); taking it back while the Bot works there sends it home. */
+  grant(botId: string, environmentId: string, granted: boolean, by: string, workspacePath: string): { changed: boolean; moved: Moved | null; name: string } {
+    const environments = this.store.environments, target = environments.get(environmentId);
     if (!target || !KINDS[target.kind].grantable) throw new ChatError(404, "No such environment");
     const name = this.place(botId, target, workspacePath).name;
     if (granted) return { changed: environments.grant(target.id, botId, by), moved: null, name };

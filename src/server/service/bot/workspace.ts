@@ -11,7 +11,7 @@ import type { Workspace as WorkspacePort } from "./contracts.js";
 /** How much of a file moves between the chat and an environment at a time (A66). */
 const CHUNK = 4 * 1024 * 1024;
 
-/** The Bot's workspace on the owner's computer (its files, sessions and History live beside it), and where its tools
+/** The Bot's workspace on the machine running Jarvy (its files, sessions and History live beside it), and where its tools
  * run now (A50). Files move between the chat and the Bot only through here, in the environment it works in. The agent
  * Bot's also holds Jarvy's skills (A55), written again each time it starts. */
 export class Workspace implements WorkspacePort {

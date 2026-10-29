@@ -13,24 +13,14 @@ const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.owne
 /** What a new SSH machine is saved with (A57); `password` only for one that refuses Jarvy's key (A59). */
 export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; description: string; hostKeys: HostKeys; privateKey: string; password?: string }
 
-/** Work environments and where each Bot works (v20, A50). A Bot's home or current environment left NULL is its
- * owner's computer, whose row is made when first needed. SSH machines (v22, A57) keep their key sealed under the
- * master key. */
+/** Work environments and where each Bot works (v20, A50): every Bot's default is its own computer (A67), and SSH
+ * machines (v22, A57), which keep their key sealed under the master key, are granted to it. */
 export class EnvironmentRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
 
   get(id: string): EnvironmentRecord | null {
     const row = this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE id=? AND deleted_at IS NULL`).get(id) as Row | undefined;
     return row ? record(row) : null;
-  }
-  /** The owner's computer. */
-  host(): EnvironmentRecord {
-    const owner = this.ownerId();
-    const find = () => this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE owner_id=? AND kind='host' AND deleted_at IS NULL`).get(owner) as Row | undefined;
-    const found = find();
-    if (found) return record(found);
-    this.db.prepare("INSERT OR IGNORE INTO environments(id,owner_id,kind,created_at) VALUES(?,?,'host',?)").run(randomUUID(), owner, Date.now());
-    return record(find()!);
   }
   computerOf(botId: string): EnvironmentRecord | null {
     const row = this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE bot_id=? AND kind='computer' AND deleted_at IS NULL`).get(botId) as Row | undefined;
@@ -50,21 +40,23 @@ export class EnvironmentRepository {
       .run(id, this.ownerId(), JSON.stringify({ container }), botId, Date.now());
     return this.get(id)!;
   }
-  /** The Bot's computer is gone: whoever was placed on it is back on the owner's computer. */
+  /** The Bot is deleted, and its computer with it. Its row stays its home, deleted, so what reads a deleted Bot's
+   * placement still finds one. */
   dropComputer(botId: string): void {
     const computer = this.computerOf(botId);
     if (!computer) return;
     transaction(this.db, () => {
-      this.db.prepare("UPDATE bots SET home_environment_id=NULL WHERE home_environment_id=?").run(computer.id);
-      this.db.prepare("UPDATE bots SET current_environment_id=NULL WHERE current_environment_id=?").run(computer.id);
       this.db.prepare("DELETE FROM environment_grants WHERE environment_id=?").run(computer.id);
       this.db.prepare("UPDATE environments SET deleted_at=? WHERE id=?").run(Date.now(), computer.id);
     });
   }
-  /** The Bot's default environment and the one it works in now. */
+  /** The Bot's default environment, its computer, and the one it works in now. Every Bot has its computer (A67):
+   * one is made with the Bot, and v29 gave one to every Bot from before. */
   placement(botId: string): { home: EnvironmentRecord; current: EnvironmentRecord } {
     const row = this.db.prepare("SELECT home_environment_id AS home, current_environment_id AS current FROM bots WHERE id=?").get(botId) as { home: string | null; current: string | null } | undefined;
-    const home = (row?.home && this.get(row.home)) || this.host();
+    const found = row?.home ? this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE id=? AND kind='computer'`).get(row.home) as Row | undefined : undefined;
+    if (!found) throw new Error(`Bot ${botId} has no computer`);
+    const home = record(found);
     const current = (row?.current && this.get(row.current)) || home;
     return { home, current };
   }

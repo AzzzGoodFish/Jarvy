@@ -1,10 +1,7 @@
-/** Work environments as the interface sees them (A50, A57). */
-/** `host` is the owner's computer, the machine running Jarvy; `computer` a Bot's sandbox, a Docker container
- * only it uses; `ssh` a machine the owner added, reached over SSH (A57). */
-export type EnvironmentKind = "host" | "computer" | "ssh";
-/** What can be a Bot's default (A67): only its own sandbox. The owner's computer and SSH machines are external
- * environments, granted to a Bot and switched to, never a default. */
-export type HomeKind = "computer";
+/** Work environments as the interface sees them (A50, A57, A67). `computer` is a Bot's sandbox, a Docker container
+ * only it uses and its only default; `ssh` a machine the owner added, reached over SSH (A57), granted to a Bot and
+ * switched to. The owner's computer is one of those when the owner adds it. */
+export type EnvironmentKind = "computer" | "ssh";
 /** An SSH machine (A57) as Settings shows it: never its key. */
 export interface SshMachine {
   id: string; name: string; host: string; port: number; user: string;
@@ -21,13 +18,18 @@ export interface SshMachine {
   /** The Bots that may switch to it. */
   botIds: string[];
 }
+/** The computer running Jarvy, as Settings offers to add it (A67): its address and the user Jarvy runs as. */
+export interface LocalMachine { host: string; user: string; name: string }
 /** A host's keys as a scan found them: `type base64` lines, and their fingerprints to show the owner. */
 export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** A Bot's sandbox as people see it. `preparing` covers building the image and creating or starting the
  * container; `unavailable` means this machine has no usable Docker. */
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
 export interface ComputerStatus { state: ComputerState; error?: string }
-/** Where a Bot works, for the interface: whether it is in its own sandbox or on an external environment (and the SSH
- * machine's name when it is on one), its sandbox's state, and the external environments its owner lets it use. */
-export interface BotPlacement { current: EnvironmentKind; currentName?: string; computer: ComputerStatus | null; docker: boolean;
-  hostGranted: boolean; machines: { id: string; name: string; granted: boolean }[] }
+/** A Bot's sandbox in Bot info: its state, and what it is: the container's name, the image it is made from, and the
+ * folder on this machine mounted as its workspace. */
+export interface ComputerInfo extends ComputerStatus { container: string; image: string; workspace: string; mount: string }
+/** Where a Bot works, for the interface: whether it is in its own sandbox or on an SSH machine (and that machine's
+ * name), its sandbox, and the machines its owner lets it use. */
+export interface BotPlacement { current: EnvironmentKind; currentName?: string; computer: ComputerInfo | null; docker: boolean;
+  machines: { id: string; name: string; granted: boolean }[] }

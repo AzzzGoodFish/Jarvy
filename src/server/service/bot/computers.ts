@@ -6,7 +6,7 @@ import {
   imageExists, pruneImages, removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
 } from "../../infra/env/docker.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
-import type { ComputerStatus } from "../../../contract/environment.js";
+import type { ComputerInfo, ComputerStatus } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
 const SWEEP_MS = 60_000;
@@ -64,6 +64,17 @@ export class Computers {
     if (!this.deps.store.environments.computerOf(botId)) return null;
     if (!this.available) return { state: "unavailable" };
     return this.states.get(botId) ?? { state: "stopped" };
+  }
+  /** The sandbox as Bot info shows it: its state, and the container, image and workspace folder it is made of. */
+  info(botId: string): ComputerInfo | null {
+    const computer = this.deps.store.environments.computerOf(botId), status = this.status(botId);
+    if (!computer || !status) return null;
+    return { ...status, container: computer.spec.container!, image: computerImage(this.uid, this.gid), workspace: this.workspace(botId), mount: COMPUTER_CWD };
+  }
+  /** Every Bot has its computer (A67): one restored or made without one, such as the agent Bot on a new installation,
+   * gets it now. */
+  adopt(botIds: readonly string[]): void {
+    for (const botId of botIds) if (!this.deps.store.environments.computerOf(botId)) this.create(botId);
   }
 
   /** Gives a Bot its computer and makes it the Bot's default environment; the container is made in the background
@@ -125,7 +136,7 @@ export class Computers {
         if (!this.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 503);
         const image = await this.imageReady();
         const state = await containerState(container);
-        if (state === "missing") await runContainer({ name: container, image, workspace: join(this.dataDir, "bots", botId, "workspace"),
+        if (state === "missing") await runContainer({ name: container, image, workspace: this.workspace(botId),
           daemonDir: join(this.dataDir, "computers", "bin"), uid: this.uid, gid: this.gid, labels: { "jarvy.data": this.tag, "jarvy.bot": botId } });
         else if (state === "stopped") await startContainer(container);
         this.set(botId, { state: "running" });
@@ -171,6 +182,7 @@ export class Computers {
     await Promise.all([...this.connections.keys()].map(botId => this.disconnect(botId)));
   }
 
+  private workspace(botId: string): string { return join(this.dataDir, "bots", botId, "workspace"); }
   private need(botId: string): EnvironmentRecord {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);

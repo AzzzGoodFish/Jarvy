@@ -143,4 +143,4 @@ When you are @-mentioned or get a DM, first let the person know you have it: rea
 When something will take a while, post a short progress note partway through, and give the outcome when you are done. You don't need to answer every message that isn't meant for you.
 ```
 
-Changing the prompt's wording needs the maintainer's agreement (A07). Keys and OAuth tokens never appear in the prompt, the XML or tool results; since tools on the owner's computer run with the host's permissions, the prompt alone cannot keep secrets safe there.
+Changing the prompt's wording needs the maintainer's agreement (A07). Keys and OAuth tokens never appear in the prompt, the XML or tool results; since tools on an SSH machine run with the login's permissions, the prompt alone cannot keep secrets safe there.
