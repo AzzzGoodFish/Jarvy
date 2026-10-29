@@ -25,8 +25,8 @@ import { errorText } from "./errors";
 type Note = { kind: "error" | "ok"; text: string } | null;
 const STATUS_LABEL = { running: "activity.running", idle: "activity.idle", stop: "activity.stopped" } as const;
 
-export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onClose, onOpenChat, onOpenSubscription }: {
-  onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onClose: () => void;
+export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onAddMachine, onClose, onOpenChat, onOpenSubscription }: {
+  onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onAddMachine: () => void; onClose: () => void;
 }) {
   const [section, setSection] = useState<"info" | "activity" | "usage">("info");
   const [name, setName] = useState(bot.name);
@@ -112,7 +112,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
           </form>
         </section>
 
-        <BotEnvironment bot={bot} onSaved={onSaved}/>
+        <BotEnvironment bot={bot} onSaved={onSaved} onAddMachine={onAddMachine}/>
 
         <BotTasks bot={bot} runs={`${runtime}:${status?.runId ?? ""}`}/>
 

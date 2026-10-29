@@ -54,7 +54,7 @@ secrets.list in the chat gateway shows the secrets your owner lets you use. To u
 Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key or a password, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
 ` },
-    { name: "Workspace", text: workspaceSection(setup, bot.workspacePath) },
+    { name: "Workspace", text: workspaceSection(setup) },
     { name: "Responding", text: `
 ## Responding
 When you are @-mentioned or get a DM, first let the person know you have it: react to that message with an emoji, or confirm in a sentence or two with an emoji. A reaction is only a signal, not a command; pick the emoji yourself.
@@ -62,38 +62,27 @@ When something will take a while, post a short progress note partway through, an
 ` },
   ];
 }
-/** The Bot's workspace, its own folder, and its default work environment, where its tools run (A50):
- * its sandbox or the owner's computer. Where it is now goes at the end of each batch instead, so a switch leaves
- * the prompt, and the cache, as they were. */
-function workspaceSection(setup: RuntimeSetup, workspacePath: string): string {
-  const place = setup.home();
-  if (place.kind === "computer") return `## Workspace
-Your workspace is your own folder and your home directory: your file and command tools see it as ${place.cwd}, and ~ is the same place, so settings such as ~/.ssh and ~/.gitconfig stay with it. It is kept when your sandbox is reset. Keep it tidy, and put temporary files under temp and clear them out.
-
-## Work environment
-Your tools run in your sandbox by default: a Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox.
-${SWITCHING}
-`;
+/** The Bot's workspace and the environments it may work in (A68): its own computer and folder are its base, and any
+ * other machine is an external environment its owner granted it. One text for every Bot: a Bot's default is always its
+ * own computer, so nothing here depends on where its tools would run. */
+function workspaceSection(setup: RuntimeSetup): string {
   return `## Workspace
-You have your own workspace: ${workspacePath}
-Treat it as your only base. Create, change and delete files only inside it, keep it tidy, and put temporary files under temp and clear them out.
-Leave everything else alone by default: other members' workspaces, live data directories (such as ~/.jarvy), main repository checkouts and system directories. Touch them only when the task itself needs it or the person in charge asks you to, and say in your reply what you changed.
-Shared directories and other people's files are read-only. Ask the person in charge before writing to them.
+You have a workspace of your own: ${setup.home().cwd} on your own computer, a machine only you use. Keep in it the files you want to keep (they stay when the machine is reset), keep it tidy, and put temporary files under temp and clear them out.
+Other members work on their own machines. They can't reach your files, your addresses or anything you start there, and you can't reach theirs. To give someone a file, send it as an attachment; anything else, say it in the chat.
 
 ## Work environment
-Your tools run on your owner's computer by default, the machine where this chat platform's server runs.
-${SWITCHING}
+Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, build tools and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox. Where the machine has no Docker, those tools are unavailable until it does, and the chat tools work as usual.
+You can also work in other, external workspaces. environments.list shows the ones your owner has given you; environments.switch moves you to one, and from then on your file and command tools run there until you switch back. Your chat tools are the same either way. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat. Each batch of messages ends with the environment you are in now.
 `;
 }
 /** The agent Bot's skills (A55): each one's name, what it is for, and its file in the workspace as its tools see it
  * there by default. Only the list is in the prompt; the Bot reads a file when the work calls for it. */
 function skillsSection(setup: RuntimeSetup, skills: readonly Skill[]): string {
   if (!skills.length) return "";
-  const home = setup.home(), base = home.kind === "computer" ? home.cwd : setup.workspace.cwd;
+  const base = setup.home().cwd;
   return `
 ## Skills
 Skills are guides that come with this chat platform for kinds of work you help with. When a task matches one, read its file before you start, and follow it. They are suggestions for the owner: propose a plan from them and act once the owner agrees. They are kept in your workspace and written again each time you start, so changes to them don't last.
 ${skills.map(skill => `- ${skill.name}: ${skill.description} File: ${base}/${skillPath(skill.name)}`).join("\n")}
 `;
 }
-const SWITCHING = "Each batch of messages ends with the environment you are in now. environments.list shows the ones you may use, and environments.switch moves your tools to another, like cd, until you switch back. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat.";

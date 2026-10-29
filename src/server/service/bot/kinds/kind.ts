@@ -11,7 +11,7 @@ export interface KindDeps { computers: { available: boolean; status(botId: strin
 /** One kind of environment, from `kinds/`. */
 export interface EnvironmentKindEntry {
   kind: EnvironmentKind;
-  /** May be a Bot's default. An SSH machine may not (A57): a Bot is granted it and switches to it. */
+  /** May be a Bot's default: only its sandbox (A68). An SSH machine is granted and switched to (A57). */
   home: boolean;
   /** The owner may give it to a Bot. A Bot's sandbox is its own already. */
   grantable: boolean;
@@ -23,7 +23,7 @@ export interface EnvironmentKindEntry {
   ensure?(record: EnvironmentRecord, botId: string, deps: KindDeps): Promise<void>;
   /** A switch connects first, and stays where it was when the environment's directory isn't reachable. */
   connects: boolean;
-  /** Its name as other Bots read it in bots.list, shorter than the place's: own sandbox, owner's computer. */
+  /** Its name as other Bots read it in bots.list, shorter than the place's: own sandbox, a machine's name. */
   summary(record: EnvironmentRecord, botId: string): string;
   /** fields environments.list adds beyond the place. */
   describe(record: EnvironmentRecord, botId: string, deps: KindDeps): Record<string, unknown>;

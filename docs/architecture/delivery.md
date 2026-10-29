@@ -74,7 +74,7 @@ change:   { agent: "digest", owner: "digest", move: "interrupt" },
 task:     { schedule: "queue" },
 ```
 
-Urgency is decided only here. A move (a new default, or the owner's computer taken back while the Bot is there) of a Bot that is running is reason `move`, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, are `owner`: there is nothing to stop, and waking it would only spend a turn.
+Urgency is decided only here. A move (an SSH machine taken back or deleted while the Bot is there) of a Bot that is running is reason `move`, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, are `owner`: there is nothing to stop, and waking it would only spend a turn.
 
 **Mute** is a per-recipient override: in a chat the recipient muted (a thread follows its channel), `interrupt` becomes `queue` unless the reason is `mention` or `reply`. It applies to people and Bots alike.
 

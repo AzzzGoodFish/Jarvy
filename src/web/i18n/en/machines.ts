@@ -60,7 +60,7 @@ export const machines = {
   "machineCard.granted": "Allowed {name}",
   "machineCard.declined": "Declined to add {name}",
   "machineCard.ignored": "Ignored the request for {name}",
-  "environment.awayMachine": "Now on {name} (the Bot switched there itself).",
+  "environment.awayMachine": "Using {name}",
   "error.machineMissing": "This machine wasn't found. It may have been deleted.",
   "error.machineNameTaken": "Another machine already has this name.",
   "error.sshPasswordMissing": "Enter the password.",

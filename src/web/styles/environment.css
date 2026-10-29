@@ -1,24 +1,15 @@
-/* Work environments (A50): the choice in Bot info and a new Bot's setup, and its sandbox's row. */
-.jv-env-option:disabled { cursor: not-allowed; opacity: .55; }
-.jv-env-option .jv-row-text > span { white-space: normal; }
-.jarvy-model-picker .jv-env-setup { margin-top: 14px; }
-.jarvy-model-picker .jv-env-setup > h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--jv-text); }
+/* Work environments in Bot info (A50, A68): the Bot's Docker sandbox, what it is made of and its actions, then the
+   external environments it may use, each with a switch at the row's end. */
+.jv-env-sandbox .jv-row-text > span { white-space: normal; }
+.jv-list .jv-list-row.jv-env-fact { min-height: 0; padding-top: 6px; padding-bottom: 6px; border-top: 0; gap: 12px; font-size: 12px; }
+.jv-env-fact > span { flex: none; color: var(--jv-muted); }
+.jv-env-fact > code { flex: 1; min-width: 0; text-align: right; color: var(--jv-text); overflow-wrap: anywhere; }
 .jv-env-confirm { margin-top: 8px; padding: 12px 14px; border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field); }
 .jv-env-confirm > strong { display: block; font-size: 13px; color: var(--jv-text); }
 .jv-env-confirm > p { margin: 4px 0 10px; font-size: 13px; line-height: 1.5; color: var(--jv-dim); }
 .jv-env-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
-/* Bot info: the default as a two-way switch, the sandbox's details to open, then the external
-   environments it may use, each with a switch at the row's end. */
-.jv-env-seg { display: inline-flex; flex: none; padding: 2px; border-radius: 9px; background: var(--ui-fill-control-track); box-shadow: inset 0 0 0 1px var(--jv-line); }
-.jv-env-seg > button { padding: 4px 14px; border: 0; border-radius: 7px; background: transparent; font: inherit; font-size: 13px; color: var(--jv-dim); cursor: pointer; white-space: nowrap; }
-.jv-env-seg > button[aria-checked="true"] { background: var(--ui-bg-elevated); color: var(--jv-text); font-weight: 600; box-shadow: var(--ui-shadow-sm); }
-:root[data-theme="dark"] .jv-env-seg > button[aria-checked="true"] { background: var(--ui-fill-control-checked); color: var(--ui-text-on-color); }
-.jv-env-seg > button:disabled { cursor: not-allowed; }
-.jv-env-seg > button:disabled:not([aria-checked="true"]) { opacity: .5; }
 .jv-env-away { color: var(--jv-text); }
-.jv-env-disclosure > svg { color: var(--jv-dim); transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
-.jv-env-disclosure[aria-expanded="true"] > svg { transform: rotate(180deg); }
-.jv-list .jv-list-row.jv-env-details { flex-direction: column; align-items: stretch; gap: 10px; min-height: 0; padding-top: 0; border-top: 0; }
+.jv-list .jv-list-row.jv-env-details { flex-direction: column; align-items: stretch; gap: 10px; min-height: 0; }
 .jv-env-details > p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--jv-dim); }
 .jv-env-actions { display: flex; gap: 8px; }
 .jv-env-details .jv-env-confirm { margin-top: 0; }

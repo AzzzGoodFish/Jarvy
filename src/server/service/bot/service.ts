@@ -15,7 +15,6 @@ import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
 import type { ModelCatalog } from "../../infra/pi/catalog.js";
 import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
-import type { HomeKind } from "../../../contract/environment.js";
 import { SshMachines } from "./machines.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
@@ -70,6 +69,7 @@ export class BotService {
   constructor(private readonly deps: BotDependencies) {
     this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries);
     this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
+    this.computers.adopt(deps.store.bots.list().map(record => record.id));
     this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
     this.environments = new BotEnvironments(deps.store, this.computers, this.machines);
   }
@@ -88,7 +88,7 @@ export class BotService {
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog,
         onCompacted: () => chats.channels.clearNotesSeen(id) }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
-      const place = this.environments.home(id, record.workspacePath); return { kind: place.kind === "sandbox" ? "computer" as const : "host" as const, cwd: place.directory }; }, skills);
+      const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; }, skills);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
@@ -133,23 +133,15 @@ export class BotService {
     return { id: chat.id, type: chat.type, title: other ? this.deps.chats.member(other)?.name ?? chat.title : chat.title };
   }
   list() { return this.deps.store.bots.list().map(record => this.details(record)); }
-  /** A new Bot works in its sandbox when this machine has Docker, unless asked for the owner's computer (A50). */
-  create(name: string, environment?: HomeKind) {
-    const kind = environment ?? (this.computers.available ? "computer" : "host");
-    if (kind === "computer" && !this.computers.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
+  /** A new Bot gets its own computer, which is its default (A68); the container is made in the background when Docker
+   * is there. */
+  create(name: string) {
     const record = this.deps.store.bots.create(name);
-    this.environments.setHome(record.id, kind, record.workspacePath);
+    this.computers.create(record.id);
     return this.details(record);
   }
-  /** The owner moves a Bot to its sandbox or to their computer, as its default; the next tool call runs there. */
-  setHome(id: string, kind: HomeKind) {
-    const moved = this.environments.setHome(id, kind, this.record(id).workspacePath);
-    if (moved) this.tellOwner(id, [{ what: "environment", value: where(moved) }], true);
-    return this.describe(id);
-  }
-  /** The owner lets a Bot use their computer, or takes it back; taking it back while the Bot is there sends it home. */
-  grantHost(id: string, granted: boolean) { return this.grant(id, "host", granted); }
-  /** The owner lets a Bot use an SSH machine (A57), or takes it back, the same way. */
+  /** The owner lets a Bot use an SSH machine (A57), or takes it back; taking it back while the Bot is there sends it
+   * home. */
   grantMachine(id: string, machineId: string, granted: boolean) { this.machines.get(machineId); return this.grant(id, machineId, granted); }
   /** The owner deletes an SSH machine: Bots working there are back in their default, and told. */
   async removeMachine(machineId: string, force: boolean): Promise<void> {
@@ -162,12 +154,12 @@ export class BotService {
       this.tellOwner(id, changes, moved.includes(id));
     }
   }
-  private grant(id: string, environmentId: string | "host", granted: boolean) {
+  private grant(id: string, environmentId: string, granted: boolean) {
     const { changed, moved, name } = this.environments.grant(id, environmentId, granted, this.deps.store.account.userMemberId(), this.record(id).workspacePath);
     const changes: BotChange[] = changed ? [{ what: "access", value: `${name}: ${granted ? "you may switch to it" : "taken back"}` }] : [];
     if (moved) changes.push({ what: "environment", value: where(moved) });
     if (changes.length) this.tellOwner(id, changes, !!moved);
-    if (changed && environmentId !== "host") this.listChanged();
+    if (changed) this.listChanged();
     return this.describe(id);
   }
   /** Tells a Bot what its owner changed about where it works (A41, A50), as system notices (A61). A move of a Bot that

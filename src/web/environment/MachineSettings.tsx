@@ -17,11 +17,12 @@ import "../styles/machines.css";
 
 /** Settings → Environments (A57, A59): machines added over SSH, each granted to the Bots that may switch to it. Adding
  * one takes two steps: where it is, then its fingerprint to check and how Jarvy gets in — the password, which installs
- * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. */
-export function MachineSettings() {
+ * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. The computer running Jarvy is
+ * added the same way when Bots should work there (A68). */
+export function MachineSettings({ adding: startAdding = false }: { adding?: boolean }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null);
   const [bots, setBots] = useState<Bot[]>([]);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -65,10 +66,12 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
   const where = address.user && address.host ? `${address.user}@${address.host}` : "";
   return <form className="jv-panel jv-machine-form" autoComplete="off" onSubmit={submit} aria-label={t("machines.add")} aria-busy={busy || undefined}>
     {!hostKeys ? <div className="jv-machine-fields">
-      <label className="jv-field jv-machine-host"><span>{t("machines.host")}</span>
-        <Input required autoFocus maxLength={253} spellCheck={false} placeholder={t("machines.hostPlaceholder")} value={host} onChange={event => setHost(event.target.value)}/></label>
-      <label className="jv-field jv-machine-port"><span>{t("machines.port")}</span>
-        <Input required inputMode="numeric" maxLength={5} value={port} onChange={event => setPort(event.target.value.replace(/\D/g, ""))}/></label>
+      <div className="jv-machine-address">
+        <label className="jv-field jv-machine-host"><span>{t("machines.host")}</span>
+          <Input required autoFocus maxLength={253} spellCheck={false} placeholder={t("machines.hostPlaceholder")} value={host} onChange={event => setHost(event.target.value)}/></label>
+        <label className="jv-field jv-machine-port"><span>{t("machines.port")}</span>
+          <Input required inputMode="numeric" maxLength={5} value={port} onChange={event => setPort(event.target.value.replace(/\D/g, ""))}/></label>
+      </div>
       <label className="jv-field"><span>{t("machines.user")}</span>
         <Input required maxLength={64} spellCheck={false} autoCapitalize="off" value={user} onChange={event => setUser(event.target.value)}/></label>
       <label className="jv-field"><span>{t("machines.name")}</span>
@@ -82,7 +85,7 @@ function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (ma
       <div className="jv-field"><span>{t("machines.fingerprint")}</span>
         <div className="jv-machine-prints">{hostKeys.fingerprints.map(print => <code key={print}>{print}</code>)}</div>
         <span className="jv-field-hint">{t("machines.fingerprintHint")}</span></div>
-      <div className="jv-env-seg jv-machine-login" role="radiogroup" aria-label={t("machines.login")}>
+      <div className="jv-seg jv-machine-login" role="radiogroup" aria-label={t("machines.login")}>
         {(["password", "key"] as const).map(item => <button key={item} type="button" role="radio" aria-checked={login === item} disabled={busy}
           onClick={() => { setLogin(item); setError(""); }}>{t(item === "password" ? "machines.byPassword" : "machines.byKey")}</button>)}
       </div>

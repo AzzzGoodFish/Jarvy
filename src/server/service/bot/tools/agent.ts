@@ -17,10 +17,6 @@ const Settings = {
   persona: Type.Optional(Type.String({ maxLength: 16_000, description: "Its standing instructions: who it is and how it works (the Persona section of its prompt)" })),
   model: Type.Optional(Model), thinking: Type.Optional(Thinking),
 };
-/** Where a new Bot's file and command tools run by default (A50): its sandbox, which the code calls a computer, or the owner's computer. */
-const Environment = Type.Union([Type.Literal("sandbox"), Type.Literal("host")], {
-  description: "Where its file and command tools run by default: sandbox, a Linux container that this chat platform makes and only it uses (the default when Docker is available), or host, the owner's computer, where you work too",
-});
 /** A deletion first asks the owner on a card (A48); the agent words it in the owner's language. */
 const Confirm = {
   askIn: Type.String({ description: "ID of a chat the owner is in, where the confirmation card goes; usually the chat you were asked in" }),
@@ -54,10 +50,10 @@ export const agentTools = [
   tool("models.list", "List the models you can give a Bot: each connection with its models and their thinking levels. Only the owner adds connections, keys and logins, in Settings.",
     None, (_args, context) => ops(context).models()),
   tool("bots.create", "Create a Bot. Give it a model so it can work; without one it waits until it gets one. It starts when a message first arrives for it. bots.update changes everything later.",
-    Type.Object({ name: Name, ...Settings, environment: Type.Optional(Environment) }, { additionalProperties: false }), async ({ environment, ...settings }, context) => {
+    Type.Object({ name: Name, ...Settings }, { additionalProperties: false }), async (settings, context) => {
     const agent = ops(context);
-    const bot = await agent.create({ ...settings, ...(environment ? { environment: environment === "sandbox" ? "computer" as const : "host" as const } : {}) });
-    return { name: bot.name, model: bot.connectionId ? agent.modelLabel(bot) : null, thinking: bot.thinkingLevel, environment: agent.environment(bot.id) === "computer" ? "sandbox" : "host" };
+    const bot = await agent.create(settings);
+    return { name: bot.name, model: bot.connectionId ? agent.modelLabel(bot) : null, thinking: bot.thinkingLevel, environment: agent.environment(bot.id) };
   }),
   tool("bots.update", "Change a Bot's name, description, persona, model or thinking; give only what changes. Works for any Bot, yourself included. The Bot is told what changed with its next batch.",
     Type.Object({ bot: BotName, name: Type.Optional(Name), ...Settings }, { additionalProperties: false }), async ({ bot, ...settings }, context) => {

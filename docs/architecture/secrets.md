@@ -35,7 +35,7 @@ The owner's tokens, passwords and keys (A52). Values go in once, through Setting
 
 - `secrets.list` (chat gateway) gives the Bot the names, placeholders and descriptions of the secrets granted to it until revoked; never values.
 - In a `bash` command the model writes `{{secret:NAME}}`. Before the command runs (`infra/pi/secret-placeholders.ts`), each becomes `${JARVY_SECRET_NAME}`: kept as is inside double quotes, wrapped in double quotes when unquoted, and closed out of single quotes (`'…'"${…}"'…'`, and the same for `$'…'`). In an unquoted heredoc it expands as written; in a quoted one (`<<'EOF'`) it would stay literal, so the call fails. Placeholders in comments are left alone.
-- The values go into that command's environment only (`ExecOptions.secrets`), on the owner's computer and in a sandbox alike; the command text keeps the variables. Programs the command starts see the expanded value in their arguments, so the prompt prefers handing it over through the environment (`GH_TOKEN={{secret:…}} gh …`).
+- The values go into that command's environment only (`ExecOptions.secrets`), in a sandbox and on an SSH machine alike; the command text keeps the variables. Programs the command starts see the expanded value in their arguments, so the prompt prefers handing it over through the environment (`GH_TOKEN={{secret:…}} gh …`).
 - A name the Bot has no grant for, or whose value doesn't open, fails the call before anything runs, naming `secrets.list` and `secrets.request`.
 - Each command that uses secrets writes one `secret_uses` row per secret: Bot, time, environment, tool call and the command as written (with placeholders, up to 4,000 characters).
 - `write` and `edit` content is never filled in.

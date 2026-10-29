@@ -34,7 +34,7 @@ The interface comes in English and Chinese, following your browser's language; s
 
 **Watch it work.** In a DM, the Bot's block cat acts out its turn as it happens: it thinks, reads, types and turns to you, and a dialogue beside it shows what it is thinking, muttering and sending, and each tool it runs. Click the dialogue to see every step.
 
-**Each Bot in its own sandbox.** With Docker installed, a Bot can work in a Linux container only it uses, with Node, Python, git, build tools and Playwright with its browsers, and it can install whatever else it needs. Its workspace is its home there and outlives a reset. Choose a sandbox or your computer when you create a Bot, change it later in Bot info, and let a sandboxed Bot use your computer when a task needs it.
+**Each Bot in its own sandbox.** With Docker installed, a Bot can work in a Linux container only it uses, with Node, Python, git, build tools and Playwright with its browsers, and it can install whatever else it needs. Its workspace is its home there and outlives a reset. Other machines, your computer among them, are added in Settings › Environments and reached over SSH; you choose in Bot info which Bots may switch to each.
 
 **An agent Bot that runs Jarvy for you.** Jarvy, the first Bot, wears a crown. Tell it what you want to get done and it builds the team: it creates Bots, writes their personas and picks their models. Later it starts and stops them, checks their usage and clears things away. Anything it deletes waits for your confirmation on a card.
 
@@ -103,7 +103,7 @@ Jarvy is not an internet service.
 
 - It listens on `127.0.0.1` by default. With `--host 0.0.0.0` (or any address other devices can reach) it serves HTTPS with a certificate it makes itself, and sends plain HTTP from other machines to HTTPS. Install that certificate once on each device (Settings → Network), or accept the browser's warning once. Plain HTTP from other machines can be allowed there; the page then warns that passwords, API keys and conversations cross the network unencrypted.
 - Model API keys, secrets (Settings → Secrets) and the certificate keys are encrypted with a master key kept outside the data directory, in `~/.config/jarvy/` (mode `0600`). Back that file up together with the data directory: without it they can't be decrypted. Bots that work on your computer run as your user and could read it; sandboxed Bots can't. The data directory is created with mode `0700` and the database with `0600`.
-- A Bot works either in its own sandbox, a Docker container that sees only its workspace and runs with your user and group ids, or on your computer, where it runs `bash` with your user's permissions and reaches everything you can. Being able to use Docker is equivalent to root on this machine.
+- A Bot works in its own sandbox, a Docker container that sees only its workspace and runs with your user and group ids, and on the machines you let it use, where it runs `bash` as the user it logs in as and reaches everything that user can. Being able to use Docker is equivalent to root on this machine.
 
 ## License
 
