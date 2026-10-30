@@ -11,7 +11,8 @@ import { tooLarge } from "../../service/chat/attachments.js";
 export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">) {
   const routes = new Hono<ApiEnv>();
   const view = (chat: ReturnType<typeof chats.createDm>) => chatView(chat, id => chats.member(id));
-  routes.get("/", c => c.json({ chats: chats.list(c.get("actorId")).map(view) }));
+  // The sidebar's chats, and the followed threads in numbers for its 「我关注的线程」 entry (A69).
+  routes.get("/", c => c.json({ chats: chats.list(c.get("actorId")).map(view), followed: chats.threads.followedSummary(c.get("actorId")) }));
   routes.post("/", jsonBody, async c => {
     const chat = chats.createDm(c.get("actorId"), await readJson(c));
     return c.json(view(chat), 201);

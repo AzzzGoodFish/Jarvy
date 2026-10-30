@@ -1,20 +1,14 @@
 import { useState } from "react";
 import { ArrowDownUpIcon } from "lucide-react";
 import type { ThreadEntry } from "../../contract/chat";
+import { compareThreads, type ThreadSort } from "../../contract/threads";
 import { t } from "../i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
-export type ThreadSort = "updated" | "created" | "status";
 const LABELS = { updated: "threadSort.updated", created: "threadSort.created", status: "threadSort.status" } as const;
-const latest = (thread: ThreadEntry) => thread.lastReplyAt ?? thread.createdAt;
 
-/** Newest activity first; newest thread first; or open before done, each by newest activity. */
-export function sortThreads(threads: readonly ThreadEntry[], sort: ThreadSort): ThreadEntry[] {
-  const by = sort === "created" ? (a: ThreadEntry, b: ThreadEntry) => b.createdAt - a.createdAt
-    : sort === "status" ? (a: ThreadEntry, b: ThreadEntry) => Number(a.status === "done") - Number(b.status === "done") || latest(b) - latest(a)
-    : (a: ThreadEntry, b: ThreadEntry) => latest(b) - latest(a);
-  return [...threads].sort(by);
-}
+/** A channel's threads in the order picked: the same rule the server pages 「我关注的线程」 by (A69). */
+export const sortThreads = (threads: readonly ThreadEntry[], sort: ThreadSort): ThreadEntry[] => [...threads].sort(compareThreads(sort));
 /** The chosen order of one thread list, remembered in this browser. */
 export function useThreadSort(list: "channel" | "followed"): [ThreadSort, (sort: ThreadSort) => void] {
   const key = `jarvy-thread-sort-${list}`;

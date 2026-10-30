@@ -1,5 +1,6 @@
 import type { Bot } from "../contract/bots";
-import type { Chat, Member, Section, ThreadEntry } from "../contract/chat";
+import type { Chat, Member, Section } from "../contract/chat";
+import type { FollowedSummary } from "../contract/threads";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Icon, IconButton } from "./ui";
 import { t } from "./i18n";
@@ -10,7 +11,7 @@ import { useEffect, useRef } from "react";
 export function AppSidebar({ username, chats, sections, bots, members, followed, followedOpen, working, asking, selected, filter, creating, createMenu, accountMenu,
   onFilterChange, onOpenFollowed, onOpenChat, onOpenBot, onOpenMenu, onEditSection, onCreate, onFind, onOpenFound, onError, onToggleCreate, onToggleAccount,
   onSettings, onToggleTheme, onLogOut }: {
-  username: string; chats: Chat[]; sections: Section[]; bots: Bot[]; members: Member[]; followed: ThreadEntry[]; followedOpen: boolean;
+  username: string; chats: Chat[]; sections: Section[]; bots: Bot[]; members: Member[]; followed: FollowedSummary | null; followedOpen: boolean;
   working: Set<string>; asking: Set<string>;
   /** The open chat, or null while the followed-threads page is shown. */
   selected: string | null; filter: string; creating: boolean; createMenu: boolean; accountMenu: boolean;

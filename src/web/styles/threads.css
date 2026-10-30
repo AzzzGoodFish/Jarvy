@@ -68,11 +68,15 @@
 .jv-thread-item-root { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ui-text-secondary); }
 .jv-thread-item-root > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-thread-item-meta { font-size: 11px; }
-/* 「我关注的线程」 (thread/ThreadList.tsx): the list beside the selected thread; phones show one of the two. */
+/* 「我关注的线程」 (thread/FollowedThreads.tsx): the list beside the selected thread; phones show one of the two. */
 .jv-followed-page { flex-direction: row; }
 .jv-followed-list { display: flex; flex: none; flex-direction: column; width: 360px; min-height: 0; border-right: 1px solid var(--ui-border-weak); }
 .jv-followed-items { flex: 1; min-height: 0; padding: 10px 10px 16px; overflow: auto; scrollbar-width: thin; }
 .jv-thread-item[aria-current] { background: var(--ui-fill-ghost-selected); box-shadow: inset 0 0 0 1px var(--ui-border-strong); }
+/* The end of the loaded rows: loading the next page, or a failed page with Retry. */
+.jv-followed-end { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 1px; color: var(--ui-text-tertiary); font-size: 12px; }
+.jv-followed-end:not(:empty) { padding: 12px 0 4px; }
+.jv-followed-end p { margin: 0; }
 .jv-followed-empty { display: grid; flex: 1; place-items: center; color: var(--ui-text-tertiary); font-size: 13px; }
 .jv-thread-embed { flex: 1; }
 @media (max-width: 1100px) { .jv-followed-list { width: 300px; } }

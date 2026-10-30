@@ -13,6 +13,7 @@ export const threads = {
   "threads.doneCount": "Done {count}",
   "threads.all": "All",
   "threads.loading": "Loading…",
+  "threads.loadFailed": "Couldn't load the threads",
   "threads.none": "No threads yet",
   "threads.following": "Following",
   "threads.filter": "Filter",

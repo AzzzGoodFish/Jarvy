@@ -21,6 +21,11 @@ export function threadTitle(content: string, names: readonly string[], file = ""
   return (rest.trim() || line || file).slice(0, 60);
 }
 
+/** Followed threads (`:member`) in channels the member can still read, with at least one reply. */
+const FOLLOWED = `FROM chats c JOIN chat_states s ON s.chat_id=c.id AND s.member_id=:member AND s.following=1
+  JOIN chat_members cm ON cm.chat_id=c.parent_id AND cm.member_id=:member AND cm.can_read=1
+  WHERE c.type='thread' AND EXISTS(SELECT 1 FROM messages WHERE chat_id=c.id)`;
+
 /** Threads (A37 P2): a thread is its own Chat under a channel message. Reading and writing follow the channel;
  * following only decides whether its replies count as unread. */
 export class ThreadRepository {
@@ -78,9 +83,13 @@ export class ThreadRepository {
   }
   /** Threads the member follows in channels it can still read (with at least one reply). */
   followed(memberId: string): string[] {
-    return (this.db.prepare(`SELECT c.id FROM chats c JOIN chat_states s ON s.chat_id=c.id AND s.member_id=:member AND s.following=1
-      JOIN chat_members cm ON cm.chat_id=c.parent_id AND cm.member_id=:member AND cm.can_read=1
-      WHERE c.type='thread' AND EXISTS(SELECT 1 FROM messages WHERE chat_id=c.id) ORDER BY c.updated_at DESC,c.id`).all({ member: memberId }) as { id: string }[]).map(row => row.id);
+    return (this.db.prepare(`SELECT c.id ${FOLLOWED} ORDER BY c.updated_at DESC,c.id`).all({ member: memberId }) as { id: string }[]).map(row => row.id);
+  }
+  /** The same threads with what orders and filters them (A69): status, creation and last reply. */
+  followedKeys(memberId: string): { id: string; status: "open" | "done"; createdAt: number; lastReplyAt: number }[] {
+    return this.db.prepare(`SELECT c.id,c.status,c.created_at AS createdAt,
+      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastReplyAt ${FOLLOWED}`)
+      .all({ member: memberId }) as { id: string; status: "open" | "done"; createdAt: number; lastReplyAt: number }[];
   }
   /** The thread under a channel message, for the "N 条回复" line. */
   info(rootMessageId: string): ThreadInfo | null {

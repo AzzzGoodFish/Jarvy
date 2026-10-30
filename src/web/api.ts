@@ -5,6 +5,7 @@ import type { HostKeys, SshMachine } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
 import type { Task, TaskInput } from "../contract/tasks";
+import type { FollowedSummary, ThreadFilter, ThreadItem, ThreadPage, ThreadSort } from "../contract/threads";
 import { t } from "./i18n";
 /** A failed request. `code` and `params` (A45) name a failure the interface words itself (errors.ts); the message is
  * the server's English, shown only when there is no code. */
@@ -73,7 +74,7 @@ export const api = {
   answerQuestion: (chatId: string, messageId: string, answer: { action: "answer"; selected: number[]; custom?: string } | { action: "dismiss" }) =>
     request<ChatMessage>(`/chats/${chatId}/questions/${messageId}`, { method: "POST", body: body(answer) }),
   setBotColor: (id: string, color: BotColor) => request<Bot>(`/bots/${id}/color`, { method: "PUT", body: body({ color }) }),
-  chats: () => request<{ chats: Chat[] }>("/chats"),
+  chats: () => request<{ chats: Chat[]; followed: FollowedSummary }>("/chats"),
   createChat: (botId: string) => request<Chat>("/chats", { method: "POST", body: body({ botId }) }),
   deleteChat: (id: string) => request<{ ok: boolean }>(`/chats/${id}`, { method: "DELETE" }),
   members: () => request<{ members: Member[] }>("/members"),
@@ -103,7 +104,10 @@ export const api = {
   message: (id: string) => request<ChatMessage>(`/messages/${id}`),
   openThread: (messageId: string) => request<Chat>(`/messages/${messageId}/thread`, { method: "POST" }),
   channelThreads: (channelId: string) => request<{ threads: ThreadEntry[] }>(`/chats/${channelId}/threads`),
-  followedThreads: () => request<{ threads: ThreadEntry[] }>("/threads"),
+  /** 「我关注的线程」 a page at a time (A69), and one row again after a live change. */
+  followedThreads: ({ filter, sort, cursor }: { filter: ThreadFilter; sort: ThreadSort; cursor?: string }) =>
+    request<ThreadPage>(`/threads?${new URLSearchParams({ filter, sort, ...(cursor ? { cursor } : {}) })}`),
+  followedThread: (id: string) => request<ThreadItem>(`/threads/${id}`),
   updateThread: (id: string, change: { title?: string; status?: "open" | "done" }) => request<Chat>(`/chats/${id}`, { method: "PATCH", body: body(change) }),
   follow: (id: string, following: boolean) => request<Chat>(`/chats/${id}/follow`, { method: "PUT", body: body({ following }) }),
   /** A Bot's DMs with other Bots (read-only) and the channels / threads it subscribed to. */

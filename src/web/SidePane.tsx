@@ -1,4 +1,5 @@
-import type { Attachment, Chat, Member, Section, ThreadEntry } from "../contract/chat";
+import type { Attachment, Chat, Member, Section } from "../contract/chat";
+import type { FollowedSummary } from "../contract/threads";
 import type { Bot, BotStatus } from "../contract/bots";
 import { BotDirects } from "./bot/BotDirects";
 import { ChannelInfo } from "./channel/ChannelInfo";
@@ -8,16 +9,18 @@ import { t } from "./i18n";
 import type { Pane } from "./pane";
 import { SearchPane } from "./search/SearchPane";
 import { ThreadPane } from "./thread/ThreadPane";
-import { FollowedThreads, ThreadList } from "./thread/ThreadList";
+import { ThreadList } from "./thread/ThreadList";
+import { FollowedThreads } from "./thread/FollowedThreads";
+import type { ThreadEvents } from "./thread/followed";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 /** Everything beside the main area: the followed-threads page, and the right pane — a thread (or one expanded over the
  * main area), search, a channel's thread list or info, a Bot's DMs with other Bots — with its resize handle.
  * App owns the pane state and the data; this only dispatches. */
-export function SidePane({ pane, followedView, followed, chats, sections, members, bots, statuses, meId, drafts, tick, paneChannel, activeBot, botDirects, find,
+export function SidePane({ pane, followedView, threadEvents, followed, chats, sections, members, bots, statuses, meId, drafts, tick, paneChannel, activeBot, botDirects, find,
   onPane, onNav, onBackToChannel, onAddMembers, onOpenBot, onPin, onMute, onDeleteChannel, onChannelSaved, onThreadChanged, onInvite, onPreview, onNotice, onError,
   paneWidth, onResize }: {
-  pane: Pane | null; followedView: boolean; followed: ThreadEntry[]; chats: Chat[]; sections: Section[]; members: Member[]; bots: Bot[];
+  pane: Pane | null; followedView: boolean; threadEvents: ThreadEvents; followed: FollowedSummary | null; chats: Chat[]; sections: Section[]; members: Member[]; bots: Bot[];
   statuses: Record<string, BotStatus>; meId: string; drafts: DraftStore; tick: number;
   /** The open channel, when the main area shows one: the thread list and channel info are its. */
   paneChannel: Chat | undefined;
@@ -36,11 +39,11 @@ export function SidePane({ pane, followedView, followed, chats, sections, member
   const open = pane?.kind === "thread" ? pane : null, full = open?.mode === "full";
   const close = () => onPane(null);
   return <>
-    {followedView && !full && <FollowedThreads threads={followed} chats={chats} members={members} bots={bots} onNav={onNav}
+    {followedView && !full && <FollowedThreads events={threadEvents} summary={followed} chats={chats} members={members} bots={bots} onNav={onNav}
       renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} tick={tick} onNav={onNav} onChanged={onThreadChanged}
-        onClose={back} onToggleMode={() => onBackToChannel({ id: thread.id, parentId: thread.parentId! }, true)}
-        onInvite={member => onInvite(thread.parentId!, member)} onPreview={onPreview} onError={onError} onNotice={onNotice}/>}/>}
+        onClose={back} onToggleMode={() => onBackToChannel({ id: thread.id, parentId: thread.parentId }, true)}
+        onInvite={member => onInvite(thread.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice}/>}/>}
     {open && <ThreadPane key={`${open.id}:${open.focus?.id ?? ""}:${open.focus?.passage ?? ""}`} threadId={open.id} mode={open.mode} showSummary={open.summary} focus={open.focus} onSearch={find.search}
       channel={chats.find(chat => chat.id === open.parentId)} drafts={drafts} members={members} bots={bots} me={meId} tick={tick} onNav={onNav} onChanged={onThreadChanged}
       onClose={() => full ? onBackToChannel(open, false) : close()} onToggleMode={() => full ? onBackToChannel(open, true) : onPane({ ...open, mode: "full" })}

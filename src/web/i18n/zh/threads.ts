@@ -16,6 +16,7 @@ export const threads: Part<typeof en> = {
   "threads.doneCount": "已完成 {count}",
   "threads.all": "全部",
   "threads.loading": "正在加载…",
+  "threads.loadFailed": "无法加载线程",
   "threads.none": "暂无线程",
   "threads.following": "已关注",
   "threads.filter": "筛选",

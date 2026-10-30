@@ -497,3 +497,15 @@ A Bot's default environment was either its sandbox or the owner's computer, and 
 - **Bot info**: its Docker sandbox, with its state and what it is made of (container, image, workspace mount point) and its actions; then the external environments, one switch per SSH machine, or Add machine when there is none.
 
 Why: each Bot works as one person with one computer, and what it shares, it shares through the chat. One kind of default leaves one text to tell Bots where they are, and one way to reach every other machine.
+
+## A69 「我关注的线程」 a page at a time
+
+The followed-threads page was one list: `GET /threads` returned every followed thread with its whole chat — the summary, the member ids, the last message — and the web loaded it at start-up and again for every chat change, whether or not the page was open. With a hundred-odd followed threads that is about 400 KB and 150 ms a time, several times a minute while Bots work, so the cost grows with the archive and is paid for nothing while you are in a chat.
+
+- **Pages**: `GET /threads?filter=all|unread|open|done&sort=updated|created|status&cursor=…&limit=N` returns 30 rows and a `next` cursor. The cursor is the last row's sort key (`contract/threads.ts`, the same order the page reads), so a thread that moves while you scroll is neither repeated nor skipped. `GET /threads/:id` is one row.
+- **By the server**: the tab and the order are applied before the page is cut, so a page of 已完成 is 30 finished threads rather than whatever of the first 30 is finished. Their numbers (unread threads, open, done) and the sidebar's are a `followed` summary sent with `GET /chats`, which the sidebar reloads on every change anyway.
+- **Rows**: what a row shows only; the summary, members and last message stay with the thread's pane, which loads the chat itself.
+- **Live**: with the page open, a change to a thread fetches that row and places it where it now sorts; one that newly fits is inserted if it sorts within what is loaded, and otherwise comes with a later page. Reading a thread in 未读 takes it out of the list while its pane stays; one unfollowed on the page stays, marked 未关注, until you leave, in every tab it fits.
+- **Also**: `useThreadSort`'s order and the server's are one function; the channel's own thread list is unchanged.
+
+Why: the page costs what is on screen, and a chat change costs one small row instead of the whole archive.

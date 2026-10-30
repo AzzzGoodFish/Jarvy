@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Ellipsis, Pin, Search } from "lucide-react";
 import type { MenuTarget } from "./EntryMenu";
 import type { Bot } from "../../contract/bots";
-import type { Chat, Member, Section, ThreadEntry } from "../../contract/chat";
+import type { Chat, Member, Section } from "../../contract/chat";
+import type { FollowedSummary } from "../../contract/threads";
 import { ResultGroup, SearchResults } from "../search/SearchResults";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { Button } from "../components/ui/button";
@@ -62,7 +63,8 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
   asking: Set<string>;
   selected: string | null; filter: string;
   /** Threads you follow (A37 P2): one entry at the top with their unread total, opening the list. */
-  followed: ThreadEntry[]; followedOpen: boolean; onOpenFollowed: () => void;
+  /** The followed threads in numbers (A69): whether the entry shows, and its count. */
+  followed: FollowedSummary | null; followedOpen: boolean; onOpenFollowed: () => void;
   onFilterChange: (value: string) => void; onSelect: (chat: Chat) => void; onOpenBot: (bot: Bot) => void;
   /** The row's 「…」 menu, also opened by right-click. */
   /** `at` is where the menu opens: the pointer for a right-click, under the 「…」 button otherwise. */
@@ -79,7 +81,7 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
   // Searching, chats match by name and topic; their messages are found by the server (SearchResults).
   const visible = chats.filter(chat => chat.type !== "thread" && `${chat.title} ${chat.topic} ${bots.find(bot => bot.id === chat.botId)?.name ?? ""}`
     .toLocaleLowerCase().includes(query));
-  const threadUnread = followed.reduce((sum, thread) => sum + thread.unread, 0), threadMentions = followed.reduce((sum, thread) => sum + thread.mentions, 0);
+  const threadUnread = followed?.unread ?? 0, threadMentions = followed?.mentions ?? 0;
   // Pinned chats come first within their own group.
   const channels = visible.filter(chat => chat.type === "channel").sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.title.localeCompare(b.title, "zh-CN"));
   // Channel names are data, not interface text: they sort the Chinese-aware way (by pinyin) in either language.
@@ -156,7 +158,7 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
         <SearchResults query={filter} shown={new Set(channels.map(chat => chat.id))} chats={chats} members={members}
           onOpenChat={onOpenFound} onOpenMessage={onOpenMessage} onError={onError}/>
       </nav> : <nav className="jv-side-nav px-3 pb-6" aria-label={t("sidebar.nav")}>
-        {followed.length > 0 && <button type="button" className="jv-side-row jv-side-top" data-active={followedOpen || undefined} data-unread={threadUnread > 0 || undefined}
+        {!!followed?.total && <button type="button" className="jv-side-row jv-side-top" data-active={followedOpen || undefined} data-unread={threadUnread > 0 || undefined}
           aria-current={followedOpen ? "page" : undefined} onClick={onOpenFollowed}>
           <Icon name="chat-bubble"/><span className="jv-side-label">{t("sidebar.followed")}</span>
           {threadMentions > 0 ? <span className="jv-badge">{threadMentions}</span> : threadUnread > 0 && <span className="jv-count">{threadUnread}</span>}
