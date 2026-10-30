@@ -2,6 +2,14 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.10.1 — 2026-10-29
+
+No database change: upgrading from 0.10.0 needs nothing else.
+
+### Fixed
+
+- Bots work with Gemini models. The `chat` tool's parameters are now a plain string enum and object: Gemini refuses `anyOf`/`const` and `patternProperties` in a function definition, so every request that carried the `chat` tool failed (a relay answered 500) on every protocol but OpenAI Responses. What the tool accepts is unchanged.
+
 ## 0.10.0 — 2026-10-29
 
 Upgrading moves the database from schema v25 to v29 on first start: the inbox gets a category for each delivery (v26), SSH machines get a description (v27), attachment contents move out of the database into files under `attachments/` in the data directory, after which the database is compacted (v28), and every Bot's default environment becomes its own sandbox (v29). A start interrupted midway finishes the job on the next start. Read **Before you upgrade** first.

@@ -1,6 +1,6 @@
 {
   "name": "@goodfish/jarvy",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "A local chat where people and AI Bots work together: DMs, channels and threads, with long-running Pi agents as members.",
   "keywords": [
     "chat",
