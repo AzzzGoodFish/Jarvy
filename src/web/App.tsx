@@ -23,6 +23,7 @@ import type { InfoPage } from "./channel/ChannelInfo";
 import type { Pane } from "./pane";
 import { useFind } from "./search/useFind";
 import { errorText, statusError } from "./errors";
+import { liveEvents } from "./live-events";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
 const DevAgentation = import.meta.env.DEV
@@ -111,7 +112,6 @@ export function App() {
   useEffect(() => {
     if (phase !== "ready") return;
     let alive = true;
-    const source = new EventSource("/api/events");
     const refresh = async (chatId?: string) => {
       void api.followedThreads().then(result => { if (alive) setFollowed(result.threads); }).catch(() => {});
       setTick(value => value + 1);
@@ -121,34 +121,39 @@ export function App() {
     };
     // Bots create and rename channel groups too.
     const reloadSections = () => void api.sections().then(result => { if (alive) setSections(result.sections); }).catch(error => { if (alive) handleError(error); });
-    source.addEventListener("ready", () => {
-      void refresh().catch(error => { if (alive) handleError(error); }); reloadSections();
-      const id = chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId;
-      if (id) void readStatus(id).catch(error => { if (alive) handleError(error); });
-      void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
-    });
-    source.addEventListener("sections", reloadSections);
-    // The agent Bot created, changed or deleted Bots (A48): reload them, and the chats a deleted one leaves.
-    source.addEventListener("bots", () => {
-      void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
-      void refresh().catch(error => { if (alive) handleError(error); });
-    });
-    // Something was delivered to you (A41): the rows' red counts and hints come with the chat list.
-    source.addEventListener("inbox", () => void refresh().catch(error => { if (alive) handleError(error); }));
-    source.addEventListener("chat", event => {
-      const data = JSON.parse((event as MessageEvent<string>).data) as { chatId?: string };
-      if (typeof data.chatId === "string") void refresh(data.chatId).catch(error => { if (alive) handleError(error); });
-    });
-    source.addEventListener("bot", event => {
-      const data = JSON.parse((event as MessageEvent<string>).data) as { botId: string; status: BotStatus };
-      const status = data.status;
-      statusVersions.current.set(data.botId, (statusVersions.current.get(data.botId) ?? 0) + 1);
-      setStatuses(previous => ({ ...previous, [data.botId]: status }));
-      if (status.error && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
-      if (status.status === "idle" || status.status === "stop") void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
-    });
-    source.onerror = () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); };
-    return () => { alive = false; source.close(); history.cancel(); chatRequest.current++; };
+    const stop = liveEvents("/api/events", {
+      // Each connection, the first and every one after it: read again what the page shows, every Bot's status too,
+      // since what changed while the page wasn't connected came to no one.
+      ready: () => {
+        void refresh().catch(error => { if (alive) handleError(error); }); reloadSections();
+        void api.bots().then(result => {
+          if (!alive) return;
+          setBots(result.bots);
+          for (const bot of result.bots) void readStatus(bot.id).catch(error => { if (alive) handleError(error); });
+        }).catch(error => { if (alive) handleError(error); });
+      },
+      sections: reloadSections,
+      // The agent Bot created, changed or deleted Bots (A48): reload them, and the chats a deleted one leaves.
+      bots: () => {
+        void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
+        void refresh().catch(error => { if (alive) handleError(error); });
+      },
+      // Something was delivered to you (A41): the rows' red counts and hints come with the chat list.
+      inbox: () => void refresh().catch(error => { if (alive) handleError(error); }),
+      chat: event => {
+        const data = JSON.parse(event.data) as { chatId?: string };
+        if (typeof data.chatId === "string") void refresh(data.chatId).catch(error => { if (alive) handleError(error); });
+      },
+      bot: event => {
+        const data = JSON.parse(event.data) as { botId: string; status: BotStatus };
+        const status = data.status;
+        statusVersions.current.set(data.botId, (statusVersions.current.get(data.botId) ?? 0) + 1);
+        setStatuses(previous => ({ ...previous, [data.botId]: status }));
+        if (status.error && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
+        if (status.status === "idle" || status.status === "stop") void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
+      },
+    }, () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); });
+    return () => { alive = false; stop(); history.cancel(); chatRequest.current++; };
   }, [phase]);
   useMarkRead({ ready: phase === "ready", selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
   useTabBadge(phase === "ready" ? chats.reduce((sum, chat) => sum + chat.alerts, 0) : 0);
