@@ -1,6 +1,6 @@
-import { memo, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { remarkCjkLinks } from "./cjk-links";
 import remarkGfm from "remark-gfm";
@@ -65,15 +65,25 @@ function CodeBlock({ children }: { children?: ReactNode }) {
 // Chat text keeps single line breaks as typed (soft break -> <br>), like common chat apps.
 // A bare URL ends at Chinese punctuation (cjk-links.ts).
 const MARKDOWN_PLUGINS = [remarkGfm, remarkCjkLinks, remarkBreaks];
+/** Partial quotes: "#quote-N" links (channel/quotes.tsx), handed to the link renderer below. */
+const QuoteRenderer = createContext<((index: number) => ReactNode) | undefined>(undefined);
+function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const renderQuote = useContext(QuoteRenderer);
+  // channel/mentions.ts turns "@name" into "#mention" / "#mention-me" links; they render as highlights.
+  if (href === "#mention" || href === "#mention-me") return <span className="jv-mention" data-me={href === "#mention-me" || undefined}>{children}</span>;
+  if (renderQuote && href?.startsWith("#quote-")) return renderQuote(Number(href.slice(7)));
+  return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+}
+/** Fixed once: a renderer made anew on each render is a new component type to React, which then rebuilds that part of
+ * the message, and a code block scrolled sideways jumps back to its start. */
+const MARKDOWN_COMPONENTS: Components = {
+  a: MarkdownLink,
+  img: ({ alt }) => <span>{t("ui.image", { alt: alt || t("ui.imageHidden") })}</span>,
+  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+};
 export const Markdown = memo(function Markdown({ text, renderQuote }: { text: string; /** Partial quotes: "#quote-N" links (channel/quotes.tsx). */ renderQuote?: (index: number) => ReactNode }) {
   useLocale(); // memo skips the app root's re-render, so follow a language switch here
-  return <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} skipHtml components={{
-    // channel/mentions.ts turns "@name" into "#mention" / "#mention-me" links; they render as highlights.
-    a: ({ href, children }) => href === "#mention" || href === "#mention-me"
-      ? <span className="jv-mention" data-me={href === "#mention-me" || undefined}>{children}</span>
-      : renderQuote && href?.startsWith("#quote-") ? renderQuote(Number(href.slice(7)))
-      : <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-    img: ({ alt }) => <span>{t("ui.image", { alt: alt || t("ui.imageHidden") })}</span>,
-    pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-  }}>{text}</ReactMarkdown>;
+  return <QuoteRenderer.Provider value={renderQuote}>
+    <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} skipHtml components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
+  </QuoteRenderer.Provider>;
 });
