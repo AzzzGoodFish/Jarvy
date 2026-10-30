@@ -102,5 +102,6 @@ Pi tool call → Tools → Bot.send (bound to its History source) → Chat.deliv
 - Cookie login, same-origin checks, JSON and upload limits, read-only History, SSE with re-read after reconnect. Errors map by type, not by message text.
 - Bot state is `stop / idle / running`; while running, activity is `reasoning / texting / tool_calling / asking` or null while waiting. `POST /api/bots/:id/start|stop|abort` call the matching Bot methods.
 - SSE subscriptions belong to services; encoding, auth and closing the stream belong to the API, in one place (`api/event-stream.ts`): a route only says what it subscribes to and what it sends first.
+- The page keeps `/events` open through `web/live-events.ts`. A connection can die while the computer sleeps or the network changes and still look open to the browser, which then never reconnects; so the page watches the 15 s heartbeat and opens a new connection after 45 s of silence, at once when the page comes back into view after 25 s or the network returns. Every connection starts with `ready`, on which the page reads again its chats, the open transcript and every Bot's status.
 
 The activity timeline is a read-only composition: the activity route → `BotService.activity` → `ChatService.sentActivity` and `Memory.timeline` → their repositories. It is not an eighth Bot part and has no storage of its own.
