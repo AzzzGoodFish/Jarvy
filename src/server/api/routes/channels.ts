@@ -2,8 +2,9 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
-import { chatView, messageView, threadView } from "../views/chat.js";
+import { chatView, messageView, threadItemView, threadView } from "../views/chat.js";
 import type { SearchResult } from "../../../contract/chat.js";
+import type { ThreadPage } from "../../../contract/threads.js";
 
 /** Sections, channels, members, notices, read positions and threads (A37). */
 export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
@@ -65,7 +66,13 @@ export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
     return c.json(chat(actor, chats.threads.open(actor, c.req.param("id")).id));
   });
   routes.get("/chats/:id/threads", c => c.json({ threads: chats.threads.list(c.get("actorId"), c.req.param("id")).map(entry => threadView(entry, id => chats.member(id))) }));
-  routes.get("/threads", c => c.json({ threads: chats.threads.followed(c.get("actorId")).map(entry => threadView(entry, id => chats.member(id))) }));
+  // 「我关注的线程」 (A69): ?filter=all|unread|open|done&sort=updated|created|status&cursor=…&limit=N, and one row by id.
+  routes.get("/threads", c => {
+    const page = chats.threads.followedPage(c.get("actorId"), { filter: c.req.query("filter"), sort: c.req.query("sort"), cursor: c.req.query("cursor"), limit: c.req.query("limit") });
+    const result: ThreadPage = { threads: page.entries.map(threadItemView), next: page.next };
+    return c.json(result);
+  });
+  routes.get("/threads/:id", c => c.json(threadItemView(chats.threads.entry(c.get("actorId"), c.req.param("id")))));
   routes.put("/chats/:id/follow", jsonBody, async c => {
     const actor = c.get("actorId"), id = c.req.param("id");
     chats.threads.setFollowing(actor, id, (await readJson(c)).following);
