@@ -5,6 +5,7 @@ import { type ThreadInfo } from "../../../contract/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 import { previewQuotes } from "../../shared/quotes.js";
 import { transaction } from "./transaction.js";
+import { mentionsIn, unreadIn } from "./unread.js";
 
 /** Default thread title: the root's first line without its leading @mentions or Markdown marks (A37); for a root
  * with no text, its first file's name (A45: stored titles carry no interface words). */
@@ -25,6 +26,9 @@ export function threadTitle(content: string, names: readonly string[], file = ""
 const FOLLOWED = `FROM chats c JOIN chat_states s ON s.chat_id=c.id AND s.member_id=:member AND s.following=1
   JOIN chat_members cm ON cm.chat_id=c.parent_id AND cm.member_id=:member AND cm.can_read=1
   WHERE c.type='thread' AND EXISTS(SELECT 1 FROM messages WHERE chat_id=c.id)`;
+
+/** A followed thread with what orders, filters and counts it. */
+export interface FollowedKey { id: string; status: "open" | "done"; createdAt: number; lastReplyAt: number; unread: number; mentions: number }
 
 /** Threads (A37 P2): a thread is its own Chat under a channel message. Reading and writing follow the channel;
  * following only decides whether its replies count as unread. */
@@ -85,16 +89,18 @@ export class ThreadRepository {
   followed(memberId: string): string[] {
     return (this.db.prepare(`SELECT c.id ${FOLLOWED} ORDER BY c.updated_at DESC,c.id`).all({ member: memberId }) as { id: string }[]).map(row => row.id);
   }
-  /** The same threads with what orders and filters them (A69): status, creation and last reply. */
-  followedKeys(memberId: string): { id: string; status: "open" | "done"; createdAt: number; lastReplyAt: number }[] {
+  /** The same threads with what orders, filters and counts them (A69): status, creation, last reply, and the member's
+   * unread and @ counts by the rule a chat's own count follows, in one statement however many there are. */
+  followedKeys(memberId: string): FollowedKey[] {
     return this.db.prepare(`SELECT c.id,c.status,c.created_at AS createdAt,
-      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastReplyAt ${FOLLOWED}`)
-      .all({ member: memberId }) as { id: string; status: "open" | "done"; createdAt: number; lastReplyAt: number }[];
+      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastReplyAt,
+      (SELECT count(*) ${unreadIn("c.id")}) AS unread,(SELECT count(*) ${mentionsIn("c.id")}) AS mentions ${FOLLOWED}`)
+      .all({ member: memberId }) as unknown as FollowedKey[];
   }
   /** The thread under a channel message, for the "N 条回复" line. */
   info(rootMessageId: string): ThreadInfo | null {
     return (this.db.prepare(`SELECT c.id,c.title,c.status,(SELECT count(*) FROM messages WHERE chat_id=c.id) AS replies,
-      (SELECT MAX(created_at) FROM messages WHERE chat_id=c.id) AS lastReplyAt FROM chats c WHERE c.root_message_id=?`).get(rootMessageId) as ThreadInfo | undefined) ?? null;
+      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastReplyAt FROM chats c WHERE c.root_message_id=?`).get(rootMessageId) as ThreadInfo | undefined) ?? null;
   }
   private assertThread(actorId: string, threadId: string, write = false): void {
     this.chats.assertAccess(actorId, threadId, write);
