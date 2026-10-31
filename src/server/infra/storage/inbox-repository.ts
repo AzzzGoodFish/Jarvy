@@ -41,6 +41,11 @@ export class InboxRepository {
     this.db.prepare(`DELETE FROM inbox WHERE message_id=? AND actor_id=? AND kind='reaction' AND state='pending' AND json_extract(payload,'$.emoji')=?`)
       .run(messageId, actorId, emoji);
   }
+  /** A task deleted before its Bot was told it is due takes its pending notice with it (A58): there is nothing left to
+   * run, and the row would otherwise be carried into every later run. */
+  cancelTaskNotice(taskId: string): void {
+    this.db.prepare(`DELETE FROM inbox WHERE category='system' AND kind='task' AND state='pending' AND json_extract(payload,'$.task')=?`).run(taskId);
+  }
   /** A deleted member's rows go with it. */
   forget(memberId: string): void { this.db.prepare("DELETE FROM inbox WHERE member_id=?").run(memberId); }
 

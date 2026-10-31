@@ -84,10 +84,15 @@ export class TaskRepository {
     this.db.prepare("UPDATE tasks SET state=?,next_run_at=?,updated_at=? WHERE id=? AND bot_id=?").run(state, next, now, id, botId);
     return this.get(botId, id);
   }
-  /** Gone from the lists and from the scheduler; the row stays for the record. */
+  /** Gone from the lists and from the scheduler; the row stays for the record, and a notice of a run that is still
+   * waiting to be told goes with it (A58). */
   remove(botId: string, id: string): boolean {
     const now = Date.now();
-    return Number(this.db.prepare("UPDATE tasks SET deleted_at=?,next_run_at=NULL,updated_at=? WHERE id=? AND bot_id=? AND deleted_at IS NULL").run(now, now, id, botId).changes) > 0;
+    return transaction(this.db, () => {
+      if (!Number(this.db.prepare("UPDATE tasks SET deleted_at=?,next_run_at=NULL,updated_at=? WHERE id=? AND bot_id=? AND deleted_at IS NULL").run(now, now, id, botId).changes)) return false;
+      this.inbox.cancelTaskNotice(id);
+      return true;
+    });
   }
   /** The soonest time any task runs; the scheduler sleeps until then. Null when nothing is scheduled. */
   soonest(): number | null {

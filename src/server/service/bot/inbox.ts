@@ -39,8 +39,14 @@ export class BotInbox {
     const unreadNotes = this.chats.channels.unreadNotes(this.botId, [...new Set(batch.inputs.map(input => input.chatId))]);
     const digest = { ...this.chats.channels.digest(this.botId), ...(unreadNotes.length ? { unreadNotes } : {}), ...(this.where ? { environment: this.where() } : {}) };
     // Deliveries never steered into a run (A39, A41) are told with this batch.
-    const pending = this.envelope(this.chats.notices(this.botId));
-    return { xml: encodeChatBatch(this.botId, inputs, digest, pending.length ? pending : undefined, prompt), notices: pending.map(notice => notice.id) };
+    const tail = this.convert(this.chats.notices(this.botId));
+    this.tell(tail.stale);
+    return { xml: encodeChatBatch(this.botId, inputs, digest, tail.kept.length ? tail.kept : undefined, prompt), notices: tail.kept.map(notice => notice.id) };
+  }
+  /** `kept`: the rows as the envelope shape, and `stale`: the ids of rows with nothing left to say, which are told and
+   * dropped — a task deleted before its Bot was told it is due (A58). */
+  private convert(notices: readonly BotNotice[]): { kept: EnvelopeNotice[]; stale: number[] } {
+    return { kept: this.envelope(notices), stale: notices.filter(notice => notice.kind === "task" && !this.tasks.get(this.botId, notice.payload.task)).map(notice => notice.id) };
   }
   /** Inbox rows as the envelope shape; the steered and the batch tails share it. Chat activity names its chat; system
    * notices have none (A61). */
@@ -72,9 +78,14 @@ export class BotInbox {
   notices(prompt?: PromptChange | null, steer = false): { xml: string; ids: number[] } | null {
     const pending = this.chats.notices(this.botId).filter(notice => !steer || notice.kind !== "task");
     if (!pending.length) return null;
+    const { kept, stale } = this.convert(pending);
+    // Nothing left to say: they are told here rather than failing the batch, which would leave them pending for every
+    // later run (A58). A changed system prompt still has to be told.
+    if (!kept.length && !prompt) { this.tell(stale); return null; }
+    this.tell(stale);
     // A run of notices alone is where a Bot learns of a new version; the ones it still has not read come too (A67).
     const unreadNotes = this.chats.channels.unreadNotes(this.botId, pending.flatMap(notice => notice.chat ? [notice.chat.id] : []));
-    return { xml: encodeNoticeBatch(this.botId, this.envelope(pending), this.where?.(), prompt, unreadNotes), ids: pending.map(notice => notice.id) };
+    return { xml: encodeNoticeBatch(this.botId, kept, this.where?.(), prompt, unreadNotes), ids: kept.map(notice => notice.id) };
   }
   /** These notices reached the model. */
   tell(ids: readonly number[]) { this.chats.tellNotices(this.botId, ids); }
