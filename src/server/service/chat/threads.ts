@@ -29,7 +29,8 @@ export class ChatThreads {
     return { chat, info: this.store.info(chat.rootMessageId!)!, root: root ? { senderId: root.sender.id, content: root.content, quotes: root.quotes } : null };
   }
   list(actorId: string, channelId: string): ThreadEntry[] { return this.store.list(actorId, channelId).map(id => this.entry(actorId, id)); }
-  followed(actorId: string): ThreadEntry[] { return this.store.followed(actorId).map(id => this.entry(actorId, id)); }
+  /** The threads the member follows as chats, for a Bot's chat list. */
+  followedChats(actorId: string): Chat[] { return this.store.followed(actorId).map(id => this.repository.getChat(actorId, id)!); }
   /** 「我关注的线程」 a page at a time (A69): filtered and ordered here, so every page is cut from the same list. The
    * cursor is the last row's sort key, so a thread that moves while you scroll is neither repeated nor skipped. */
   followedPage(actorId: string, query: { filter?: string; sort?: string; cursor?: string; limit?: string }): { entries: ThreadEntry[]; next: string | null } {

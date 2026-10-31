@@ -4,6 +4,7 @@ import type { ChatService } from "../chat/service.js";
 import type { ThreadEntry } from "../chat/threads.js";
 
 const iso = (time: number) => new Date(time).toISOString();
+const done = (chat: Chat) => chat.type === "thread" && chat.status === "done";
 /** Quotes are expanded wherever a Bot reads a message (A44). */
 const name = (chats: ChatService) => (memberId: string) => chats.member(memberId)?.name ?? memberId;
 
@@ -15,9 +16,10 @@ export function chatRows(chats: ChatService, botId: string) {
     ...(chat.type === "dm" ? { with: chat.memberIds.filter(id => id !== botId).map(id => chats.member(id)?.name).filter(Boolean) } : {}),
     ...(chat.sectionId ? { section: sections.get(chat.sectionId) } : {}), ...(chat.topic ? { topic: chat.topic } : {}),
     ...(chat.type === "thread" ? { parent: chat.parentId, status: chat.status } : {}),
-    unread: chat.unread, ...(chat.mentions && chat.type !== "dm" ? { mentions: chat.mentions } : {}), ...(chat.subscribed ? { subscribed: true } : {}),
+    // A finished thread stays out of a Bot's unread (A70): its batches and `messages.read unread=true` leave it out too.
+    unread: done(chat) ? 0 : chat.unread, ...(chat.mentions && chat.type !== "dm" && !done(chat) ? { mentions: chat.mentions } : {}), ...(chat.subscribed ? { subscribed: true } : {}),
     ...(chat.note ? { noticeVersion: chat.note.version } : {}), updatedAt: iso(chat.updatedAt) });
-  return [...chats.list(botId).map(row), ...chats.threads.followed(botId).map(entry => row(entry.chat))];
+  return [...chats.list(botId).map(row), ...chats.threads.followedChats(botId).map(row)];
 }
 /** Members, topic and the full notice (a thread: title, status, parent, root message and summary); reading it
  * counts as having seen this version. A thread's also carries its channel's notice, which a send there needs (A67). */
