@@ -12,11 +12,12 @@ import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
 import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
+import { changeKey, type ChatChanges } from "../chat-changes";
 
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, tick, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, changes, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
   showSummary?: boolean;
@@ -25,8 +26,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   focus?: Focus;
   /** The header's search button and Ctrl+F inside the pane: search this thread. */
   onSearch?: (thread: Chat) => void; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
-  /** Bumped when the server reports a change to this thread. */
-  tick: number;
+  /** Each chat's changes (A71): the thread reloads when it changed. */
+  changes: ChatChanges;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
   onChanged: (chat: Chat) => void; onInvite: (member: Member) => void; onPreview: (files: Attachment[], index: number) => void;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
@@ -38,7 +39,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const body = useRef<HTMLDivElement>(null), rows = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
   // 「回到最新」, as in the main transcript: shown while away from the bottom, counting others' replies since you left it.
   const [away, setAway] = useState(false), seen = useRef(0);
-  // The newest reply already laid out: a reload (reading the thread bumps `tick`) brings nothing new to scroll to.
+  // The newest reply already laid out: a reload (reading the thread changes it) brings nothing new to scroll to.
   const newest = useRef(0);
   useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; }, [threadId]);
   useEffect(() => {
@@ -50,7 +51,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       if (loaded.rootMessageId) { const message = await api.message(loaded.rootMessageId); if (alive) setRoot(message); }
     }).catch(error => { if (alive) onError(error); });
     return () => { alive = false; };
-  }, [threadId, tick]);
+  }, [threadId, changeKey(changes, threadId)]);
   // Opened (or re-opened) threads land at the newest reply, exactly; later arrivals scroll smoothly, and only when
   // the reader is at the bottom. Rows that grow afterwards (images, file cards) keep the view pinned there.
   useLayoutEffect(() => {

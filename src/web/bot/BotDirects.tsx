@@ -7,11 +7,12 @@ import { previewText } from "../channel/quotes";
 import { memberName } from "../members";
 import { IconButton } from "../ui";
 import { ChannelMessages, MemberAvatar } from "../channel/ChannelView";
+import { changeKey, type ChatChanges } from "../chat-changes";
 
 const when = (time: number) => formatDate(time, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-/** The Bot's DMs with other Bots; reloaded on every chat change (`tick`). */
-export function useBotDirects(botId: string | undefined, tick: number) {
+/** The Bot's DMs with other Bots; reloaded when a chat outside the chat list changes (`unlisted`, A71). */
+export function useBotDirects(botId: string | undefined, unlisted: string) {
   const [chats, setChats] = useState<Chat[]>([]);
   useEffect(() => {
     setChats([]);
@@ -19,13 +20,13 @@ export function useBotDirects(botId: string | undefined, tick: number) {
     let alive = true;
     void api.botDirects(botId).then(result => { if (alive) setChats(result.chats); }).catch(() => {});
     return () => { alive = false; };
-  }, [botId, tick]);
+  }, [botId, unlisted]);
   return chats;
 }
 
 /** A Bot's DMs with other Bots, read-only for you: the list, then one conversation. */
-export function BotDirects({ bot, chats, members, bots, me, tick, onClose, onPreview, onError }: {
-  bot: Bot; chats: Chat[]; members: Member[]; bots: Bot[]; me: string; tick: number;
+export function BotDirects({ bot, chats, members, bots, me, changes, onClose, onPreview, onError }: {
+  bot: Bot; chats: Chat[]; members: Member[]; bots: Bot[]; me: string; changes: ChatChanges;
   onClose: () => void; onPreview: (files: Attachment[], index: number) => void; onError: (error: unknown) => void;
 }) {
   const [open, setOpen] = useState<string | null>(null), [messages, setMessages] = useState<ChatMessage[] | null>(null);
@@ -35,7 +36,7 @@ export function BotDirects({ bot, chats, members, bots, me, tick, onClose, onPre
     let alive = true;
     void api.messages(open).then(result => { if (alive) setMessages(result.messages); }).catch(error => { if (alive) onError(error); });
     return () => { alive = false; };
-  }, [open, tick]);
+  }, [open, changeKey(changes, open)]);
   const other = (chat: Chat) => members.find(member => member.id !== bot.id && chat.memberIds.includes(member.id));
   const current = chats.find(chat => chat.id === open);
   return <aside className="ui-pane jv-pane" aria-label={t("chat.botDms", { name: bot.name })}>
