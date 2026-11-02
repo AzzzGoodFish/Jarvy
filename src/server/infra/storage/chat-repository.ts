@@ -11,7 +11,8 @@ import { ChannelRepository } from "./channel-repository.js";
 import { ThreadRepository } from "./thread-repository.js";
 import { InteractionRepository } from "./interaction-repository.js";
 import { QuoteRepository } from "./quote-repository.js";
-import { HANDED_TO_BOT, InboxRepository } from "./inbox-repository.js";
+import { InboxRepository } from "./inbox-repository.js";
+import { mentionsIn, unreadIn } from "./unread.js";
 import { clipMarked, previewQuotes } from "../../shared/quotes.js";
 import { transaction } from "./transaction.js";
 type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; foldedAt: number | null; };
@@ -22,13 +23,6 @@ const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_at AS 
   (SELECT id FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessageId,
   (SELECT COALESCE(a.username,b.name) FROM messages m LEFT JOIN account a ON a.member_id=m.sender_id LEFT JOIN bots b ON b.id=m.sender_id
     WHERE m.chat_id=c.id ORDER BY m.sequence DESC LIMIT 1) AS lastSender`;
-/** Unread for one member: after its read position, not its own, and — for Bots — not already handed to it
- * (A37: a message delivered to a Bot counts as read; a person's delivered message stays unread until read).
- * A channel copy of a thread reply is not unread for the thread's followers: they have it in the thread. */
-const UNREAD = `FROM messages m WHERE m.chat_id=:chat AND m.sender_id<>:member
-  AND m.sequence>COALESCE((SELECT read_sequence FROM chat_states WHERE chat_id=:chat AND member_id=:member),0)
-  AND NOT ${HANDED_TO_BOT}
-  AND NOT (m.echo_of IS NOT NULL AND EXISTS(SELECT 1 FROM chat_states f WHERE f.chat_id=m.echo_of AND f.member_id=:member AND f.following=1))`;
 
 /** SQLite rows stay here; callers receive independent domain snapshots. */
 export class ChatRepository {
@@ -64,9 +58,8 @@ export class ChatRepository {
       const read = this.db.prepare("SELECT read_sequence AS n FROM chat_states WHERE chat_id=? AND member_id=?").get(chatId, memberId) as { n: number } | undefined;
       return { unread: 0, mentions: 0, readSequence: read?.n ?? 0 };
     }
-    const unread = (this.db.prepare(`SELECT count(*) AS n ${UNREAD}`).get(params) as { n: number }).n;
-    const mentions = (this.db.prepare(`SELECT count(*) AS n ${UNREAD} AND ((SELECT type FROM chats WHERE id=:chat)='dm'
-      OR EXISTS(SELECT 1 FROM message_mentions mm WHERE mm.message_id=m.id AND mm.member_id=:member))`).get(params) as { n: number }).n;
+    const unread = (this.db.prepare(`SELECT count(*) AS n ${unreadIn(":chat")}`).get(params) as { n: number }).n;
+    const mentions = (this.db.prepare(`SELECT count(*) AS n ${mentionsIn(":chat")}`).get(params) as { n: number }).n;
     const read = this.db.prepare("SELECT read_sequence AS n FROM chat_states WHERE chat_id=? AND member_id=?").get(chatId, memberId) as { n: number } | undefined;
     return { unread, mentions, readSequence: read?.n ?? 0 };
   }
@@ -163,7 +156,7 @@ export class ChatRepository {
   unreadMessages(memberId: string, chatId: string, limit: number): ChatMessage[] {
     this.assertAccess(memberId, chatId);
     if ((this.db.prepare("SELECT type FROM chats WHERE id=?").get(chatId) as { type: string }).type === "thread" && !this.threads.isFollowing(memberId, chatId)) return [];
-    const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS.split(",").map(column => `m.${column}`).join(",")} ${UNREAD} ORDER BY m.sequence LIMIT :limit`)
+    const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS.split(",").map(column => `m.${column}`).join(",")} ${unreadIn(":chat")} ORDER BY m.sequence LIMIT :limit`)
       .all({ chat: chatId, member: memberId, limit }) as MessageRow[];
     return rows.map(row => this.messageFromRow(row));
   }

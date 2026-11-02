@@ -38,7 +38,7 @@ export class ChatThreads {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChatError(400, "Invalid limit");
     const after = query.cursor === undefined ? null : cursorKey(query.cursor);
     const rows = this.store.followedKeys(actorId)
-      .filter(row => filter === "all" || (filter === "unread" ? this.repository.unread(actorId, row.id).unread > 0 : row.status === filter))
+      .filter(row => filter === "all" || (filter === "unread" ? row.unread > 0 : row.status === filter))
       .map(row => ({ id: row.id, key: threadKey(row, sort) })).sort((a, b) => compareKeys(a.key, b.key))
       .filter(row => !after || compareKeys(row.key, after) > 0);
     const page = rows.slice(0, limit);
@@ -48,9 +48,8 @@ export class ChatThreads {
   followedSummary(actorId: string): FollowedSummary {
     const summary: FollowedSummary = { total: 0, open: 0, done: 0, unreadThreads: 0, unread: 0, mentions: 0 };
     for (const row of this.store.followedKeys(actorId)) {
-      const { unread, mentions } = this.repository.unread(actorId, row.id);
-      summary.total++; summary[row.status]++; summary.unread += unread; summary.mentions += mentions;
-      if (unread > 0) summary.unreadThreads++;
+      summary.total++; summary[row.status]++; summary.unread += row.unread; summary.mentions += row.mentions;
+      if (row.unread > 0) summary.unreadThreads++;
     }
     return summary;
   }
