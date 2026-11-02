@@ -113,7 +113,7 @@ Further rules:
 
 ## How a person responds
 
-`User.deliver` publishes an SSE `inbox` event and the sidebar refreshes ([channels](channels.md#sidebar)):
+A delivery to a person always comes with the live event for its message, mark or notice, which carries the chat's row with what follows (A72), so `User.deliver` has nothing more to do ([channels](channels.md#sidebar)):
 
 - **Red count**: pending interrupt messages delivered to you and not yet read (`Chat.alerts`). A red 「[有人@我]」 prefix shows while one of them @-mentions or replies to you (`Chat.atMe`).
 - **Hint line**: the newest queued delivery — 「Jarvy 对你的消息表达了 👍」, 「Mochi 更新了公告」 (`Chat.hint`). For a channel, its threads count too: the hint names the thread (「Jarvy 更新了线程「…」的摘要」) and opening the row opens that thread beside the channel.

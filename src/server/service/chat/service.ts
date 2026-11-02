@@ -15,6 +15,7 @@ import { reactionTargets } from "../delivery/routes.js";
 import { quoteDrafts, resolveQuotes } from "./quotes.js";
 import { ChatAttachments, fileName } from "./attachments.js";
 import type { AttachmentFiles } from "../../infra/files/attachments.js";
+import type { ChatChange } from "./contracts.js";
 
 function titleValue(value: unknown): string {
   if (value === undefined) return "";
@@ -45,7 +46,7 @@ export function emojiValue(value: unknown): string {
   return value;
 }
 export interface ChatNotifications {
-  saved?: (chatId: string) => void;
+  changed?: (change: ChatChange) => void;
   /** An owner's channel groups changed (a Bot may create or rename them). */
   sections?: (ownerId: string) => void;
 }
@@ -58,9 +59,9 @@ export class ChatService {
   /** `deliveries`: the delivery module (A41, A61); chat sources hand their committed deliveries off there. */
   constructor(private readonly repository: ChatRepository, private readonly deliveries: Deliveries, files: AttachmentFiles, private readonly notifications: ChatNotifications = {}) {
     this.attachments = new ChatAttachments(repository, files);
-    this.threads = new ChatThreads(repository, chatId => this.notifySaved(chatId));
-    this.questions = new ChatQuestions(repository, chatId => this.notifySaved(chatId));
-    this.channels = new ChatChannels(repository, chatId => this.notifySaved(chatId), ownerId => {
+    this.threads = new ChatThreads(repository, change => this.notify(change));
+    this.questions = new ChatQuestions(repository, (chatId, messageId) => this.notify({ kind: "message.updated", chatId, messageId }));
+    this.channels = new ChatChannels(repository, id => this.notify({ kind: "chat", id }), ownerId => {
       try { this.notifications.sections?.(ownerId); } catch { console.error("[chat] section notification failed"); }
     }, deliveries => this.deliveries.dispatch(deliveries));
   }
@@ -80,7 +81,7 @@ export class ChatService {
     const actor = directory.find(member => member.id === actorId), target = directory.find(member => member.id === targetId);
     if (!actor || !target) throw new ChatError(404, "Member not found");
     const chat = this.repository.openDirect(actorId, targetId, owner, `${actor.name} · ${target.name}`);
-    this.notifySaved(chat.id);
+    this.notify({ kind: "chat", id: chat.id });
     return chat;
   }
   /** A Bot's DMs with other Bots, for its owner (read-only). */
@@ -96,7 +97,7 @@ export class ChatService {
   subscribe(actorId: string, chatId: string, subscribed: unknown): ChatSnapshot {
     if (typeof subscribed !== "boolean") throw new ChatError(400, "Invalid subscribed");
     this.repository.channels.setSubscribed(actorId, chatId, subscribed);
-    this.notifySaved(chatId);
+    this.notify({ kind: "chat", id: chatId });
     return this.repository.getChat(actorId, chatId)!;
   }
   /** Notices waiting for a Bot (A39). */
@@ -119,7 +120,7 @@ export class ChatService {
     const author = this.repository.canAccess(marked.sender.id, marked.chatId) ? marked.sender : undefined;
     const deliveries = apply ? plan("reaction", reactionTargets({ actorId, author })) : [];
     const { chatId, added } = this.repository.interactions.react(actorId, messageId, value, apply, deliveries);
-    this.notifySaved(chatId);
+    this.notify({ kind: "message.updated", chatId, messageId });
     if (added) this.deliveries.dispatch(deliveries);
     return this.repository.message(actorId, messageId)!;
   }
@@ -129,7 +130,7 @@ export class ChatService {
     const message = this.repository.message(actorId, messageId);
     if (!message) throw new ChatError(404, "Message not found");
     this.repository.interactions.setFolded(messageId, folded);
-    this.notifySaved(message.chatId);
+    this.notify({ kind: "message.updated", chatId: message.chatId, messageId });
     return this.repository.message(actorId, messageId)!;
   }
   mute(actorId: string, chatId: string, muted: unknown): ChatSnapshot {
@@ -180,13 +181,14 @@ export class ChatService {
   }
   instance(actorId: string, chatId: string): Chat {
     this.repository.assertAccess(actorId, chatId);
-    // A thread reply also changes its channel (reply count under the root, or the 「同时发到频道」 copy).
-    const parentId = this.repository.getChat(actorId, chatId)?.parentId ?? null;
+    // A thread reply also changes its root in the channel (the reply count and last reply under it); the 「同时发到频道」
+    // copy is a new message of the channel, notified on its own.
+    const chat = this.repository.getChat(actorId, chatId), parentId = chat?.parentId ?? null, rootId = chat?.rootMessageId ?? null;
     return new Chat(chatId, {
       info: new ChatInfo(chatId, actorId, this.repository),
       members: new ChatMembers(chatId, actorId, this.repository, (message, deliveries) => {
-        this.notifySaved(chatId);
-        if (parentId) this.notifySaved(parentId);
+        this.notify({ kind: "message", chatId: message.chatId, messageId: message.id });
+        if (message.chatId === chatId && parentId && rootId) this.notify({ kind: "message.updated", chatId: parentId, messageId: rootId });
         this.deliveries.dispatch(deliveries, message);
       }),
       messages: new ChatMessages(chatId, actorId, this.repository, this.attachments),
@@ -213,14 +215,15 @@ export class ChatService {
     if (!query.trim() || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChatError(400, "Invalid search query or limit");
     return this.repository.search(actorId, chatId, query, limit, sender);
   }
-  private notifySaved(chatId: string): void {
-    try { this.notifications.saved?.(chatId); }
-    catch { console.error("[chat] committed-message notification failed", { chatId }); }
+  private notify(change: ChatChange): void {
+    try { this.notifications.changed?.(change); }
+    catch { console.error("[chat] change notification failed", change); }
   }
   async delete(actorId: string, chatId: string): Promise<boolean> {
     const chat = this.repository.getChat(actorId, chatId);
     if (!chat || chat.ownerId !== actorId) return false;
     await this.instance(actorId, chatId).delete();
+    this.notify({ kind: "chat.removed", id: chatId, ownerId: actorId });
     await this.attachments.clean();
     return true;
   }

@@ -28,6 +28,8 @@ import { errorText, statusError } from "./errors";
 import { liveEvents } from "./live-events";
 import { coalesce } from "./coalesce";
 import { chatChanged, noChanges, reconnected, unlistedKey } from "./chat-changes";
+import { LiveHub } from "./live";
+import type { LiveBot, LiveChat, LiveMessage, LiveReady, LiveRemoved } from "../contract/events";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
 const DevAgentation = import.meta.env.DEV
@@ -67,7 +69,9 @@ export function App() {
   const [changes, setChanges] = useState(noChanges);
   /** The followed threads in numbers, with the chat list (A69); the page loads its rows itself and hears of changes here. */
   const [followed, setFollowed] = useState<FollowedSummary | null>(null);
-  const [threadEvents] = useState(() => new ThreadEvents()), threadSeen = useRef(new Map<string, string>());
+  const [threadEvents] = useState(() => new ThreadEvents());
+  /** Changes heard of (A72), for the open panes to put in place. */
+  const [live] = useState(() => new LiveHub());
   const [notice, setNotice] = useState("");
   const transcript = useRef<HTMLDivElement>(null);
   const chatArea = useRef<HTMLElement>(null), composeWrap = useRef<HTMLFormElement>(null);
@@ -85,6 +89,7 @@ export function App() {
   // Text waits 300 ms before it is saved; leaving the page saves it at once.
   useEffect(() => { const save = () => drafts.save(); window.addEventListener("pagehide", save); return () => window.removeEventListener("pagehide", save); }, [drafts]);
   const meId = members.find(member => member.kind === "user" && member.name === username)?.id ?? "";
+  const meRef = useRef(meId); meRef.current = meId;
   // Newest page first, older pages as you scroll up.
   const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, onError: handleError });
   const { messages, setMessages } = history;
@@ -119,14 +124,27 @@ export function App() {
     if (phase !== "ready") return;
     let alive = true;
     const fail = (error: unknown) => { if (alive) handleError(error); };
-    // The open transcript, once for a burst of changes to it.
-    const refreshOpen = coalesce(async () => { const id = selectedRef.current; if (alive && id) await refreshTranscript(id); }, 100);
+    const refreshOpen = async () => { const id = selectedRef.current; if (alive && id) await history.refresh(id); };
     // Bots create and rename channel groups too.
     const reloadSections = () => void api.sections().then(result => { if (alive) setSections(result.sections); }).catch(error => { if (alive) handleError(error); });
+    /** A change heard of (A72): its rows into the chat list, the followed numbers, and the change itself to the open
+     * transcript and panes. Your DMs and channels are rows of the chat list; a thread or a Bot's DM with another Bot is not. */
+    const heard = ({ chat, parent, followed: numbers, message }: LiveChat & { message?: ChatMessage }, kind?: "message" | "updated") => {
+      const mine = (row: Chat) => row.type !== "thread" && row.memberIds.includes(meRef.current);
+      for (const row of parent ? [chat, parent] : [chat]) if (mine(row)) chatSaved(row);
+      if (numbers) setFollowed(numbers);
+      // 「我关注的线程」, if open, fetches the thread's row again (A69).
+      if (chat.type === "thread") threadEvents.emit({ kind: "changed", id: chat.id });
+      // A channel's thread list and a Bot's DMs with other Bots still read again what changed (A71).
+      setChanges(changes => chatChanged(changes, chat.id, chat.type === "dm" && !mine(chat)));
+      if (message && kind) { history.heard(message, kind === "message"); live.emit({ kind, message }); }
+      else live.emit({ kind: "chat", chat });
+    };
     const stop = liveEvents("/api/events", {
-      // Each connection, the first and every one after it: read again what the page shows, every Bot's status too,
-      // since what changed while the page wasn't connected came to no one.
-      ready: () => {
+      // A connection that could not be told what it missed (the first one, or after a restart or a long break): read
+      // again what the page shows, every Bot's status too.
+      ready: event => {
+        if ((JSON.parse(event.data) as LiveReady).resumed) return;
         setChanges(reconnected); void refreshChats().catch(fail); void refreshOpen().catch(fail); reloadSections();
         // 「我关注的线程」, if open, reads its first page again: what changed while the connection was down.
         threadEvents.emit({ kind: "reconnected" });
@@ -142,26 +160,25 @@ export function App() {
         void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(fail);
         void refreshChats().catch(fail);
       },
-      // Something was delivered to you (A41): the rows' red counts and hints come with the chat list.
-      inbox: () => void refreshChats().catch(fail),
-      chat: event => {
-        const data = JSON.parse(event.data) as { chatId?: string };
-        const id = data.chatId;
-        if (typeof id !== "string") return;
-        const listed = chatListRef.current.some(chat => chat.id === id);
-        setChanges(changes => chatChanged(changes, id, listed));
-        void refreshChats().catch(fail);
-        if (id === selectedRef.current) void refreshOpen().catch(fail);
-        // A thread is not in the chat list: 「我关注的线程」, if open, fetches its row again.
-        if (!listed) threadEvents.emit({ kind: "changed", id });
+      message: event => heard(JSON.parse(event.data) as LiveMessage, "message"),
+      "message.updated": event => heard(JSON.parse(event.data) as LiveMessage, "updated"),
+      chat: event => heard(JSON.parse(event.data) as LiveChat),
+      // A channel deleted (by you elsewhere, or by the agent Bot): its row, and whatever of it is open, go.
+      "chat.removed": event => {
+        const { chatId, followed: numbers } = JSON.parse(event.data) as LiveRemoved;
+        setChats(previous => previous.filter(chat => chat.id !== chatId)); setFollowed(numbers);
+        if (selectedRef.current === chatId) setSelected(null);
+        if (paneRef.current?.kind === "thread" && paneRef.current.parentId === chatId) setPane(null);
+        // 「我关注的线程」, if open, reads its first page again without its threads.
+        threadEvents.emit({ kind: "reconnected" });
       },
       bot: event => {
-        const data = JSON.parse(event.data) as { botId: string; status: BotStatus };
-        const status = data.status;
-        statusVersions.current.set(data.botId, (statusVersions.current.get(data.botId) ?? 0) + 1);
-        setStatuses(previous => ({ ...previous, [data.botId]: status }));
+        const { botId, status, bot } = JSON.parse(event.data) as LiveBot;
+        statusVersions.current.set(botId, (statusVersions.current.get(botId) ?? 0) + 1);
+        setStatuses(previous => ({ ...previous, [botId]: status }));
         if (status.error && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
-        if (status.status === "idle" || status.status === "stop") void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
+        // Done with a turn, it comes with itself: it may have changed its name, model or computer meanwhile.
+        if (bot) setBots(previous => previous.map(item => item.id === bot.id ? bot : item));
       },
     }, () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); });
     return () => { alive = false; stop(); history.cancel(); chatRequest.current++; };
@@ -203,7 +220,6 @@ export function App() {
     const result = await api.chats(); if (request === chatRequest.current) { setChats(result.chats); setFollowed(result.followed); }
     return result.chats;
   }, 100));
-  async function refreshTranscript(id: string) { await history.refresh(id); }
   async function refreshConnections() {
     const [catalog, botList] = await Promise.all([api.modelConnections(), api.bots()]);
     setConnections(catalog.connections); setBots(botList.bots);
@@ -279,12 +295,12 @@ export function App() {
   }
   async function sendMain(content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) {
     const id = selected!;
-    await api.send(id, content, attachmentIds, key, false, replyTo, quotes);
+    const sent = await api.send(id, content, attachmentIds, key, false, replyTo, quotes);
     const chat = chatListRef.current.find(item => item.id === id), outside = chat?.type === "channel"
       ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !chat.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
     if (outside.length) setNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
-    // Sent once the server has it: catching up the transcript and the list must not hold the composer or undo the send.
-    void Promise.all([refreshTranscript(id), refreshChats()]).catch(handleError);
+    // In the transcript at once; its row comes with the event for it (A72).
+    history.heard(sent, true);
   }
   /** Adds someone picked from the @ menu to the channel (or the thread's channel). */
   function invite(channelId: string, member: Member) {
@@ -326,12 +342,8 @@ export function App() {
   /** A quote tag (or a reply bar): its message here, or — in a channel copy of a thread reply — in that thread (A44). */
   const jumpTo = (id: string | null, passage?: string) => id ? void history.toMessage(id, passage)
     .then(async elsewhere => { if (elsewhere) find.openMessage(await api.chat(elsewhere), id, passage); }).catch(() => setNotice(t("app.sourceGone"))) : setNotice(t("app.sourceGone"));
-  /** A thread's pane read, followed or changed it: its row takes the news, and the numbers are read again if it moved them. */
-  function threadChanged(thread: Chat) {
-    threadEvents.emit({ kind: "chat", chat: thread });
-    const state = `${thread.unread}:${thread.mentions}:${thread.following}:${thread.status}`;
-    if (threadSeen.current.get(thread.id) !== state) { threadSeen.current.set(thread.id, state); void refreshChats().catch(() => {}); }
-  }
+  /** A thread's pane read, followed or changed it: its row takes the news at once; the numbers come with the event (A72). */
+  function threadChanged(thread: Chat) { threadEvents.emit({ kind: "chat", chat: thread }); }
   function startResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
     const move = (moved: globalThis.PointerEvent) => setPaneWidth(Math.min(Math.max(340, window.innerWidth - moved.clientX), Math.round(window.innerWidth * 0.6)));
@@ -342,7 +354,7 @@ export function App() {
     try {
       await drafts.clear(id => api.removeAttachment(id));
       await api.logout(); setPhase("login"); setAccountMenu(false); setSettingsTab(null);
-      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); threadSeen.current.clear(); setChanges(noChanges);
+      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); setChanges(noChanges);
       setUsername(""); setSelected(null); setChats([]); setBots([]); setConnections([]); setMessages([]);
     } catch (error) { handleError(error); }
   }
@@ -410,7 +422,7 @@ export function App() {
         chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
       <SidePane pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
-        meId={meId} drafts={drafts} changes={changes} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
+        meId={meId} drafts={drafts} changes={changes} live={live} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
         onPane={setPane} onNav={() => setMobileNav(true)} onBackToChannel={toChannel} onAddMembers={chat => setDialog({ kind: "members", chat })} onOpenBot={setInfoBotId}
         onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
         onChannelSaved={chatSaved} onThreadChanged={threadChanged} onInvite={invite} onPreview={(files, index) => setPreview({ files, index })}

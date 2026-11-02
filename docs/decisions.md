@@ -530,3 +530,20 @@ Every live change bumped one counter, and everything open reloaded on it: the ch
 - **Panes** keep a count of each chat's changes (`ChatChanges`) and reload when their own count moves: a thread for its own changes, a channel's thread list for the channel's (a reply in one of its threads changes the channel too), a Bot's DMs with other Bots for chats outside the chat list, and all of them when the connection opens again.
 
 Why: what is on screen should cost the changes to it, not every change anywhere. A change still reloads its whole chat; sending what changed instead of that it changed is the next step.
+
+## A72 Live events carry the change
+
+`/events` said only which chat had changed (`chat {chatId}`) and that something had been delivered (`inbox`), so the page read again whatever it showed. Each event now says what changed and carries it as the person sees it now:
+
+- **`message`** (new) and **`message.updated`** (marks, folded, a question's answer, the thread under a root: its reply count, title and status) carry the message and its chat's row. A reply in a thread also updates its root in the channel.
+- **`chat`** carries the row after a change to the chat itself: title, topic, notice or summary, members, status, a new chat, and a person's read position and following, so their other pages follow. **`chat.removed`**: a channel was deleted.
+- A thread's events also carry its channel's row (a channel's hint names its threads) and, when it is followed, the followed numbers (A69).
+- **`bot`** carries the Bot itself when it stops or goes idle. There is no `inbox` event: a delivery to a person always comes with one of the above, and the row it carries has the counts and hint it changed.
+
+The page puts each change in place: the row into the chat list, the message into the transcript, an open thread or a Bot's DM with another Bot where it is loaded, after the newest when it is the next one. When messages are missing before a new one, it reads them. A channel's thread list and the list of a Bot's DMs with other Bots still read again what changed (A71).
+
+- **Resuming**: every event but `ready` has an id, `<run>.<number>`, and the server keeps the last 10 minutes of changes in memory (at most 5,000). A page that reconnects passes the last id it heard (`Last-Event-ID`, or `?after=` on a new connection). If every change since then is still kept and from the same run, the server sends them — each message, chat or Bot once, as it is now — then `ready {resumed: true}`, and the page reads nothing again. Otherwise (the first connection, a restart, a break over 10 minutes, an id it does not know) `ready {resumed: false}`, and the page reads again what it shows.
+
+Why: three Bot messages in a DM cost 950 KB with a year of heavy use, the chat list read nine times and the transcript from its first loaded message; carried in the events they cost about 20 KB, whatever is open. The server renders each event once per connected page — the chat's row and, for a followed thread, the followed numbers (about 25 ms with 960 followed threads) — instead of each page reading the whole chat list.
+
+Supersedes: A71's reloads of the open transcript and thread on a change, and of the chat list on every change and delivery. The `/events` contract (`chat {chatId}`, `inbox`) is replaced.

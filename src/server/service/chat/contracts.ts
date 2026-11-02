@@ -2,6 +2,12 @@ import type { Delivery } from "../../shared/delivery.js";
 import type { ChatMessage, DeliveryMessage } from "../../shared/chat.js";
 import type { Member } from "../../../contract/chat.js";
 
+/** What changed in a chat, for the pages that show it (A72): a new message, one changed in place (marks, folded, a
+ * question's answer, the thread under it), the chat itself (title, topic, notice, members, status, read position,
+ * following, a new chat), or a chat deleted. */
+export type ChatChange = { kind: "message" | "message.updated"; chatId: string; messageId: string } | { kind: "chat"; id: string }
+  | { kind: "chat.removed"; id: string; ownerId: string };
+
 /** Chat 使用组成对象的契约；不包含 API、Bot Runtime 或数据库实现。 */
 export interface ChatParts {
   info: ChatInfo;

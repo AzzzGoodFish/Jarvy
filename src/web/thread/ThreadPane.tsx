@@ -12,7 +12,7 @@ import { Icon, IconButton } from "../ui";
 import { liveMembers } from "../members";
 import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
-import { changeKey, type ChatChanges } from "../chat-changes";
+import { addMessage, joinPage, missingBefore, replaceMessage, useHeard, type LiveHub } from "../live";
 
 /** Replies loaded at a time (A71), as in the main transcript. */
 const PAGE = 50;
@@ -21,7 +21,7 @@ type Replies = { messages: ChatMessage[]; hasOlder?: boolean; after?: number };
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, changes, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
   showSummary?: boolean;
@@ -30,8 +30,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   focus?: Focus;
   /** The header's search button and Ctrl+F inside the pane: search this thread. */
   onSearch?: (thread: Chat) => void; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
-  /** Each chat's changes (A71): the thread reloads when it changed. */
-  changes: ChatChanges;
+  /** Changes heard of (A72): new replies, the replies and the root changed, the thread itself, put in place. */
+  live: LiveHub;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
   onChanged: (chat: Chat) => void; onInvite: (member: Member) => void; onPreview: (files: Attachment[], index: number) => void;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
@@ -47,8 +47,9 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   // 「回到最新」, as in the main transcript: shown while away from the bottom, counting others' replies since you left it.
   const [away, setAway] = useState(false), seen = useRef(0);
   // The newest reply already laid out: a reload (reading the thread changes it) brings nothing new to scroll to.
-  const newest = useRef(0);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setHasOlder(false); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; }, [threadId]);
+  // `ahead`: the newest reply put in since the last render, so a burst of them is not taken for a gap.
+  const newest = useRef(0), ahead = useRef(0);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setHasOlder(false); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; ahead.current = 0; }, [threadId]);
   /** The replies from a little before this one to the newest, to land on it; null when it is not a reply here. */
   const around = async (id: string): Promise<Replies | null> => {
     const target = await api.message(id).catch(() => null);
@@ -63,12 +64,30 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     if (first?.chatId === threadId) return { ...await api.messages(threadId, first.sequence - 1), after: first.sequence - 1 };
     return (focus && opened.current !== threadId ? await around(focus.id) : null) ?? await api.latestMessages(threadId, PAGE);
   };
-  // A page prepended meanwhile stays.
+  // A page prepended meanwhile stays, and so do replies heard of meanwhile.
   const take = (page: Replies) => {
     const after = page.after;
-    setMessages(previous => after === undefined ? page.messages : [...previous.filter(item => item.chatId === threadId && item.sequence <= after), ...page.messages]);
+    setMessages(previous => after === undefined ? page.messages : joinPage(previous.filter(item => item.chatId === threadId), page.messages, after));
     if (page.hasOlder !== undefined) setHasOlder(page.hasOlder);
   };
+  /** A new reply, sent here or heard of: put after the newest, or read with what is missing before it. */
+  const place = (message: ChatMessage) => {
+    const loaded = list.current, last = loaded.at(-1), newest = Math.max(last?.chatId === threadId ? last.sequence : 0, ahead.current);
+    if (missingBefore(message, newest) && !loaded.some(item => item.id === message.id)) { void replies().then(take).catch(onError); return; }
+    ahead.current = Math.max(ahead.current, message.sequence);
+    setMessages(previous => addMessage(previous, message));
+  };
+  useHeard(live, heard => {
+    if (heard.kind === "chat") {
+      // Its row as the server has it; the read position may be behind the one this pane just marked.
+      const next = heard.chat;
+      if (next.id === threadId) setChat(previous => previous && { ...next, readSequence: Math.max(previous.readSequence, next.readSequence) });
+      return;
+    }
+    const message = heard.message;
+    if (message.id === root?.id) setRoot(message);
+    else if (message.chatId === threadId) { if (heard.kind === "message") place(message); else setMessages(previous => replaceMessage(previous, message)); }
+  });
   const loadOlder = async () => {
     const first = list.current[0], el = body.current;
     if (!first || !older.current || busy.current) return;
@@ -90,7 +109,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       if (loaded.rootMessageId) { const message = await api.message(loaded.rootMessageId); if (alive) setRoot(message); }
     }).catch(error => { if (alive) onError(error); });
     return () => { alive = false; };
-  }, [threadId, changeKey(changes, threadId)]);
+  }, [threadId]);
   // Opened (or re-opened) threads land at the newest reply, exactly; later arrivals scroll smoothly, and only when
   // the reader is at the bottom. Rows that grow afterwards (images, file cards) keep the view pinned there.
   useLayoutEffect(() => {
@@ -188,11 +207,11 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onFold: fold, onJump: jump, onError };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
   const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes: { messageId: string; text: string }[] = [], alsoToChannel = false) => {
-    await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
+    const sent = await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
     const outside = channel ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
     if (outside.length) onNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
-    // As in the main chat: the refresh runs on its own, its failure is not the send's.
-    void Promise.all([api.chat(threadId), replies()]).then(([loaded, page]) => { setChat(loaded); take(page); onChanged(loaded); }).catch(onError);
+    // In the thread at once; the thread's row comes with the event for it (A72).
+    place(sent);
   };
   const channelName = channel?.title ?? t("search.channel"), rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;

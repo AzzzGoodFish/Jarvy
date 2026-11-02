@@ -2,8 +2,9 @@ import type { Context } from "hono";
 import type { ApiEnv } from "./context.js";
 
 export interface EventStream {
-  /** Writes one event; a reader that has fallen behind (a full buffer) is disconnected instead, and reconnects. */
-  send(event: string, data: unknown): void;
+  /** Writes one event, with an id to resume from if given; a reader that has fallen behind (a full buffer) is
+   * disconnected instead, and reconnects. */
+  send(event: string, data: unknown, id?: string): void;
   /** Ends the stream. */
   close(): void;
   /** Wraps a listener so that once the session is gone, its next call ends the stream rather than running. */
@@ -20,11 +21,11 @@ export function eventStream(c: Context<ApiEnv>, authenticated: () => boolean, op
     start(controller) {
       let ended = false;
       const encoder = new TextEncoder();
-      const send = (event: string, data: unknown) => {
+      const send = (event: string, data: unknown, id?: string) => {
         if (ended) return;
         // Bounded SSE: slow readers reconnect and reload SQLite facts.
         if ((controller.desiredSize ?? 0) <= 0) { disconnect(); return; }
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        controller.enqueue(encoder.encode(`${id ? `id: ${id}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
       const { unsubscribe, ready } = open({
         send, close: () => disconnect(),

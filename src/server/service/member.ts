@@ -12,13 +12,11 @@ export abstract class Member<Output, Result> {
   public abstract send(chatId: string, message: Output): Result;
 }
 
-/** A person responds in the browser: a chat changed (refresh it), or the inbox did (show it). */
+/** A person responds in the browser, which hears of each change with the change itself: the message, mark or notice
+ * comes with the chat's row, its counts and hint included (A72). So a delivery asks nothing more of it. */
 export class User extends Member<MessageDraft, Promise<ChatMessage>> {
   public readonly kind = "user" as const;
-  public constructor(id: string, private readonly post: (actorId: string, chatId: string, message: MessageDraft) => Promise<ChatMessage>,
-    private readonly chatChanged: (chatId: string) => void, private readonly inboxChanged: (urgency: Urgency) => void = () => {}) { super(id); }
-  public deliver(urgency: Urgency): void { this.inboxChanged(urgency); }
-  /** A chat this person can see was saved. */
-  public changed(chatId: string): void { this.chatChanged(chatId); }
+  public constructor(id: string, private readonly post: (actorId: string, chatId: string, message: MessageDraft) => Promise<ChatMessage>) { super(id); }
+  public deliver(): void {}
   public send(chatId: string, message: MessageDraft): Promise<ChatMessage> { return this.post(this.id, chatId, message); }
 }

@@ -49,7 +49,8 @@ export class Chat {
     const saved = await this.messages.append(sender, message, deliveries, mentions);
     if (!saved.duplicate) {
       this.members.notify(saved.message, deliveries.message);
-      if (saved.echo && deliveries.echo.length) this.members.notify(saved.echo, deliveries.echo);
+      // The channel copy is a message of its own there, told about even when it reaches no one new.
+      if (saved.echo) this.members.notify(saved.echo, deliveries.echo);
     }
     return saved.message;
   }
