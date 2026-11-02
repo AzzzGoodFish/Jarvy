@@ -12,6 +12,8 @@ import { welcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
 
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
+/** How many of the open threads it follows a Bot is shown after a compaction (A73); the rest are counted. */
+const FOLLOWED_SHOWN = 15;
 /** Converts already-committed Chat input into runtime input; no SDK dependencies. */
 export class BotInbox {
   /** `where` is the work environment the Bot is in now, named at the end of each batch (A50). */
@@ -43,33 +45,44 @@ export class BotInbox {
     this.tell(tail.stale);
     return { xml: encodeChatBatch(this.botId, inputs, digest, tail.kept.length ? tail.kept : undefined, prompt), notices: tail.kept.map(notice => notice.id) };
   }
-  /** `kept`: the rows as the envelope shape, and `stale`: the ids of rows with nothing left to say, which are told and
-   * dropped — a task deleted before its Bot was told it is due (A58). */
+  /** Inbox rows as the envelope shape (`kept`); the steered and the batch tails share it. `stale`: the ids of rows with
+   * nothing left to say, which are told and dropped — a task deleted before its Bot was told it is due (A58), no open
+   * thread to list after a compaction, or an earlier compaction's list, which the latest one stands for (A73). */
   private convert(notices: readonly BotNotice[]): { kept: EnvelopeNotice[]; stale: number[] } {
-    return { kept: this.envelope(notices), stale: notices.filter(notice => notice.kind === "task" && !this.tasks.get(this.botId, notice.payload.task)).map(notice => notice.id) };
+    let latest: number | undefined;
+    for (const notice of notices) if (notice.kind === "followed") latest = notice.id;
+    const kept: EnvelopeNotice[] = [], stale: number[] = [];
+    for (const notice of notices) {
+      const shaped = notice.kind === "followed" && notice.id !== latest ? null : this.shape(notice);
+      if (shaped) kept.push(shaped); else stale.push(notice.id);
+    }
+    return { kept, stale };
   }
-  /** Inbox rows as the envelope shape; the steered and the batch tails share it. Chat activity names its chat; system
+  /** One row as the envelope shape, or null when it has nothing left to say. Chat activity names its chat; system
    * notices have none (A61). */
-  private envelope(notices: readonly BotNotice[]): EnvelopeNotice[] {
-    return notices.flatMap((notice): EnvelopeNotice[] => {
-      const { id, createdAt } = notice;
-      switch (notice.kind) {
-        case "note": return [{ kind: "note", id, chat: notice.chat, actor: notice.actor!, version: notice.payload.version, createdAt }];
-        case "onboard": return [{ kind: "onboard", id, actor: notice.actor!, language: welcomeLanguage(notice.payload.language), createdAt }];
-        case "change": return [{ kind: "change", id, actor: notice.actor!, what: notice.payload.what, value: notice.payload.value, createdAt }];
-        case "task": {
-          const task = this.tasks.get(this.botId, notice.payload.task);
-          // Deleted since: the row has nothing left to say.
-          return task ? [{ kind: "task", id, task: { id: task.id, name: task.name, instruction: task.instruction, schedule: describeSchedule(task.schedule) },
-            due: notice.payload.due, createdAt }] : [];
-        }
-        case "reaction": {
-          const marked = this.chats.message(this.botId, notice.messageId);
-          const text = marked ? previewQuotes(marked.content, marked.quotes).slice(0, 120) : "";
-          return [{ kind: "reaction", id, chat: notice.chat, message: { id: notice.messageId, text }, actor: notice.actor!, emoji: notice.payload.emoji, createdAt }];
-        }
+  private shape(notice: BotNotice): EnvelopeNotice | null {
+    const { id, createdAt } = notice;
+    switch (notice.kind) {
+      case "note": return { kind: "note", id, chat: notice.chat, actor: notice.actor!, version: notice.payload.version, createdAt };
+      case "onboard": return { kind: "onboard", id, actor: notice.actor!, language: welcomeLanguage(notice.payload.language), createdAt };
+      case "change": return { kind: "change", id, actor: notice.actor!, what: notice.payload.what, value: notice.payload.value, createdAt };
+      case "task": {
+        const task = this.tasks.get(this.botId, notice.payload.task);
+        // Deleted since: the row has nothing left to say.
+        return task ? { kind: "task", id, task: { id: task.id, name: task.name, instruction: task.instruction, schedule: describeSchedule(task.schedule) },
+          due: notice.payload.due, createdAt } : null;
       }
-    });
+      case "reaction": {
+        const marked = this.chats.message(this.botId, notice.messageId);
+        const text = marked ? previewQuotes(marked.content, marked.quotes).slice(0, 120) : "";
+        return { kind: "reaction", id, chat: notice.chat, message: { id: notice.messageId, text }, actor: notice.actor!, emoji: notice.payload.emoji, createdAt };
+      }
+      // Its conversation was compacted (A73): the open threads it follows, as they are now.
+      case "followed": {
+        const open = this.chats.threads.openFollowed(this.botId, FOLLOWED_SHOWN);
+        return open.total ? { kind: "followed", id, total: open.total, threads: open.threads, createdAt } : null;
+      }
+    }
   }
   /** The batch went to the model: each delivery in its tail is told once. */
   acknowledge(notices: readonly number[]) { if (notices.length) this.tell(notices); }

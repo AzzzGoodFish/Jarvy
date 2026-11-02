@@ -86,7 +86,12 @@ export class BotService {
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog,
-        onCompacted: () => chats.channels.clearNotesSeen(id) }));
+        onCompacted: () => {
+          chats.channels.clearNotesSeen(id);
+          // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).
+          const to = chats.member(id);
+          if (to) this.deps.deliveries.notify({ to, kind: "followed", reason: "compaction", actorId: null, payloads: [null] });
+        } }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; }, skills);
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));

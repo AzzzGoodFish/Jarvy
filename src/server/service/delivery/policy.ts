@@ -18,6 +18,8 @@ const POLICY: Record<DeliveryKind, Partial<Record<DeliveryReason, Urgency>>> = {
   // A task that is due wakes its Bot but never interrupts it, and is not steered into a running turn: it waits for
   // the turn to end (A58).
   task: { schedule: "queue" },
+  // After a compaction, the open threads a Bot follows ride along with its next batch, without waking it (A73).
+  followed: { compaction: "digest" },
 };
 export function urgencyOf(kind: DeliveryKind, reason: DeliveryReason): Urgency | undefined { return POLICY[kind][reason]; }
 /** 免打扰: what would interrupt is queued instead, except being @-ed or replied to. */

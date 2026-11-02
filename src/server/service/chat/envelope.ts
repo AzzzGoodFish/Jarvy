@@ -58,7 +58,10 @@ export type EnvelopeNotice =
   | { kind: "onboard"; id: number; actor: Member; language: WelcomeLanguage; createdAt: number }
   | { kind: "change"; id: number; actor: Member; what: ChangeField; value: string | null; createdAt: number }
   /** One of the Bot's scheduled tasks is due (A58): what to do, and when it was meant to run. */
-  | { kind: "task"; id: number; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number };
+  | { kind: "task"; id: number; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number }
+  /** Its conversation was compacted (A73): the open threads it follows, most recently active first, and how many there are. */
+  | { kind: "followed"; id: number; total: number; threads: readonly FollowedThread[]; createdAt: number };
+type FollowedThread = { id: string; title: string; channel: { id: string; title: string }; lastReplyAt: number; unread: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model; it writes to them itself (A61). */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
   + `Write to them in a DM (messages.send with to: "${owner}") and welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
@@ -88,6 +91,14 @@ function instructionsLine(change?: PromptChange | null): string {
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
     if (notice.kind === "task") continue;
+    // The threads it follows, and their channels, are chats of this batch.
+    if (notice.kind === "followed") {
+      for (const thread of notice.threads) {
+        remember(chats, thread.channel.id, `<chat${attribute("id", thread.channel.id)}${attribute("type", "channel")}${attribute("title", thread.channel.title)}/>`);
+        remember(chats, thread.id, `<chat${attribute("id", thread.id)}${attribute("type", "thread")}${attribute("title", thread.title)}${attribute("parent", thread.channel.id)}${attribute("status", "open")}/>`);
+      }
+      continue;
+    }
     remember(members, notice.actor.id, `<member${attribute("id", notice.actor.id)}${attribute("name", notice.actor.name)}${attribute("kind", notice.actor.kind)}/>`);
     // System notices are about no chat (A61). A DM without messages yet is untitled (v18).
     if (notice.kind === "onboard" || notice.kind === "change") continue;
@@ -107,6 +118,13 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
   const agent = changed.find(notice => notice.actor.kind === "bot")?.actor, byOwner = changed.some(notice => notice.actor.kind === "user");
   const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("by", notice.actor.id)}`
     + `${attribute("at", iso(notice.createdAt))}><note>${escape(welcome(notice.actor.name, notice.language))}</note></onboard>`]).slice(-1);
+  // After a compaction (A73): what it follows and may have been doing, told once; the rest are counted.
+  const followed = notices.flatMap(notice => notice.kind !== "followed" ? [] : [`<followed${attribute("total", String(notice.total))}>`
+    + notice.threads.map(thread => `<thread${attribute("chat", thread.id)}${attribute("at", iso(thread.lastReplyAt))}${thread.unread ? attribute("unread", String(thread.unread)) : ""}/>`).join("")
+    + `<note>Your conversation was compacted. These are the open threads you follow, most recently active first`
+    + (notice.total > notice.threads.length ? ` (${notice.threads.length} of ${notice.total}; chats.list lists them all)` : "")
+    + ". Before you act in one, read its summary with chats.info and what you missed with messages.read. Unfollow a thread that no longer concerns you "
+    + "with threads.follow; one that is done leaves this list by itself.</note></followed>"]).slice(-1);
   const tasks = notices.flatMap(notice => notice.kind !== "task" ? [] : [`<task${attribute("id", notice.task.id)}`
     + `${attribute("name", notice.task.name)}${attribute("schedule", notice.task.schedule)}${attribute("due", iso(notice.due))}>${escape(notice.task.instruction)}</task>`]);
   return (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
@@ -118,7 +136,7 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
         + `If something is unclear, ask it in a DM (messages.send with to: "${escape(agent.name)}").</note>` : "")
       + (byOwner ? "<note>Your owner changed where you work, and it already applies: environment is where your file and command tools run now, and access is what environments.switch can take you to. If you were in the middle of something, carry on where you are now.</note>" : "")
       + "</changes>" : "")
-    + onboard.join("");
+    + onboard.join("") + followed.join("");
 }
 
 /** Compact derived input; no runtime bookkeeping, base64 or secret credentials.
