@@ -70,7 +70,7 @@ export const chatTools = [
     return context.chats.threads.list(context.bot, input.chatId).filter(entry => status === "all" || entry.chat.status === status)
       .map(entry => threadRow(context.chats, entry));
   }),
-  tool("threads.follow", "Follow or unfollow a thread. Followed threads appear in chats.list, and their new replies count as unread for you without interrupting you (use chats.subscribe to get them live). Posting in a thread or being @-mentioned in it follows it for you.",
+  tool("threads.follow", "Follow or unfollow a thread. Followed threads appear in chats.list, and their new replies count as unread for you without interrupting you (use chats.subscribe to get them live). Posting in a thread or being @-mentioned in it follows it for you. Unfollow one that no longer concerns you while it is still open; a thread that is done drops out of your unread by itself.",
     Type.Object({ chatId: Type.String({ description: "Thread ID" }), following: Type.Boolean() }, { additionalProperties: false }), (input, context) => {
     const chat = context.chats.threads.setFollowing(context.bot, input.chatId, input.following);
     return { chatId: chat.id, following: chat.following };

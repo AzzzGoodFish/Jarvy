@@ -23,7 +23,7 @@ what happened             ──►    routes:  who receives it, and the reason 
 | --- | --- | --- | --- |
 | `message` — a chat message | `message` | chat, message | — |
 | `activity` — something in a chat | `reaction`, `note` (a new notice or thread summary version) | chat; a reaction also the marked message | — |
-| `system` — a notice to one member | `onboard`, `change`, `task` | recipient | chat, message |
+| `system` — a notice to one member | `onboard`, `change`, `task`, `followed` | recipient | chat, message |
 
 The recipient of a system notice can be a person or a Bot; so far only Bots get them. Nothing opens or creates a DM to carry a notice.
 
@@ -31,13 +31,13 @@ The recipient of a system notice can be a person or a Bot; so far only Bots get 
 
 ```ts
 type Urgency = "interrupt" | "queue" | "digest";
-type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task";
+type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task" | "followed";
 type DeliveryCategory = "message" | "activity" | "system";
 const CATEGORY: Record<DeliveryKind, DeliveryCategory>;
-type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule";
+type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule" | "compaction";
 interface DeliveryPayloads {               // what each kind carries, stored as JSON in inbox.payload
   message: null; reaction: { emoji: string }; note: { version: number };
-  onboard: { language: WelcomeLanguage }; change: { what: ChangeField; value: string | null }; task: { task: string; due: number };
+  onboard: { language: WelcomeLanguage }; change: { what: ChangeField; value: string | null }; task: { task: string; due: number }; followed: null;
 }
 interface Delivery { member: Member; reason: DeliveryReason; kind: DeliveryKind; urgency: Urgency }
 ```
@@ -60,6 +60,7 @@ System notices have no route; the source names the recipient:
 | change | a Bot the agent Bot changed (A48) | `agent` |
 | change | a Bot whose work environment the owner changed (A50); `move` when a running Bot was moved | `owner`, `move` |
 | task | the Bot whose scheduled task is due (A58) | `schedule` |
+| followed | a Bot whose conversation Pi just compacted (A73) | `compaction` |
 
 The sender is never its own recipient; each member gets at most one row per message.
 
@@ -72,6 +73,7 @@ note:     { member: "queue", follower: "queue" },
 onboard:  { setup: "interrupt" },
 change:   { agent: "digest", owner: "digest", move: "interrupt" },
 task:     { schedule: "queue" },
+followed: { compaction: "digest" },
 ```
 
 Urgency is decided only here. A move (an SSH machine taken back or deleted while the Bot is there) of a Bot that is running is reason `move`, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, are `owner`: there is nothing to stop, and waking it would only spend a turn.
@@ -85,6 +87,7 @@ Urgency is decided only here. A move (an SSH machine taken back or deleted while
 - Chat sources call `plan(kind, targets, muted)`, write the fact and the deliveries in one transaction, and after commit `deliveries.dispatch(...)` calls `Member.deliver(urgency)` for each recipient.
 - `deliveries.notify({to, kind, reason, actorId, payloads})` plans, writes and dispatches system notices; several payloads at once (changes made together) wake the recipient once.
 - The scheduler writes a due task's row in the transaction that moves the task on (A58), then dispatches it. Deleting the task takes a row that is still waiting with it; a notice with nothing left to say is marked told, and no run opens for it.
+- A Bot's session writes a `followed` row when Pi has compacted its conversation (A73). The list is made when the row is told, so it is the threads as they are then; with nothing open to list, the row is marked told, and of several rows only the newest is shown.
 
 ## The inbox (v16, v26)
 
@@ -102,7 +105,7 @@ One table, `inbox`, holds every delivery: member, category, kind, reason, urgenc
 - **queue** — if a turn is running, steer the pending reactions and notes into it as a `<notice_batch>` (Pi `session.steer`); otherwise wake the Bot for a turn of its own. A due task is never steered: it waits for the running turn to end and comes in the next one (A58).
 - **digest** — nothing now; it goes with the next batch.
 
-One pump per Bot claims everything pending at that moment: messages become `<message>` elements of one `<chat_batch>` prompt, untold reactions are appended as `<notices>`, new note versions as `<updates>`, system notices as `<changes>`, `<onboard>` and `<tasks>`, and the batch ends with `<unread>` ([format](envelope.md)). Each queued item is told once. At startup, Bots with pending rows are woken, the most urgent first. Queued messages (from muted chats) are handled after the current turn rather than steered in.
+One pump per Bot claims everything pending at that moment: messages become `<message>` elements of one `<chat_batch>` prompt, untold reactions are appended as `<notices>`, new note versions as `<updates>`, system notices as `<changes>`, `<onboard>`, `<tasks>` and `<followed>`, and the batch ends with `<unread>` ([format](envelope.md)). Each queued item is told once. At startup, Bots with pending rows are woken, the most urgent first. Queued messages (from muted chats) are handled after the current turn rather than steered in.
 
 Further rules:
 

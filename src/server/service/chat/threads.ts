@@ -5,6 +5,8 @@ import type { ChatChange } from "./contracts.js";
 import type { MessageQuote } from "../../../contract/chat.js";
 import { compareKeys, THREAD_FILTERS, THREAD_PAGE, THREAD_SORTS, threadKey, type FollowedSummary, type ThreadFilter, type ThreadSort } from "../../../contract/threads.js";
 
+/** An open thread a member follows, as a Bot is reminded of it after a compaction (A73). */
+export interface OpenThread { id: string; title: string; channel: { id: string; title: string }; lastReplyAt: number; unread: number }
 /** A thread with what its list entry needs: replies and the root message it hangs off. */
 export interface ThreadEntry { chat: Chat; info: ThreadInfo; root: { senderId: string; content: string; quotes: MessageQuote[] } | null; }
 
@@ -55,6 +57,17 @@ export class ChatThreads {
       if (row.unread > 0) summary.unreadThreads++;
     }
     return summary;
+  }
+  /** The open threads a member follows, most recently active first, up to `limit`, and how many there are (A73): what a
+   * Bot is reminded of after a compaction. Finished threads are left out, as from a Bot's unread (A70). */
+  openFollowed(actorId: string, limit: number): { total: number; threads: OpenThread[] } {
+    const open = this.store.followedKeys(actorId).filter(row => row.status === "open")
+      .sort((a, b) => b.lastReplyAt - a.lastReplyAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const threads = open.slice(0, limit).flatMap(row => {
+      const chat = this.repository.getChat(actorId, row.id), channel = chat?.parentId ? this.repository.getChat(actorId, chat.parentId) : null;
+      return chat && channel ? [{ id: chat.id, title: chat.title, channel: { id: channel.id, title: channel.title }, lastReplyAt: row.lastReplyAt, unread: row.unread }] : [];
+    });
+    return { total: open.length, threads };
   }
   update(actorId: string, threadId: string, input: Record<string, unknown>): Chat {
     const title = input.title;

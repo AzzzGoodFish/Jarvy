@@ -548,3 +548,14 @@ The page puts each change in place: the row into the chat list, the message into
 Why: three Bot messages in a DM cost 950 KB with a year of heavy use, the chat list read nine times and the transcript from its first loaded message; carried in the events they cost about 20 KB, whatever is open. The server renders each event once per connected page — the chat's row and, for a followed thread, the followed numbers (about 25 ms with 960 followed threads) — instead of each page reading the whole chat list.
 
 Supersedes: A71's reloads of the open transcript and thread on a change, and of the chat list on every change and delivery. The `/events` contract (`chat {chatId}`, `inbox`) is replaced.
+
+## A73 After a compaction, a Bot is shown the open threads it follows
+
+A person sees the threads they follow on 「我关注的线程」 and can check which are finished and which are still going. A Bot follows every thread it posts in or is @-ed in (a lead Bot, hundreds), and it only learns of one again when a reply @-s it or it lists them with `chats.list`. A compaction keeps a summary of what it was doing, but which threads it had in hand is easily lost from it, so work waiting on a reply could be dropped without anyone noticing.
+
+- **When**: the Bot's session writes a system notice (A61), `followed`, when Pi has compacted its conversation, as the same hook clears which notices it had read (A67). It is `digest`: it wakes no one and goes with the Bot's next batch, or with notices steered into the run that compacted. A restart or a model change keeps the conversation, so neither brings it.
+- **What**: made when it is told, not when written: the open threads the Bot follows, the most recently active first, at most 15, each with its channel, the time of its last reply and its unread for the Bot, and how many there are in all. Finished threads stay out, as from its unread (A70). With nothing open the row is marked told and adds nothing; of several waiting rows only the newest is shown.
+- **What it is told to do**: read a thread's summary and what it missed before acting there, list them all with `chats.list` when there are more, and unfollow a thread that no longer concerns it. `threads.follow` says the same: unfollow one that is still open but no longer yours; a finished one drops out of the unread by itself.
+- **Not**: the list on every batch (a cost on every turn for what only a compaction loses), or a separate list of a Bot's own (its following is the one people have).
+
+Why: the moment a Bot can lose track of its threads is the compaction, and the place to remind it is its next batch, once and short.
