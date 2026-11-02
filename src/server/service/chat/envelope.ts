@@ -91,11 +91,12 @@ function instructionsLine(change?: PromptChange | null): string {
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
     if (notice.kind === "task") continue;
-    // The threads it follows, and their channels, are chats of this batch.
+    // The threads it follows, and their channels, are chats of this batch; one a message or another notice already
+    // defined keeps that definition, as for the other notices.
     if (notice.kind === "followed") {
       for (const thread of notice.threads) {
-        remember(chats, thread.channel.id, `<chat${attribute("id", thread.channel.id)}${attribute("type", "channel")}${attribute("title", thread.channel.title)}/>`);
-        remember(chats, thread.id, `<chat${attribute("id", thread.id)}${attribute("type", "thread")}${attribute("title", thread.title)}${attribute("parent", thread.channel.id)}${attribute("status", "open")}/>`);
+        if (!chats.has(thread.channel.id)) chats.set(thread.channel.id, `<chat${attribute("id", thread.channel.id)}${attribute("type", "channel")}${attribute("title", thread.channel.title)}/>`);
+        if (!chats.has(thread.id)) chats.set(thread.id, `<chat${attribute("id", thread.id)}${attribute("type", "thread")}${attribute("title", thread.title)}${attribute("parent", thread.channel.id)}${attribute("status", "open")}/>`);
       }
       continue;
     }
