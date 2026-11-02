@@ -1,6 +1,7 @@
 import { ChatError, type Chat } from "../../shared/chat.js";
 import { type ThreadInfo } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
+import type { ChatChange } from "./contracts.js";
 import type { MessageQuote } from "../../../contract/chat.js";
 import { compareKeys, THREAD_FILTERS, THREAD_PAGE, THREAD_SORTS, threadKey, type FollowedSummary, type ThreadFilter, type ThreadSort } from "../../../contract/threads.js";
 
@@ -10,7 +11,7 @@ export interface ThreadEntry { chat: Chat; info: ThreadInfo; root: { senderId: s
 /** Threads (A37 P2): open from a channel message, title / status, following. Anyone who can write in the
  * channel may do all of these, people and Bots alike; the summary is the thread's note (ChatChannels.setNote). */
 export class ChatThreads {
-  constructor(private readonly repository: ChatRepository, private readonly saved: (chatId: string) => void) {}
+  constructor(private readonly repository: ChatRepository, private readonly changed: (change: ChatChange) => void) {}
   private get store() { return this.repository.threads; }
 
   /** The thread under a channel message, created on first use. */
@@ -19,7 +20,8 @@ export class ChatThreads {
     const names = this.repository.channels.directory(this.repository.channels.ownerOf(actorId)).map(member => member.name);
     const id = this.store.open(actorId, rootMessageId, names);
     const chat = this.repository.getChat(actorId, id)!;
-    this.saved(chat.parentId!);
+    // The root now has a thread under it, and the opener follows a new thread.
+    this.changed({ kind: "message.updated", chatId: chat.parentId!, messageId: chat.rootMessageId! }); this.changed({ kind: "chat", id });
     return chat;
   }
   entry(actorId: string, threadId: string): ThreadEntry {
@@ -60,12 +62,15 @@ export class ChatThreads {
     if (input.status !== undefined && input.status !== "open" && input.status !== "done") throw new ChatError(400, "Invalid thread status");
     this.store.update(actorId, threadId, { title: title === undefined ? undefined : (title as string).trim(), status: input.status as "open" | "done" | undefined });
     const chat = this.repository.getChat(actorId, threadId)!;
-    this.saved(threadId); this.saved(chat.parentId!);
+    // The root shows the thread's title and status too.
+    this.changed({ kind: "chat", id: threadId }); this.changed({ kind: "message.updated", chatId: chat.parentId!, messageId: chat.rootMessageId! });
     return chat;
   }
   setFollowing(actorId: string, threadId: string, following: unknown): Chat {
     if (typeof following !== "boolean") throw new ChatError(400, "Invalid following");
     this.store.setFollowing(actorId, threadId, following);
+    // A person's followed threads are counted on their pages (A69, A72).
+    if (this.repository.member(actorId)?.kind === "user") this.changed({ kind: "chat", id: threadId });
     return this.repository.getChat(actorId, threadId)!;
   }
 }

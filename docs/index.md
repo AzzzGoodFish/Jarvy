@@ -10,7 +10,7 @@ Person (web) or Bot (chat tool)
   → delivery: route → policy → inbox rows, in the same transaction as the message
   → after commit: Member.deliver(urgency)
       Bot  → AgentRuntime: interrupt = abort + new prompt; queue = steer or wake; digest = wait
-      User → SSE event; the sidebar shows red counts and hint lines
+      User → nothing more: the message's SSE event carries the row (red counts, hint lines)
   → AgentRuntime claims everything pending → one <chat_batch> XML prompt → the Bot's Pi session
   → the Bot speaks only by calling chat → messages.send, which comes back through ChatService
 ```

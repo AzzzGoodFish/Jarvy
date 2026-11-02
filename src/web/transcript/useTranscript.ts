@@ -2,18 +2,21 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import { api } from "../api";
 import { type ChatMessage } from "../../contract/chat";
 import { jumpToPassage } from "../channel/quotes";
+import { addMessage, joinPage, missingBefore, replaceMessage } from "../live";
 
 const PAGE = 50;
 
 /** The open chat's messages, loaded newest page first; scrolling near the top loads the page before it
- *. Updates reload only the loaded window. Older pages keep the view where it was; new
- * messages are followed when you were at the bottom or sent them. */
+ *. Changes heard of are put in place (A72); a gap before a new one is read. Older pages keep the view where it was;
+ * new messages are followed when you were at the bottom or sent them. */
 export function useTranscript({ chatId, ready, scroller, me, onError }: {
   chatId: string | null; ready: boolean; scroller: RefObject<HTMLDivElement | null>; me: string; onError: (error: unknown) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false), [hasOlder, setHasOlder] = useState(false), [loadingOlder, setLoadingOlder] = useState(false);
   const list = useRef(messages), open = useRef(chatId), request = useRef(0), busy = useRef(false), older = useRef(false);
+  // The newest message put in since the last render, so a burst of them is not taken for a gap.
+  const ahead = useRef(0);
   list.current = messages; open.current = chatId; older.current = hasOlder;
   // After the next render: keep this distance from the bottom (a page was prepended), or jump to the bottom (opened).
   // settled stays false until the jump to the bottom has happened: until then nothing may load older pages (the
@@ -26,7 +29,7 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
 
   useEffect(() => {
     setMessages([]); setHasOlder(false);
-    settled.current = false; atBottom.current = true;
+    settled.current = false; atBottom.current = true; ahead.current = 0;
     if (!ready || !chatId) return;
     let alive = true; const id = ++request.current;
     setLoading(true);
@@ -39,6 +42,15 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
     return () => { alive = false; };
   }, [chatId, ready]);
 
+  /** A message of the open chat heard of, new or changed (A72): put in place; read with what is missing before it. */
+  function heard(message: ChatMessage, isNew: boolean) {
+    if (message.chatId !== open.current) return;
+    if (!isNew) { setMessages(previous => replaceMessage(previous, message)); return; }
+    const loaded = list.current, newest = Math.max(loaded.at(-1)?.chatId === message.chatId ? loaded.at(-1)!.sequence : 0, ahead.current);
+    if (missingBefore(message, newest) && !loaded.some(item => item.id === message.id)) { void refresh(message.chatId).catch(onError); return; }
+    ahead.current = Math.max(ahead.current, message.sequence);
+    setMessages(previous => addMessage(previous, message));
+  }
   /** Reloads what is loaded (from its first message on), so replies, answers and new messages show. */
   async function refresh(id: string) {
     const first = list.current[0], r = ++request.current;
@@ -49,8 +61,8 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
     }
     const after = first.sequence - 1, result = await api.messages(id, after);
     if (open.current !== id || r !== request.current) return;
-    // A page prepended meanwhile stays.
-    setMessages(previous => [...previous.filter(message => message.chatId === id && message.sequence <= after), ...result.messages]);
+    // A page prepended meanwhile stays, and so do messages heard of meanwhile.
+    setMessages(previous => joinPage(previous.filter(message => message.chatId === id), result.messages, after));
     setLoading(false);
   }
   async function loadOlder() {
@@ -127,7 +139,8 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
     if (target.chatId !== chatId) return target.chatId;
     const page = await api.olderMessages(target.chatId, target.sequence + 1, PAGE);
     if (open.current !== target.chatId) return;
-    jump.current = true; setMessages([...page.messages, target]); setHasOlder(page.hasOlder);
+    // The window ends at this message: what is newer is read again with the next one heard of.
+    jump.current = true; ahead.current = 0; setMessages([...page.messages, target]); setHasOlder(page.hasOlder);
     requestAnimationFrame(() => jumpTo(id, passage));
   }
   function jumpTo(id: string, passage?: string) {
@@ -136,5 +149,5 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   }
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
   const toLatest = () => { const el = scroller.current; el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); };
-  return { messages, setMessages, loading, hasOlder, loadingOlder, refresh, top, away, unseen, toLatest, toMessage, cancel: () => { request.current++; } };
+  return { messages, setMessages, loading, hasOlder, loadingOlder, refresh, heard, top, away, unseen, toLatest, toMessage, cancel: () => { request.current++; } };
 }

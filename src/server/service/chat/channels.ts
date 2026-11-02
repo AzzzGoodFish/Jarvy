@@ -100,9 +100,12 @@ export class ChatChannels {
     const parents = chatIds.flatMap(id => { const parent = this.repository.getChat(memberId, id)?.parentId; return parent ? [parent] : []; });
     return this.store.unreadNotes(memberId, [...chatIds, ...parents]);
   }
+  /** A person's read position is a change to their row, on their other pages too (A72); a Bot's is its own business. */
   markRead(actorId: string, chatId: string, sequence: unknown): number {
     if (!Number.isSafeInteger(sequence) || (sequence as number) < 0) throw new ChatError(400, "Invalid read position");
-    return this.store.markRead(actorId, chatId, sequence as number);
+    const read = this.store.markRead(actorId, chatId, sequence as number);
+    if (this.repository.member(actorId)?.kind === "user") this.saved(chatId);
+    return read;
   }
   digest(botId: string) { return this.store.digest(botId); }
   /** Notices waiting for a Bot (A39); `tellNotices` marks the ones it has been given. */

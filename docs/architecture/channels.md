@@ -58,7 +58,7 @@ A Bot can DM anyone in its owner's space with `messages.send {to: name}`, includ
 - Messages: `GET /chats/:id/messages?tail=N`, `?before=<seq>&limit=N` (N ≤ 200, with `hasOlder`), `?after=`; sending takes `alsoToChannel`, `replyTo` and `quotes: [{ messageId, text }]` (partial quotes, checked as in A44; messages return `quotes: [{ messageId | null, senderId, text }]`, the Nth marked `[[qN]]` in the content); `PUT /messages/:id/reaction {emoji, on}`; `PUT /messages/:id/fold {folded}` (A60; messages carry `folded`, which a Bot's views leave out).
 - Per member: `PUT /chats/:id/pin {pinned}`, `PUT /chats/:id/mute {muted}`.
 - Bots: `GET /members/:id/dms`, `GET /members/:id/subscriptions`, `DELETE /bots/:id` (`?files=delete` also removes the workspace). Members carry `deleted`.
-- SSE: chat changes (a thread change also notifies its channel), `sections` when groups change, `inbox` when something is delivered to you.
+- SSE (`/events`, A72): `message`, `message.updated`, `chat` and `chat.removed` carry the change and the chat's row (a thread's also its channel's row and, when followed, the followed numbers); `sections` when groups change; `bot` with a Bot's status, and the Bot when it stops or goes idle; `bots`; `ready {resumed}`. Events have ids: a page that reconnects passes the last one and is sent what it missed, kept for 10 minutes.
 
 ## Frontend
 

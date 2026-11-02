@@ -60,7 +60,7 @@ const resultOf = (question: Question, answer: QuestionAnswer): QuestionResult =>
  * (abort: a new message, cancel, stop) the card becomes ignored and can no longer be answered. */
 export class ChatQuestions {
   private readonly waiting = new Map<string, (result: QuestionResult) => void>();
-  constructor(private readonly repository: ChatRepository, private readonly changed: (chatId: string) => void) {
+  constructor(private readonly repository: ChatRepository, private readonly changed: (chatId: string, messageId: string) => void) {
     repository.expirePendingQuestions();
   }
   wait(message: ChatMessage, signal?: AbortSignal): Promise<QuestionResult> {
@@ -73,7 +73,7 @@ export class ChatQuestions {
     return new Promise((resolve, reject) => {
       const stop = () => {
         this.waiting.delete(message.id);
-        if (this.repository.settleQuestion(message.id, "ignored", null)) this.changed(message.chatId);
+        if (this.repository.settleQuestion(message.id, "ignored", null)) this.changed(message.chatId, message.id);
         reject(signal!.reason ?? new DOMException("Aborted", "AbortError"));
       };
       if (signal?.aborted) { stop(); return; }
@@ -90,14 +90,14 @@ export class ChatQuestions {
     if (message.sender.id === actorId) throw new ChatError(403, "A question is answered by the other members");
     const question = message.question, waiter = this.waiting.get(messageId);
     if (question.state !== "pending") throw new ChatError(409, "The question is already settled", "question_closed");
-    if (!waiter) { if (this.repository.settleQuestion(messageId, "ignored", null)) this.changed(chatId); throw new ChatError(409, "The question is no longer waiting for an answer", "question_expired"); }
+    if (!waiter) { if (this.repository.settleQuestion(messageId, "ignored", null)) this.changed(chatId, messageId); throw new ChatError(409, "The question is no longer waiting for an answer", "question_expired"); }
     const dismissed = input.action === "dismiss";
     if (!dismissed && input.action !== "answer") throw new ChatError(400, "Invalid question action");
     const answer = dismissed ? null : answerOf(question, input);
     if (!this.repository.settleQuestion(messageId, dismissed ? "dismissed" : "answered", answer)) throw new ChatError(409, "The question is already settled", "question_closed");
     this.waiting.delete(messageId);
     waiter(answer ? resultOf(question, answer) : { status: "dismissed" });
-    this.changed(chatId);
+    this.changed(chatId, messageId);
     return this.repository.message(actorId, messageId)!;
   }
 }

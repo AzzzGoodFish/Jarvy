@@ -41,11 +41,10 @@ export class Application {
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
     // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
     this.deliveries = new Deliveries(store.chats.inbox, {
-      bot: (id, urgency) => this.bots.deliver(id, urgency), user: (id, urgency) => { if (id === this.user.id) this.user.deliver(urgency); } });
+      bot: (id, urgency) => this.bots.deliver(id, urgency), user: id => { if (id === this.user.id) this.user.deliver(); } });
     this.chats = new ChatService(store.chats, this.deliveries, new AttachmentFiles(dataDir), {
-      saved: id => this.user.changed(id), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
-    this.user = new User(store.account.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }), id => this.events.publish({ kind: "chat", id }),
-      () => this.events.publish({ kind: "inbox", memberId: this.user.id }));
+      changed: change => this.events.publish(change), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
+    this.user = new User(store.account.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }));
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
     this.secrets = new SecretService(store, this.chats);

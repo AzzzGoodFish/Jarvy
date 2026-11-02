@@ -7,16 +7,22 @@ const BACK_MS = 25_000;
  * died while the computer slept or the network changed can stay open in the browser and deliver nothing, and the
  * browser only reconnects on its own when it sees the connection end. So a source that has heard nothing, the
  * heartbeat included, for 45 s is closed and opened again, at once when the page comes back into view after 25 s
- * of silence, and at once when the network comes back. Each opening sends `ready`, on which the page reads again
- * what it shows. Returns how to stop. */
+ * of silence, and at once when the network comes back. A new connection passes the id of the last event heard, so the
+ * server sends what was missed (A72); its `ready` says whether it could, or the page reads again what it shows.
+ * Returns how to stop. */
 export function liveEvents(url: string, listeners: Record<string, (event: MessageEvent<string>) => void>, onError: () => void): () => void {
-  let source: EventSource | undefined, heard = Date.now();
+  let source: EventSource | undefined, heard = Date.now(), last = "";
   const open = () => {
     source?.close();
     heard = Date.now();
-    const next = new EventSource(url);
+    const next = new EventSource(last ? `${url}?after=${encodeURIComponent(last)}` : url);
     next.addEventListener("heartbeat", () => { heard = Date.now(); });
-    for (const [name, listener] of Object.entries(listeners)) next.addEventListener(name, event => { heard = Date.now(); listener(event as MessageEvent<string>); });
+    for (const [name, listener] of Object.entries(listeners)) next.addEventListener(name, event => {
+      heard = Date.now();
+      const message = event as MessageEvent<string>;
+      if (message.lastEventId) last = message.lastEventId;
+      listener(message);
+    });
     next.onerror = onError;
     source = next;
   };

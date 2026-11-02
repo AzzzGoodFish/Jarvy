@@ -32,7 +32,7 @@ src/
       models/                model connections, credentials, catalog queries
       account/               login and its rate limit
       member.ts              Member / User
-      events.ts              committed business changes (no HTTP/SSE here)
+      events.ts              committed business changes, numbered, the last 10 minutes kept (no HTTP/SSE here)
       connection.ts          how Jarvy is reached: its certificate, LAN addresses, whether plain HTTP is allowed (A51)
       secrets.ts             the owner's secrets, their grants and uses (A52)
     infra/
@@ -99,10 +99,10 @@ Pi tool call → Tools → Bot.send (bound to its History source) → Chat.deliv
 ## HTTP and lifecycle
 
 - Hono 4.13 with `@hono/node-server` 2.1, which does not replace the global `Request` / `Response`, so the Fetch objects Pi uses in the same process are untouched.
-- Cookie login, same-origin checks, JSON and upload limits, read-only History, SSE with re-read after reconnect. Errors map by type, not by message text.
+- Cookie login, same-origin checks, JSON and upload limits, read-only History, SSE that resumes after a reconnect (A72). Errors map by type, not by message text.
 - Bot state is `stop / idle / running`; while running, activity is `reasoning / texting / tool_calling / asking` or null while waiting. `POST /api/bots/:id/start|stop|abort` call the matching Bot methods.
 - SSE subscriptions belong to services; encoding, auth and closing the stream belong to the API, in one place (`api/event-stream.ts`): a route only says what it subscribes to and what it sends first.
-- The page keeps `/events` open through `web/live-events.ts`. A connection can die while the computer sleeps or the network changes and still look open to the browser, which then never reconnects; so the page watches the 15 s heartbeat and opens a new connection after 45 s of silence, at once when the page comes back into view after 25 s or the network returns. Every connection starts with `ready`, on which the page reads again its chats, the open transcript and every Bot's status.
-- A change reloads only what it touches (A71). The chat list is read once for a burst of changes (`web/coalesce.ts`: the first waits 100 ms for others to join it), and the open transcript only for a change to its own chat. An open thread, a channel's thread list and a Bot's DMs with other Bots reload when their own chat changed (`web/chat-changes.ts`) — a reply in a thread also changes its channel — and all of them after `ready`. `inbox` and `bots` reload only the chat list.
+- The page keeps `/events` open through `web/live-events.ts`. A connection can die while the computer sleeps or the network changes and still look open to the browser, which then never reconnects; so the page watches the 15 s heartbeat and opens a new connection after 45 s of silence, at once when the page comes back into view after 25 s or the network returns. A new connection passes the id of the last event heard; its `ready` says whether what was missed has been sent (A72), and when it has not, the page reads again its chats, the open transcript and every Bot's status.
+- Changes are put in place (A72): rows into the chat list, messages into the open transcript, thread pane and Bot-to-Bot DM, each taking from `web/live.ts` what is about what it shows; a gap before a new message is read. A channel's thread list and the list of a Bot's DMs with other Bots reload when their chat changed (`web/chat-changes.ts`, A71) — a reply in a thread changes its root in the channel — and after a `ready` that did not resume. The chat list is read once for a burst (`web/coalesce.ts`: the first waits 100 ms for others to join it), for `bots` and after such a `ready`.
 
 The activity timeline is a read-only composition: the activity route → `BotService.activity` → `ChatService.sentActivity` and `Memory.timeline` → their repositories. It is not an eighth Bot part and has no storage of its own.
