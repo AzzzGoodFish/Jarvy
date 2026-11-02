@@ -523,10 +523,11 @@ Why: what a Bot is shown of its unread should be what it can act on, in a size i
 
 ## A71 A change reloads only what it touches
 
-Every live change bumped one counter, and everything open reloaded on it: the chat list, the open transcript (for a delivery in any chat as well), and an open thread, a channel's thread list and a Bot's DMs with other Bots whatever chat had changed. A Bot's message brings two or three changes at once, so three messages in a DM, with a 52-reply thread open beside another chat, moved 1.5 MB, most of it that thread fifteen times over.
+Every live change bumped one counter, and everything open reloaded on it: the chat list, the open transcript (for a delivery in any chat as well), and an open thread, a channel's thread list and a Bot's DMs with other Bots whatever chat had changed. A Bot's message brings two or three changes at once, so three messages in a DM, with a 52-reply thread open beside another chat, moved 1.5 MB, most of it that thread fifteen times over; and a thread was read and laid out whole, so one with ten thousand replies froze the page.
 
 - **The chat list** is read once for a burst: the first change waits 100 ms for others to join it, and one that comes while it is being read reads it once more afterwards.
 - **The open transcript** reloads for a change to its own chat (and after `ready`), once for a burst; a delivery elsewhere (`inbox`) or a change to the Bots (`bots`) reloads only the chat list.
+- **A thread a page at a time**: the thread pane loads its newest 50 replies and the page before whenever you near the top, as the transcript does, and counts its replies from the root's reply count; landing on an older reply (a search result, a quote) loads from a little before it to the newest.
 - **Panes** keep a count of each chat's changes (`ChatChanges`) and reload when their own count moves: a thread for its own changes, a channel's thread list for the channel's (a reply in one of its threads changes the channel too), a Bot's DMs with other Bots for chats outside the chat list, and all of them when the connection opens again.
 
 Why: what is on screen should cost the changes to it, not every change anywhere. A change still reloads its whole chat; sending what changed instead of that it changed is the next step.

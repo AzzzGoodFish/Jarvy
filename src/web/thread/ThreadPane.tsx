@@ -14,6 +14,10 @@ import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
 import { changeKey, type ChatChanges } from "../chat-changes";
 
+/** Replies loaded at a time (A71), as in the main transcript. */
+const PAGE = 50;
+type Replies = { messages: ChatMessage[]; hasOlder?: boolean; after?: number };
+
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
@@ -34,19 +38,54 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
 }) {
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null);
-  const list = useRef(messages); list.current = messages;
+  // The newest page of replies first, older ones as you scroll up (A71): a long thread loads and lays out what is seen.
+  const [hasOlder, setHasOlder] = useState(false), [loadingOlder, setLoadingOlder] = useState(false);
+  const list = useRef(messages), older = useRef(hasOlder), top = useRef<HTMLDivElement>(null), anchor = useRef<number | null>(null), busy = useRef(false);
+  list.current = messages; older.current = hasOlder;
   // At the bottom, and not yet moved by the opening jump: a thread is read the same way as the main transcript.
   const body = useRef<HTMLDivElement>(null), rows = useRef<HTMLDivElement>(null), opened = useRef<string | null>(null), settled = useRef(false), atBottom = useRef(true);
   // 「回到最新」, as in the main transcript: shown while away from the bottom, counting others' replies since you left it.
   const [away, setAway] = useState(false), seen = useRef(0);
   // The newest reply already laid out: a reload (reading the thread changes it) brings nothing new to scroll to.
   const newest = useRef(0);
-  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; }, [threadId]);
+  useEffect(() => { setChat(null); setRoot(null); setMessages([]); setHasOlder(false); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; }, [threadId]);
+  /** The replies from a little before this one to the newest, to land on it; null when it is not a reply here. */
+  const around = async (id: string): Promise<Replies | null> => {
+    const target = await api.message(id).catch(() => null);
+    if (!target || target.chatId !== threadId) return null;
+    const after = Math.max(0, target.sequence - 1 - PAGE / 2);
+    return { ...await api.messages(threadId, after), hasOlder: after > 0 };
+  };
+  /** What is loaded, read again from its first reply on, so new replies, answers and marks show; the newest page when
+   * nothing is loaded yet, or the replies around the one this pane was opened on. */
+  const replies = async (): Promise<Replies> => {
+    const first = list.current[0];
+    if (first?.chatId === threadId) return { ...await api.messages(threadId, first.sequence - 1), after: first.sequence - 1 };
+    return (focus && opened.current !== threadId ? await around(focus.id) : null) ?? await api.latestMessages(threadId, PAGE);
+  };
+  // A page prepended meanwhile stays.
+  const take = (page: Replies) => {
+    const after = page.after;
+    setMessages(previous => after === undefined ? page.messages : [...previous.filter(item => item.chatId === threadId && item.sequence <= after), ...page.messages]);
+    if (page.hasOlder !== undefined) setHasOlder(page.hasOlder);
+  };
+  const loadOlder = async () => {
+    const first = list.current[0], el = body.current;
+    if (!first || !older.current || busy.current) return;
+    busy.current = true; setLoadingOlder(true);
+    try {
+      const page = await api.olderMessages(threadId, first.sequence, PAGE);
+      if (list.current[0]?.id !== first.id) return;
+      anchor.current = el ? el.scrollHeight - el.scrollTop : null;
+      setMessages(previous => previous[0]?.id === first.id ? [...page.messages, ...previous] : previous); setHasOlder(page.hasOlder);
+    } catch (error) { onError(error); }
+    finally { busy.current = false; setLoadingOlder(false); }
+  };
   useEffect(() => {
     let alive = true;
-    void Promise.all([api.chat(threadId), api.messages(threadId)]).then(async ([loaded, list]) => {
+    void Promise.all([api.chat(threadId), replies()]).then(async ([loaded, page]) => {
       if (!alive) return;
-      setChat(loaded); setMessages(list.messages);
+      setChat(loaded); take(page);
       if (opened.current !== threadId) { opened.current = threadId; setDivider(loaded.readSequence); }
       if (loaded.rootMessageId) { const message = await api.message(loaded.rootMessageId); if (alive) setRoot(message); }
     }).catch(error => { if (alive) onError(error); });
@@ -57,6 +96,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   useLayoutEffect(() => {
     const el = body.current;
     if (!el || !chat) return;
+    // An older page went on top: the replies on screen stay where they were.
+    if (anchor.current !== null) { el.scrollTo({ top: el.scrollHeight - anchor.current, behavior: "instant" }); anchor.current = null; return; }
     const toBottom = () => el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
     const last = messages.at(-1), mine = last?.senderId === me && last.sequence > newest.current;
     newest.current = Math.max(newest.current, last?.sequence ?? 0);
@@ -75,6 +116,14 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   }, [messages, root, chat]);
   // The same reply asked for again while this pane is open (a quote tag pressed twice): land on it again.
   useEffect(() => { if (settled.current && focus) jump(focus.id, focus.passage); }, [focus]);
+  // Near the top of the replies: load the page before. Re-armed after each page, so a short page keeps filling the view.
+  useEffect(() => {
+    const el = body.current, sentinel = top.current;
+    if (!el || !sentinel || !hasOlder || !settled.current) return;
+    const observer = new IntersectionObserver(entries => { if (entries[0]?.isIntersecting && settled.current) void loadOlder(); }, { root: el, rootMargin: "400px 0px 0px 0px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasOlder, messages, threadId, chat]);
   useEffect(() => {
     const el = body.current, inner = rows.current;
     if (!el || !inner) return;
@@ -111,7 +160,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     try { const next = await work(); setChat(next); onChanged(next); }
     catch (error) { onError(error); throw error; }
   };
-  /** Marks and replies work here as in the main view; the thread holds all its replies, so a jump only scrolls. */
+  /** Marks and replies work here as in the main view. */
   const react = async (message: ChatMessage, emoji: string, on: boolean) => {
     try {
       const updated = await api.react(message.id, emoji, on);
@@ -126,10 +175,15 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       setMessages(previous => previous.map(apply)); setRoot(previous => previous && apply(previous));
     } catch (error) { onError(error); }
   };
+  /** A quoted reply: scrolled to, after loading the replies from it on when it is further back than what is loaded. */
   const jump = (id: string | null, passage?: string) => {
-    const element = id && body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`);
-    if (!element) { onNotice(t(id ? "thread.sourceElsewhere" : "app.sourceGone")); return; }
-    jumpToPassage(element, passage);
+    const find = () => id ? body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`) : null, element = find();
+    if (element) { jumpToPassage(element, passage); return; }
+    if (!id) { onNotice(t("app.sourceGone")); return; }
+    void around(id).then(page => {
+      if (!page) { onNotice(t("thread.sourceElsewhere")); return; }
+      take(page); requestAnimationFrame(() => { const loaded = find(); if (loaded) jumpToPassage(loaded, passage); });
+    });
   };
   const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onFold: fold, onJump: jump, onError };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
@@ -138,7 +192,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     const outside = channel ? [...new Set(findMentions(content, liveMembers(members)).filter(hit => !channel.memberIds.includes(hit.member.id)).map(hit => hit.member.name))] : [];
     if (outside.length) onNotice(t("app.notInChannel", { names: outside.join(t("common.listSeparator")), count: outside.length }));
     // As in the main chat: the refresh runs on its own, its failure is not the send's.
-    void Promise.all([api.chat(threadId), api.messages(threadId)]).then(([loaded, list]) => { setChat(loaded); setMessages(list.messages); onChanged(loaded); }).catch(onError);
+    void Promise.all([api.chat(threadId), replies()]).then(([loaded, page]) => { setChat(loaded); take(page); onChanged(loaded); }).catch(onError);
   };
   const channelName = channel?.title ?? t("search.channel"), rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
@@ -175,7 +229,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       <div ref={rows}>
       {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
         onSettled={() => {}} onPreview={onPreview} onReact={react} onFold={fold} onJump={jump} onError={onError}/>}
-      <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: messages.length }) : t("thread.noReplies")}</span></div>
+      <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: root?.thread?.replies ?? messages.length }) : t("thread.noReplies")}</span></div>
+      {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
       <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER} before={root?.createdAt}
         onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
       </div>
