@@ -84,7 +84,7 @@ Urgency is decided only here. A move (an SSH machine taken back or deleted while
 
 - Chat sources call `plan(kind, targets, muted)`, write the fact and the deliveries in one transaction, and after commit `deliveries.dispatch(...)` calls `Member.deliver(urgency)` for each recipient.
 - `deliveries.notify({to, kind, reason, actorId, payloads})` plans, writes and dispatches system notices; several payloads at once (changes made together) wake the recipient once.
-- The scheduler writes a due task's row in the transaction that moves the task on (A58), then dispatches it.
+- The scheduler writes a due task's row in the transaction that moves the task on (A58), then dispatches it. Deleting the task takes a row that is still waiting with it; a notice with nothing left to say is marked told, and no run opens for it.
 
 ## The inbox (v16, v26)
 
