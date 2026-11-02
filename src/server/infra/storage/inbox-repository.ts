@@ -59,11 +59,12 @@ export class InboxRepository {
   hasPendingMessages(botId: string): boolean {
     return !!this.db.prepare("SELECT 1 FROM inbox WHERE member_id=? AND category='message' AND state='pending' LIMIT 1").get(botId);
   }
-  /** Inside a claim: messages in chats the Bot can no longer read are cancelled, the rest are listed in order. */
+  /** Inside a claim: messages in chats the Bot can no longer read are cancelled, the rest are listed in order. Each
+   * pending message is looked up by its id, not checked against every message the Bot can read. */
   pendingMessages(botId: string): { chatId: string; messageId: string }[] {
-    this.db.prepare(`UPDATE inbox SET state='cancelled' WHERE member_id=? AND category='message' AND state='pending' AND message_id NOT IN
-      (SELECT m.id FROM messages m JOIN chats c ON c.id=m.chat_id
-        JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1)`).run(botId, botId);
+    this.db.prepare(`UPDATE inbox SET state='cancelled' WHERE member_id=? AND category='message' AND state='pending' AND NOT EXISTS
+      (SELECT 1 FROM messages m JOIN chats c ON c.id=m.chat_id
+        JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1 WHERE m.id=inbox.message_id)`).run(botId, botId);
     return this.db.prepare(`SELECT chat_id AS chatId,message_id AS messageId FROM inbox
       WHERE member_id=? AND category='message' AND state='pending' ORDER BY id`).all(botId) as { chatId: string; messageId: string }[];
   }
