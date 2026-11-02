@@ -2,6 +2,31 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.11.0 — 2026-11-02
+
+No database change: the schema stays v29, and upgrading from 0.10.x needs nothing else. The live events stream (`/api/events`) and `GET /threads` changed shape; see **API** below.
+
+### Added
+
+- **Bots are reminded of the threads they follow.** After a Bot's conversation is compacted, its next batch lists the open threads it follows, the most recently active first (up to 15, with the total), each with its last reply and unread count, so work waiting in a thread isn't lost with the compaction. The reminder wakes no one and comes once. The `threads.follow` tool now tells a Bot to unfollow an open thread that no longer concerns it.
+
+### Changed
+
+- **「我关注的线程」 loads 30 threads at a time**, filtered and sorted on the server, so the page stays quick with hundreds of followed threads.
+- **The thread pane loads 50 replies at a time**, and earlier ones as you scroll up; a long thread no longer freezes the page.
+- **Live updates carry the change.** A new or updated message, or a change to a chat, arrives with its content and is put in place, instead of the page reading the chat list and the open conversation again. After a break of up to 10 minutes, a reconnecting page is sent what it missed rather than reloading. Three Bot messages in a DM went from about 950 KB of traffic to about 20 KB with a year of history.
+- **A Bot's unread overview leaves finished threads out**: the unread list in its batches, the counts in `chats.list` and `messages.read unread=true` across chats skip threads marked done; asking for a thread by name still counts its unread. `messages.read unread=true` without a chat returns up to `limit` messages in all, with `hasMore`, instead of up to 30 from every chat.
+- **Faster with a lot of history**: the followed-thread numbers are counted in one query (`GET /chats` 313 → 71 ms with a year of data), and starting a Bot's turn checks only its pending messages (0.7 s → 0.1 ms).
+- **API**:
+  - `GET /threads` is paged (`filter`, `sort`, `cursor`, `limit`) and returns `{ threads, next }`; `GET /threads/:id` returns one row; `GET /chats` includes a `followed` summary.
+  - `/api/events` sends `message`, `message.updated`, `chat`, `chat.removed` and `bot`, each carrying what changed; the `inbox` event and the bare `chat {chatId}` event are gone. Events have ids: reconnect with `Last-Event-ID` (or `?after=`) to be sent what was missed, then `ready {resumed}`.
+
+### Fixed
+
+- The page reconnects its live connection when the server goes quiet: after 45 seconds without a heartbeat, 25 seconds when the page comes back to the foreground, and at once when the network returns. Bot status no longer stays stale after a dropped connection.
+- Code blocks keep their horizontal scroll while the conversation updates.
+- Deleting a scheduled task also removes its due notice if the Bot hadn't been told yet, and a notice with nothing left to say no longer fails the Bot's turn.
+
 ## 0.10.1 — 2026-10-29
 
 No database change: upgrading from 0.10.0 needs nothing else.
