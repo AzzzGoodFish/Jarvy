@@ -26,7 +26,7 @@ async function page(context: ToolContext, chatId: string, messages: ChatMessage[
 
 /** Reading, searching, sending, asking and reacting. What reaches the chat goes through the runtime's send (A53). */
 export const messageTools = [
-  tool("messages.read", "Read messages; their files are listed by id, name, type and size, for files.get and files.view. Three ways: ① chatId + after: read on from that sequence number (from the start by default); ② around with a message ID: that message and context messages on each side (5 by default), to see the context; this doesn't move your read position; ③ unread=true: your unread messages, in one chat with chatId, or in every chat (grouped by chat) without it. ① and ③ move your read position to the last message read; hasMore=true means there is more, so call again.",
+  tool("messages.read", "Read messages; their files are listed by id, name, type and size, for files.get and files.view. Three ways: ① chatId + after: read on from that sequence number (from the start by default); ② around with a message ID: that message and context messages on each side (5 by default), to see the context; this doesn't move your read position; ③ unread=true: your unread messages, in one chat with chatId, or without it in every chat with unread (grouped by chat, the most recently active first, up to limit messages in all; threads that are done are left out). ① and ③ move your read position to the last message read; hasMore=true means there is more, so call again.",
     Type.Object({ chatId: Type.Optional(Type.String()), after: Type.Optional(Type.Integer({ minimum: 0 })), around: Type.Optional(MessageId),
       context: Type.Optional(Type.Integer({ minimum: 0, maximum: 50 })), unread: Type.Optional(Type.Boolean()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }, { additionalProperties: false }), async (input, context, { signal }) => {
     const chats = context.chats, bot = context.bot;
@@ -38,10 +38,17 @@ export const messageTools = [
       return { chatId: messages[0]!.chatId, messages: await rows(context, messages, signal) };
     }
     if (input.unread && input.chatId === undefined) {
+      // The chats of the batch's unread list, newest first, up to `limit` messages in all (A70): the rest comes next call.
       const found = [];
-      for (const chat of [...chats.list(bot), ...chats.threads.followed(bot).map(entry => entry.chat)].filter(item => item.unread > 0))
-        found.push({ chatId: chat.id, type: chat.type, title: chat.title, ...await page(context, chat.id, chats.unreadMessages(bot, chat.id, limit + 1), limit, signal) });
-      return { chats: found };
+      let left = limit, more = false;
+      for (const chat of chats.channels.digest(bot).unread) {
+        if (!left) { more = true; break; }
+        const read = await page(context, chat.chatId, chats.unreadMessages(bot, chat.chatId, left + 1), left, signal);
+        found.push({ chatId: chat.chatId, type: chat.type, title: chat.title, ...read });
+        left -= read.messages.length;
+        more = !!read.hasMore;
+      }
+      return { chats: found, ...(more ? { hasMore: true } : {}) };
     }
     if (input.chatId === undefined) throw new ChatError(400, "chatId is required unless unread=true");
     const chat = context.chat(input.chatId);

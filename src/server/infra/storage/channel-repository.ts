@@ -5,6 +5,7 @@ import { ChatError } from "../../shared/chat.js";
 import { type ChatNote, type Member, type Section } from "../../../contract/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
 import { transaction } from "./transaction.js";
+import { unreadIn } from "./unread.js";
 
 const SECTION_COLUMNS = "id,name,position,created_at AS createdAt,updated_at AS updatedAt";
 
@@ -185,21 +186,17 @@ export class ChannelRepository {
       ORDER BY c.updated_at DESC,c.id`).all({ member: memberId }) as { id: string }[]).map(row => row.id);
   }
 
-  /** Chats a member belongs to: DMs, channels, and the threads it follows. */
-  private memberChats(memberId: string): { id: string; type: string; title: string }[] {
-    return this.db.prepare(`SELECT c.id,c.type,c.title,c.updated_at FROM chats c JOIN chat_members cm ON cm.chat_id=c.id
-      WHERE cm.member_id=:member AND cm.can_read=1
-      UNION SELECT c.id,c.type,c.title,c.updated_at FROM chats c JOIN chat_states s ON s.chat_id=c.id AND s.member_id=:member AND s.following=1
-      JOIN chat_members cm ON cm.chat_id=c.parent_id AND cm.member_id=:member AND cm.can_read=1 WHERE c.type='thread'
-      ORDER BY 4 DESC,1`).all({ member: memberId }) as { id: string; type: string; title: string }[];
-  }
-  /** For a Bot's batch (A37): its unread counts. New notice / summary versions are delivered (A41). */
+  /** For a Bot's batch and `messages.read unread=true` (A37, A70): its chats with unread, most recently active first —
+   * DMs, channels, and the threads it follows while they are open. A finished thread stays out of this overview,
+   * whatever is unread in it. One statement, by the rule a chat's own count follows. */
   digest(botId: string): { unread: { chatId: string; title: string; type: string; count: number }[] } {
-    const unread = [];
-    for (const chat of this.memberChats(botId)) {
-      const count = this.chats.unread(botId, chat.id).unread;
-      if (count) unread.push({ chatId: chat.id, title: chat.title, type: chat.type, count });
-    }
+    const count = `(SELECT count(*) ${unreadIn("c.id")}) AS count`;
+    const unread = this.db.prepare(`SELECT chatId,type,title,count FROM (
+      SELECT c.id AS chatId,c.type,c.title,c.updated_at AS at,${count} FROM chats c JOIN chat_members cm ON cm.chat_id=c.id
+        WHERE cm.member_id=:member AND cm.can_read=1
+      UNION ALL SELECT c.id,c.type,c.title,c.updated_at,${count} FROM chats c JOIN chat_states s ON s.chat_id=c.id AND s.member_id=:member AND s.following=1
+        JOIN chat_members cm ON cm.chat_id=c.parent_id AND cm.member_id=:member AND cm.can_read=1 WHERE c.type='thread' AND c.status IS NOT 'done')
+      WHERE count>0 ORDER BY at DESC,chatId`).all({ member: botId }) as { chatId: string; title: string; type: string; count: number }[];
     return { unread };
   }
 }

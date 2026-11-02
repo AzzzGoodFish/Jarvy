@@ -35,14 +35,14 @@ A call that fails validation says how to put it right in the same answer (`servi
 | --- | --- |
 | `members.list` | everyone in the owner's space, with descriptions |
 | `bots.list` | every Bot's name and run state: `stop / idle / running`, while running the activity and the chats of the current run (chats the caller cannot read are only counted), and the latest run's error code (A43); with `environments: true`, each Bot's default, current and usable work environments (A50) |
-| `chats.list` | chats with type, group, topic, unread and mention counts, notice version; followed threads |
+| `chats.list` | chats with type, group, topic, unread and mention counts (none for a finished thread, A70), notice version; followed threads |
 | `chats.info` | members, full notice or summary, unread and read position; thread title, status and root, and its channel's notice (`parentNotice`). Reading marks those versions read (A67) |
 | `chats.create` / `chats.addMembers` | create a channel (the Bot joins it), add members to a channel the Bot is in |
 | `chats.update` | notice; channel name, topic, group; thread title, status, summary |
 | `chats.subscribe` | get every new message of a channel or thread (each one interrupts) |
 | `sections.list` / `create` / `update` | channel groups |
 | `threads.list` / `threads.follow` | threads of a channel; follow or unfollow |
-| `messages.read` | by range, `around` a message, or unread only (one chat or all); reading unread moves the read position. Files are listed by id, name, type and size |
+| `messages.read` | by range, `around` a message, or unread only: one chat, or all of the batch's unread list, the most recently active first and up to `limit` messages in all (A70); reading unread moves the read position. Files are listed by id, name, type and size |
 | `messages.search` | in one chat, or every chat the Bot can read; results list files the same way; `mine: true` keeps the Bot's own messages, which carry their History ID |
 | `files.get` | puts a file of a message the Bot can read into its current environment (`temp/files/<name>` unless a path is given) and returns its path there (A50) |
 | `environments.list` | the work environments the Bot may use (its sandbox, its default, what its owner granted), with ids, names, the directory its tools start in, its default, a sandbox's state, an SSH machine's address and description, and which one it is in (A50, A57) |

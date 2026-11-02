@@ -510,3 +510,13 @@ The followed-threads page was one list: `GET /threads` returned every followed t
 - **Also**: `useThreadSort`'s order and the server's are one function; the channel's own thread list is unchanged.
 
 Why: the page costs what is on screen, and a chat change costs one small row instead of the whole archive.
+
+## A70 A Bot's unread overview: open chats only, a page at a time
+
+A Bot follows every thread it posts in or is @-ed in, and gets only the replies that @ it or that it subscribes to; every other reply stays unread for it, the thread finished or not. Its unread overview only grew: each batch listed every chat with unread (22 chats, 3 KB a batch, for a Bot a month in; 157 chats and 17 KB, with 270 ms to work out, for a lead Bot following 1,200 threads), and `messages.read unread=true` without a chat returned up to 30 messages of each of them at once (2 MB in one tool result in the same case, far past any model's context), marking all of them read.
+
+- **Finished threads stay out**: the batch's `<unread>` list, `messages.read unread=true` across chats and the unread and mention counts in `chats.list` leave out a thread whose status is done; reopened, it counts again from its read position. Asked for by name — `chats.info`, `messages.read` with its chatId, the unread note of a send — it still counts: the Bot is in that thread on purpose. People's counts are unchanged.
+- **Capped**: `messages.read unread=true` without a chat reads the chats of that list, the most recently active first, up to `limit` messages in all (30 by default, 100 at most); `hasMore` says to call again, and only what was returned is marked read.
+- **One statement**: the list is counted in one query by the rule a chat's own count follows (`storage/unread.ts`), and `chats.list` reads followed threads as chats, without each one's root message and reply count.
+
+Why: what a Bot is shown of its unread should be what it can act on, in a size it can read; a finished thread's late replies are not its work, and a reply that is reaches it by @.
