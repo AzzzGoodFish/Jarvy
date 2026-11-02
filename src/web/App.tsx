@@ -26,6 +26,8 @@ import type { Pane } from "./pane";
 import { useFind } from "./search/useFind";
 import { errorText, statusError } from "./errors";
 import { liveEvents } from "./live-events";
+import { coalesce } from "./coalesce";
+import { chatChanged, noChanges, reconnected, unlistedKey } from "./chat-changes";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
 const DevAgentation = import.meta.env.DEV
@@ -61,8 +63,8 @@ export function App() {
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
   const [paneWidth, setPaneWidth] = useState(420);
-  /** Bumped on every chat change, so open panes and lists reload. */
-  const [tick, setTick] = useState(0);
+  /** Each chat's changes (A71): an open pane reloads when its own chat changed, not on every change anywhere. */
+  const [changes, setChanges] = useState(noChanges);
   /** The followed threads in numbers, with the chat list (A69); the page loads its rows itself and hears of changes here. */
   const [followed, setFollowed] = useState<FollowedSummary | null>(null);
   const [threadEvents] = useState(() => new ThreadEvents()), threadSeen = useRef(new Map<string, string>());
@@ -116,19 +118,16 @@ export function App() {
   useEffect(() => {
     if (phase !== "ready") return;
     let alive = true;
-    const refresh = async (chatId?: string) => {
-      setTick(value => value + 1);
-      await refreshChats();
-      const id = selectedRef.current;
-      if (alive && id && (!chatId || chatId === id)) await refreshTranscript(id);
-    };
+    const fail = (error: unknown) => { if (alive) handleError(error); };
+    // The open transcript, once for a burst of changes to it.
+    const refreshOpen = coalesce(async () => { const id = selectedRef.current; if (alive && id) await refreshTranscript(id); }, 100);
     // Bots create and rename channel groups too.
     const reloadSections = () => void api.sections().then(result => { if (alive) setSections(result.sections); }).catch(error => { if (alive) handleError(error); });
     const stop = liveEvents("/api/events", {
       // Each connection, the first and every one after it: read again what the page shows, every Bot's status too,
       // since what changed while the page wasn't connected came to no one.
       ready: () => {
-        void refresh().catch(error => { if (alive) handleError(error); }); reloadSections();
+        setChanges(reconnected); void refreshChats().catch(fail); void refreshOpen().catch(fail); reloadSections();
         // 「我关注的线程」, if open, reads its first page again: what changed while the connection was down.
         threadEvents.emit({ kind: "reconnected" });
         void api.bots().then(result => {
@@ -140,17 +139,21 @@ export function App() {
       sections: reloadSections,
       // The agent Bot created, changed or deleted Bots (A48): reload them, and the chats a deleted one leaves.
       bots: () => {
-        void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(error => { if (alive) handleError(error); });
-        void refresh().catch(error => { if (alive) handleError(error); });
+        void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(fail);
+        void refreshChats().catch(fail);
       },
       // Something was delivered to you (A41): the rows' red counts and hints come with the chat list.
-      inbox: () => void refresh().catch(error => { if (alive) handleError(error); }),
+      inbox: () => void refreshChats().catch(fail),
       chat: event => {
         const data = JSON.parse(event.data) as { chatId?: string };
-        if (typeof data.chatId !== "string") return;
-        void refresh(data.chatId).catch(error => { if (alive) handleError(error); });
+        const id = data.chatId;
+        if (typeof id !== "string") return;
+        const listed = chatListRef.current.some(chat => chat.id === id);
+        setChanges(changes => chatChanged(changes, id, listed));
+        void refreshChats().catch(fail);
+        if (id === selectedRef.current) void refreshOpen().catch(fail);
         // A thread is not in the chat list: 「我关注的线程」, if open, fetches its row again.
-        if (!chatListRef.current.some(chat => chat.id === data.chatId)) threadEvents.emit({ kind: "changed", id: data.chatId });
+        if (!listed) threadEvents.emit({ kind: "changed", id });
       },
       bot: event => {
         const data = JSON.parse(event.data) as { botId: string; status: BotStatus };
@@ -194,11 +197,12 @@ export function App() {
     if (error instanceof ApiError && error.status === 401) { setPhase("login"); return; }
     setNotice(errorText(error, "common.failed"));
   }
-  async function refreshChats() {
+  // One /chats for a burst of changes (A71): a Bot's message alone brings two or three.
+  const [refreshChats] = useState(() => coalesce(async () => {
     const request = ++chatRequest.current;
     const result = await api.chats(); if (request === chatRequest.current) { setChats(result.chats); setFollowed(result.followed); }
     return result.chats;
-  }
+  }, 100));
   async function refreshTranscript(id: string) { await history.refresh(id); }
   async function refreshConnections() {
     const [catalog, botList] = await Promise.all([api.modelConnections(), api.bots()]);
@@ -338,7 +342,7 @@ export function App() {
     try {
       await drafts.clear(id => api.removeAttachment(id));
       await api.logout(); setPhase("login"); setAccountMenu(false); setSettingsTab(null);
-      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); threadSeen.current.clear();
+      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); threadSeen.current.clear(); setChanges(noChanges);
       setUsername(""); setSelected(null); setChats([]); setBots([]); setConnections([]); setMessages([]);
     } catch (error) { handleError(error); }
   }
@@ -364,7 +368,7 @@ export function App() {
     return () => { resized.disconnect(); changed.disconnect(); el.removeEventListener("scroll", remember); };
   }, [hasTranscript]);
   const viewing = chats.find(chat => chat.id === selected), inChannel = viewing?.type === "channel";
-  const botDirects = useBotDirects(phase === "ready" ? chats.find(chat => chat.id === selected && chat.type === "dm")?.botId ?? undefined : undefined, tick);
+  const botDirects = useBotDirects(phase === "ready" ? chats.find(chat => chat.id === selected && chat.type === "dm")?.botId ?? undefined : undefined, unlistedKey(changes));
   if (phase === "loading") return <div className="jarvy-loading">{t("app.connecting")}</div>;
   if (phase === "login") return <Login onLogin={name => void loadData(name).catch(handleError)}/>;
   const current = chats.find(chat => chat.id === selected);
@@ -406,7 +410,7 @@ export function App() {
         chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
       <SidePane pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
-        meId={meId} drafts={drafts} tick={tick} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
+        meId={meId} drafts={drafts} changes={changes} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
         onPane={setPane} onNav={() => setMobileNav(true)} onBackToChannel={toChannel} onAddMembers={chat => setDialog({ kind: "members", chat })} onOpenBot={setInfoBotId}
         onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
         onChannelSaved={chatSaved} onThreadChanged={threadChanged} onInvite={invite} onPreview={(files, index) => setPreview({ files, index })}

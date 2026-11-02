@@ -7,12 +7,13 @@ import { previewText } from "../channel/quotes";
 import { IconButton } from "../ui";
 import { MemberAvatar } from "../channel/ChannelView";
 import { sortThreads, ThreadSortSelect, useThreadSort } from "./sort";
+import { changeKey, type ChatChanges } from "../chat-changes";
 
 const when = (time: number) => formatDate(time, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** A channel's threads (A37): open / done / all, in the order picked in the header (newest activity by default). */
-export function ThreadList({ channel, members, bots, tick, onOpen, onClose, onError }: {
-  channel: Chat; members: Member[]; bots: Bot[]; tick: number;
+export function ThreadList({ channel, members, bots, changes, onOpen, onClose, onError }: {
+  channel: Chat; members: Member[]; bots: Bot[]; changes: ChatChanges;
   onOpen: (threadId: string) => void; onClose: () => void; onError: (error: unknown) => void;
 }) {
   const [threads, setThreads] = useState<ThreadEntry[] | null>(null), [tab, setTab] = useState<"open" | "done" | "all">("open");
@@ -21,7 +22,8 @@ export function ThreadList({ channel, members, bots, tick, onOpen, onClose, onEr
     let alive = true;
     void api.channelThreads(channel.id).then(result => { if (alive) setThreads(result.threads); }).catch(error => { if (alive) onError(error); });
     return () => { alive = false; };
-  }, [channel.id, tick]);
+  // A reply in one of its threads changes the channel too (its reply count), so the channel's own changes cover them.
+  }, [channel.id, changeKey(changes, channel.id)]);
   const shown = sortThreads((threads ?? []).filter(thread => tab === "all" || thread.status === tab), sort);
   const count = (status: "open" | "done") => (threads ?? []).filter(thread => thread.status === status).length;
   return <aside className="ui-pane jv-pane" aria-label={t("threads.list")}>
