@@ -2,6 +2,14 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.11.1 — 2026-11-03
+
+No database change: the schema stays v29.
+
+### Fixed
+
+- A Bot no longer fails its turn when, after its conversation is compacted, a batch carries a message in one of the threads it follows. The followed-thread list defined that thread and its channel a second time, differently from the batch's own definitions, and building the batch was refused: the turn failed before it reached the model, and the pending reminder failed every later turn too. The list now keeps the definition a batch already has, as the other notices do.
+
 ## 0.11.0 — 2026-11-02
 
 No database change: the schema stays v29, and upgrading from 0.10.x needs nothing else. The live events stream (`/api/events`) and `GET /threads` changed shape; see **API** below.
