@@ -99,9 +99,7 @@ Message IDs are `m` plus the global message sequence (never reused), keeping the
 
 ## A33 The Bot figure
 
-Bots are drawn as a three.js block cat in one of six random colours (changeable in Bot info); uploaded avatars were removed (v10). State (body, paws, head) follows the Bot's status; mood (eyes) is set only by the Bot. Small avatars are PNG snapshots from one shared off-screen renderer; the floating, draggable cat in a DM is the only live canvas. Running Bots show three bouncing dots in lists. Mood is stored and shown; the `self.mood` tool, whose value enters the system prompt only when the session is created or compacted, is not built yet.
-
-The three.js block cat was replaced by one shader for every size (A76); colours, the status/mood split, snapshots and the single live canvas stay.
+Bots are drawn as one shader in one of six random colours (changeable in Bot info; A76 replaced the three.js block cat this entry first described); uploaded avatars were removed (v10). State (what the figure does) follows the Bot's status; mood (its face) is set only by the Bot. Small avatars are PNG snapshots from one shared off-screen renderer; the floating, draggable cat in a DM is the only live canvas. Running Bots show three bouncing dots in lists. Mood is stored and shown; the `self.mood` tool, whose value enters the system prompt only when the session is created or compacted, is not built yet.
 
 ## A34 Attachment preview
 
@@ -233,7 +231,7 @@ The Bot created at setup (Jarvy by default) is the owner's agent: it helps a new
 - **Bots are told what changed**: when the agent changes another Bot's name, description, persona, model or thinking, or starts or stops it, that Bot is told with its next batch (a `digest` delivery: it is not woken for it), as `<change>` entries with the new value; a persona isn't repeated, it is already in the prompt. Since A61 these are system notices: no DM between the agent and the Bot is opened for them, and the note says to ask the agent with `messages.send`. The welcome is one too: no chat is named, and the agent writes to the owner itself.
 - **Prompts**: `bots.list` marks the agent (`agent: true`) and says what to ask it for; its own prompt gains a short section on its role (guide the owner, build their Bot team, confirm before deleting). All of it is English (A45).
 - **Onboarding**: the first time the agent has a model — normally when the owner picks one in its DM after setup — an `onboard` delivery goes to the agent in that DM, and its turn welcomes the owner and asks what they want to get done (a software project, writing, research, …). The browser sends its interface language with the model choice, and the request asks for the welcome in that language. It happens once: a setting records it, and on upgrade an agent that already has a model counts as onboarded.
-- **Interface**: the agent's DM is always on top of the DM list; its Bot info has a short section on what it does for the owner, and its row menu has no delete. Its avatars wear a crown.
+- **Interface**: the agent's DM is always on top of the DM list; its Bot info has a short section on what it does for the owner, and its row menu has no delete. Its avatars wear a crown once they are 40 px or more (Bot info, its DM); below that it would only smudge the silhouette (A76).
 - **Storage (v19)**: a `settings(key, value)` table (first key: when the agent was onboarded); `inbox.kind` gains `onboard` and `change`, so the table is rebuilt with its rows.
 
 Why: the setup Bot already has a fixed id that survives renaming, and keeping it undeletable leaves nothing to keep in sync. A model can skip a rule in its prompt but not a step in its tool, so confirmation lives in the tools. Connections stay out until keys never have to pass through a chat.
