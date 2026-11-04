@@ -2,6 +2,28 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.12.0 — 2026-11-04
+
+The database upgrades to v30 on first start (a table for published ports). Sandboxes move to a Docker network of this Jarvy's own the next time they start, keeping what was installed in them.
+
+### Added
+
+- **Bots publish ports from their sandboxes.** A Bot that runs a web app in its sandbox publishes the port with `ports.publish` and sends you the link. Jarvy serves each published port on a port of its own, taken from a range in Settings → Network (12600–12699 by default), with HTTPS and plain HTTP on the same port and WebSockets passed through; a link keeps working across restarts. Only your signed-in browser and this Jarvy's sandboxes get through, anyone else is asked to sign in, and Jarvy's session cookies never reach the app. Bot info lists the forwarded ports, says whether each app is listening (or only on 127.0.0.1, which can't be forwarded), and can stop forwarding any of them. `ports.list` and `ports.unpublish` go with it.
+- **Sandbox resource limits.** In Bot info, the sandbox's Resource limits row caps its memory (256 MB up to the machine's memory) and CPUs (0.1 up to the machine's count) and shows what it uses now. Nothing is limited by default. A change applies at once, running or stopped, without restarting the sandbox. Over the memory limit only the sandbox's own processes are ended, and a Bot with limits is told them when it lists or switches environments.
+
+### Changed
+
+- **A new Bot figure.** Bots are drawn as a cat-eared ball by a single shader, in the Bot's colour: the same character from a 22 px avatar to the live figure in a DM. Moods are faces, the figure thinks, reads, works and turns to you, and marks beside its head show sleep, retrying, a pending question or a long turn done. The agent Bot's crown shows from 40 px. Without WebGL a tile in the Bot's colour stands in. three.js is gone, so the page loads about 750 KB less script.
+- **Sandboxes can't reach each other.** A Jarvy's sandboxes share a Docker network of its own with traffic between containers off. They reach this machine (as `host.docker.internal`) and the internet, but not each other or other containers; a published port is how one Bot's service reaches another.
+- **API**:
+  - `GET /bots/:id/ports` and `DELETE /bots/:id/ports/:port`; `GET /connection` includes `ports {from, to}`, set with `PUT /connection {ports}`.
+  - `PUT /bots/:id/computer/limits {memory, cpus}` (bytes and cores, `null` for none) and `GET /bots/:id/computer/resources`; a sandbox's computer info includes `limits`.
+
+### Fixed
+
+- Closing one of Jarvy's ports also ends the connections kept open on it (keep-alive and WebSocket), so the port is released at once.
+- A clean `npm ci` of the repository no longer fails on missing `@emnapi/*` packages.
+
 ## 0.11.1 — 2026-11-03
 
 No database change: the schema stays v29.
