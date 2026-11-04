@@ -586,6 +586,7 @@ A sandbox is a container with nothing set but its shared memory: it takes what i
 - **Not yet**: a VM sandbox's memory and CPUs are fixed when it starts; they come with that kind of sandbox.
 
 Why: the owner should be able to keep one Bot from taking the machine from the rest, without anything changing for those who don't.
+
 ## A76 The Bot figure is one shader
 
 The block cat (A33) was a three.js scene — body, paws, a page held while reading, a 3D crown — photographed for the small avatars. At 22–36 px its shading, paws and crown ran together into a smudge, it did not look like the product icon, and three.js was about 750 kB of the page's scripts for one figure.
