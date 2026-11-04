@@ -13,6 +13,7 @@ import { type BotColor } from "../contract/models";
 import { BotModelControls } from "./BotModelControls";
 import { BotEnvironment } from "./environment/BotEnvironment";
 import { BotTasks } from "./tasks/BotTasks";
+import { BotPorts } from "./ports/BotPorts";
 import { ContextStale } from "./bot/ContextStale";
 import { copyText } from "./ui";
 import { formatNumber, t } from "./i18n";
@@ -115,6 +116,8 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
         <BotEnvironment bot={bot} onSaved={onSaved} onAddMachine={onAddMachine}/>
 
         <BotTasks bot={bot} runs={`${runtime}:${status?.runId ?? ""}`}/>
+
+        <BotPorts bot={bot} runs={`${runtime}:${status?.runId ?? ""}`}/>
 
         <section className="jv-section" aria-label={t("bot.runtime")}><h3 className="jv-section-title">{t("bot.runtime")}</h3>
           <div className="jv-list">

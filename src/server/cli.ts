@@ -4,6 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJarvyServer } from "./api/server.js";
+import { PublishedListeners } from "./api/published.js";
 import { defaultDataDir, type Store } from "./infra/storage/store.js";
 import { isLoopbackHost, lanAddresses } from "./infra/tls/certificates.js";
 import { Application } from "./application.js";
@@ -120,10 +121,14 @@ async function main(): Promise<void> {
     const { host, port, url } = listenOptions(args);
     const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../web");
     if (!existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");
-    const server = createJarvyServer(app, webRoot, app.connection.prepare(host, port));
-    closeHttp = () => server.close();
+    const tls = app.connection.prepare(host, port);
+    const server = createJarvyServer(app, webRoot, tls);
+    // The ports Bots publish (A74) listen beside Jarvy's own, on the same address.
+    const published = new PublishedListeners(app, tls, host, port);
+    closeHttp = () => { server.close(); published.close(); };
     await server.listen(port, host);
     app.start();
+    published.start();
     writePidFile(dir, url);
     console.log(`Jarvy running at ${url} (listening on ${host}, pid ${process.pid})`);
     const notes = reachNotes(host, port, app.connection.allowHttp());
@@ -135,7 +140,7 @@ async function main(): Promise<void> {
     const shutdown = () => {
       if (shuttingDown) return;
       shuttingDown = true;
-      server.close();
+      server.close(); published.close();
       void app.close().then(() => { removePidFile(dir); console.log("Jarvy stopped."); })
         .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; });
     };

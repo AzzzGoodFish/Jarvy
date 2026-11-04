@@ -53,7 +53,8 @@ export class Application {
     // One model catalog: the settings' provider lists and the models a Bot's session installs read the same entries.
     const catalog = new ModelCatalog(dataDir);
     this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks, catalog,
-      changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory });
+      changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory,
+      listening: () => this.connection.where() });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));

@@ -9,12 +9,12 @@ const encrypted = (c: Context<ApiEnv>) => !!(c.env.incoming.socket as { encrypte
 function sessionCookie(c: Context<ApiEnv>, name: string, value: string, maxAge: number) {
   setCookie(c, name, value, { httpOnly: true, sameSite: "Strict", path: "/", maxAge, secure: encrypted(c) });
 }
+/** The session cookie's name. Browsers scope cookies by host, not port: instances on one host need distinct names or
+ * logging into one overwrites the other's session. HTTPS has a name of its own (A51): a plain-HTTP page may not
+ * overwrite a Secure cookie of the same name, so signing in over HTTP after HTTPS would silently keep failing. */
+export const sessionCookieName = (instance: string, secure: boolean) => secure ? `jarvy_session_${instance}_tls` : `jarvy_session_${instance}`;
 export function installAuthentication(api: Hono<ApiEnv>, account: AccountService) {
-  // Browsers scope cookies by host, not port: instances on one host need distinct names or
-  // logging into one overwrites the other's session.
-  // HTTPS has a name of its own (A51): a plain-HTTP page may not overwrite a Secure cookie of the same name, so signing
-  // in over HTTP after HTTPS would silently keep failing.
-  const BASE = `jarvy_session_${account.instance}`, cookie = (c: Context<ApiEnv>) => encrypted(c) ? `${BASE}_tls` : BASE;
+  const cookie = (c: Context<ApiEnv>) => sessionCookieName(account.instance, encrypted(c));
   api.post("/login", jsonBody, async c => {
     const input = await readJson(c);
     const result = account.login(input.username, input.password, c.env.incoming.socket.remoteAddress ?? "unknown");

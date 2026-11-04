@@ -68,7 +68,7 @@ When something will take a while, post a short progress note partway through, an
 function workspaceSection(setup: RuntimeSetup): string {
   return `## Workspace
 You have a workspace of your own: ${setup.home().cwd} on your own computer, a machine only you use. Keep in it the files you want to keep (they stay when the machine is reset), keep it tidy, and put temporary files under temp and clear them out.
-Other members work on their own machines. They can't reach your files, your addresses or anything you start there, and you can't reach theirs. To give someone a file, send it as an attachment; anything else, say it in the chat.
+Other members work on their own machines. They can't reach your files, your addresses or anything you start there, and you can't reach theirs. To give someone a file, send it as an attachment; to show a web service you run in your sandbox, publish its port with ports.publish; anything else, say it in the chat.
 
 ## Work environment
 Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, build tools and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox. Where the machine has no Docker, those tools are unavailable until it does, and the chat tools work as usual.

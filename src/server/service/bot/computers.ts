@@ -2,14 +2,17 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { Store } from "../../infra/storage/store.js";
 import {
-  COMPUTER_CWD, buildImage, computerImage, containerEnvironment, containerState, containerStates, dockerAvailable, homeAtWorkspace,
-  imageExists, pruneImages, removeContainer, runContainer, startContainer, stopContainer, syncDaemon,
+  COMPUTER_CWD, addHost, buildImage, computerImage, containerEnvironment, containerNetworks, containerState, containerStates, dockerAvailable,
+  ensureNetwork, homeAtWorkspace, imageExists, listeningPorts, moveToNetwork, networkAddresses, pruneImages, removeContainer, runContainer,
+  startContainer, stopContainer, syncDaemon,
 } from "../../infra/env/docker.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import type { ComputerInfo, ComputerStatus } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 
 const SWEEP_MS = 60_000;
+/** The name sandboxes reach this machine by (A74), as Docker Desktop calls it. */
+export const HOST_NAME = "host.docker.internal";
 
 export interface ComputerDependencies {
   store: Store;
@@ -22,7 +25,8 @@ export interface ComputerDependencies {
  * /workspace and running as the owner's ids. Made when first used and kept running until the owner stops it, since
  * stopping closes what the Bot left running; removed with the Bot; a reset removes the container
  * and what was installed in it, never the workspace. Containers keep running when Jarvy stops, so background work
- * survives a restart. */
+ * survives a restart. They share a network of this Jarvy's (A74), on which they reach this machine and beyond but not
+ * each other; a published port is how one Bot's service is reached. */
 export class Computers {
   private docker: boolean | null = null;
   private probing: Promise<void> | null = null;
@@ -31,8 +35,12 @@ export class Computers {
   private readonly states = new Map<string, ComputerStatus>();
   private readonly preparing = new Map<string, Promise<string>>();
   private readonly connections = new Map<string, WorkEnvironment>();
-  /** Containers whose home was checked since Jarvy started (`homeAtWorkspace`). */
+  /** Containers set up since they last started: their home checked (`homeAtWorkspace`), and the host's name added. */
   private readonly homes = new Map<string, Promise<void>>();
+  /** This Jarvy's network and this machine's address on it; null on Docker's default bridge, if it couldn't be made. */
+  private network: { name: string; gateway: string } | null = null;
+  /** Running containers' addresses, by name, as last read. */
+  private book: { at: number; byName: Map<string, string> } | null = null;
   private readonly dataDir: string;
   /** Tells this Jarvy's containers from those of other data directories on the same Docker. */
   private readonly tag: string;
@@ -54,6 +62,7 @@ export class Computers {
     if (!this.docker) return;
     try { await syncDaemon(join(this.dataDir, "computers", "bin")); }
     catch (error) { this.docker = false; this.log(`computers disabled: ${(error as Error).message}`); return; }
+    await this.joinNetwork().catch(error => this.log(`sandbox network unavailable, staying on the default bridge: ${(error as Error).message}`));
     await this.sweep().catch(error => this.log(`computer sweep failed: ${(error as Error).message}`));
     this.timer = setInterval(() => void this.sweep().catch(error => this.log(`computer sweep failed: ${(error as Error).message}`)), SWEEP_MS);
     this.timer.unref();
@@ -114,11 +123,57 @@ export class Computers {
   private async connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
     const container = await this.ensure(botId);
     let home = this.homes.get(container);
-    if (!home) { home = homeAtWorkspace(container).catch(error => this.log(`home of ${botId} not moved: ${(error as Error).message}`)); this.homes.set(container, home); }
+    if (!home) { home = this.prepare(container).catch(error => this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`)); this.homes.set(container, home); }
     await home;
     let env = this.connections.get(botId);
     if (!env) { env = containerEnvironment(record.id, container, text => this.log(`[${botId.slice(0, 8)}] ${text}`)); this.connections.set(botId, env); }
     return env;
+  }
+  /** Sets up a container after it starts: the workspace as its home, and this machine's name for one made before
+   * containers got it at creation. */
+  private async prepare(container: string): Promise<void> {
+    await homeAtWorkspace(container);
+    if (this.network) await addHost(container, HOST_NAME, this.network.gateway);
+  }
+  /** Makes this Jarvy's network and moves the containers still on Docker's default bridge there, running or not. */
+  private async joinNetwork(): Promise<void> {
+    const name = `jarvy-${this.tag.slice(0, 6)}`;
+    this.network = { name, gateway: await ensureNetwork(name, { "jarvy.data": this.tag }) };
+    const owned = new Set(this.deps.store.environments.computers().map(computer => computer.spec.container));
+    for (const [container, networks] of await containerNetworks(`jarvy.data=${this.tag}`)) {
+      if (!owned.has(container) || networks.includes(name)) continue;
+      await moveToNetwork(container, name).then(() => { this.homes.delete(container); this.log(`moved ${container} to ${name}`); })
+        .catch(error => this.log(`moving ${container} to ${name} failed: ${(error as Error).message}`));
+    }
+  }
+  /** The address a Bot's running sandbox has on the network, or null. */
+  async address(botId: string): Promise<string | null> {
+    const container = this.deps.store.environments.computerOf(botId)?.spec.container;
+    if (!container || !this.available) return null;
+    return (await this.addresses()).get(container) ?? (await this.addresses(true)).get(container) ?? null;
+  }
+  /** The Bot whose running sandbox has this address, if one of this Jarvy's has it. */
+  async botAt(address: string): Promise<string | null> {
+    if (!this.available) return null;
+    const plain = address.replace(/^::ffff:/, "");
+    const find = (book: Map<string, string>) => [...book].find(([, value]) => value === plain)?.[0];
+    const container = find(await this.addresses()) ?? find(await this.addresses(true));
+    return container ? this.deps.store.environments.computers().find(computer => computer.spec.container === container)?.botId ?? null : null;
+  }
+  /** The ports something listens on in a Bot's running sandbox; null when it isn't running. */
+  async listening(botId: string): Promise<Map<number, { loopbackOnly: boolean }> | null> {
+    const container = this.deps.store.environments.computerOf(botId)?.spec.container;
+    if (!container || this.status(botId)?.state !== "running") return null;
+    return listeningPorts(container);
+  }
+  /** How a sandbox names this machine. */
+  get hostName(): string { return HOST_NAME; }
+  /** Read again when asked fresh, at most once a second, so callers that miss don't each ask Docker. */
+  private async addresses(fresh = false): Promise<Map<string, string>> {
+    const age = this.book ? Date.now() - this.book.at : Infinity;
+    if (this.book && (fresh ? age < 1000 : age < 5000)) return this.book.byName;
+    this.book = { at: Date.now(), byName: await networkAddresses(this.network?.name ?? "bridge").catch(() => new Map<string, string>()) };
+    return this.book.byName;
   }
 
   /** Makes sure the container exists and runs, building the image first when needed; returns its name. */
@@ -137,8 +192,11 @@ export class Computers {
         const image = await this.imageReady();
         const state = await containerState(container);
         if (state === "missing") await runContainer({ name: container, image, workspace: this.workspace(botId),
-          daemonDir: join(this.dataDir, "computers", "bin"), uid: this.uid, gid: this.gid, labels: { "jarvy.data": this.tag, "jarvy.bot": botId } });
+          daemonDir: join(this.dataDir, "computers", "bin"), uid: this.uid, gid: this.gid, labels: { "jarvy.data": this.tag, "jarvy.bot": botId },
+          ...(this.network ? { network: this.network.name, hosts: { [HOST_NAME]: this.network.gateway } } : {}) });
         else if (state === "stopped") await startContainer(container);
+        // Docker wrote its /etc/hosts afresh.
+        if (state !== "running") { this.homes.delete(container); this.book = null; }
         this.set(botId, { state: "running" });
         return container;
       } catch (error) {
@@ -227,6 +285,8 @@ export class Computers {
       if (this.preparing.has(botId)) continue;
       const running = states.get(computer.spec.container!) === "running";
       if (!running) { if (this.states.get(botId)?.state !== "failed") this.set(botId, { state: "stopped" }); await this.disconnect(botId); continue; }
+      // Started outside Jarvy: set it up again on next use.
+      if (this.states.get(botId)?.state !== "running") this.homes.delete(computer.spec.container!);
       this.set(botId, { state: "running" });
     }
   }

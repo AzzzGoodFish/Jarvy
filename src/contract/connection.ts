@@ -1,3 +1,5 @@
+import type { PortRange } from "./ports.js";
+
 /** How Jarvy is reached (A51). Listening only on this machine it serves plain HTTP, as browsers count `localhost` as
  * secure. Listening beyond it, it serves HTTPS with its own certificates on the same port, and plain HTTP from other
  * machines is redirected unless the owner allows it in Settings. */
@@ -11,4 +13,6 @@ export interface ConnectionInfo {
   fingerprint: string | null;
   /** Its SHA-1, as Windows' certificate window shows it; null without HTTPS. */
   fingerprintSha1: string | null;
+  /** The ports Bots' published ports take (A74). */
+  ports: PortRange;
 }

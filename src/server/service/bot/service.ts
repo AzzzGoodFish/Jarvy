@@ -37,6 +37,8 @@ import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 import type { SecretService } from "../secrets.js";
 import type { TaskService } from "../tasks.js";
+import type { Listening } from "../connection.js";
+import { PublishedPorts } from "./ports.js";
 
 export interface BotDependencies {
   store: Store; chats: ChatService; files: ChatFiles; credentials: CredentialCoordinator;
@@ -51,6 +53,8 @@ export interface BotDependencies {
   changed: (botId: string) => void; factory?: SessionFactory;
   /** Bots were created, renamed or deleted by the agent Bot (A48): the owner's page reloads them. */
   listChanged?: () => void;
+  /** Where Jarvy listens, for the links of published ports (A74); null until it does. */
+  listening?: () => Listening | null;
 }
 /** Service-level lifetime/lookup entry. Each Bot remains the complete business object. */
 export class BotService {
@@ -60,6 +64,8 @@ export class BotService {
   private readonly environments: BotEnvironments;
   /** The owner's SSH machines (A57). */
   readonly machines: SshMachines;
+  /** Ports Bots publish from their sandboxes (A74). */
+  readonly ports: PublishedPorts;
   private closed = false;
   private started = false;
   /** What only the agent Bot does (A48). */
@@ -70,6 +76,7 @@ export class BotService {
     this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries);
     this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
     this.computers.adopt(deps.store.bots.list().map(record => record.id));
+    this.ports = new PublishedPorts(deps.store, this.computers, () => deps.listening?.() ?? null);
     this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
     this.environments = new BotEnvironments(deps.store, this.computers, this.machines);
   }
@@ -102,7 +109,7 @@ export class BotService {
         places: { list: () => this.environments.list(id, record.workspacePath), switch: environmentId => this.environments.switch(id, environmentId, record.workspacePath),
           summary: botId => this.environments.summary(botId), request: input => this.machines.prepareRequest(id, input), found: input => this.machines.find(id, input) },
         secrets: { list: () => this.deps.secrets.listFor(id), prepare: (name, purpose) => this.deps.secrets.prepareRequest(id, name, purpose) },
-        tasks: this.deps.tasks,
+        tasks: this.deps.tasks, ports: this.ports,
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => this.deps.changed(id)),
     }, { deliver: async message => {
@@ -188,7 +195,8 @@ export class BotService {
     this.describe(id);
     if (action === "stop") await this.computers.stop(id);
     else {
-      if (action === "reset") await this.computers.reset(id);
+      // What ran there is gone, and so are the links to it.
+      if (action === "reset") { await this.computers.reset(id); this.ports.unpublishAll(id); }
       void this.computers.ensure(id).catch(() => {});
     }
     return this.describe(id);
@@ -277,6 +285,7 @@ export class BotService {
     this.lives.get(id)?.close(); this.lives.delete(id);
     await this.environments.release(id);
     if (!this.deps.store.bots.delete(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
+    this.ports.changed();
     // Its DMs went with it, and the files of their messages go now (A66).
     await this.deps.chats.attachments.clean();
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });

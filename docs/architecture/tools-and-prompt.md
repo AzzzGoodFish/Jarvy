@@ -58,6 +58,7 @@ A call that fails validation says how to put it right in the same answer (`servi
 | `tasks.list` / `tasks.get` | the Bot's scheduled tasks, its owner's for it included: schedule, state, next and last run in local time, with the time zone; `get` adds the instruction (A58) |
 | `tasks.create` / `tasks.update` | schedule a task for itself (name, instruction, schedule), or change one; a new schedule counts from now, an unchanged interval keeps its rhythm. |
 | `tasks.pause` / `tasks.resume` / `tasks.delete` | stop a task until resumed, start it again from its next time, or delete it for good |
+| `ports.publish` / `ports.list` / `ports.unpublish` | publish a port of the Bot's sandbox with a name and description, getting a link on a port of Jarvy's for people and one for other Bots' sandboxes; list them with their state (`live`, `local`, `idle`, `stopped`); unpublish one (A74, [environments](environments.md)) |
 
 Removing members and deleting channels or groups are left to people (A38), and to the agent Bot once the owner confirms (below). `messages.ask` needs a person in the chat.
 
@@ -135,7 +136,7 @@ Secret values are masked in everything you see. When work needs a credential you
 {the same for every Bot (A68); {home} is where its own computer shows its workspace, /workspace:}
 ## Workspace
 You have a workspace of your own: {home} on your own computer, a machine only you use. Keep in it the files you want to keep (they stay when the machine is reset), keep it tidy, and put temporary files under temp and clear them out.
-Other members work on their own machines. They can't reach your files, your addresses or anything you start there, and you can't reach theirs. To give someone a file, send it as an attachment; anything else, say it in the chat.
+Other members work on their own machines. They can't reach your files, your addresses or anything you start there, and you can't reach theirs. To give someone a file, send it as an attachment; to show a web service you run in your sandbox, publish its port with ports.publish; anything else, say it in the chat.
 
 ## Work environment
 Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, build tools and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox. Where the machine has no Docker, those tools are unavailable until it does, and the chat tools work as usual.

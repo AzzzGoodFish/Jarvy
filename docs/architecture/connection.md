@@ -27,3 +27,7 @@ With any other host (`0.0.0.0`, `::`, a LAN address), Jarvy serves HTTPS with it
   - Settings → Network shows "This computer only" with how to open Jarvy to the network when it does not serve HTTPS. When it does, it lists the addresses with a copy button, the certificate with a download and its SHA-256 and SHA-1 fingerprints (Windows' certificate window shows only SHA-1, as "Thumbprint"), install steps for Mac, Windows, iPhone and iPad, and Android ending with "quit the browser and open it again", since a running browser may keep its earlier verdict, and the "Allow HTTP access" switch.
   - Whenever the page is not a secure context (`window.isSecureContext` is false), a warning sits above everything, the login page included, and links to the same page over HTTPS. A reverse proxy that adds TLS gives a secure context, so it shows no warning.
 - **The command line**: `jarvy on` and `jarvy run` print the HTTPS addresses. They add a warning when plain HTTP is allowed.
+
+## Published ports
+
+Ports Bots publish from their sandboxes (A74, [environments](environments.md)) are served beside Jarvy's own, on the same address, one port each, with the same one-port handling of both protocols (`dualProtocol` in `api/server.ts`) and the same redirect of plain HTTP from other devices. Their ports come from the `published_port_range` setting (Settings → Network → Forwarding ports, `PUT /api/connection {ports: {from, to}}`, 1024–65535, at most 1000, not Jarvy's own port; default 12600–12699); a change applies to ports published afterwards.
