@@ -83,11 +83,13 @@ export class Rig {
     if (m === "think") {
       look = [wave(.9, .045) + .03, .04]; tilt += .06 + wave(1.3, .03);
     } else if (m === "work" || m === "busy") {
+      // A small, soft bounce and eyes moving over what it works on. Quick, but a fraction of a head wide: a big fast
+      // swing reads as the whole figure shaking rather than as typing.
       const fast = m === "busy" || input.fast;
-      const b = still ? 0 : Math.abs(Math.sin(TAU * t * (fast ? 3.4 : 2.1)));
-      squash += .07 * (1 - b); lift = .028 * b;
-      look = [fast ? wave(18, .04) : wave(2.2, .03), -.03];
-      if (m === "busy") tilt += wave(9, .05);
+      const b = still ? 0 : Math.abs(Math.sin(TAU * t * (fast ? 1.9 : 1.5)));
+      squash += .032 * (1 - b); lift = .013 * b;
+      look = fast ? [wave(6.5, .012) + wave(2.3, .005), -.03] : [wave(1.9, .02), -.03];
+      if (m === "busy") tilt += wave(1.6, .02);
     } else if (m === "read") {
       // The eyes run along a line and jump back to the start of the next.
       look = [still ? 0 : ((since * .55) % 1) * .09 - .045, -.045]; tilt += wave(.7, .02);
