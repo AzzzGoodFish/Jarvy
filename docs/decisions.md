@@ -101,6 +101,8 @@ Message IDs are `m` plus the global message sequence (never reused), keeping the
 
 Bots are drawn as a three.js block cat in one of six random colours (changeable in Bot info); uploaded avatars were removed (v10). State (body, paws, head) follows the Bot's status; mood (eyes) is set only by the Bot. Small avatars are PNG snapshots from one shared off-screen renderer; the floating, draggable cat in a DM is the only live canvas. Running Bots show three bouncing dots in lists. Mood is stored and shown; the `self.mood` tool, whose value enters the system prompt only when the session is created or compacted, is not built yet.
 
+The three.js block cat was replaced by one shader for every size (A76); colours, the status/mood split, snapshots and the single live canvas stay.
+
 ## A34 Attachment preview
 
 Messages show image thumbnails and file cards. A thumbnail keeps the picture's proportions once it has loaded: as wide as the picture, up to the card's width, at most 320 px tall (260 px on phones), never enlarged; until then it has a fixed height. The viewer previews images, Markdown, text and static HTML (scripts, frames, external loads and event attributes removed, in a `sandbox=""` iframe with a deny-all CSP), with full-window mode and navigation between a message's files. The backend and page CSP are unchanged: SVG is read as text and shown as a `data:` URL.
@@ -586,3 +588,17 @@ A sandbox is a container with nothing set but its shared memory: it takes what i
 - **Not yet**: a VM sandbox's memory and CPUs are fixed when it starts; they come with that kind of sandbox.
 
 Why: the owner should be able to keep one Bot from taking the machine from the rest, without anything changing for those who don't.
+## A76 The Bot figure is one shader
+
+The block cat (A33) was a three.js scene — body, paws, a page held while reading, a 3D crown — photographed for the small avatars. At 22–36 px its shading, paws and crown ran together into a smudge, it did not look like the product icon, and three.js was about 750 kB of the page's scripts for one figure.
+
+- **One model**: a flattened ball with two cat ears, drawn by a fragment shader that ray-marches a distance field (`web/avatar/face.ts`). The ears have a diamond section, so a turned head shows a pointed edge, not a slab. One saturated colour (the six Bot colours were saturated for it), a soft light from the upper left, a rim on the far edge and a thin outline — the same at every size.
+- **A face is numbers**: eye shape (pill, chevron, star, spiral, closed arc), lids and their tilt, eye size, a mouth drawn as a white line (cat ω, smile, O, short line, wavy, frown), blush, the ears' angles, squash, lift, roll and turn. A mood is a face (`pose.ts`); a motion is the same face moving (`motion.ts`): breathing, blinking, a damped spring for the squash, the face drawn a little towards the pointer. A mouth shows only for a moment — talking to you, compacting, retrying, a long turn done — never at rest.
+- **Marks beside the head, never on it**: zZ asleep, a sweat drop while retrying, ? while waiting for an answer, sparkles after a long turn. They are page elements in theme colours.
+- **Stills and the live figure share it**: avatars are PNG snapshots from one offscreen WebGL context, at any size; the floating figure in a DM draws the same shader every frame into its canvas, paused while the page is hidden. Without WebGL a tile in the Bot's colour stands in.
+- **Large only**: from 40 px (Bot info, the DM figure) the figure has a ground shadow and the agent Bot's crown (A48), drawn flat and moving with the head; smaller, both only smudge the silhouette.
+- **Gone**: three.js, the paws and the page held while reading; reading is the eyes running along a line.
+
+Why: a character that is still itself at 22 px is carried by its silhouette and its eyes, so nothing that disappears at that size can carry meaning. One shader with parameters keeps every size and every state the same character, at a few kilobytes instead of a 3D engine.
+
+Supersedes: A33's three.js block cat; A48's crown on avatars of every size.

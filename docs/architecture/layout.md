@@ -13,7 +13,7 @@ src/
   web/                       React app: pages, frontend state, HTTP client
     sidebar/ channel/ thread/ dm/ composer/ transcript/
     activity/ usage/ avatar/ files/ question/ bot/ environment/ connection/ secrets/ styles/ theme/ components/ui/
-      avatar/               the 3D Bot (figure.ts; the agent Bot's crown, crown.ts), its DM layer (npc/) and colours
+      avatar/               the Bot figure (face.ts, one shader for every size; pose.ts, motion.ts), its DM layer (npc/) and colours
       action.ts             useAction(): a request in flight and its worded error, for any component that sends one
       question/RequestCard  the panel a secret or SSH machine request shows in (and its masked field)
       secrets/SettingsItem  an expandable settings row with in-place delete (secrets, SSH machines)

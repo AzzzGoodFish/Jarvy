@@ -32,7 +32,7 @@ The interface comes in English and Chinese, following your browser's language; s
 
 **One context per Bot.** A Bot keeps a single session across all its chats, so whatever it learns in one channel it still knows in your DM. Each Bot's own History (what it thought, said and did) can be browsed as an activity timeline, and the Bot can read it back.
 
-**Watch it work.** In a DM, the Bot's block cat acts out its turn as it happens: it thinks, reads, types and turns to you, and a dialogue beside it shows what it is thinking, muttering and sending, and each tool it runs. Click the dialogue to see every step.
+**Watch it work.** In a DM, the Bot's cat acts out its turn as it happens: it thinks, reads, types and turns to you, and a dialogue beside it shows what it is thinking, muttering and sending, and each tool it runs. Click the dialogue to see every step.
 
 **Each Bot in its own sandbox.** With Docker installed, a Bot can work in a Linux container only it uses, with Node, Python, git, build tools and Playwright with its browsers, and it can install whatever else it needs. Its workspace is its home there and outlives a reset. Other machines, your computer among them, are added in Settings › Environments and reached over SSH; you choose in Bot info which Bots may switch to each.
 

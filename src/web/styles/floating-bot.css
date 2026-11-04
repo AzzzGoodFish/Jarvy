@@ -1,11 +1,31 @@
-/* Live 3D Bot floating over the chat (avatar/FloatingBot.tsx); it replaces the chat title bar. */
+/* The live Bot floating over the chat (avatar/FloatingBot.tsx); it replaces the chat title bar. */
 .jv-floating-bot { position: absolute; top: 10px; right: 10px; z-index: 5; width: 88px; height: 88px; padding: 0; border: 0; border-radius: 24px;
-  background: transparent; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  background: transparent; container-type: size; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .jv-floating-bot:active { cursor: grabbing; }
 .jv-floating-bot > canvas { display: block; width: 100%; height: 100%; }
 .jv-floating-bot:not([data-live]) > canvas { position: absolute; inset: 0; opacity: 0; }
 .jv-floating-bot .jv-bot-avatar { width: 100%; height: 100%; }
 .jv-floating-bot:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
+/* Marks beside the head: zZ asleep, a sweat drop while it struggles, ? while it waits for an answer, sparkles after a
+   long turn. They sit on the figure's box, outside the head, sized with it, and drift a little unless motion is reduced. */
+.jv-figure-mark { position: absolute; pointer-events: none; animation: jv-mark-in .25s ease-out both; }
+.jv-figure-mark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.jv-figure-mark[data-mark="ask"] { top: 4%; right: 2%; display: grid; place-items: center; width: 24%; aspect-ratio: 1; border-radius: 50%;
+  background: var(--ui-bg-base); color: var(--ui-text-primary); font-size: 15cqw; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 0 1px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .12); }
+.jv-figure-mark[data-mark="zz"] { top: 0; right: 4%; display: flex; align-items: flex-end; gap: 1px; color: var(--ui-text-tertiary);
+  font-size: 18cqw; font-weight: 700; font-style: italic; line-height: 1; animation: jv-mark-drift 3.2s ease-in-out infinite; }
+.jv-figure-mark[data-mark="zz"] i:first-child { font-size: .65em; }
+.jv-figure-mark[data-mark="sweat"] { top: 18%; right: 12%; width: 12%; aspect-ratio: 20 / 28; animation: jv-mark-drip 1.4s ease-in infinite; }
+.jv-figure-mark[data-mark="sweat"] path { fill: #d9eeff; stroke: #8cc4f5; stroke-width: 1.6; }
+.jv-figure-mark[data-mark="sweat"] ellipse { fill: #fff; }
+.jv-figure-mark[data-mark="sparkle"] { inset: 0; animation: jv-mark-twinkle 1.2s ease-in-out infinite; }
+.jv-figure-mark[data-mark="sparkle"] path { fill: #f5b312; }
+@keyframes jv-mark-in { from { opacity: 0; transform: scale(.6); } }
+@keyframes jv-mark-drift { 50% { transform: translate(2px, -3px); } }
+@keyframes jv-mark-drip { 70% { opacity: 1; } to { opacity: 0; transform: translateY(6px); } }
+@keyframes jv-mark-twinkle { 50% { opacity: .45; transform: scale(.94); } }
+@media (prefers-reduced-motion: reduce) { .jv-figure-mark { animation: none !important; } }
 /* Mobile: the sidebar toggle that lived in the title bar floats top-left. */
 .jv-floating-nav { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: 10px; background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .08); }
