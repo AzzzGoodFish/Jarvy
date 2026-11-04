@@ -2,7 +2,7 @@
 
 [Index](../index.md) · [Runtime](runtime.md) · [Tools and prompt](tools-and-prompt.md) · [Channels](channels.md)
 
-While a Bot runs, the page showing its DM acts the turn out: the 3D cat moves with what it is doing and a dialogue beside it says what it is thinking, muttering or sending, opening into the steps so far (A47). The DM's address may carry `?npc=demo`, which plays a scripted turn instead and adds the prototype toolbar (see below).
+While a Bot runs, the page showing its DM acts the turn out: the cat moves with what it is doing and a dialogue beside it says what it is thinking, muttering or sending, opening into the steps so far (A47). The DM's address may carry `?npc=demo`, which plays a scripted turn instead and adds the prototype toolbar (see below).
 
 ## From Pi's events to Jarvy's
 
@@ -45,7 +45,7 @@ A reader that falls behind (`desiredSize <= 0`) is disconnected, as on `/events`
 
 `web/avatar/npc/` holds the whole layer:
 
-- `figure.ts` (the 3D body) gained `read` (holds a page), `turn` (faces you), `ask` (head tilted), `yawn` (compacting), `stretch` (a turn ended) and `groom` (idle).
+- `motion.ts` (the figure's motion, A74) has `read` (the eyes run along a line), `turn` (faces you, smiling), `ask` (head tilted, a ? beside it), `yawn` (compacting: eyes shut, a wavy mouth), `stretch` (a long turn ended: star eyes, sparkles) and `groom` (idle).
 - `live.ts` subscribes while the DM is open and keeps the turn, plus the last turn that ended while it listened.
 - `live-view.ts` words a step and picks its motion: thinking → think; the model's own text → a murmur, typing slowly; `read` and the looking chat tools → a page held; `edit`, `write`, `bash`, `codemode`, other chat tools → typing fast; `messages.send` → facing you; `messages.ask` → head tilted; compacting → a yawn; retrying → fidgeting.
 - `pick.ts` decides what the dialogue shows: a message being sent; else words or a failure still up (queued in the order they ended — a newer message cuts the line before it short, but not under 1.5 s); else what runs, unless that is thinking; else a quick tool call that just ended; else what runs. Nothing more than 4 s after the fact.

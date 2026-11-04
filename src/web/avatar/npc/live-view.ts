@@ -1,5 +1,5 @@
 import { formatNumber, t } from "../../i18n";
-import type { FigureMotion } from "../figure";
+import type { FigureMotion } from "../motion";
 import type { LiveChat, LiveOutput, LiveStep, LiveTurn } from "./live";
 import type { StepIcon, ViewStep } from "./view";
 

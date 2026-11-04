@@ -1,5 +1,5 @@
 import type { Key } from "../../i18n";
-import type { FigureMotion } from "../figure";
+import type { FigureMotion } from "../motion";
 import type { BotMood } from "../../../contract/models";
 
 /** One step of the NPC prototype's scripted turn (no server). Thinking and talking to itself (the model's own text,

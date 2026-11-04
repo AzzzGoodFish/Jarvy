@@ -5,8 +5,8 @@ import { snapshot } from "./snapshot";
 import { t } from "../i18n";
 import "../styles/avatar.css";
 
-/** Still figure of a Bot in its colour and current mood, crowned for the agent Bot (A48). Until the image is ready (or
- * if WebGL is unavailable) a rounded tile in the Bot's colour holds its place. */
+/** Still figure of a Bot in its colour and current mood, crowned for the agent Bot when large (A48, A74). Until the
+ * image is ready (or if WebGL is unavailable) a rounded tile in the Bot's colour holds its place. */
 export function BotAvatar({ color, mood = "normal", size = 36, badge, crown = false }: { color: string; mood?: string; size?: number; badge?: "working" | "asking"; crown?: boolean }) {
   const [image, setImage] = useState<string>();
   useEffect(() => {

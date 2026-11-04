@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BotStatus } from "../../../contract/bots";
-import type { FigureMotion } from "../figure";
+import type { FigureMotion } from "../motion";
 import type { BotMood } from "../../../contract/models";
 import { useLiveTurn } from "./live";
 import { liveSteps, stepMotion } from "./live-view";
