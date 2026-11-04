@@ -14,6 +14,7 @@ import { EnvironmentRepository } from "./environment-repository.js";
 import { SettingsRepository } from "./settings-repository.js";
 import { SecretRepository } from "./secret-repository.js";
 import { TaskRepository } from "./task-repository.js";
+import { PortRepository } from "./port-repository.js";
 import { Cipher } from "../vault/cipher.js";
 import { masterKey } from "../vault/master-key.js";
 
@@ -37,6 +38,8 @@ export class Store {
   readonly settings: SettingsRepository;
   /** Scheduled tasks (A58). */
   readonly tasks: TaskRepository;
+  /** Ports Bots published from their sandboxes (A74). */
+  readonly ports: PortRepository;
   readonly secrets: SecretRepository;
   /** Seals secrets and model credentials under the master key (A52). */
   readonly cipher: Cipher;
@@ -62,6 +65,7 @@ export class Store {
     this.environments = new EnvironmentRepository(this.db, this.cipher, ownerId);
     this.settings = new SettingsRepository(this.db);
     this.tasks = new TaskRepository(this.db, this.chats.inbox);
+    this.ports = new PortRepository(this.db);
     this.secrets = new SecretRepository(this.db, this.cipher, ownerId);
     this.agent.ensure();
   }

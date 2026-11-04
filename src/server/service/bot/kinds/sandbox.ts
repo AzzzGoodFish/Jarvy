@@ -13,7 +13,7 @@ export const sandbox: EnvironmentKindEntry = {
   connects: false,
   summary: (record, botId) => record.botId === botId ? "own sandbox" : "another Bot's sandbox",
   describe: (record, botId, deps) => ({ state: deps.computers.status(record.botId ?? botId)?.state ?? "stopped" }),
-  about: (_record, _botId, deps) => "A Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox, and /workspace, your home there, is kept when it is reset." +
+  about: (_record, _botId, deps) => "A Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox, and /workspace, your home there, is kept when it is reset. Other Bots' sandboxes can't be reached from it; services of this machine that listen on all its addresses are at host.docker.internal. To show a web service of yours to people or other Bots, publish its port with ports.publish." +
     (deps.computers.available ? "" : " This machine has no Docker yet, so your file and command tools are unavailable here; your chat tools work as usual."),
   signature: record => record.id,
 };

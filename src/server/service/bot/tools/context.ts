@@ -4,6 +4,7 @@ import type { EnvironmentRecord } from "../../../shared/environment.js";
 import type { ChatService } from "../../chat/service.js";
 import type { ChatFiles } from "../../chat/files.js";
 import type { TaskService } from "../../tasks.js";
+import type { PublishedPorts } from "../ports.js";
 import type { OutgoingMessage, SentMessage, Memory, Workspace } from "../contracts.js";
 import type { RosterEntry } from "../roster.js";
 import type { AgentOps } from "../agent.js";
@@ -21,6 +22,8 @@ export interface ToolScope {
   secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
   /** Scheduled tasks (A58): the Bot manages its own. */
   tasks: TaskService;
+  /** Ports published from sandboxes (A74): the Bot publishes its own. */
+  ports: PublishedPorts;
   asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps;
 }
 type Send = (chatId: string, message: OutgoingMessage) => Promise<SentMessage>;

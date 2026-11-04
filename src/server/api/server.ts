@@ -14,36 +14,39 @@ export interface JarvyServer {
 /** This machine's own addresses, looked up again at most once a minute: a tool here that uses the LAN address still
  * talks to Jarvy from this machine. */
 let own = { at: 0, addresses: new Set<string>() };
-function fromThisMachine(address = ""): boolean {
+export function fromThisMachine(address = ""): boolean {
   const plain = address.replace(/^::ffff:/, "");
   if (/^127\./.test(plain) || plain === "::1") return true;
   if (Date.now() - own.at > 60_000) own = { at: Date.now(), addresses: new Set(Object.values(networkInterfaces()).flatMap(list => (list ?? []).map(item => item.address))) };
   return own.addresses.has(plain);
 }
 
-/** Jarvy's HTTP server. With a certificate (A51) one port serves both protocols: the first byte of a connection tells
- * a TLS handshake (0x16) from plain HTTP. Plain HTTP from another machine is redirected to HTTPS at the same address
- * unless the owner allows it; from this machine, by any of its addresses, it is always served. */
-export function createJarvyServer(services: ApiServices, webRoot: string, tls: { key: string; cert: string } | null): JarvyServer {
-  const app = createHttpApp(services, webRoot);
-  // HTTP/1 bindings are supplied by node:http. Keep Pi's global Fetch objects untouched.
-  const handle = getRequestListener((request, bindings) => app.fetch(request, bindings as HttpBindings), { overrideGlobalObjects: false });
+type Upgrade = (request: IncomingMessage, socket: Socket, head: Buffer) => void;
+/** One port for both protocols (A51): with a certificate the first byte of a connection tells a TLS handshake (0x16)
+ * from plain HTTP, and each goes to its server; without one it is plain HTTP only. Both hand requests to `serve`,
+ * and upgrades (WebSockets) to `upgrade` when given. */
+export function dualProtocol(tls: { key: string; cert: string } | null, serve: (request: IncomingMessage, response: ServerResponse) => void, upgrade?: Upgrade): JarvyServer {
   // No overall limit on how long a request may take: an upload of gigabytes needs as long as the link takes, and its
   // route cuts it off when it stops moving instead (A66). Headers still have to arrive within Node's 60 seconds.
   const options = { requestTimeout: 0 };
-  const plain = createServer(options, (request: IncomingMessage, response: ServerResponse) => {
-    if (tls && !fromThisMachine(request.socket.remoteAddress) && !services.connection.allowHttp()) {
-      response.writeHead(308, { Location: `https://${request.headers.host ?? ""}${request.url ?? "/"}`, "Cache-Control": "no-store" }).end();
-      return;
-    }
-    void handle(request, response);
-  });
-  if (!tls) return {
-    listen: (port, host) => new Promise((resolve, reject) => { plain.once("error", reject); plain.listen(port, host, () => { plain.off("error", reject); resolve(); }); }),
-    close: () => { plain.close(); plain.closeAllConnections(); },
-  };
-  const secure = createSecureServer({ ...options, key: tls.key, cert: tls.cert }, (request, response) => void handle(request, response));
+  const plain = createServer(options, serve);
+  if (upgrade) plain.on("upgrade", upgrade);
+  // Every connection it took, kept-alive and upgraded ones too, so closing ends them: closeAllConnections() knows
+  // only those of a server that listens itself, and none that were upgraded.
+  const sockets = new Set<Socket>();
+  const track = (socket: Socket) => { sockets.add(socket); socket.once("close", () => sockets.delete(socket)); };
+  const drop = () => { for (const socket of sockets) socket.destroy(); sockets.clear(); };
+  if (!tls) {
+    plain.on("connection", track);
+    return {
+      listen: (port, host) => new Promise((resolve, reject) => { plain.once("error", reject); plain.listen(port, host, () => { plain.off("error", reject); resolve(); }); }),
+      close: () => { plain.close(); drop(); },
+    };
+  }
+  const secure = createSecureServer({ ...options, key: tls.key, cert: tls.cert }, serve);
+  if (upgrade) secure.on("upgrade", upgrade);
   const front = createListener({ pauseOnConnect: true }, (socket: Socket) => {
+    track(socket);
     socket.on("error", () => socket.destroy());
     // A connection that never says anything (browsers open some ahead of time) is dropped after a while.
     socket.setTimeout(60_000, () => socket.destroy());
@@ -57,6 +60,26 @@ export function createJarvyServer(services: ApiServices, webRoot: string, tls: {
   });
   return {
     listen: (port, host) => new Promise((resolve, reject) => { front.once("error", reject); front.listen(port, host, () => { front.off("error", reject); resolve(); }); }),
-    close: () => { front.close(); plain.closeAllConnections(); secure.closeAllConnections(); },
+    close: () => { front.close(); drop(); },
   };
+}
+export const encrypted = (request: IncomingMessage) => !!(request.socket as { encrypted?: boolean }).encrypted;
+/** Plain HTTP from another machine goes to HTTPS at the same address, unless the owner allows it; from this machine,
+ * by any of its addresses, it is always served. */
+export function redirectsToHttps(request: IncomingMessage, tls: unknown, allowHttp: () => boolean): boolean {
+  return !!tls && !encrypted(request) && !fromThisMachine(request.socket.remoteAddress) && !allowHttp();
+}
+export function redirectToHttps(request: IncomingMessage, response: ServerResponse): void {
+  response.writeHead(308, { Location: `https://${request.headers.host ?? ""}${request.url ?? "/"}`, "Cache-Control": "no-store" }).end();
+}
+
+/** Jarvy's HTTP server, on one port for both protocols (A51). */
+export function createJarvyServer(services: ApiServices, webRoot: string, tls: { key: string; cert: string } | null): JarvyServer {
+  const app = createHttpApp(services, webRoot);
+  // HTTP/1 bindings are supplied by node:http. Keep Pi's global Fetch objects untouched.
+  const handle = getRequestListener((request, bindings) => app.fetch(request, bindings as HttpBindings), { overrideGlobalObjects: false });
+  return dualProtocol(tls, (request, response) => {
+    if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { redirectToHttps(request, response); return; }
+    void handle(request, response);
+  });
 }

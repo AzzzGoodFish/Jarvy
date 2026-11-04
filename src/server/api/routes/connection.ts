@@ -13,12 +13,14 @@ export function rootCertificateRoute(connection: ApiServices["connection"]) {
   });
   return routes;
 }
-/** How Jarvy is reached and whether plain HTTP from other machines is allowed (Settings → General). */
+/** How Jarvy is reached, whether plain HTTP from other machines is allowed, and the ports published ones take (A74)
+ * (Settings → General). Each field is changed alone. */
 export function connectionRoutes(connection: ApiServices["connection"]) {
   const routes = new Hono<ApiEnv>();
   routes.get("/connection", c => c.json(connection.info()));
   routes.put("/connection", jsonBody, async c => {
     const input = await readJson(c);
+    if (input.ports !== undefined) return c.json(connection.setPortRange(input.ports));
     if (typeof input.allowHttp !== "boolean") throw new HTTPException(400, { message: "allowHttp must be true or false" });
     return c.json(connection.setAllowHttp(input.allowHttp));
   });

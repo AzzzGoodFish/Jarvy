@@ -39,7 +39,7 @@ export class BotRepository {
       UNION ALL SELECT 1 FROM bots WHERE lower(name)=lower(:name) AND id<>:except AND deleted_at IS NULL LIMIT 1`).get({ name, except: exceptBotId ?? "" });
   }
   /** Deletes a Bot: its DMs (with anyone), channel memberships and states, queued deliveries,
-   * notices and session row go; the member row stays, marked deleted, so messages it left in channels keep their
+   * notices, session row and published ports go; the member row stays, marked deleted, so messages it left in channels keep their
    * author, and its name is free again. Files are the caller's (BotService). */
   delete(id: string): boolean {
     if (!this.get(id)) return false;
@@ -52,6 +52,7 @@ export class BotRepository {
       this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE bot_id=?").run(id);
       this.db.prepare("DELETE FROM secret_grants WHERE bot_id=?").run(id);
+      this.db.prepare("DELETE FROM published_ports WHERE bot_id=?").run(id);
     });
     return true;
   }

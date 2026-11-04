@@ -23,6 +23,8 @@ export interface ContainerSpec {
   daemonDir: string;
   uid: number; gid: number;
   labels: Record<string, string>;
+  /** The network it joins instead of Docker's default bridge (A74), and names it resolves, such as the host's. */
+  network?: string; hosts?: Record<string, string>;
 }
 
 function docker(args: string[], timeoutMs = 60_000): Promise<string> {
@@ -99,6 +101,7 @@ export async function containerState(name: string): Promise<ContainerState> {
 export async function runContainer(spec: ContainerSpec): Promise<void> {
   await docker(["run", "-d", "--name", spec.name, "--init", "--user", `${spec.uid}:${spec.gid}`, "--shm-size", "1g",
     ...Object.entries(spec.labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
+    ...(spec.network ? ["--network", spec.network] : []), ...Object.entries(spec.hosts ?? {}).flatMap(([name, address]) => ["--add-host", `${name}:${address}`]),
     "-v", `${spec.workspace}:${COMPUTER_CWD}`, "-v", `${spec.daemonDir}:${DAEMON_DIR}:ro`, "-w", COMPUTER_CWD,
     spec.image, "sleep", "infinity"], 120_000);
 }
@@ -135,4 +138,60 @@ export async function syncDaemon(dir: string): Promise<void> {
 export function containerEnvironment(id: string, container: string, log: (text: string) => void): WorkEnvironment {
   const connection = new Connection({ command: ["docker", "exec", "-i", container, `${DAEMON_DIR}/pi-env`], onLog: text => log(text.trim()) });
   return overDurable(id, "computer", new RemoteExecutionEnv({ connection, id, cwd: COMPUTER_CWD }), { passEnv: false, close: () => connection.close() });
+}
+
+/** The bridge network a data directory's containers share (A74): they reach this machine and beyond, but not each
+ * other, since inter-container traffic is off on it. Made when missing; returns its gateway, this machine's address
+ * there. */
+export async function ensureNetwork(name: string, labels: Record<string, string>): Promise<string> {
+  const gateway = () => docker(["network", "inspect", "--format", "{{range .IPAM.Config}}{{.Gateway}} {{end}}", name]).then(out => out.split(" ").find(Boolean) ?? "");
+  try { return await gateway(); }
+  catch (error) { if (!/not found|no such network/i.test((error as Error).message)) throw error; }
+  try {
+    await docker(["network", "create", "--driver", "bridge", "--opt", "com.docker.network.bridge.enable_icc=false",
+      ...Object.entries(labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]), name]);
+  } catch (error) { if (!/already exists/i.test((error as Error).message)) throw error; }
+  return gateway();
+}
+/** The networks every container with this label is on, by name, running or not. */
+export async function containerNetworks(label: string): Promise<Map<string, string[]>> {
+  const out = await docker(["ps", "-a", "--filter", `label=${label}`, "--format", "{{.Names}}\t{{.Networks}}"]);
+  return new Map(out.split("\n").filter(Boolean).map(line => { const [name, nets = ""] = line.split("\t"); return [name!, nets.split(",").filter(Boolean)]; }));
+}
+/** The address of each running container on a network, by name. */
+export async function networkAddresses(network: string): Promise<Map<string, string>> {
+  const out = await docker(["network", "inspect", "--format", "{{range .Containers}}{{.Name}}={{.IPv4Address}} {{end}}", network]);
+  return new Map(out.split(" ").filter(Boolean).map(entry => { const [name, address = ""] = entry.split("="); return [name!, address.split("/")[0]!]; }));
+}
+/** Moves a container, running or not, from Docker's default bridge to `network`; its address changes. */
+export async function moveToNetwork(container: string, network: string): Promise<void> {
+  await docker(["network", "connect", network, container]).catch(error => { if (!/already exists|already attached/i.test((error as Error).message)) throw error; });
+  await docker(["network", "disconnect", "bridge", container]).catch(error => { if (!/not connected/i.test((error as Error).message)) throw error; });
+}
+/** Lets a running container made before `hosts` existed resolve a name, as `--add-host` does for new ones. Docker
+ * writes /etc/hosts again when the container starts, so this is redone after each start. */
+export async function addHost(container: string, name: string, address: string): Promise<void> {
+  await docker(["exec", "-u", "root", container, "sh", "-c", `grep -q '[[:space:]]${name}$' /etc/hosts || printf '%s\\t%s\\n' '${address}' '${name}' >> /etc/hosts`], 30_000);
+}
+/** The TCP ports something listens on in a running container, each with whether every listener is on loopback only
+ * (127.0.0.0/8, ::1), which nothing outside the container reaches. Read from /proc, as the image may lack `ss`. */
+export async function listeningPorts(container: string): Promise<Map<number, { loopbackOnly: boolean }>> {
+  const out = await docker(["exec", container, "sh", "-c", "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null"], 30_000);
+  const ports = new Map<number, { loopbackOnly: boolean }>();
+  for (const line of out.split("\n")) {
+    const fields = line.trim().split(/\s+/);
+    if (fields[3] !== "0A") continue;
+    const [address, hex] = (fields[1] ?? "").split(":");
+    if (!address || !hex) continue;
+    const port = parseInt(hex, 16), loopback = loopbackAddress(address);
+    const known = ports.get(port);
+    ports.set(port, { loopbackOnly: (known?.loopbackOnly ?? true) && loopback });
+  }
+  return ports;
+}
+/** A /proc/net address in hex: IPv4 as one little-endian word, IPv6 as four. */
+function loopbackAddress(hex: string): boolean {
+  if (hex.length === 8) return hex.slice(6, 8) === "7F";
+  if (hex === "00000000000000000000000001000000") return true;
+  return hex.startsWith("0000000000000000FFFF0000") && hex.slice(30, 32) === "7F";
 }

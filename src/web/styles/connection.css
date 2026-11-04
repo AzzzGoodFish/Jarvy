@@ -28,3 +28,6 @@
 .jv-insecure > svg { flex: none; width: 16px; height: 16px; }
 .jv-insecure > span { min-width: 0; }
 .jv-insecure > a { flex: none; margin-left: auto; font-weight: 600; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+/* The range of ports published ones take (A74): two numbers side by side. */
+.jv-conn-ports { display: flex; flex-direction: column; gap: 10px; }
+.jv-conn-range { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 12px; }

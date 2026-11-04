@@ -1,6 +1,7 @@
 import type { Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
+import type { PortRange, PublishedPort } from "../contract/ports";
 import type { HostKeys, SshMachine } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
@@ -139,6 +140,9 @@ export const api = {
   /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */
   connection: () => request<ConnectionInfo>("/connection"),
   setConnection: (allowHttp: boolean) => request<ConnectionInfo>("/connection", { method: "PUT", body: body({ allowHttp }) }),
+  setPortRange: (ports: PortRange) => request<ConnectionInfo>("/connection", { method: "PUT", body: body({ ports }) }),
+  ports: (botId: string) => request<{ ports: PublishedPort[] }>(`/bots/${botId}/ports`),
+  unpublishPort: (botId: string, port: number) => request<{ ok: boolean }>(`/bots/${botId}/ports/${port}`, { method: "DELETE" }),
   /** The owner's secrets (A52); values go in and never come back. */
   secrets: () => request<{ secrets: Secret[]; keyLocation: string }>("/secrets"),
   createSecret: (input: { name: string; description: string; value: string }) => request<Secret>("/secrets", { method: "POST", body: body(input) }),
