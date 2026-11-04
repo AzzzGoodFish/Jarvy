@@ -574,3 +574,15 @@ A Bot that builds a web app runs it in its sandbox, where nobody else can open i
 - **Not**: Docker's own port publishing (fixed at creation, open to the whole LAN without sign-in), a path prefix under Jarvy's port, or reaching the host's localhost-only services from a sandbox (a later grant, the other way round).
 
 Why: the Bot's work should be one link away for the people it works with and for the Bots it works beside, without opening the sandbox to the network or handing the app the owner's session.
+
+## A75 The owner can limit what a sandbox uses
+
+A sandbox is a container with nothing set but its shared memory: it takes what it uses, reserves nothing, and can take the whole machine. One Bot's runaway build, leak or fork loop then slows the other Bots, Jarvy and whatever else runs there, and when memory runs out the kernel ends a process anywhere, not necessarily in that sandbox.
+
+- **What**: each sandbox may have a memory limit (bytes, from 256 MB to the machine's memory) and a CPU limit (cores, from 0.1 to its CPU count); neither is set by default, which is the sandbox as before. A limit caps and reserves nothing, so a sandbox under it still takes only what it uses. Over the memory limit the kernel ends the sandbox's largest processes and nothing outside it; swap is limited with memory, so it can't be got around. Over the CPU limit it only runs slower. Not the number of processes (too technical to offer the owner) nor disk (Docker caps a container's disk only on xfs with project quotas).
+- **Where**: Bot info's sandbox has a Resource limits row, saying no limits or each limit, and while it runs its usage now (`docker stats`, read again every ten seconds); the row opens a form in place, a field left empty for no limit, with the machine's CPUs and memory beside it. Memory below what is in use warns first, since the kernel then ends programs at once. `PUT /bots/:id/computer/limits {memory, cpus}`, `GET /bots/:id/computer/resources`.
+- **Taking effect**: kept with the computer's connection (`environments.connection`, no schema change). A container that exists changes at once, running or stopped, without a restart; one made later, after a reset too, is created with them. Docker can't take a limit off a container, so taking one off there sets it to the whole machine (all its CPUs; its memory with as much swap again), which is no limit in practice, and the next container made has none.
+- **Telling the Bot**: with a limit set, the sandbox's line in `environments.list` and what a switch to it says name it, and that a process taking more memory is ended, so a Bot whose program was killed knows why. The system prompt doesn't change.
+- **Not yet**: a VM sandbox's memory and CPUs are fixed when it starts; they come with that kind of sandbox.
+
+Why: the owner should be able to keep one Bot from taking the machine from the rest, without anything changing for those who don't.

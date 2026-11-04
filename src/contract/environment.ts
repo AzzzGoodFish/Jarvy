@@ -26,7 +26,16 @@ export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "un
 export interface ComputerStatus { state: ComputerState; error?: string }
 /** A Bot's sandbox in Bot info: its state, and what it is: the container's name, the image it is made from, and the
  * folder on this machine mounted as its workspace. */
-export interface ComputerInfo extends ComputerStatus { container: string; image: string; workspace: string; mount: string }
+export interface ComputerInfo extends ComputerStatus { container: string; image: string; workspace: string; mount: string; limits: ComputerLimits }
+/** What a sandbox may use at most (A75): memory in bytes, CPUs in cores; null is no limit. A limit caps and reserves
+ * nothing, so a sandbox under it takes only what it uses. */
+export interface ComputerLimits { memory: number | null; cpus: number | null }
+/** What a running sandbox uses now: memory in bytes, and CPU in percent of one core, so over 100 with several. */
+export interface ComputerUsage { memory: number; cpu: number }
+/** This machine's CPUs and memory in bytes, as Docker sees them: what limits may go up to. */
+export interface ComputerCapacity { cpus: number; memory: number }
+/** Bot info's view of a sandbox's resources: its usage when it runs, and this machine's capacity when Docker answers. */
+export interface ComputerResources { usage: ComputerUsage | null; capacity: ComputerCapacity | null }
 /** Where a Bot works, for the interface: whether it is in its own sandbox or on an SSH machine (and that machine's
  * name), its sandbox, and the machines its owner lets it use. */
 export interface BotPlacement { current: EnvironmentKind; currentName?: string; computer: ComputerInfo | null; docker: boolean;

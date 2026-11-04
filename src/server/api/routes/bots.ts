@@ -21,6 +21,12 @@ export function botRoutes(bots: ApiServices["bots"]) {
     if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
     return c.json(bots.grantMachine(id, input.machineId, input.granted));
   });
+  // What the sandbox may use at most (A75): memory in bytes and CPUs in cores, null for no limit.
+  routes.put("/:id/computer/limits", jsonBody, async c => {
+    const input = await readJson(c);
+    return c.json(await bots.setComputerLimits(c.req.param("id"), { memory: input.memory, cpus: input.cpus }));
+  });
+  routes.get("/:id/computer/resources", async c => c.json(await bots.computerResources(c.req.param("id"))));
   routes.post("/:id/computer/:action", async c => {
     const action = c.req.param("action");
     if (action !== "start" && action !== "stop" && action !== "reset") throw new HTTPException(404, { message: "Not found" });

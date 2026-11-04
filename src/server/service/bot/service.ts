@@ -201,6 +201,14 @@ export class BotService {
     }
     return this.describe(id);
   }
+  /** What the sandbox may use at most (A75); returns the Bot with them. */
+  async setComputerLimits(id: string, limits: { memory: unknown; cpus: unknown }) {
+    this.describe(id);
+    await this.computers.setLimits(id, limits);
+    return this.describe(id);
+  }
+  /** What the sandbox uses now, and this machine's size. */
+  computerResources(id: string) { this.describe(id); return this.computers.resources(id); }
   describe(id: string) { return this.details(this.record(id)); }
   runs(id: string) { this.describe(id); return this.deps.store.runtime.runs(id); }
   activity(id: string, before?: ActivityCursor, limit = 40) {

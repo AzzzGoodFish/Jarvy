@@ -40,6 +40,15 @@ export class EnvironmentRepository {
       .run(id, this.ownerId(), JSON.stringify({ container }), botId, Date.now());
     return this.get(id)!;
   }
+  /** Keeps a computer's limits (A75) with how it is reached: memory in bytes and CPUs in cores, each left out when
+   * there is none. */
+  setLimits(id: string, limits: { memory: number | null; cpus: number | null }): void {
+    const computer = this.get(id);
+    if (computer?.kind !== "computer") return;
+    const { memory: _memory, cpus: _cpus, ...spec } = computer.spec;
+    this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
+      ...(limits.memory !== null ? { memory: String(limits.memory) } : {}), ...(limits.cpus !== null ? { cpus: String(limits.cpus) } : {}) }), id);
+  }
   /** The Bot is deleted, and its computer with it. Its row stays its home, deleted, so what reads a deleted Bot's
    * placement still finds one. */
   dropComputer(botId: string): void {

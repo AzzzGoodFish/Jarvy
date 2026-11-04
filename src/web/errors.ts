@@ -18,7 +18,7 @@ const ERROR_KEYS: Record<ErrorCode, Key> = {
   ssh_bad_user: "error.sshBadUser", ssh_failed: "error.sshFailed", ssh_host_key_changed: "error.sshHostKeyChanged", ssh_key_unreadable: "error.sshKeyUnreadable",
   ssh_password_missing: "error.sshPasswordMissing", ssh_unreachable: "error.sshUnreachable", ssh_unsupported: "error.sshUnsupported",
   ssh_password_refused: "error.sshPasswordRefused", ssh_key_refused: "error.sshKeyRefused", ssh_key_expired: "error.sshKeyExpired",
-  history_missing: "error.historyMissing", invalid_credential: "error.invalidCredential", invalid_run: "error.invalidRun",
+  history_missing: "error.historyMissing", invalid_credential: "error.invalidCredential", invalid_run: "error.invalidRun", limits_invalid: "error.limitsInvalid",
   login_input: "error.loginInput", login_option: "error.loginOption", login_step: "error.loginStep",
   message_missing: "error.messageMissing", model_incomplete: "error.modelIncomplete", model_missing: "error.modelMissing",
   model_request_failed: "error.modelRequestFailed", model_required: "error.modelRequired", model_switch_uncertain: "error.modelSwitchUncertain",
