@@ -25,7 +25,13 @@ export interface ContainerSpec {
   labels: Record<string, string>;
   /** The network it joins instead of Docker's default bridge (A74), and names it resolves, such as the host's. */
   network?: string; hosts?: Record<string, string>;
+  /** What it may use at most (A75); none when absent. */
+  limits?: ResourceLimits;
 }
+/** Memory in bytes and CPUs in cores; null is no limit. */
+export interface ResourceLimits { memory: number | null; cpus: number | null }
+/** A machine's CPUs and memory in bytes. */
+export interface Capacity { cpus: number; memory: number }
 
 function docker(args: string[], timeoutMs = 60_000): Promise<string> {
   return new Promise((resolve, reject) => execFile("docker", args, { timeout: timeoutMs, maxBuffer: 8 << 20 }, (error, stdout, stderr) => {
@@ -102,8 +108,37 @@ export async function runContainer(spec: ContainerSpec): Promise<void> {
   await docker(["run", "-d", "--name", spec.name, "--init", "--user", `${spec.uid}:${spec.gid}`, "--shm-size", "1g",
     ...Object.entries(spec.labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
     ...(spec.network ? ["--network", spec.network] : []), ...Object.entries(spec.hosts ?? {}).flatMap(([name, address]) => ["--add-host", `${name}:${address}`]),
+    ...(spec.limits?.memory ? memoryFlags(spec.limits.memory, spec.limits.memory) : []), ...(spec.limits?.cpus ? ["--cpus", String(spec.limits.cpus)] : []),
     "-v", `${spec.workspace}:${COMPUTER_CWD}`, "-v", `${spec.daemonDir}:${DAEMON_DIR}:ro`, "-w", COMPUTER_CWD,
     spec.image, "sleep", "infinity"], 120_000);
+}
+/** Memory and swap together: swap equal to memory leaves the container none, so a limit can't be got around. */
+const memoryFlags = (memory: number, withSwap: number) => ["--memory", String(memory), "--memory-swap", String(withSwap)];
+/** Changes the limits given, of a container running or not, at once (A75). Docker can't take a limit off a container,
+ * so no limit there is the whole machine: all its CPUs, and its memory with as much swap again. Memory below what the
+ * container uses makes the kernel end its largest processes. */
+export async function updateLimits(name: string, change: Partial<ResourceLimits>, machine: Capacity): Promise<void> {
+  const args = [...(change.memory === undefined ? [] : change.memory ? memoryFlags(change.memory, change.memory) : memoryFlags(machine.memory, machine.memory * 2)),
+    ...(change.cpus === undefined ? [] : ["--cpus", String(change.cpus ?? machine.cpus)])];
+  if (args.length) await docker(["update", ...args, name], 60_000);
+}
+/** The CPUs and memory of the machine Docker runs on. */
+export async function dockerCapacity(): Promise<Capacity> {
+  const [cpus, memory] = (await docker(["info", "--format", "{{.NCPU}} {{.MemTotal}}"], 15_000)).split(" ").map(Number);
+  if (!cpus || !memory) throw Object.assign(new Error("docker info gave no CPUs or memory"), { code: "docker_failed" });
+  return { cpus, memory };
+}
+/** What a running container uses now: memory in bytes, as `docker stats` counts it (without the reclaimable cache), and
+ * CPU in percent of one core. Takes a second or two, as Docker samples the CPU twice. */
+export async function containerUsage(name: string): Promise<{ memory: number; cpu: number }> {
+  const [cpu = "", memory = ""] = (await docker(["stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemUsage}}", name], 30_000)).split("\t");
+  return { cpu: parseFloat(cpu) || 0, memory: sizeBytes(memory.split("/")[0] ?? "") };
+}
+const UNITS: Record<string, number> = { b: 1, kib: 2 ** 10, mib: 2 ** 20, gib: 2 ** 30, tib: 2 ** 40, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
+/** A size as Docker prints it, such as `421.5MiB`. */
+function sizeBytes(text: string): number {
+  const match = /^\s*([\d.]+)\s*([a-z]+)\s*$/i.exec(text);
+  return match ? Math.round(parseFloat(match[1]!) * (UNITS[match[2]!.toLowerCase()] ?? 1)) : 0;
 }
 export async function startContainer(name: string): Promise<void> { await docker(["start", name], 60_000); }
 /** Makes the workspace the `bot` user's home, as current images are built: a container from an older image

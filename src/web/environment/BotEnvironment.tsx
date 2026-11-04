@@ -5,6 +5,7 @@ import { type Bot } from "../../contract/bots";
 import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
 import { useAction } from "../action";
+import { SandboxLimits } from "./SandboxLimits";
 import "../styles/environment.css";
 
 const STATE = {
@@ -13,7 +14,7 @@ const STATE = {
 } as const;
 
 /** Bot info's section (A50, A68), in two parts. Its Docker sandbox, the only default there is: its state,
- * the container, image and mount it is made of, Start or Stop and Reset, and where the Bot is when it switched to a
+ * the container, image and mount it is made of, its resource limits and usage (A75), Start or Stop and Reset, and where the Bot is when it switched to a
  * machine. Then the external environments it may switch to, the SSH machines (A57), each with a switch; with none yet,
  * a row to add one in Settings. */
 export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSaved: (bot: Bot) => void; onAddMachine: () => void }) {
@@ -35,6 +36,7 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.container")}</span><code>{computer.container}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
+      {state !== "unavailable" && <SandboxLimits bot={bot} onSaved={onSaved}/>}
       <div className="jv-list-row jv-static-row jv-env-details">
         {/* The state says the rest; only a missing Docker needs words: what to do about it. */}
         {state === "unavailable" ? <p>{t("environment.unavailable")}</p> : !confirming && <div className="jv-env-actions">

@@ -20,3 +20,11 @@
 .jv-env-access[aria-checked="true"] .jv-env-switch { background: var(--ui-fill-control-checked); box-shadow: none; }
 .jv-env-access[aria-checked="true"] .jv-env-switch::after { transform: translateX(14px); }
 .jv-env-access:disabled { cursor: progress; opacity: .7; }
+/* Resource limits (A75): a row that opens its form in place, and what the sandbox uses now. */
+.jv-env-fact > .jv-env-value { flex: 1; min-width: 0; text-align: right; color: var(--jv-text); overflow-wrap: anywhere; }
+.jv-env-limits .jv-row-chevron { flex: none; width: 14px; height: 14px; margin-left: -4px; transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-env-limits[aria-expanded="true"] .jv-row-chevron { transform: rotate(90deg); }
+.jv-env-limits-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--jv-line); border-radius: 10px; }
+.jv-env-limits-form > p { margin: 0; font-size: 13px; line-height: 1.5; }
+.jv-env-limit-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.jv-env-warn { color: var(--ui-text-warning); }

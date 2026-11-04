@@ -2,17 +2,25 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { Store } from "../../infra/storage/store.js";
 import {
-  COMPUTER_CWD, addHost, buildImage, computerImage, containerEnvironment, containerNetworks, containerState, containerStates, dockerAvailable,
-  ensureNetwork, homeAtWorkspace, imageExists, listeningPorts, moveToNetwork, networkAddresses, pruneImages, removeContainer, runContainer,
-  startContainer, stopContainer, syncDaemon,
+  COMPUTER_CWD, addHost, buildImage, computerImage, containerEnvironment, containerNetworks, containerState, containerStates, containerUsage,
+  dockerAvailable, dockerCapacity, ensureNetwork, homeAtWorkspace, imageExists, listeningPorts, moveToNetwork, networkAddresses, pruneImages,
+  removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity,
 } from "../../infra/env/docker.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
-import type { ComputerInfo, ComputerStatus } from "../../../contract/environment.js";
+import type { ComputerInfo, ComputerLimits, ComputerResources, ComputerStatus } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
+import { ValidationError } from "../../shared/errors.js";
 
 const SWEEP_MS = 60_000;
 /** The name sandboxes reach this machine by (A74), as Docker Desktop calls it. */
 export const HOST_NAME = "host.docker.internal";
+/** The least a limit may be (A75): less leaves too little for the tools' own daemon. */
+const MIN_MEMORY = 256 * 2 ** 20, MIN_CPUS = 0.1;
+/** A computer's limits as kept with it (A75); none when absent. */
+export function computerLimits(record: EnvironmentRecord): ComputerLimits {
+  const read = (value: string | undefined) => value && Number(value) > 0 ? Number(value) : null;
+  return { memory: read(record.spec.memory), cpus: read(record.spec.cpus) };
+}
 
 export interface ComputerDependencies {
   store: Store;
@@ -41,6 +49,8 @@ export class Computers {
   private network: { name: string; gateway: string } | null = null;
   /** Running containers' addresses, by name, as last read. */
   private book: { at: number; byName: Map<string, string> } | null = null;
+  /** This machine's CPUs and memory, asked of Docker once. */
+  private machine: Promise<Capacity> | null = null;
   private readonly dataDir: string;
   /** Tells this Jarvy's containers from those of other data directories on the same Docker. */
   private readonly tag: string;
@@ -78,7 +88,31 @@ export class Computers {
   info(botId: string): ComputerInfo | null {
     const computer = this.deps.store.environments.computerOf(botId), status = this.status(botId);
     if (!computer || !status) return null;
-    return { ...status, container: computer.spec.container!, image: computerImage(this.uid, this.gid), workspace: this.workspace(botId), mount: COMPUTER_CWD };
+    return { ...status, container: computer.spec.container!, image: computerImage(this.uid, this.gid), workspace: this.workspace(botId), mount: COMPUTER_CWD,
+      limits: computerLimits(computer) };
+  }
+  /** What the sandbox uses now, when it runs, and what this machine has; null for what Docker doesn't answer. */
+  async resources(botId: string): Promise<ComputerResources> {
+    const computer = this.need(botId);
+    const usage = this.status(botId)?.state === "running" ? await containerUsage(computer.spec.container!).catch(() => null) : null;
+    return { usage, capacity: await this.capacity().catch(() => null) };
+  }
+  /** Sets what the sandbox may use at most (A75): a container that exists changes at once, running or not, and one made
+   * later, after a reset too, starts with them. Each is null for no limit, or from a floor up to this machine's size. */
+  async setLimits(botId: string, input: { memory: unknown; cpus: unknown }): Promise<void> {
+    const computer = this.need(botId), machine = await this.capacity();
+    const memory = limit(input.memory, MIN_MEMORY, machine.memory, 2 ** 20), cpus = limit(input.cpus, MIN_CPUS, machine.cpus, 0.01);
+    if (memory === undefined || cpus === undefined) throw new ValidationError("Limits are null or a number within this machine's size", "limits_invalid",
+      { memory: Math.floor(machine.memory / 2 ** 30 * 10) / 10, cpus: machine.cpus });
+    // Only what changed goes to the container: one never limited stays without limits.
+    const before = computerLimits(computer), change = { ...(memory !== before.memory ? { memory } : {}), ...(cpus !== before.cpus ? { cpus } : {}) };
+    if (Object.keys(change).length && await containerState(computer.spec.container!) !== "missing") await updateLimits(computer.spec.container!, change, machine);
+    this.deps.store.environments.setLimits(computer.id, { memory, cpus });
+    this.deps.changed();
+  }
+  private capacity(): Promise<Capacity> {
+    this.machine ??= dockerCapacity().catch(error => { this.machine = null; throw error; });
+    return this.machine;
   }
   /** Every Bot has its computer (A68): one restored or made without one, such as the agent Bot on a new installation,
    * gets it now. */
@@ -192,7 +226,7 @@ export class Computers {
         const image = await this.imageReady();
         const state = await containerState(container);
         if (state === "missing") await runContainer({ name: container, image, workspace: this.workspace(botId),
-          daemonDir: join(this.dataDir, "computers", "bin"), uid: this.uid, gid: this.gid, labels: { "jarvy.data": this.tag, "jarvy.bot": botId },
+          daemonDir: join(this.dataDir, "computers", "bin"), uid: this.uid, gid: this.gid, labels: { "jarvy.data": this.tag, "jarvy.bot": botId }, limits: computerLimits(computer),
           ...(this.network ? { network: this.network.name, hosts: { [HOST_NAME]: this.network.gateway } } : {}) });
         else if (state === "stopped") await startContainer(container);
         // Docker wrote its /etc/hosts afresh.
@@ -291,4 +325,12 @@ export class Computers {
     }
   }
   private log(text: string): void { (this.deps.log ?? console.log)(`[computers] ${text}`); }
+}
+
+/** A limit as asked: null for none; a number from `min` to `max`, rounded to `step`; undefined when it is neither. */
+function limit(value: unknown, min: number, max: number, step: number): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  const rounded = Math.round(value / step) * step;
+  return rounded >= min && rounded <= max ? Number(rounded.toFixed(2)) : undefined;
 }
