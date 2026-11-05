@@ -138,9 +138,8 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
         if (input.current.faceX === undefined || !(carried || motion === "sleep")) input.current.faceX = facing();
         // A little smaller than a still avatar, so a stretch or a lift never touches the edge.
         const face = rig.frame(now, input.current), zoom = .86;
-        live.draw(pixels, color.current, face, { zoom });
         if (out.width !== pixels) out.width = out.height = pixels; else paint.clearRect(0, 0, pixels, pixels);
-        paint.drawImage(live.canvas, 0, 0);
+        live.paint(paint, pixels, color.current, face, { zoom });
         if (crown.current) crownMark(paint, pixels, crownAt(face, zoom));
       }
       frame = requestAnimationFrame(tick);

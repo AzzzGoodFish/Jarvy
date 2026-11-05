@@ -217,15 +217,20 @@ export function crownAt(face: Face, zoom: number) {
 
 const hex = (h: number): [number, number, number] => [(h >> 16 & 255) / 255, (h >> 8 & 255) / 255, (h & 255) / 255];
 
+/** The shader decides each pixel with one ray, so a picture drawn at its own size has stair-steps along the silhouette
+ * and an outline thinner than a pixel that breaks into dots. The figure is drawn at least this wide instead and halved
+ * down to size: each half averages four pixels exactly, in any browser. */
+const SHARP = 256;
+
 export interface Figure {
-  canvas: HTMLCanvasElement;
-  draw(pixels: number, color: number, face: Face, options?: { shadow?: boolean; zoom?: number }): void;
+  /** Paints the figure into the top left `pixels` square of `target`, which the caller has cleared. */
+  paint(target: CanvasRenderingContext2D, pixels: number, color: number, face: Face, options?: { shadow?: boolean; zoom?: number }): void;
   /** Gives the WebGL context back at once, rather than when it is collected: browsers keep only a few. */
   dispose(): void;
 }
 
-/** One WebGL figure on its own canvas, drawn at any size: the canvas takes the size of each draw, so one context serves
- * every avatar. Draws are synchronous, so callers can read the canvas straight after. */
+/** One WebGL figure on its own canvas, painted at any size: the canvas takes the size of each draw, so one context serves
+ * every avatar. Paints are synchronous, so callers can read the target straight after. */
 export function makeFigure(): Figure | undefined {
   const canvas = document.createElement("canvas");
   const gl = canvas.getContext("webgl", { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
@@ -240,21 +245,34 @@ export function makeFigure(): Figure | undefined {
   const at = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at, 2, gl.FLOAT, false, 0, 0);
   const u = (name: string) => gl.getUniformLocation(prog, name);
   const ink = hex(0xffffff);
+  const halves = [document.createElement("canvas"), document.createElement("canvas")];
+  const draw = (pixels: number, color: number, face: Face, shadow: boolean, zoom: number) => {
+    if (canvas.width !== pixels) canvas.width = canvas.height = pixels;
+    gl.viewport(0, 0, pixels, pixels); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(u("uRes"), pixels, pixels); gl.uniform3fv(u("uColor"), hex(color)); gl.uniform3fv(u("uInk"), ink);
+    gl.uniform2fv(u("uLook"), face.look);
+    for (const [name, value] of [["uSquash", face.squash], ["uEarL", face.earL], ["uEarR", face.earR], ["uOpen", face.open],
+      ["uHappy", face.happy], ["uTilt", face.tilt], ["uLift", face.lift], ["uKind", face.kind], ["uEyeScale", face.eyeScale],
+      ["uLid", face.lid], ["uLidTilt", face.lidTilt], ["uSmile", face.smile], ["uBlush", face.blush], ["uMouth", face.mouth],
+      ["uMouthOpen", face.mouthOpen], ["uYaw", -face.yaw]] as const) gl.uniform1f(u(name), value);
+    for (const [name, value] of Object.entries(BODY)) gl.uniform1f(u("u" + name[0]!.toUpperCase() + name.slice(1)), value);
+    gl.uniform1f(u("uZoom"), zoom); gl.uniform1f(u("uShadow"), shadow ? 1 : 0);
+    gl.uniform1f(u("uLit"), LIGHT.lit); gl.uniform1f(u("uRim"), LIGHT.rim);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
   return {
-    canvas,
-    draw(pixels, color, face, { shadow = true, zoom = .9 } = {}) {
-      if (canvas.width !== pixels) canvas.width = canvas.height = pixels;
-      gl.viewport(0, 0, pixels, pixels); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.uniform2f(u("uRes"), pixels, pixels); gl.uniform3fv(u("uColor"), hex(color)); gl.uniform3fv(u("uInk"), ink);
-      gl.uniform2fv(u("uLook"), face.look);
-      for (const [name, value] of [["uSquash", face.squash], ["uEarL", face.earL], ["uEarR", face.earR], ["uOpen", face.open],
-        ["uHappy", face.happy], ["uTilt", face.tilt], ["uLift", face.lift], ["uKind", face.kind], ["uEyeScale", face.eyeScale],
-        ["uLid", face.lid], ["uLidTilt", face.lidTilt], ["uSmile", face.smile], ["uBlush", face.blush], ["uMouth", face.mouth],
-        ["uMouthOpen", face.mouthOpen], ["uYaw", -face.yaw]] as const) gl.uniform1f(u(name), value);
-      for (const [name, value] of Object.entries(BODY)) gl.uniform1f(u("u" + name[0]!.toUpperCase() + name.slice(1)), value);
-      gl.uniform1f(u("uZoom"), zoom); gl.uniform1f(u("uShadow"), shadow ? 1 : 0);
-      gl.uniform1f(u("uLit"), LIGHT.lit); gl.uniform1f(u("uRim"), LIGHT.rim);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    paint(target, pixels, color, face, { shadow = true, zoom = .9 } = {}) {
+      let size = pixels * 2;
+      while (size < SHARP) size *= 2;
+      draw(size, color, face, shadow, zoom);
+      let source = canvas;
+      for (let i = 0; size > pixels * 2; size /= 2, i ^= 1) {
+        const half = halves[i]!, g = half.getContext("2d")!;
+        if (half.width !== size / 2) half.width = half.height = size / 2; else g.clearRect(0, 0, size / 2, size / 2);
+        g.drawImage(source, 0, 0, size, size, 0, 0, size / 2, size / 2);
+        source = half;
+      }
+      target.drawImage(source, 0, 0, size, size, 0, 0, pixels, pixels);
     },
     dispose() { gl.getExtension("WEBGL_lose_context")?.loseContext(); },
   };
