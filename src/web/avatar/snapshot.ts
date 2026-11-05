@@ -28,17 +28,16 @@ function render(color: BotColor, mood: BotMood, pixels: number, large: boolean, 
   if (!still) return "";
   const { figure, out } = still;
   const face = faceOf(mood), zoom = large ? .92 : .9;
-  figure.draw(pixels, BOT_COLORS[color]?.hex ?? BOT_COLORS.gray.hex, face, { shadow: large, zoom });
   out.width = out.height = pixels;
   const g = out.getContext("2d"); if (!g) return "";
-  g.drawImage(figure.canvas, 0, 0);
+  figure.paint(g, pixels, BOT_COLORS[color]?.hex ?? BOT_COLORS.gray.hex, face, { shadow: large, zoom });
   if (crown) crownMark(g, pixels, crownAt(face, zoom));
   return out.toDataURL("image/png");
 }
 
 /** PNG data URL of the figure, crowned for the agent Bot when large; size is CSS pixels, rendered at the device pixel ratio. */
-export function snapshot(color: BotColor, mood: BotMood, size: number, crown = false): Promise<string> {
-  const pixels = Math.round(size * Math.min(3, Math.max(1, window.devicePixelRatio || 1)));
+export function snapshot(color: BotColor, mood: BotMood, size: number, density: number, crown = false): Promise<string> {
+  const pixels = Math.round(size * Math.min(3, Math.max(1, density)));
   const large = size >= LARGE, crowned = crown && large;
   const key = `${color}:${mood}:${pixels}:${crowned}`;
   let image = cache.get(key);
