@@ -32,6 +32,8 @@ export function installAuthentication(api: Hono<ApiEnv>, account: AccountService
   api.get("/me", c => c.json({ username: account.identity().username }));
   api.post("/logout", c => {
     account.logout(c.get("sessionToken")); sessionCookie(c, cookie(c), "", 0);
+    // Attachments stay in this browser's cache while signed in (they are fetched once); signing out empties it.
+    c.header("Clear-Site-Data", '"cache"');
     return c.json({ ok: true });
   });
 }
