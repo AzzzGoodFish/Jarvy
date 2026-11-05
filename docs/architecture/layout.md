@@ -58,7 +58,7 @@ The skills that ship with Jarvy are in `skills/` at the package root, one folder
 
 - API calls services only — never Store, repositories or Pi. Hono registers every method and path explicitly.
 - Services hold business rules and complete objects; they may call Infra and other services' public interfaces.
-- Infra never imports Service or API. Database rows, network and SDK objects are converted here; data crossing layers uses `shared/` contracts. Pi types stay in `infra/pi/`, pi-env and Pi Durable in `infra/env/`, `node:sqlite` in `infra/storage/`.
+- Infra never imports Service or API. Database rows, network and SDK objects are converted here; data crossing layers uses `shared/` contracts. Pi types stay in `infra/pi/`, pi-env and Pi Durable in `infra/env/`, `node:sqlite` in `infra/storage/`, `sharp` (thumbnails) in `infra/files/`.
 - `shared/` is not a fifth layer. Only the wiring entry points (`application.ts`, `cli.ts`) depend on every layer.
 - `src/contract/` is not a layer either: it is the HTTP boundary written down. Any server layer and the web import it; it imports only itself, no package, Node or browser module. A type the server sends lives there once; the server's own types (a chat with its owner, a message with its sender's identity, a stored Bot) stay in `shared/`, and `api/views` turns them into the contract's, typed so that a field changed on either side fails to compile.
 - The web imports only `src/web` and `src/contract`; `web/api.ts` holds the requests, not their types.

@@ -77,6 +77,15 @@ export function attachmentRoutes(chats: ApiServices["chats"]) {
     return c.body(web(chats.attachments.stream(file, range)), 206,
       { ...headers, "Content-Length": String(range.end - range.start + 1), "Content-Range": `bytes ${range.start}-${range.end}/${size}` });
   });
+  // A picture's card loads this (A80): a smaller WebP when the original is large, else the original. Kept by the browser
+  // the same way; the preview and the download use the original.
+  routes.get("/:id/thumb", async c => {
+    const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));
+    if (!file) throw new HTTPException(404, { message: "Attachment not found" });
+    const thumbnail = await chats.attachments.thumbnail(file), kept = { "Cache-Control": ATTACHMENT_CACHE, "Vary": "Cookie" };
+    if (thumbnail) return c.body(web(thumbnail.stream), 200, { ...kept, "Content-Type": "image/webp", "Content-Length": String(thumbnail.size) });
+    return c.body(web(chats.attachments.stream(file)), 200, { ...kept, "Content-Type": downloadType(file.mimeType), "Content-Length": String(file.size) });
+  });
   routes.get("/:id/run", c => {
     const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));
     if (!file) throw new HTTPException(404, { message: "Attachment not found" });

@@ -32,6 +32,8 @@ export class ChatAttachments {
   /** A sent attachment the actor can read, or null. */
   find(actorId: string, id: string): Attachment | null { return this.repository.attachment(actorId, id); }
   stream(file: Attachment, range?: { start: number; end: number }): Readable { return this.files.stream(file.id, range); }
+  /** A picture's thumbnail (A80), made on first use; null when its original is to be shown. */
+  thumbnail(file: Attachment): Promise<{ size: number; stream: Readable } | null> { return this.files.thumbnail(file.id); }
   /** The first bytes of a file, to tell its kind. */
   head(file: Attachment, bytes: number): Promise<Buffer> { return this.files.head(file.id, bytes); }
   /** A small file whole (a picture or text a Bot looks at). */

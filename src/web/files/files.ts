@@ -10,6 +10,9 @@ export const readWhole = (kind: FileKind) => kind === "text" || kind === "markdo
 const TEXT = ["txt", "json", "jsonl", "yaml", "yml", "ts", "tsx", "js", "jsx", "mjs", "cjs", "css", "log", "csv", "py", "sh", "sql", "toml", "xml", "ini", "env", "diff", "patch"];
 
 export const fileUrl = (file: Attachment) => `/api/attachments/${file.id}`;
+/** What a picture's card loads (A80): the server's thumbnail, smaller than a large original; a GIF's own file, as it
+ * may move. */
+export const thumbnailUrl = (file: Attachment) => extension(file) === "gif" || file.mimeType === "image/gif" ? fileUrl(file) : `${fileUrl(file)}/thumb`;
 export const extension = (file: Attachment) => file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
 export function fileKind(file: Attachment): FileKind {
   const ext = extension(file), mime = file.mimeType.toLowerCase();
