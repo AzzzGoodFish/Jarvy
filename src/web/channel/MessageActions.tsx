@@ -6,8 +6,8 @@ import { t } from "../i18n";
 import { previewText } from "./quotes";
 import { EmojiPicker } from "./emoji/EmojiPicker";
 
-/** The emoji panel's height with its margin, in CSS pixels (channels.css). */
-const PANEL_HEIGHT = 380;
+/** The emoji panel's size with its margin, in CSS pixels (channels.css). */
+const PANEL_HEIGHT = 380, PANEL_WIDTH = 310;
 
 /** The quote above a reply: who and what it answers, clicking it jumps to that message. */
 export function ReplyQuote({ message, members, onJump }: { message: ChatMessage; members: Member[]; onJump: (id: string) => void }) {
@@ -39,7 +39,7 @@ export function MessageActions({ message, me, onReply, onReact, onError }: {
   message: ChatMessage; me: string; onReply?: (message: ChatMessage) => void;
   onReact: (message: ChatMessage, emoji: string, on: boolean) => void; onError: (error: unknown) => void;
 }) {
-  const [open, setOpen] = useState(false), [up, setUp] = useState(false), box = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false), [up, setUp] = useState(false), [toRight, setToRight] = useState(false), box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const close = (event: globalThis.PointerEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false); };
@@ -51,15 +51,22 @@ export function MessageActions({ message, me, onReply, onReact, onError }: {
     try { onReact(message, emoji, on); } catch (error) { onError(error); }
     setOpen(false);
   };
-  // Opens upward when the scroll area has no room below for the panel (the last messages sit just above the composer).
+  // The panel opens where the scroll area has room for it: upward when the last messages sit just above the composer,
+  // and towards the bubble — rightward on your own messages, which sit on the right — unless that side is too narrow.
   const show = () => {
     const rect = box.current?.getBoundingClientRect(), area = box.current?.closest(".ui-transcript, .ui-pane-body")?.getBoundingClientRect();
-    setUp(!!rect && (area?.bottom ?? window.innerHeight) - rect.bottom < PANEL_HEIGHT); setOpen(!open);
+    if (rect) {
+      const right = (area?.right ?? window.innerWidth) - rect.left, left = rect.right - (area?.left ?? 0);
+      const mine = !!box.current?.closest(".ui-user");
+      setUp((area?.bottom ?? window.innerHeight) - rect.bottom < PANEL_HEIGHT);
+      setToRight(mine ? right >= PANEL_WIDTH || right > left : left < PANEL_WIDTH && right > left);
+    }
+    setOpen(!open);
   };
   return <div className="jv-message-actions" ref={box}>
     {onReply && <IconButton icon="arrow-u-up-right" label={t("actions.reply")} onClick={() => onReply(message)}/>}
     <IconButton icon="smiley-plus" label={t("actions.react")} aria-expanded={open} onClick={show}/>
-    {open && <div className="jv-emoji-menu" role="dialog" aria-label={t("actions.pickEmoji")} data-up={up || undefined}
+    {open && <div className="jv-emoji-menu" role="dialog" aria-label={t("actions.pickEmoji")} data-up={up || undefined} data-right={toRight || undefined}
       onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
       <EmojiPicker onPick={toggle}/>
     </div>}

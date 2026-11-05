@@ -42,6 +42,8 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   useEffect(() => { let alive = true; void loadEmoji().then(list => { if (alive) setGroups(list); }); return () => { alive = false; }; }, []);
   const box = useRef<HTMLDivElement>(null), grid = useRef<HTMLDivElement>(null);
   const sections = useRef<(HTMLElement | null)[]>([]);
+  // Recent keeps only the emoji; their names come from the list.
+  const named = useMemo(() => new Map(groups.flatMap(item => item.emoji.map(emoji => [emoji[0], emoji] as const))), [groups]);
   const found = useMemo(() => {
     const text = query.trim();
     if (!text || !groups.length) return null;
@@ -122,7 +124,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
         : <>
           {!!recent.length && <section className="jv-emoji-section">
             <h2><Clock aria-hidden="true"/>{t("actions.recent")}</h2>
-            <div className="jv-emoji-grid">{recent.map(emoji => <button type="button" key={emoji} className="jv-emoji-cell" onClick={() => pick(emoji)}>{emoji}</button>)}</div>
+            <div className="jv-emoji-grid">{recent.map(emoji => cell(named.get(emoji) ?? [emoji, "", "", "", ""]))}</div>
           </section>}
           {groups.map(({ name, emoji }, index) => <section key={name} className="jv-emoji-section" ref={element => { sections.current[index] = element; }}>
             <h2>{t(`actions.emoji.${name}`)}</h2>

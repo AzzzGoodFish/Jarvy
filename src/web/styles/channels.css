@@ -269,9 +269,9 @@
 /* The actions sit inline next to the bubble, on its free side. */
 .ui-message-row .jv-row-actions { position: static; align-self: flex-start; margin: 2px 6px 0; }
 .ui-message-row.ui-user .jv-row-actions { order: -1; }
-.ui-message-row.ui-user .jv-emoji-menu { right: auto; left: 0; }
+.jv-emoji-menu[data-right] { right: auto; left: 0; }
 /* Narrow screens: the picker docks above the composer instead of hanging off a message edge. */
-@media (max-width: 640px) { .jv-emoji-menu, .jv-emoji-menu[data-up], .ui-message-row.ui-user .jv-emoji-menu { position: fixed; top: auto; right: 12px; bottom: 76px; left: 12px; width: auto; } }
+@media (max-width: 640px) { .jv-emoji-menu, .jv-emoji-menu[data-up], .jv-emoji-menu[data-right] { position: fixed; top: auto; right: 12px; bottom: 76px; left: 12px; width: auto; } }
 /* Queued deliveries you have not seen show as a hint line (A41): under a channel's name, or in place of a
    DM's preview. */
 .jv-side-row:has(.jv-side-text) { height: auto; min-height: 42px; padding-top: 4px; padding-bottom: 4px; }
