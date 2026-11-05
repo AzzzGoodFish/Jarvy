@@ -2,7 +2,8 @@ import type { Member } from "../../contract/chat.js";
 import type { BotChange, WelcomeLanguage } from "./agent.js";
 
 /** How urgently a recipient should learn about something (A41): interrupt = now, even mid-run; queue = soon,
- * without interrupting (a Bot is woken or gets it steered in); digest = along with the next thing. */
+ * without interrupting (a Bot is woken or gets it steered in); digest = along with the next thing, never waking anyone
+ * (a Bot that is working gets a new notice version steered in, A77). */
 export type Urgency = "interrupt" | "queue" | "digest";
 /** What happened. Chat kinds have their own route in `service/delivery/routes.ts`; `onboard` (the agent Bot is asked to
  * welcome the owner) and `change` (a Bot's settings or work environment changed) go to one Bot from the agent and Bot

@@ -148,7 +148,7 @@ Three layers ([delivery](architecture/delivery.md)):
 Further decisions:
 
 - People and Bots are routed, prioritised and stored the same way.
-- Policy: messages (DM, @, reply, subscription) interrupt; reactions and new notice / summary versions are queued, and the editor is not told. This supersedes A37's "attach once to the next batch".
+- Policy: messages (DM, @, reply, subscription) interrupt; reactions and new notice / summary versions are queued, and the editor is not told. This supersedes A37's "attach once to the next batch". New versions are a digest since A77.
 - Storage holds no routing rules. `bot_pending` and `bot_notices` become one `inbox` table (v16). Deliveries fall in three categories — chat messages, chat activity, system notices — and system notices name no chat (A61).
 - Unread stays state (read positions), not an event.
 - **Person side** (in the style of Feishu): red count and preview for interrupts; a red 「[有人@我]」 prefix while an @ or reply is unread; queued events only as the hint line, cleared on opening the chat; channel rows on two lines; tab badge and 「(N)」 title counting interrupts only.
@@ -602,3 +602,14 @@ The block cat (A33) was a three.js scene — body, paws, a page held while readi
 Why: a character that is still itself at 22 px is carried by its silhouette and its eyes, so nothing that disappears at that size can carry meaning. One shader with parameters keeps every size and every state the same character, at a few kilobytes instead of a 3D engine.
 
 Supersedes: A33's three.js block cat; A48's crown on avatars of every size.
+
+## A77 A new notice or summary version doesn't wake a Bot
+
+A new version of a channel's notice or a thread's summary was queued (A41), so it woke every idle Bot of the channel, or every follower of the thread, for a turn of its own and started a stopped one. Such a turn had nothing to answer but paid for the Bot's whole context again, mostly as a cache write: on one instance over 30 days, 136 of 211 such deliveries woke an idle Bot, 485 model calls with 83M cached tokens read and 25M written.
+
+- **Policy**: `note` is a digest for both reasons (`member`, `follower`), for people and Bots alike.
+- **A digest to a Bot**: if a turn is running, the chat activity it has not been told is steered in, as a queued notice is; otherwise nothing happens now — no wake, no start — and it comes with the Bot's next batch, of several versions only the latest. The other digests, system notices (the agent Bot's changes, a compaction's followed threads, A48, A73), still wait for the next batch: a compaction ends a turn, and steering its list in would add a model call of its own after every compaction.
+- **People**: the hint line takes the newest activity not read yet, queued or a notice version, so 「Mochi 更新了公告」 stays.
+- **Nothing is missed**: a Bot can't send in a chat whose notice or summary it hasn't read (A67), and its batches name the versions it hasn't read.
+
+Why: a notice matters to a Bot when it acts in that chat, and A67 already makes it read the notice then; waking it the moment the text changes only spends tokens.
