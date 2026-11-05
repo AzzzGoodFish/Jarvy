@@ -212,14 +212,30 @@
 .jv-reaction:hover { background: var(--ui-fill-ghost-hover); }
 .jv-reaction[data-mine] { box-shadow: inset 0 0 0 1px var(--ui-border-focus); background: color-mix(in srgb, var(--ui-border-focus) 12%, transparent); }
 .jv-reaction-count { font-size: 11px; color: var(--ui-text-secondary); }
-.jv-emoji-menu { position: absolute; top: 32px; right: 0; z-index: 20; width: 268px; padding: 8px; border-radius: 12px;
+.jv-emoji-menu { position: absolute; top: 32px; right: 0; z-index: 20; width: 302px; padding: 8px; border-radius: 12px;
   background: var(--ui-bg-elevated, var(--ui-bg-base)); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 8px 24px rgb(0 0 0 / .14); }
+/* The panel: the answers people send most, a search box, the nine groups, and the grid. */
+.jv-emoji-panel { display: flex; flex-direction: column; gap: 6px; }
 .jv-emoji-quick { display: flex; gap: 2px; }
-.jv-emoji-quick button, .jv-emoji-grid button { width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; }
-.jv-emoji-quick button:hover, .jv-emoji-grid button:hover { background: var(--ui-fill-ghost-hover); }
-.jv-emoji-more { margin-top: 6px; border-top: .5px solid var(--ui-border-weak); padding-top: 6px; }
-.jv-emoji-more summary { padding: 2px 4px; font-size: 12px; color: var(--ui-text-secondary); cursor: pointer; }
-.jv-emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); max-height: 180px; overflow: auto; overscroll-behavior: contain; }
+.jv-emoji-quick button, .jv-emoji-cell { width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; }
+.jv-emoji-quick button:hover, .jv-emoji-cell:hover { background: var(--ui-fill-ghost-hover); }
+.jv-emoji-cell:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
+.jv-emoji-search { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: 8px;
+  background: var(--ui-fill-ghost); color: var(--ui-text-tertiary); }
+.jv-emoji-search .lucide { width: 14px; height: 14px; flex: none; }
+.jv-emoji-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; font-size: 13px; color: var(--ui-text-primary); outline: none; }
+.jv-emoji-groups { display: flex; gap: 2px; border-bottom: .5px solid var(--ui-border-weak); padding-bottom: 4px; }
+.jv-emoji-groups button { display: grid; place-items: center; flex: 1; height: 26px; border-radius: 6px; color: var(--ui-text-tertiary); }
+.jv-emoji-groups button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-emoji-groups button[aria-selected="true"] { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-emoji-groups[data-hidden] { display: none; }
+.jv-emoji-groups .lucide { width: 16px; height: 16px; }
+.jv-emoji-scroll { height: 236px; overflow: auto; overscroll-behavior: contain; }
+.jv-emoji-section h2 { display: flex; align-items: center; gap: 4px; position: sticky; top: 0; z-index: 1; margin: 0; padding: 4px 4px 3px;
+  background: var(--ui-bg-elevated, var(--ui-bg-base)); font-size: 11px; font-weight: 500; color: var(--ui-text-tertiary); }
+.jv-emoji-section .lucide { width: 12px; height: 12px; }
+.jv-emoji-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; }
+.jv-emoji-empty { margin: 0; padding: 18px 0; text-align: center; font-size: 13px; color: var(--ui-text-tertiary); }
 /* Jumped-to message (a reply's quote): a brief highlight. */
 .jv-jump .ui-bubble, .jv-jump > .ui-bubble { animation: jv-jump 1.2s ease-out; }
 @keyframes jv-jump { from { background: color-mix(in srgb, var(--ui-border-focus) 22%, transparent); } to { background: transparent; } }
