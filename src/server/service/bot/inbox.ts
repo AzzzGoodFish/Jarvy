@@ -87,9 +87,11 @@ export class BotInbox {
   /** The batch went to the model: each delivery in its tail is told once. */
   acknowledge(notices: readonly number[]) { if (notices.length) this.tell(notices); }
   /** Notices the Bot has not been told (A39), as the XML that goes into a steered message or a run of notices alone.
-   * `steer`: what may go into a running turn; a task waits for the turn to end and opens one of its own (A58). */
-  notices(prompt?: PromptChange | null, steer = false): { xml: string; ids: number[] } | null {
-    const pending = this.chats.notices(this.botId).filter(notice => !steer || notice.kind !== "task");
+   * `steer`: what may go into a running turn. A queued delivery takes everything but a task, which waits for the turn
+   * to end and opens one of its own (A58); a digest (a new notice version) takes only chat activity, so the system
+   * notices keep riding with the next batch (A48, A73, A77). */
+  notices(prompt?: PromptChange | null, steer?: "queue" | "digest"): { xml: string; ids: number[] } | null {
+    const pending = this.chats.notices(this.botId).filter(notice => !steer || (steer === "queue" ? notice.kind !== "task" : notice.chat !== null));
     if (!pending.length) return null;
     const { kept, stale } = this.convert(pending);
     // Nothing left to say: they are told here rather than failing the batch, which would leave them pending for every

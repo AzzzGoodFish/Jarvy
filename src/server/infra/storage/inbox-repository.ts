@@ -101,13 +101,14 @@ export class InboxRepository {
   }
 
   // A person's rows: what their chat list shows.
-  /** What a person's chat row shows (A41): unread interrupt messages, and the newest queued activity. */
+  /** What a person's chat row shows (A41): unread interrupt messages, and the newest activity not read yet (queued,
+   * or a notice version, which is a digest, A77). */
   rowState(memberId: string, chatId: string): { alerts: number; atMe: boolean; hint: ChatHint | null } {
     const counts = this.db.prepare(`SELECT count(*) AS n,COALESCE(SUM(reason IN ('mention','reply')),0) AS at FROM inbox
       WHERE member_id=? AND chat_id=? AND category='message' AND urgency='interrupt' AND state='pending'`).get(memberId, chatId) as { n: number; at: number };
     const row = this.db.prepare(`SELECT i.kind,i.chat_id AS chatId,c.type AS chatType,c.title,i.actor_id AS actorId,i.payload,i.created_at AS createdAt
       FROM inbox i JOIN chats c ON c.id=i.chat_id
-      WHERE i.member_id=? AND i.category='activity' AND i.urgency='queue' AND i.state='pending' AND (i.chat_id=? OR c.parent_id=?) ORDER BY i.id DESC LIMIT 1`)
+      WHERE i.member_id=? AND i.category='activity' AND i.urgency IN ('queue','digest') AND i.state='pending' AND (i.chat_id=? OR c.parent_id=?) ORDER BY i.id DESC LIMIT 1`)
       .get(memberId, chatId, chatId) as { kind: "reaction" | "note"; chatId: string; chatType: string; title: string; actorId: string | null; payload: string | null; createdAt: number } | undefined;
     if (!row) return { alerts: counts.n, atMe: counts.at > 0, hint: null };
     const payload = row.payload ? JSON.parse(row.payload) as { emoji?: string; version?: number } : {};

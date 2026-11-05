@@ -7,8 +7,9 @@ const POLICY: Record<DeliveryKind, Partial<Record<DeliveryReason, Urgency>>> = {
   message: { dm: "interrupt", mention: "interrupt", reply: "interrupt", subscription: "interrupt" },
   // Marks on your messages are queued: they wake you but never interrupt (A39).
   reaction: { author: "queue" },
-  // A new version of a notice or summary is queued like a mark.
-  note: { member: "queue", follower: "queue" },
+  // A new version of a notice or summary rides along with the Bot's next batch: a Bot that is working hears it at
+  // once, and one that is idle is not woken for it (A77). A person's sidebar still shows the hint line.
+  note: { member: "digest", follower: "digest" },
   // The owner just gave the agent Bot its first model: it should welcome them now (A48).
   onboard: { setup: "interrupt" },
   // What the agent Bot changed about a Bot, or the owner about where it works, rides along with that Bot's next batch,

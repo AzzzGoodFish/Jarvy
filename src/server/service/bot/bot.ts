@@ -78,9 +78,9 @@ export class Bot extends Member<OutgoingMessage, Promise<SentMessage>> {
     return this.state.snapshot();
   }
 
-  /** 投递已保存（A41）；Bot 按需激活，交给运行层按急迫程度处理。附带的不必为它启动。 */
+  /** 投递已保存（A41）；Bot 按需激活，交给运行层按急迫程度处理。附带的不必为它启动：只在它正跑着一轮时插进去（A77）。 */
   public async deliver(urgency: Urgency): Promise<void> {
-    if (urgency === "digest") return;
+    if (urgency === "digest") { if (!this.stopping && this.status().status !== "stop") this.agentRuntime.deliver(urgency); return; }
     if (this.stopping) await this.stopping;
     if (this.status().status === "stop") await this.start();
     this.agentRuntime.deliver(urgency);

@@ -69,7 +69,7 @@ The sender is never its own recipient; each member gets at most one row per mess
 ```ts
 message:  { dm: "interrupt", mention: "interrupt", reply: "interrupt", subscription: "interrupt" },
 reaction: { author: "queue" },
-note:     { member: "queue", follower: "queue" },
+note:     { member: "digest", follower: "digest" },
 onboard:  { setup: "interrupt" },
 change:   { agent: "digest", owner: "digest", move: "interrupt" },
 task:     { schedule: "queue" },
@@ -102,8 +102,8 @@ One table, `inbox`, holds every delivery: member, category, kind, reason, urgenc
 `AgentRuntime.deliver(urgency)`:
 
 - **interrupt** — abort the running turn (Pi `abort`) and start a new one with everything pending (A05).
-- **queue** — if a turn is running, steer the pending reactions and notes into it as a `<notice_batch>` (Pi `session.steer`); otherwise wake the Bot for a turn of its own. A due task is never steered: it waits for the running turn to end and comes in the next one (A58).
-- **digest** — nothing now; it goes with the next batch.
+- **queue** — if a turn is running, steer the notices it has not been told into it as a `<notice_batch>` (Pi `session.steer`); otherwise wake the Bot for a turn of its own. A due task is never steered: it waits for the running turn to end and comes in the next one (A58).
+- **digest** — a new notice or summary version (chat activity) is steered into a running turn like a queued notice; system notices are not. An idle or stopped Bot is neither woken nor started, and it goes with the next batch (A77). A steer that does not go through leaves it for that batch too.
 
 One pump per Bot claims everything pending at that moment: messages become `<message>` elements of one `<chat_batch>` prompt, untold reactions are appended as `<notices>`, new note versions as `<updates>`, system notices as `<changes>`, `<onboard>`, `<tasks>` and `<followed>`, and the batch ends with `<unread>` ([format](envelope.md)). Each queued item is told once. At startup, Bots with pending rows are woken, the most urgent first. Queued messages (from muted chats) are handled after the current turn rather than steered in.
 
@@ -119,7 +119,7 @@ Further rules:
 A delivery to a person always comes with the live event for its message, mark or notice, which carries the chat's row with what follows (A72), so `User.deliver` has nothing more to do ([channels](channels.md#sidebar)):
 
 - **Red count**: pending interrupt messages delivered to you and not yet read (`Chat.alerts`). A red 「[有人@我]」 prefix shows while one of them @-mentions or replies to you (`Chat.atMe`).
-- **Hint line**: the newest queued delivery — 「Jarvy 对你的消息表达了 👍」, 「Mochi 更新了公告」 (`Chat.hint`). For a channel, its threads count too: the hint names the thread (「Jarvy 更新了线程「…」的摘要」) and opening the row opens that thread beside the channel.
+- **Hint line**: the newest queued delivery, or a new notice or summary version (a digest) — 「Jarvy 对你的消息表达了 👍」, 「Mochi 更新了公告」 (`Chat.hint`). For a channel, its threads count too: the hint names the thread (「Jarvy 更新了线程「…」的摘要」) and opening the row opens that thread beside the channel.
 - **Grey count**: other unread messages, including muted ones.
 - Reading a message marks its row told; opening a chat marks its other rows told.
 - The tab shows the red total as a favicon badge and a 「(N)」 title prefix (`web/tabBadge.ts`).

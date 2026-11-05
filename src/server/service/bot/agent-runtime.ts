@@ -62,9 +62,11 @@ export class AgentRuntime implements RuntimePort {
   }
   /** Something was delivered (A41); the runtime only looks at how urgent it is. Interrupt: abort the running
    * turn and start over with everything pending (A05). Queue: steer it into the running turn, or wake an idle
-   * Bot (A39). Digest: nothing now, it rides along with the next run. The delivery itself is durable. */
+   * Bot (A39). Digest: chat activity into a running turn, never a wake; otherwise it rides along with the next run (A77).
+   * The delivery itself is durable. */
   deliver(urgency: Urgency): void {
-    if (this.stopping || urgency === "digest") return;
+    if (this.stopping) return;
+    if (urgency === "digest") { if (this.prompting) this.steer("digest"); return; }
     if (urgency === "interrupt") {
       this.inputVersion++;
       if (this.prompting) this.session?.requestAbort();
@@ -72,12 +74,15 @@ export class AgentRuntime implements RuntimePort {
       return;
     }
     if (!this.prompting) { this.wake(); return; }
-    // Serialised so two quick deliveries cannot both read the same pending rows.
+    this.steer("queue");
+  }
+  /** Puts the notices a running turn has not been told into it (A39, A77); nothing is woken. A steer that does not
+   * go through leaves them for the next batch. Serialised, so two quick deliveries cannot both read the same rows. */
+  private steer(urgency: "queue" | "digest") {
     this.notices = this.notices.catch(() => {}).then(async () => {
-      const pending = this.inbox.notices(null, true);
-      if (!pending || this.stopping) return;
-      if (this.prompting && this.session?.steer(pending.xml)) this.inbox.tell(pending.ids);
-      else this.wake();
+      const pending = this.inbox.notices(null, urgency);
+      if (!pending || this.stopping || !this.prompting) return;
+      if (this.session?.steer(pending.xml)) this.inbox.tell(pending.ids);
     }).catch(error => { console.error("[bot] steer failed", { botId: this.inbox.botId, error }); });
   }
   private wake() { if (!this.stopping) { this.wakeVersion++; this.schedule(); } }
