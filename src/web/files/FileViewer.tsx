@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { Attachment } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon, IconButton, Markdown } from "../ui";
-import { KIND_LABEL, PREVIEW_LIMIT, bytes, fileKind, fileUrl, isMedia, isPicture, pictureSource, readText, runUrl, safeHtml, scriptReport } from "./files";
+import { KIND_LABEL, PREVIEW_LIMIT, bytes, fileKind, fileUrl, isMedia, isPicture, pictureSource, readText, readWhole, runUrl, safeHtml, scriptReport } from "./files";
 import { errorText } from "../errors";
 
 /** Attachment preview dialog: pictures, audio and video (the browser's own player, never autoplaying), rendered Markdown, text,
@@ -15,7 +15,10 @@ export function FileViewer({ files, initialIndex = 0, onClose }: { files: Attach
   // Running scripts is confirmed every time a file is shown (A35); it never carries over.
   const [running, setRunning] = useState(false), [unplayable, setUnplayable] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null), body = useRef<HTMLDivElement>(null), positions = useRef(new Map<string, number>());
-  const file = files[index]!, kind = fileKind(file), media = isMedia(kind), tooLarge = !media && file.size > PREVIEW_LIMIT, readable = !media && !tooLarge && kind !== "download";
+  // A picture, audio or video streams from the attachment URL, so its size does not matter here; only what the page
+  // reads whole is capped.
+  const file = files[index]!, kind = fileKind(file), media = isMedia(kind), tooLarge = readWhole(kind) && file.size > PREVIEW_LIMIT,
+    readable = !media && !tooLarge && kind !== "download";
   useEffect(() => {
     const el = dialog.current!, previous = document.activeElement as HTMLElement | null;
     el.showModal();
