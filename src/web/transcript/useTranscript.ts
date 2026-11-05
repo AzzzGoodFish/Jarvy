@@ -3,14 +3,16 @@ import { api } from "../api";
 import { type ChatMessage } from "../../contract/chat";
 import { jumpToPassage } from "../channel/quotes";
 import { addMessage, joinPage, missingBefore, replaceMessage } from "../live";
+import { Hold, placeOf, restorePlace, type ChatMemory, type Place } from "../chat-memory";
 
 const PAGE = 50;
 
 /** The open chat's messages, loaded newest page first; scrolling near the top loads the page before it
  *. Changes heard of are put in place (A72); a gap before a new one is read. Older pages keep the view where it was;
- * new messages are followed when you were at the bottom or sent them. */
-export function useTranscript({ chatId, ready, scroller, me, onError }: {
-  chatId: string | null; ready: boolean; scroller: RefObject<HTMLDivElement | null>; me: string; onError: (error: unknown) => void;
+ * new messages are followed when you were at the bottom or sent them. A chat left is remembered as it was, and going
+ * back to it shows that at once, where it was left (A79). */
+export function useTranscript({ chatId, ready, scroller, me, memory, onError }: {
+  chatId: string | null; ready: boolean; scroller: RefObject<HTMLDivElement | null>; me: string; memory: ChatMemory; onError: (error: unknown) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false), [hasOlder, setHasOlder] = useState(false), [loadingOlder, setLoadingOlder] = useState(false);
@@ -26,20 +28,34 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   const top = useRef<HTMLDivElement>(null);
   // 「回到最新」: shown while you are away from the bottom; counts others' messages that arrived meanwhile.
   const [away, setAway] = useState(false), seen = useRef(0);
+  // Where the reader is, kept as they scroll, and where to go back to after the next render (a remembered chat).
+  const place = useRef<Place>({ bottom: true }), restoreTo = useRef<Place | null>(null), [hold] = useState(() => new Hold());
 
   useEffect(() => {
     setMessages([]); setHasOlder(false);
-    settled.current = false; atBottom.current = true; ahead.current = 0;
+    settled.current = false; atBottom.current = true; ahead.current = 0; place.current = { bottom: true }; restoreTo.current = null;
     if (!ready || !chatId) return;
     let alive = true; const id = ++request.current;
-    setLoading(true);
     setAway(false); seen.current = 0;
+    // Leaving: what was on screen is remembered, once it was shown.
+    const leave = () => {
+      alive = false; hold.release();
+      if (settled.current && list.current[0]?.chatId === chatId) memory.keep(chatId, { messages: list.current, hasOlder: older.current, place: place.current, seen: seen.current });
+    };
+    const kept = memory.take(chatId);
+    if (kept) {
+      // Back where it was left: its place, or the bottom when it was there or that message is gone.
+      jump.current = true; restoreTo.current = kept.place; seen.current = kept.seen;
+      setMessages(kept.messages); setHasOlder(kept.hasOlder); setLoading(false);
+      return leave;
+    }
+    setLoading(true);
     // Messages and the end of loading land in one render, so the jump to the bottom sees the rows.
     void api.latestMessages(chatId, PAGE).then(page => {
       if (!alive || id !== request.current) return;
       jump.current = true; setMessages(page.messages); setHasOlder(page.hasOlder); setLoading(false);
     }).catch(error => { if (alive) { setLoading(false); onError(error); } });
-    return () => { alive = false; };
+    return leave;
   }, [chatId, ready]);
 
   /** A message of the open chat heard of, new or changed (A72): put in place; read with what is missing before it. */
@@ -55,8 +71,9 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   async function refresh(id: string) {
     const first = list.current[0], r = ++request.current;
     if (!first || first.chatId !== id) {
+      // Nothing of it shown yet (this read took over from the opening one): it opens, at the bottom.
       const page = await api.latestMessages(id, PAGE);
-      if (open.current === id && r === request.current) { setMessages(page.messages); setHasOlder(page.hasOlder); setLoading(false); }
+      if (open.current === id && r === request.current) { jump.current = true; setMessages(page.messages); setHasOlder(page.hasOlder); setLoading(false); }
       return;
     }
     const after = first.sequence - 1, result = await api.messages(id, after);
@@ -82,11 +99,16 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
+    // Where the reader is, noted after each scroll and each change of layout (a picture loading moves what is seen);
+    // not while hidden (a phone showing the list instead) or held, which say nothing about it.
+    let frame = 0;
+    const note = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { if (settled.current && el.clientHeight && !hold.on) place.current = placeOf(el, 160); }); };
     // A row can grow after it is on screen (an image or file card finishing its layout), and the transcript itself
     // can shrink (a restored draft makes the composer taller). If we were at the bottom, stay there instead of leaving
     // a gap under the newest message. The transcript's children come and go with loading and paging, so
     // every one of them is watched, not only the first.
     const grown = new ResizeObserver(() => {
+      note();
       if (!settled.current || !atBottom.current) return;
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return; // already there
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
@@ -98,24 +120,31 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
     const track = () => {
       // While the opening jump is still ahead, the position says nothing: the transcript is short and about to move.
       if (!settled.current) { atBottom.current = true; setAway(false); return; }
+      if (hold.on) return;
       atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
       setAway(!atBottom.current);
       if (atBottom.current) seen.current = list.current.at(-1)?.sequence ?? 0;
+      note();
     };
     track(); el.addEventListener("scroll", track, { passive: true });
-    return () => { grown.disconnect(); children.disconnect(); el.removeEventListener("scroll", track); };
+    return () => { grown.disconnect(); children.disconnect(); el.removeEventListener("scroll", track); cancelAnimationFrame(frame); };
   }, [scroller.current, chatId]);
   useLayoutEffect(() => {
     const el = scroller.current, last = messages.at(-1);
     if (!el) return;
     // The transcript scrolls smoothly by CSS; these two must be instant.
     if (anchor.current !== null) { el.scrollTo({ top: el.scrollHeight - anchor.current, behavior: "instant" }); anchor.current = null; }
+    else if (restoreTo.current && messages.length && restorePlace(el, restoreTo.current)) {
+      place.current = restoreTo.current; hold.start(el, restoreTo.current);
+      restoreTo.current = null; jump.current = false; settled.current = true; atBottom.current = false; setAway(true);
+    }
     else if (jump.current && messages.length) {
+      restoreTo.current = null;
       // Twice: the rows of this page, then whatever the images in them added by the time it lands.
       const toBottom = () => el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
       toBottom(); requestAnimationFrame(toBottom); jump.current = false; settled.current = true; atBottom.current = true;
     }
-    else if (last && last.id !== lastId.current && (atBottom.current || last.senderId === me)) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    else if (last && last.id !== lastId.current && (atBottom.current || last.senderId === me)) { hold.release(); el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); }
     lastId.current = last?.id;
     if (atBottom.current) seen.current = last?.sequence ?? 0;
   }, [messages]);
@@ -133,6 +162,7 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
   /** Scrolls to a message of this chat, loading the page around it first; a message in another chat (a quote in a
    * channel copy of a thread reply points into the thread) is left to the caller, who gets that chat's id. */
   async function toMessage(id: string, passage?: string): Promise<string | undefined> {
+    hold.release();
     const known = list.current;
     if (known.some(message => message.id === id)) { jumpTo(id, passage); return; }
     const chatId = open.current, target = await api.message(id);
@@ -144,10 +174,11 @@ export function useTranscript({ chatId, ready, scroller, me, onError }: {
     requestAnimationFrame(() => jumpTo(id, passage));
   }
   function jumpTo(id: string, passage?: string) {
+    hold.release();
     const el = scroller.current?.querySelector(`[data-message="${id}"]`);
     if (el) jumpToPassage(el, passage);
   }
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
-  const toLatest = () => { const el = scroller.current; el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); };
+  const toLatest = () => { hold.release(); const el = scroller.current; el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); };
   return { messages, setMessages, loading, hasOlder, loadingOlder, refresh, heard, top, away, unseen, toLatest, toMessage, cancel: () => { request.current++; } };
 }

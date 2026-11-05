@@ -13,6 +13,7 @@ import { liveMembers } from "../members";
 import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
 import { addMessage, joinPage, missingBefore, replaceMessage, useHeard, type LiveHub } from "../live";
+import { Hold, placeOf, restorePlace, type ChatMemory, type Place } from "../chat-memory";
 
 /** Replies loaded at a time (A71), as in the main transcript. */
 const PAGE = 50;
@@ -21,7 +22,7 @@ type Replies = { messages: ChatMessage[]; hasOlder?: boolean; after?: number };
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, memory, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
   showSummary?: boolean;
@@ -32,6 +33,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   onSearch?: (thread: Chat) => void; channel: Chat | undefined; drafts: DraftStore; members: Member[]; bots: Bot[]; me: string;
   /** Changes heard of (A72): new replies, the replies and the root changed, the thread itself, put in place. */
   live: LiveHub;
+  /** The threads opened last, as they were left (A79): one opened again shows at once, where it was. */
+  memory: ChatMemory;
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
   onChanged: (chat: Chat) => void; onInvite: (member: Member) => void; onPreview: (files: Attachment[], index: number) => void;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
@@ -49,6 +52,9 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   // The newest reply already laid out: a reload (reading the thread changes it) brings nothing new to scroll to.
   // `ahead`: the newest reply put in since the last render, so a burst of them is not taken for a gap.
   const newest = useRef(0), ahead = useRef(0);
+  // Where the reader is, kept as they scroll, and where to go back to once a remembered thread is laid out (A79).
+  const spot = useRef<Place>({ bottom: true }), restoreTo = useRef<Place | null>(null), chatNow = useRef(chat), rootNow = useRef(root), [hold] = useState(() => new Hold());
+  chatNow.current = chat; rootNow.current = root;
   useEffect(() => { setChat(null); setRoot(null); setMessages([]); setHasOlder(false); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; ahead.current = 0; }, [threadId]);
   /** The replies from a little before this one to the newest, to land on it; null when it is not a reply here. */
   const around = async (id: string): Promise<Replies | null> => {
@@ -102,13 +108,29 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   };
   useEffect(() => {
     let alive = true;
+    spot.current = { bottom: true }; restoreTo.current = null;
+    // Leaving: what was on screen is remembered, once it was shown.
+    const leave = () => {
+      alive = false; hold.release();
+      const shown = chatNow.current;
+      if (settled.current && shown?.id === threadId) memory.keep(threadId, { messages: list.current.filter(item => item.chatId === threadId), hasOlder: older.current,
+        place: spot.current, seen: seen.current, chat: shown, root: rootNow.current });
+    };
+    // Opened again (not on a given reply): as it was left, where it was left, nothing read.
+    const kept = focus ? undefined : memory.take(threadId);
+    if (kept?.chat) {
+      restoreTo.current = kept.place; seen.current = kept.seen;
+      setChat(kept.chat); setRoot(kept.root ?? null); setMessages(kept.messages); setHasOlder(kept.hasOlder);
+      if (opened.current !== threadId) { opened.current = threadId; setDivider(kept.chat.readSequence); }
+      return leave;
+    }
     void Promise.all([api.chat(threadId), replies()]).then(async ([loaded, page]) => {
       if (!alive) return;
       setChat(loaded); take(page);
       if (opened.current !== threadId) { opened.current = threadId; setDivider(loaded.readSequence); }
       if (loaded.rootMessageId) { const message = await api.message(loaded.rootMessageId); if (alive) setRoot(message); }
     }).catch(error => { if (alive) onError(error); });
-    return () => { alive = false; };
+    return leave;
   }, [threadId]);
   // Opened (or re-opened) threads land at the newest reply, exactly; later arrivals scroll smoothly, and only when
   // the reader is at the bottom. Rows that grow afterwards (images, file cards) keep the view pinned there.
@@ -129,8 +151,10 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
         if (focus?.passage && highlightPassage(target, focus.passage)) return;
         target.classList.add("jv-jump"); setTimeout(() => target.classList.remove("jv-jump"), 1600); return;
       }
+      const back = restoreTo.current; restoreTo.current = null;
+      if (back && restorePlace(el, back)) { atBottom.current = false; spot.current = back; hold.start(el, back); setAway(true); return; }
       toBottom(); requestAnimationFrame(toBottom);
-    } else if (atBottom.current || mine) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else if (atBottom.current || mine) { hold.release(); el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); }
     if (atBottom.current || mine) seen.current = last?.sequence ?? 0;
   }, [messages, root, chat]);
   // The same reply asked for again while this pane is open (a quote tag pressed twice): land on it again.
@@ -146,19 +170,25 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   useEffect(() => {
     const el = body.current, inner = rows.current;
     if (!el || !inner) return;
+    // Where the reader is, noted after each scroll and each change of layout (a picture loading moves what is seen);
+    // not while hidden (a phone showing the list instead) or held, which say nothing about it.
+    let frame = 0;
+    const note = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { if (settled.current && el.clientHeight && !hold.on) spot.current = placeOf(el, 120); }); };
     const grown = new ResizeObserver(() => {
+      note();
       if (!settled.current || !atBottom.current) return;
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return;
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
     });
     grown.observe(inner);
     const track = () => {
+      if (hold.on) return;
       atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
       if (atBottom.current) seen.current = Math.max(seen.current, list.current.at(-1)?.sequence ?? 0);
-      setAway(!atBottom.current);
+      setAway(!atBottom.current); note();
     };
     track(); el.addEventListener("scroll", track, { passive: true });
-    return () => { grown.disconnect(); el.removeEventListener("scroll", track); };
+    return () => { grown.disconnect(); el.removeEventListener("scroll", track); cancelAnimationFrame(frame); };
   }, [body.current, threadId, chat]);
   // Visible replies count as read, as in the main view.
   useEffect(() => {
@@ -196,6 +226,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   };
   /** A quoted reply: scrolled to, after loading the replies from it on when it is further back than what is loaded. */
   const jump = (id: string | null, passage?: string) => {
+    hold.release();
     const find = () => id ? body.current?.querySelector<HTMLElement>(`[data-message="${id}"]`) : null, element = find();
     if (element) { jumpToPassage(element, passage); return; }
     if (!id) { onNotice(t("app.sourceGone")); return; }

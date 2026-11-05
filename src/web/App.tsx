@@ -29,6 +29,7 @@ import { liveEvents } from "./live-events";
 import { coalesce } from "./coalesce";
 import { chatChanged, noChanges, reconnected, unlistedKey } from "./chat-changes";
 import { LiveHub } from "./live";
+import { ChatMemory } from "./chat-memory";
 import type { LiveBot, LiveChat, LiveMessage, LiveReady, LiveRemoved } from "../contract/events";
 
 // Dynamic import makes the annotation tool dev-only; nothing is bundled in production.
@@ -70,8 +71,10 @@ export function App() {
   /** The followed threads in numbers, with the chat list (A69); the page loads its rows itself and hears of changes here. */
   const [followed, setFollowed] = useState<FollowedSummary | null>(null);
   const [threadEvents] = useState(() => new ThreadEvents());
-  /** Changes heard of (A72), for the open panes to put in place. */
-  const [live] = useState(() => new LiveHub());
+  /** Changes heard of (A72), for the open panes to put in place; and the chats and threads opened last, as they were
+   * left, kept current by the same changes (A79). */
+  const [live] = useState(() => new LiveHub()), [memory] = useState(() => new ChatMemory());
+  useEffect(() => live.on(heard => memory.heard(heard)), [live, memory]);
   const [notice, setNotice] = useState("");
   const transcript = useRef<HTMLDivElement>(null);
   const chatArea = useRef<HTMLElement>(null), composeWrap = useRef<HTMLFormElement>(null);
@@ -91,7 +94,7 @@ export function App() {
   const meId = members.find(member => member.kind === "user" && member.name === username)?.id ?? "";
   const meRef = useRef(meId); meRef.current = meId;
   // Newest page first, older pages as you scroll up.
-  const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, onError: handleError });
+  const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, memory, onError: handleError });
   const { messages, setMessages } = history;
   const find = useFind({ selected, chats, transcript: history, openChat, setPane, paneRef, blocked: !!infoBotId || !!settingsTab });
 
@@ -145,6 +148,8 @@ export function App() {
       // again what the page shows, every Bot's status too.
       ready: event => {
         if ((JSON.parse(event.data) as LiveReady).resumed) return;
+        // What was remembered can't be vouched for: chats are read again when opened.
+        memory.clear();
         setChanges(reconnected); void refreshChats().catch(fail); void refreshOpen().catch(fail); reloadSections();
         // 「我关注的线程」, if open, reads its first page again: what changed while the connection was down.
         threadEvents.emit({ kind: "reconnected" });
@@ -166,7 +171,7 @@ export function App() {
       // A channel deleted (by you elsewhere, or by the agent Bot): its row, and whatever of it is open, go.
       "chat.removed": event => {
         const { chatId, followed: numbers } = JSON.parse(event.data) as LiveRemoved;
-        setChats(previous => previous.filter(chat => chat.id !== chatId)); setFollowed(numbers);
+        setChats(previous => previous.filter(chat => chat.id !== chatId)); setFollowed(numbers); memory.removed(chatId);
         if (selectedRef.current === chatId) setSelected(null);
         if (paneRef.current?.kind === "thread" && paneRef.current.parentId === chatId) setPane(null);
         // 「我关注的线程」, if open, reads its first page again without its threads.
@@ -354,7 +359,7 @@ export function App() {
     try {
       await drafts.clear(id => api.removeAttachment(id));
       await api.logout(); setPhase("login"); setAccountMenu(false); setSettingsTab(null);
-      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); setChanges(noChanges);
+      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); setChanges(noChanges); memory.clear();
       setUsername(""); setSelected(null); setChats([]); setBots([]); setConnections([]); setMessages([]);
     } catch (error) { handleError(error); }
   }
@@ -422,7 +427,7 @@ export function App() {
         chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
       <SidePane pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
-        meId={meId} drafts={drafts} changes={changes} live={live} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
+        meId={meId} drafts={drafts} changes={changes} live={live} memory={memory} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
         onPane={setPane} onNav={() => setMobileNav(true)} onBackToChannel={toChannel} onAddMembers={chat => setDialog({ kind: "members", chat })} onOpenBot={setInfoBotId}
         onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
         onChannelSaved={chatSaved} onThreadChanged={threadChanged} onInvite={invite} onPreview={(files, index) => setPreview({ files, index })}
