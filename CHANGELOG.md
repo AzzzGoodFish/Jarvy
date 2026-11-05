@@ -2,6 +2,24 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.12.1 — 2026-11-05
+
+No database change: the schema stays v30. Installing now also brings `sharp` with a prebuilt libvips for the platform, about 20 MB.
+
+### Changed
+
+- **Reactions offer every emoji.** The reaction button opens a panel: a row of answers (👍 👎 👌 ✅ ❌ 👀 🙏 🤔), a search box, and every Unicode 15.1 emoji without skin tones in nine groups, with the last nine you picked on top. Search finds an emoji by its English or Chinese name or keyword: 「OK」 finds 🆗 first, 「收到」 🫡. The list, about 210 KB, loads the first time the panel opens.
+- **A new notice doesn't wake a Bot.** A new version of a channel's notice or a thread's summary no longer wakes an idle Bot or starts a stopped one. A Bot that is working gets it in its current turn; the others see the latest version with their next batch of messages. A Bot still can't post in a chat whose notice it hasn't read, and your sidebar still shows "… updated the notice". On one instance over 30 days, 136 of 211 such deliveries had woken an idle Bot only to read it.
+- **Going back to a chat is instant.** The page remembers the 20 chats and threads you opened last, as you left them: going back to one shows it at once, on the same message at the same height (or at the bottom, with what came meanwhile), without reading anything from the server. Live updates keep them current while they are off screen.
+- **Large pictures get a thumbnail.** A picture's card loads a smaller copy (WebP, inside 1600 × 640), made the first time it is asked for and kept beside the original, so pictures sent before this get one too. The preview and the download still use the original. Ten real screenshots in a channel went from 11.4 MB to 0.67 MB.
+- **Pictures are downloaded once.** The browser keeps an attachment for the session it was fetched with, so switching back to a chat or thread no longer downloads its pictures again. Once you sign out or the session expires, a kept copy isn't used, and signing out also clears them where the browser allows it (HTTPS or this machine).
+- **API**: `GET /api/attachments/:id/thumb` returns a picture's thumbnail, or the original when it gets none. `GET /api/attachments/:id` and `/thumb` answer `Cache-Control: private, max-age=31536000, immutable` with `Vary: Cookie`; `POST /api/logout` answers `Clear-Site-Data: "cache"`.
+
+### Fixed
+
+- Pictures over 1 MB open in the preview instead of offering only a download. Text, Markdown, HTML and SVG over 1 MB still do, as the page reads them whole.
+- The Bot figure's outline is smooth instead of jagged, and avatars stay sharp after zooming the page or moving the window to another screen.
+
 ## 0.12.0 — 2026-11-04
 
 The database upgrades to v30 on first start (a table for published ports). Sandboxes move to a Docker network of this Jarvy's own the next time they start, keeping what was installed in them.
