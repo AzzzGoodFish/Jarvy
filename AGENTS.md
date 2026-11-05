@@ -7,7 +7,7 @@ Read [docs/index.md](docs/index.md) and the [engineering principles](docs/engine
 - **File size.** No source file over 500 lines. When a file gets close, split along a real responsibility.
 - **Layers.** The server is `api → service → infra`, with `shared` for plain contracts:
   - `api` does not import `infra`; `service` does not import `api`; `infra` does not import `service`, `api` or `application`; `shared` imports only `shared`.
-  - `@earendil-works/*` (Pi) is imported only in `infra/pi`, except pi-env and the Pi Durable pieces it is built on (`pi-env`, `pi-durable`, `chord`), only in `infra/env`; `node:sqlite` only in `infra/storage`.
+  - `@earendil-works/*` (Pi) is imported only in `infra/pi`, except pi-env and the Pi Durable pieces it is built on (`pi-env`, `pi-durable`, `chord`), only in `infra/env`; `node:sqlite` only in `infra/storage`; `sharp` only in `infra/files`.
   - `src/contract` is the HTTP contract: what the server and the web exchange, written once (A63). It imports only itself; any server layer and the web may import it.
   - `src/web` imports only `src/web` and `src/contract`, never `src/server`.
   - `npm run build` runs `scripts/check-boundaries.mjs`, which enforces the above.

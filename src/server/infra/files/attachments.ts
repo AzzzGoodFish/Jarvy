@@ -3,6 +3,7 @@ import { createReadStream, type Dirent } from "node:fs";
 import { mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
+import { Thumbnails } from "./thumbnails.js";
 
 /** Where an attachment's bytes live under `root` (`<data>/attachments`): one folder per first two characters of the
  * id, so no folder grows past a few hundred entries. */
@@ -11,6 +12,8 @@ export const attachmentPath = (root: string, id: string) => join(root, id.slice(
 const INCOMING = "incoming";
 const SHARD = /^[a-f\d]{2}$/;
 const ID = /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/;
+/** A picture's thumbnail beside it (A80). */
+const THUMB = ".thumb";
 
 /** A file written under a new id and not yet in place: `commit` moves it there, `discard` drops it. */
 export interface StagedFile { id: string; size: number; sha256: string; }
@@ -21,6 +24,7 @@ export class FileTooLarge extends Error { constructor() { super("File is too lar
  * stream, so no file is held in memory whole. */
 export class AttachmentFiles {
   readonly root: string;
+  private readonly thumbnails = new Thumbnails();
   constructor(dataDir: string) { this.root = join(dataDir, "attachments"); }
 
   /** Writes `chunks` to a new file under a new id; past `limit` bytes it stops and throws FileTooLarge. Nothing is
@@ -54,9 +58,15 @@ export class AttachmentFiles {
     await mkdir(dirname(target), { recursive: true, mode: 0o700 });
     await rename(this.part(id), target);
   }
-  /** Drops files, staged or in place; ids with no file are skipped. */
+  /** Drops files, staged or in place, with their thumbnails; ids with no file are skipped. */
   async discard(ids: readonly string[]): Promise<void> {
-    for (const id of ids) if (ID.test(id)) await Promise.all([rm(this.part(id), { force: true }), rm(this.path(id), { force: true })]);
+    for (const id of ids) if (ID.test(id)) await Promise.all([rm(this.part(id), { force: true }), rm(this.path(id), { force: true }), rm(this.path(id) + THUMB, { force: true })]);
+  }
+  /** A picture's thumbnail (A80), made the first time it is asked for; null when the original is to be shown. */
+  async thumbnail(id: string): Promise<{ size: number; stream: Readable } | null> {
+    const path = await this.thumbnails.thumbnail(this.path(id), this.path(id) + THUMB);
+    if (!path) return null;
+    return { size: (await stat(path)).size, stream: createReadStream(path) };
   }
   /** The file's bytes from `start` to `end` (inclusive), as a stream. */
   stream(id: string, range?: { start: number; end: number }): Readable {
@@ -83,9 +93,10 @@ export class AttachmentFiles {
   async size(id: string): Promise<number | null> {
     try { return (await stat(this.path(id))).size; } catch { return null; }
   }
-  /** Removes what no attachment owns: files left in incoming/ by a stop mid-upload, files whose attachment is gone
-   * (`known` says which ids still have one), and anything else under the root, such as the readable copies older
-   * versions kept in `<id>/<name>` folders. Folders left empty go too. Returns how many files went. */
+  /** Removes what no attachment owns: files left in incoming/ by a stop mid-upload, files and thumbnails whose
+   * attachment is gone (`known` says which ids still have one), and anything else under the root, such as the readable
+   * copies older versions kept in `<id>/<name>` folders or a thumbnail cut off midway. Folders left empty go too.
+   * Returns how many files went. */
   async sweep(known: (id: string) => boolean): Promise<number> {
     let removed = 0;
     for (const entry of await entries(this.root)) {
@@ -97,7 +108,8 @@ export class AttachmentFiles {
       }
       const files = await entries(path);
       for (const file of files) {
-        if (entry.name === INCOMING || !ID.test(file.name) || !file.name.startsWith(entry.name) || !known(file.name)) {
+        const id = file.name.endsWith(THUMB) ? file.name.slice(0, -THUMB.length) : file.name;
+        if (entry.name === INCOMING || !ID.test(id) || !id.startsWith(entry.name) || !known(id)) {
           removed += await count(join(path, file.name));
           await rm(join(path, file.name), { force: true, recursive: true });
         }

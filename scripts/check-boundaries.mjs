@@ -32,7 +32,8 @@ for (const file of files(root)) {
       || layer === 'shared' && target !== null && target !== 'shared'
       || EXECUTION.test(specifier) && !relative(root, file).startsWith('infra/env/')
       || specifier.startsWith('@earendil-works/') && !EXECUTION.test(specifier) && !relative(root, file).startsWith('infra/pi/')
-      || specifier === 'node:sqlite' && !relative(root, file).startsWith('infra/storage/');
+      || specifier === 'node:sqlite' && !relative(root, file).startsWith('infra/storage/')
+      || specifier === 'sharp' && !relative(root, file).startsWith('infra/files/');
     if (forbidden) failures.push(`${relative(root, file)} → ${specifier}`);
   }
 }

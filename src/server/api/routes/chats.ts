@@ -59,6 +59,8 @@ export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">)
 }
 
 const ATTACHMENT_CACHE = "private, max-age=31536000, immutable";
+/** Every answer with an attachment's bytes is a download, never a page the browser renders (A34). */
+const disposition = (name: string) => `attachment; filename*=UTF-8''${encodeURIComponent(name)}`;
 
 export function attachmentRoutes(chats: ApiServices["chats"]) {
   const routes = new Hono<ApiEnv>();
@@ -71,11 +73,21 @@ export function attachmentRoutes(chats: ApiServices["chats"]) {
     // and only for this session: `Vary: Cookie`, so once its cookie is gone (signed out, expired) the server is asked.
     const size = file.size, range = byteRange(c.req.header("Range"), size);
     const headers = { "Content-Type": downloadType(file.mimeType), "Accept-Ranges": "bytes", "Cache-Control": ATTACHMENT_CACHE, "Vary": "Cookie",
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}` };
+      "Content-Disposition": disposition(file.name) };
     if (range === "unsatisfiable") return c.body(null, 416, { ...headers, "Content-Range": `bytes */${size}` });
     if (!range) return c.body(web(chats.attachments.stream(file)), 200, { ...headers, "Content-Length": String(size) });
     return c.body(web(chats.attachments.stream(file, range)), 206,
       { ...headers, "Content-Length": String(range.end - range.start + 1), "Content-Range": `bytes ${range.start}-${range.end}/${size}` });
+  });
+  // A picture's card loads this (A80): a smaller WebP when the original is large, else the original. Kept by the browser
+  // the same way, and a download like it; the preview and the download use the original.
+  routes.get("/:id/thumb", async c => {
+    const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));
+    if (!file) throw new HTTPException(404, { message: "Attachment not found" });
+    const thumbnail = await chats.attachments.thumbnail(file);
+    const kept = { "Cache-Control": ATTACHMENT_CACHE, "Vary": "Cookie", "Content-Disposition": disposition(file.name) };
+    if (thumbnail) return c.body(web(thumbnail.stream), 200, { ...kept, "Content-Type": "image/webp", "Content-Length": String(thumbnail.size) });
+    return c.body(web(chats.attachments.stream(file)), 200, { ...kept, "Content-Type": downloadType(file.mimeType), "Content-Length": String(file.size) });
   });
   routes.get("/:id/run", c => {
     const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));

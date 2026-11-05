@@ -2,21 +2,25 @@ import { useEffect, useState, type CSSProperties } from "react";
 import type { Attachment } from "../../contract/chat";
 import { t } from "../i18n";
 import { Icon } from "../ui";
-import { KIND_LABEL, bytes, extension, fileKind, fileUrl, isMedia, isPicture, pictureSource } from "./files";
+import { KIND_LABEL, bytes, extension, fileKind, fileUrl, isMedia, isPicture, pictureSource, thumbnailUrl } from "./files";
 
 type Size = { width: number; height: number };
 /** Each picture's size once loaded: shown again (a chat gone back to, A79), its card has its shape before the picture
  * arrives, so what is below it doesn't move. */
 const sizes = new Map<string, Size>();
+/** A picture in its card: the server's thumbnail (A80), the original if that fails to load; an SVG is read as text. */
 function Thumbnail({ file, onSize }: { file: Attachment; onSize: (size: Size) => void }) {
-  const [src, setSrc] = useState(() => fileKind(file) === "svg" ? undefined : fileUrl(file)), [broken, setBroken] = useState(false);
+  const svg = fileKind(file) === "svg";
+  const [src, setSrc] = useState(() => svg ? undefined : thumbnailUrl(file)), [broken, setBroken] = useState(false);
   useEffect(() => {
+    if (!svg) return;
     const abort = new AbortController(); setBroken(false);
     pictureSource(file, abort.signal).then(setSrc).catch(() => { if (!abort.signal.aborted) setBroken(true); });
     return () => abort.abort();
   }, [file.id]);
+  const failed = () => { if (!svg && src !== fileUrl(file)) setSrc(fileUrl(file)); else setBroken(true); };
   if (broken) return <span className="ui-broken-image"><Icon name="image"/></span>;
-  return src ? <img src={src} alt={file.name} loading="lazy" onError={() => setBroken(true)}
+  return src ? <img src={src} alt={file.name} loading="lazy" onError={failed}
     onLoad={event => { const { naturalWidth: width, naturalHeight: height } = event.currentTarget; if (width && height) onSize({ width, height }); }}/> : <Icon name="image"/>;
 }
 /** One attachment: a picture shows its thumbnail above the name — at the picture's own proportions once its size is
