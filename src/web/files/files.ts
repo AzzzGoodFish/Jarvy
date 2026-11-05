@@ -1,9 +1,12 @@
 import type { Attachment } from "../../contract/chat";
 import { t } from "../i18n";
 
-/** Preview kinds; larger files are download-only, except audio and video, which stream (A34). */
+/** Preview kinds; a file larger than `PREVIEW_LIMIT` is download-only when its preview reads the whole file into the
+ * page — text, Markdown, HTML and SVG — while pictures, audio and video stream from the attachment URL (A34). */
 export type FileKind = "image" | "svg" | "video" | "audio" | "html" | "markdown" | "text" | "download";
 export const PREVIEW_LIMIT = 1024 * 1024;
+/** Read whole to be previewed, so a large one waits and holds memory: everything the page renders itself. */
+export const readWhole = (kind: FileKind) => kind === "text" || kind === "markdown" || kind === "html" || kind === "svg";
 const TEXT = ["txt", "json", "jsonl", "yaml", "yml", "ts", "tsx", "js", "jsx", "mjs", "cjs", "css", "log", "csv", "py", "sh", "sql", "toml", "xml", "ini", "env", "diff", "patch"];
 
 export const fileUrl = (file: Attachment) => `/api/attachments/${file.id}`;
