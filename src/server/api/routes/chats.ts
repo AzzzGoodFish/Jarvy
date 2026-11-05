@@ -67,9 +67,10 @@ export function attachmentRoutes(chats: ApiServices["chats"]) {
     const file = chats.attachments.find(c.get("actorId"), c.req.param("id"));
     if (!file) throw new HTTPException(404, { message: "Attachment not found" });
     // An attachment's contents never change under its id, so this browser keeps them: a picture shown again (switching
-    // back to a chat, a thread, the preview) is not downloaded again. Only this browser: `private`, never a shared cache.
+    // back to a chat, a thread, the preview) is not downloaded again. Only this browser: `private`, never a shared cache;
+    // and only for this session: `Vary: Cookie`, so once its cookie is gone (signed out, expired) the server is asked.
     const size = file.size, range = byteRange(c.req.header("Range"), size);
-    const headers = { "Content-Type": downloadType(file.mimeType), "Accept-Ranges": "bytes", "Cache-Control": ATTACHMENT_CACHE,
+    const headers = { "Content-Type": downloadType(file.mimeType), "Accept-Ranges": "bytes", "Cache-Control": ATTACHMENT_CACHE, "Vary": "Cookie",
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}` };
     if (range === "unsatisfiable") return c.body(null, 416, { ...headers, "Content-Range": `bytes */${size}` });
     if (!range) return c.body(web(chats.attachments.stream(file)), 200, { ...headers, "Content-Length": String(size) });
