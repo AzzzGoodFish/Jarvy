@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { RuntimeFault } from "../../shared/runtime.js";
+import { since } from "./usage.js";
 
 function integer(raw: string, label: string) {
   const n = Number(raw);
@@ -22,12 +23,10 @@ export function historyRoutes(bots: ApiServices["bots"]) {
     if (!detail) throw new RuntimeFault("history_missing", "History record not found", 404);
     return c.json(detail);
   });
-  // Token use and cost per model since `since` (ms); the client picks the start of its own local day (A46).
+  // Token use and cost per model since a time (A46).
   routes.get("/:id/usage", c => {
-    const raw = c.req.query("since") ?? "";
-    const since = Number(raw);
-    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(since)) throw new HTTPException(400, { message: "Invalid start time" });
-    return c.json({ since, models: bots.memory(c.req.param("id")).usage(since) });
+    const from = since(c.req.query("since"));
+    return c.json({ since: from, models: bots.memory(c.req.param("id")).usage(from) });
   });
   routes.all("/:id/history", () => { throw new HTTPException(405, { message: "History is read-only" }); });
   routes.all("/:id/history/:recordId{[0-9]+}", () => { throw new HTTPException(405, { message: "History is read-only" }); });

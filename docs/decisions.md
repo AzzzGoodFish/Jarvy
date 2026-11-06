@@ -202,7 +202,7 @@ Bot info gains 用量: token use and cost per model for one Bot, for today, 7 da
 - One row per provider and model: calls, input, output, cache read, cache write, cost; a total below when there is more than one model.
 - A model none of whose calls had a price shows 「未配置价格」, never $0; the total's cost leaves such models out and says so.
 - Days start at midnight in the browser's time zone; the client sends the start time.
-- Per Bot only; a total across Bots is not covered.
+- Per Bot here; the total across Bots is in Settings (A81).
 
 ## A47 The live turn
 
@@ -649,3 +649,13 @@ A picture's card loaded the original: a 1280 × 800 screenshot of 0.5 MB, a shee
 
 Why: ten real screenshots went from 11.4 MB to 0.67 MB, and showed in 0.4 s instead of 3.1 s at 30 Mbit/s. Making one costs 30–170 ms once, so the very first view of a picture on the machine itself is a little slower (about 0.4 s instead of 0.2 s for ten); every view after that, in any browser, is faster.
 
+## A81 Usage across Bots
+
+Settings gains 用量, after 模型: the token use and cost of every Bot together, for the same periods as one Bot's page (A46), in two tables.
+
+- **By model**: one row per provider and model, summed across Bots, with the same columns as one Bot's page and a total below.
+- **By Bot**: one row per Bot that called a model in the period, with its avatar and name, calls, input, output and cost, most expensive first. A Bot's cost leaves out its unpriced models; if it had none priced, it shows 「未设置价格」 like a model.
+- **Still summed on request**: `GET /api/usage?since=<ms>` reads each Bot's History as its own page does and adds the rows up (`service/bot/usage.ts`); nothing new is stored. 15 Bots each filled to the size of the largest History so far (6,000 rows, about 1.5 GB in all) take about 165 ms for 30 days and 220 ms for everything, and about 530 ms the first time after a start, when each Bot's database is opened.
+- **Only Bots that exist**: a deleted Bot's History goes with it (A42), so its calls leave the totals too. Keeping them would need a table outside the Bots' Histories, which is not done.
+
+Why: what the models cost is a question about the whole instance, and adding up a dozen Bot pages by hand is the wrong way to answer it.

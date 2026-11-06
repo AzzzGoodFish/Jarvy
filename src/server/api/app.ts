@@ -16,6 +16,7 @@ import { secretRoutes } from "./routes/secrets.js";
 import { environmentRoutes } from "./routes/environments.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { portRoutes } from "./routes/ports.js";
+import { usageRoutes } from "./routes/usage.js";
 
 export function createHttpApp(services: ApiServices, webRoot: string) {
   const app = new Hono<ApiEnv>();
@@ -28,6 +29,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   installAuthentication(api, services.account);
   api.route("/", taskRoutes(services));
   api.route("/", portRoutes(services));
+  api.route("/", usageRoutes(services.bots));
   api.route("/bots", botRoutes(services.bots));
   api.route("/", channelRoutes(services));
   api.route("/chats", chatRoutes(services));

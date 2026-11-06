@@ -2,7 +2,8 @@ import type { ActivityCursor } from "../../shared/activity.js";
 import { DatabaseSync } from "node:sqlite";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { type HistoryDraft, type HistoryLink, type HistoryPage, type HistoryRecord, type HistorySummary, type HistoryTool, type HistoryReadDetail, type ModelUsage } from "../../shared/history.js";
+import { type HistoryDraft, type HistoryLink, type HistoryPage, type HistoryRecord, type HistorySummary, type HistoryTool, type HistoryReadDetail } from "../../shared/history.js";
+import type { ModelUsage } from "../../../contract/usage.js";
 
 type Row = Omit<HistoryRecord, "model" | "usage" | "message" | "extra"> & { model: string | null; usage: string | null; message: string; extra: string };
 const json = (value: unknown) => value == null ? null : JSON.stringify(value);

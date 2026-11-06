@@ -1,6 +1,7 @@
 import type { Urgency } from "../../shared/delivery.js";
 import type { ActivityCursor } from "../../shared/activity.js";
 import { activityPage } from "./activity.js";
+import { usageOverview } from "./usage.js";
 import { dirname, join } from "node:path";
 import { rm } from "node:fs/promises";
 import type { Store } from "../../infra/storage/store.js";
@@ -225,6 +226,8 @@ export class BotService {
     return { message, chat: { id: chat.id, title: chat.title } };
   }
   memory(id: string) { return this.get(id).memory; }
+  /** Usage across every Bot since a time (A81), from each one's History. */
+  usage(since: number) { return usageOverview(since, this.deps.store.bots.list().map(record => [record.id, this.memory(record.id).usage(since)] as const)); }
   /** A delivery reached a Bot (A41); the Bot responds to its urgency. */
   deliver(id: string, urgency: Urgency): void {
     if (this.closed || !this.deps.store.bots.get(id)) return;
