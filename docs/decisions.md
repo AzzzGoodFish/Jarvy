@@ -621,7 +621,8 @@ The reaction menu offered 48 hand-picked emoji. People expect what their phone's
 - **The answers first**: 👍 👎 👌 ✅ ❌ 👀 🙏 🤔 sit above the search box — approval, rejection, OK, right, wrong, seen, thanks, thinking.
 - **Every emoji**: Unicode's list in its nine groups, each with an icon that scrolls the grid to it. Skin tones are left out: the system's own picker offers them, and they would double the list.
 - **Search by name or keyword**, in English and Chinese, from CLDR: a name counts most, then a whole keyword, then a beginning; among equals the emoji with the fewest keywords. 「OK」 finds 🆗 first, 「收到」 🫡.
-- **Recent**: the last nine picked, kept in the browser (`localStorage`), above the groups.
+- **Recent**: the last nine picked, kept in the browser (`localStorage`), above the groups and with a tab of its own before theirs once there are any.
+- **A ninth of the row**: a cell is a ninth of the grid's width, so a scrollbar that takes room (as on Windows) narrows the cells rather than pushing the last column out of view.
 - **Loaded on first use**: the list with its words is about 210 kB (75 kB compressed), so it is its own chunk, fetched when the panel first opens; the answers row works before it arrives. `scripts/build-emoji.mjs` regenerates it from the Unicode and CLDR files, which a build never fetches.
 
 Why: an answer someone wants to give should be one search away, in their language, without the page carrying it until it is used.

@@ -45,7 +45,7 @@ Mention      member IDs resolved from 「@名字」 when the message is saved
 - **Replies** quote one message in the same chat and count as @-ing its author.
 - **Partial quotes** (A44): up to 10 passages per message, each from a message in the same chat (in a thread, also its root) that the sender can read, and part of that message's text ignoring whitespace and Markdown markup. Stored as structure (`message_quotes`), marked `[[qN]]` in the content; a channel copy keeps them. Stored titles (a thread's, a DM's) write a quote as "passage"; previews in the API (a chat's `lastMessage`, a reply's `replyTo`, a thread's `root`) carry the content and its quotes, and the interface words them. Quoting does not notify the quoted author.
 - **Message IDs in text** (A82): a message's text that names other messages by ID (`m2250`, not inside a word, number, path or file name) carries, for a person reading it, `refs`: each named message they may open — who wrote it, when, where, the start of its text — up to 20, resolved when read, never stored. Bots get none; they read IDs themselves.
-- **Reactions**: a row of answers (👍 👎 👌 ✅ ❌ 👀 🙏 🤔), then every Unicode emoji without skin tones in its nine groups, searchable by English or Chinese name and keyword, and the last nine picked in this browser (A78); one per person per emoji, clicking again removes it; writing access is required.
+- **Reactions**: a row of answers (👍 👎 👌 ✅ ❌ 👀 🙏 🤔), then every Unicode emoji without skin tones in its nine groups, searchable by English or Chinese name and keyword, and the last nine picked in this browser first, with a tab of their own (A78); one per person per emoji, clicking again removes it; writing access is required.
 - **Pins** and **mute** are per member.
 
 ## Bot DMs
