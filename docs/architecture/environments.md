@@ -50,7 +50,7 @@ A new Bot gets its sandbox when it is created (`POST /bots`, the agent's `bots.c
 
 ## In Bot info
 
-The section has two parts:
+Bot info's 环境 tab has two parts:
 
 - **Its Docker sandbox**: Docker 沙箱 / "Docker sandbox", its state, and a line saying which machine the Bot is on when it switched to one; then what it is made of (the container's name, its image and the workspace's mount point, `/workspace`), its resource limits and, while it runs, its usage (A75), Start or Stop and Reset; without Docker, in their place, what to do: install and start Docker on the computer running Jarvy, then restart it. Stopping closes what the Bot left running and resetting removes what it installed, so both ask in place first (Bot info is itself a dialog).
 - **External environments**: one switch for each SSH machine, by its name, a grant; with none added, Add machine, which opens Settings › Environments at the form to add one. Turning one off while the Bot is there sends it back to its sandbox.
