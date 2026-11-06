@@ -434,7 +434,7 @@ export function App() {
         onNotice={setNotice} onError={handleError} paneWidth={paneWidth} onResize={startResize}/>
     </div>
     {mobileNav && <div className="ui-nav-scrim" onClick={() => setMobileNav(false)} role="presentation"/>}
-    {settingsTab && <SettingsDialog connections={connections} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
+    {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
       sections={sections} members={members} connections={connections} meId={meId}
       onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setSettingsTab}

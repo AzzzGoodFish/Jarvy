@@ -39,6 +39,8 @@ Memory opens the database on first use; `Bot.stop` stops execution and capture b
 
 The Bot info page 用量 sums token use and cost per provider and model from History (A46): every assistant row with `usage` is one call, and its input, output, cache read and cache write tokens and `cost.total` are added up. `GET /api/bots/:id/usage?since=<ms>` returns `{ since, models: [{ provider, model, calls, input, output, cacheRead, cacheWrite, cost }] }`, most expensive first; `cost` is null when no call of that model had a price. The page offers 今天 / 7 天 / 30 天 / 全部; the first three start at midnight in the browser's time zone and 全部 sends `since=0`, which the `timestamp>=?` filter already reads as everything. It is computed on each request; on the largest History so far (94 MB, about 6,000 rows) 30 days take about 11 ms, so there is no summary table.
 
+Settings → 用量 is the same across every Bot (A81): `GET /api/usage?since=<ms>` sums each Bot's rows and returns `{ since, models, bots: [{ botId, calls, input, output, cacheRead, cacheWrite, cost }] }`, both most expensive first, with a Bot listed only if it called a model in the period. A deleted Bot's History goes with it, and so do its calls.
+
 ### Not covered
 
 Only system, user, assistant and tool-result messages after History was introduced are recorded. Old JSONL is not imported. Compaction, branch and custom entries, and the final forced system prompt of each turn, are not in History. Codemode's inner tool calls are not recorded separately. History is not an audit log of HTTP requests.

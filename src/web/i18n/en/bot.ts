@@ -20,8 +20,11 @@ export const bot = {
   "usage.cacheWrite": "Cache write",
   "usage.cost": "Cost",
   "usage.total": "Total",
+  "usage.byModel": "By model",
+  "usage.byBot": "By Bot",
   "usage.unpriced": "No price set",
   "usage.notePartial": "The total cost leaves out models with no price set.",
+  "usage.noteCosts": "Costs leave out models with no price set.",
 
   "activity.error": "Error",
   "activity.running": "Running",

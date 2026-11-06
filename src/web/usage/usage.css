@@ -32,3 +32,13 @@
   .jv-usage-table td { display:flex; flex-direction:column; gap:2px; }
   .jv-usage-table td::before { content:attr(data-label); font-family:var(--ui-font-sans); font-size:10.5px; font-weight:400; color:var(--jv-muted); }
 }
+
+/* Settings → 用量: the page scrolls as a whole, the toolbar on top of both tables. */
+.jv-usage-page .jv-usage { flex:none; gap:24px; }
+.jv-usage-page .jv-usage-toolbar { padding:0; }
+.jv-usage-page .jv-usage-toolbar .jv-tabs { padding-left:0; }
+.jv-usage-page .jv-section { display:flex; flex-direction:column; gap:8px; }
+.jv-usage-bot { display:flex; align-items:center; gap:8px; min-width:0; }
+.jv-usage-bot strong { font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+/* A Bot's four figures fit on one line of its card. */
+@media (max-width: 560px) { .jv-usage-bots tr { grid-template-columns:repeat(4, minmax(0,1fr)); } }

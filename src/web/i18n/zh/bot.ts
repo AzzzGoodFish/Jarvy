@@ -23,8 +23,11 @@ export const bot: Part<typeof en> = {
   "usage.cacheWrite": "缓存写入",
   "usage.cost": "费用",
   "usage.total": "合计",
+  "usage.byModel": "按模型",
+  "usage.byBot": "按 Bot",
   "usage.unpriced": "未设置价格",
   "usage.notePartial": "合计费用不含未设置价格的模型。",
+  "usage.noteCosts": "费用不含未设置价格的模型。",
 
   "activity.error": "运行出错",
   "activity.running": "运行中",
