@@ -1,5 +1,5 @@
 import type { RuntimeSetup } from "./contracts.js";
-import { skillPath, type Skill } from "../../shared/skill.js";
+import type { Skill } from "../../shared/skill.js";
 import type { PromptPart } from "../../shared/prompt.js";
 
 /** The agent Bot's part of its prompt (A48): what it is for, and the tools only it has. */
@@ -7,7 +7,7 @@ const AGENT_ROLE = `
 ## Your role
 You are the owner's agent Bot. Besides working like any Bot, you help them set up and run Jarvy itself.
 Help a new owner get started: find out what they want to get done, suggest a team of Bots for it, then create and set up those Bots.
-The chat gateway lists tools only you have: models.list, bots.create, bots.update, bots.start, bots.stop and bots.usage. bots.delete, chats.delete, chats.removeMembers and sections.delete first ask the owner on a card, and delete nothing unless they confirm.
+The chat gateway lists tools only you have: skills.read, models.list, bots.create, bots.update, bots.start, bots.stop and bots.usage. bots.delete, chats.delete, chats.removeMembers and sections.delete first ask the owner on a card, and delete nothing unless they confirm.
 Other Bots may ask you to do these things for them. Do the ordinary ones; deleting always waits for the owner's confirmation.
 You can't add model connections, keys or logins. The owner does that in Settings, so point them there when a model is missing.
 `;
@@ -28,7 +28,7 @@ You are in a group chat with people and other Bots. You take part in direct mess
 Here your name is ${bot.name}, and your description is: ${bot.description}
 ` },
     { name: "Your role", text: bot.agent ? AGENT_ROLE : "" },
-    { name: "Skills", text: skillsSection(setup, skills) },
+    { name: "Skills", text: skillsSection(skills) },
     { name: "Rules", text: `
 ## Language
 Write to people in the language they write to you in. In a channel or thread, use the language its conversation is held in.
@@ -75,14 +75,13 @@ Your file and command tools run on your own computer: a Linux container only you
 You can also work in other, external workspaces. environments.list shows the ones your owner has given you; environments.switch moves you to one, and from then on your file and command tools run there until you switch back. Your chat tools are the same either way. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat. Each batch of messages ends with the environment you are in now.
 `;
 }
-/** The agent Bot's skills (A55): each one's name, what it is for, and its file in the workspace as its tools see it
- * there by default. Only the list is in the prompt; the Bot reads a file when the work calls for it. */
-function skillsSection(setup: RuntimeSetup, skills: readonly Skill[]): string {
+/** The agent Bot's skills (A55): each one's name and what it is for. Only the list is in the prompt; the Bot reads a
+ * guide with skills.read when the work calls for it, wherever it works. */
+function skillsSection(skills: readonly Skill[]): string {
   if (!skills.length) return "";
-  const base = setup.home().cwd;
   return `
 ## Skills
-Skills are guides that come with this chat platform for kinds of work you help with. When a task matches one, read its file before you start, and follow it. They are suggestions for the owner: propose a plan from them and act once the owner agrees. They are kept in your workspace and written again each time you start, so changes to them don't last.
-${skills.map(skill => `- ${skill.name}: ${skill.description} File: ${base}/${skillPath(skill.name)}`).join("\n")}
+Skills are guides that come with this chat platform for kinds of work you help with. When a task matches one, read it with skills.read before you start, and follow it. They are suggestions for the owner: propose a plan from them and act once the owner agrees.
+${skills.map(skill => `- ${skill.name}: ${skill.description}`).join("\n")}
 `;
 }

@@ -1,4 +1,4 @@
-/** A skill that ships with Jarvy (A55): a guide for one kind of work, kept as a file in the agent Bot's workspace. */
+/** A skill that ships with Jarvy (A55): a guide for one kind of work, which the agent Bot reads with skills.read. */
 export interface Skill {
   /** Lowercase words joined by hyphens; also its folder's name. */
   name: string;
@@ -7,6 +7,3 @@ export interface Skill {
   /** The whole SKILL.md, frontmatter included. */
   content: string;
 }
-
-/** Where a skill's file sits, relative to the workspace. */
-export const skillPath = (name: string) => `skills/${name}/SKILL.md`;

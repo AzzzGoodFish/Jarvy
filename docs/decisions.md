@@ -320,7 +320,7 @@ Bot info's context figure is the size the model itself reported with its latest 
 Jarvy ships skills: guides for a kind of work the agent Bot (A48) helps the owner with. The first, `dev-team`, is how to run software development with a team of Bots in Jarvy — forming the team, splitting roles, organizing channels, using threads and keeping channel notices.
 
 - **Files**: one folder per skill under the package's `skills/`, each with a `SKILL.md` that starts with `name` (lowercase words joined by hyphens, the folder's name) and `description` between `---` markers. A file without both is skipped with a warning (`infra/files/skills.ts`).
-- **In the workspace**: each time the agent Bot starts, Jarvy writes them into its workspace as `skills/<name>/SKILL.md`, replacing what is there, so an upgrade brings the new text and edits don't last. Its tools read them there in any work environment, the sandbox included, where the workspace is the Bot's home.
+- **In the workspace**: each time the agent Bot starts, Jarvy writes them into its workspace as `skills/<name>/SKILL.md`, replacing what is there, so an upgrade brings the new text and edits don't last. Its tools read them there in any work environment, the sandbox included, where the workspace is the Bot's home. (A84: read with `skills.read` instead, no longer copied.)
 - **In the prompt**: the agent Bot's prompt lists each skill's name, description and file, and says to read the file before such work and to propose plans from it for the owner to confirm. The text itself is read only when the work calls for it.
 - **Not Pi's skills**: Pi's skill discovery and its prompt section stay off (`noSkills`, A49); nothing on the machine is picked up. Other Bots have no skills; the owner can't add any yet.
 
@@ -682,3 +682,16 @@ Bot info was one page: a hero, then eight sections — 主 Bot, 模型, 个人�
 - Frontend only: the sections moved into their own components (`web/bot/`) and no API changed.
 
 Why: what someone opens Bot info for is one of a few things, and the runtime's switch, the activity and the usage were the hardest to reach of all.
+
+## A84 Docker that can't be used says why
+
+Jarvy asked `docker version` once at start, and any failure meant "no Docker": Bot info said 「未检测到 Docker。安装并启动 Docker 后，请重启 Jarvy。」 also when Docker was installed and running but refused the user Jarvy runs as, the usual case for an ordinary user outside the `docker` group. The log said nothing, a fix needed a restart, and the agent Bot, whose own file and command tools fail then too, knew neither why nor how to help, and couldn't read its skills, which were files in its sandbox's workspace.
+
+- **Told apart**: no `docker` command (`missing`), no daemon answering (`stopped`), the daemon refusing this user (`denied`, permission denied), or anything else (`failed`, with what Docker said). The log says it once per reason; the sandbox's state `unavailable` carries the reason as its `error`.
+- **Taken up again**: while Docker can't be used, Jarvy looks every 30 seconds and takes it up when it can, so installing or starting Docker needs no restart. A new group only reaches processes started after the user logs in again, so a permission fixed by joining `docker` still needs Jarvy restarted from a new login. A sandbox a Bot tried to use meanwhile isn't left as failed.
+- **Bot info says what is, not what to do**: one sentence — why Docker can't be used, that a sandbox can't be started for the Bot, and what that stops: 「当前环境无 Docker 权限，无法为 Bot 启动沙箱（无沙箱时，Bot 无法进行文件读写和命令执行等操作）。」 The fix depends on the system and who runs Jarvy, so it is the agent Bot's to explain.
+- **Bots are told**: the sandbox's line in `environments.list` has `problem`; a switch there and a failing tool say why; every batch's `<environment>` has `problem` while the tools can't run there, so a Bot knows without calling anything. The agent's first-setup note asks it, when its environment names a problem, to say what that means and offer help.
+- **A setup skill** (`skills/setup`): models; Docker on Linux, macOS and Windows — installing, starting, the `docker` group with what it gives (root on that computer, to every Bot through its sandbox) and rootless Docker instead; reaching Jarvy from other devices and trusting its certificate; adding SSH machines and granting them; secrets. Every check is a command the owner runs and pastes back, since the agent's own tools may not work.
+- **Skills read with `skills.read`** (the agent's tool, A55 amended): Jarvy returns a skill's guide itself, wherever the agent works and whatever its environment can do; the prompt lists names and descriptions and says to read them that way. Skills are no longer copied into the workspace, and the copies earlier versions wrote there are removed when the agent starts.
+
+Why: a person who can't run Bots' tools should learn what is wrong from the platform, and how to fix it from the Bot whose job is helping them set Jarvy up, even before Docker works.

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Connection, RemoteExecutionEnv, packagedDaemon } from "@earendil-works/pi-env";
 import type { WorkEnvironment } from "../../shared/environment.js";
+import type { DockerProblemReason } from "../../../contract/environment.js";
 import { COMPUTER_DOCKERFILE } from "./computer-image.js";
 import { overDurable } from "./durable.js";
 
@@ -40,9 +41,19 @@ function docker(args: string[], timeoutMs = 60_000): Promise<string> {
   }));
 }
 
-export async function dockerAvailable(): Promise<boolean> {
-  try { await docker(["version", "--format", "{{.Server.Version}}"], 10_000); return true; }
-  catch { return false; }
+/** Why Docker can't be used here: no `docker` command, no daemon answering, the daemon refusing this user, or
+ * something else (`detail` keeps what Docker said). */
+export interface DockerProblem { reason: DockerProblemReason; detail: string }
+/** Null when this user can use Docker; otherwise why not, told apart by what the docker command says. */
+export function dockerProblem(): Promise<DockerProblem | null> {
+  return new Promise(resolve => execFile("docker", ["version", "--format", "{{.Server.Version}}"], { timeout: 10_000 }, (error, _stdout, stderr) => {
+    if (!error) return resolve(null);
+    const said = (stderr || error.message).trim(), detail = said.split("\n").filter(Boolean).at(-1) ?? said;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") resolve({ reason: "missing", detail: "no docker command" });
+    else if (/permission denied/i.test(said)) resolve({ reason: "denied", detail });
+    else if (/cannot connect|failed to connect|daemon (is )?running|no such file|connection refused|error during connect/i.test(said)) resolve({ reason: "stopped", detail });
+    else resolve({ reason: "failed", detail: error.killed ? "docker didn't answer within 10 seconds" : detail });
+  }));
 }
 
 /** One image per Dockerfile and owner ids, named after both, so a change builds a new one. */

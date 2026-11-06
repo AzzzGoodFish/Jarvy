@@ -45,8 +45,10 @@ const unreadNoteLine = (notes: readonly UnreadNote[]) => notes.length ? `<notice
   + `${attribute("title", note.title)}${attribute("type", note.type)}${attribute("version", String(note.version))}/>`).join("")}
 <note>You haven't read ${notes.map(noticeName).join(" or ")} yet. Read ${notes.length === 1 ? "it" : "them"} with chats.info `
   + `(${notes.map(note => `chatId: "${note.chatId}"`).join(", ")}), make sure your message follows ${notes.length === 1 ? "it" : "them"} before you send here.</note></notice_unread>` : "";
-export interface BatchEnvironment { name: string; directory: string }
-const environmentLine = (place?: BatchEnvironment) => place ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}/>` : "";
+/** Where the Bot works now; `problem` says why its file and command tools don't work there, such as Docker missing. */
+export interface BatchEnvironment { name: string; directory: string; problem?: string }
+const environmentLine = (place?: BatchEnvironment) => place
+  ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}${place.problem ? attribute("problem", place.problem) : ""}/>` : "";
 const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z");
 
 /** A delivery that is not a message (A39, A41): chat activity — a mark on the Bot's message, or a new notice / summary
@@ -65,7 +67,8 @@ type FollowedThread = { id: string; title: string; channel: { id: string; title:
 /** The agent Bot's first turn (A48): the owner has just given it a model; it writes to them itself (A61). */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
   + `Write to them in a DM (messages.send with to: "${owner}") and welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
-  + "such as building a team of Bots for their work and running the platform for them. Then ask what they want to get done: a software project, writing, research or something else.";
+  + "such as building a team of Bots for their work and running the platform for them. Then ask what they want to get done: a software project, writing, research or something else. "
+  + "If the environment at the end of this batch names a problem, also tell them in a sentence what it means for the Bots and offer to help set it up, as your setup skill describes.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
 export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null,
   unreadNotes?: readonly UnreadNote[]): string {

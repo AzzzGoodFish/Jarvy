@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PlusIcon } from "lucide-react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
+import type { DockerProblemReason } from "../../contract/environment";
 import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
 import { useAction } from "../action";
@@ -12,6 +13,10 @@ const STATE = {
   preparing: "environment.state.preparing", running: "environment.state.running", stopped: "environment.state.stopped",
   failed: "environment.state.failed", unavailable: "environment.state.unavailable",
 } as const;
+
+/** Why Docker can't be used, as the server tells it; an older server says nothing. */
+const unusable = (error: string | undefined): DockerProblemReason =>
+  error === "missing" || error === "stopped" || error === "denied" ? error : "failed";
 
 /** Bot info's section (A50, A68), in two parts. Its Docker sandbox, the only default there is: its state,
  * the container, image and mount it is made of, its resource limits and usage (A75), Start or Stop and Reset, and where the Bot is when it switched to a
@@ -38,8 +43,9 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
       {state !== "unavailable" && <SandboxLimits bot={bot} onSaved={onSaved}/>}
       <div className="jv-list-row jv-static-row jv-env-details">
-        {/* The state says the rest; only a missing Docker needs words: what to do about it. */}
-        {state === "unavailable" ? <p>{t("environment.unavailable")}</p> : !confirming && <div className="jv-env-actions">
+        {/* The state says the rest; only Docker that can't be used needs words: why, and what that stops. The agent Bot
+          * helps fix it (its setup skill). */}
+        {state === "unavailable" ? <p>{t("environment.unavailable", { why: t(`environment.unavailable.${unusable(computer.error)}`) })}</p> : !confirming && <div className="jv-env-actions">
           <Button type="button" variant="outline" size="sm" disabled={!!busy || state === "preparing"} onClick={() => state === "running" ? setConfirming("stop") : run("start")}>
             {t(busy === "start" ? "environment.starting" : busy === "stop" ? "environment.stopping" : state === "running" ? "environment.stop" : "environment.start")}</Button>
           <Button type="button" variant="ghost" size="sm" disabled={!!busy || state === "preparing"} onClick={() => setConfirming("reset")}>{t("environment.reset")}</Button>

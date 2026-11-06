@@ -47,6 +47,9 @@ function channel(context: ToolContext, chatId: string) {
 /** The agent Bot's own tools (A48): setting up Bots for the owner, and deletions the owner confirms. Only it lists them;
  * from another Bot they are unknown tools. */
 export const agentTools = [
+  tool("skills.read", "Read one of the skills your prompt lists: its whole guide. Works wherever you work, also when your file tools can't.",
+    Type.Object({ name: Type.String({ minLength: 1, maxLength: 80, description: "The skill's name, as your prompt lists it" }) }, { additionalProperties: false }),
+    (input, context) => ops(context).skill(input.name)),
   tool("models.list", "List the models you can give a Bot: each connection with its models and their thinking levels. Only the owner adds connections, keys and logins, in Settings.",
     None, (_args, context) => ops(context).models()),
   tool("bots.create", "Create a Bot. Give it a model so it can work; without one it waits until it gets one. It starts when a message first arrives for it. bots.update changes everything later.",

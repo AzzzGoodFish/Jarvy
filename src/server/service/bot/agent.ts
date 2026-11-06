@@ -6,6 +6,7 @@ import { thinkingOptions } from "../../infra/pi/thinking.js";
 import type { ChatService } from "../chat/service.js";
 import type { BotService } from "./service.js";
 import type { Deliveries } from "../delivery/delivery.js";
+import type { Skill } from "../../shared/skill.js";
 
 /** The settings the agent Bot may give a Bot; only what is given changes. `model` names a connection (its id or name)
  * and a model in it (id or name), as `models.list` shows them. */
@@ -16,7 +17,8 @@ const same = (a: string, b: string) => a.trim().replace(/^@/, "").toLocaleLowerC
  * owner confirms. A Bot it changes is told with its next batch (a system notice, A61). The first time the agent has
  * a model, it is asked to welcome the owner. */
 export class AgentOps {
-  constructor(private readonly bots: BotService, private readonly store: Store, private readonly chats: ChatService, private readonly deliveries: Deliveries) {}
+  constructor(private readonly bots: BotService, private readonly store: Store, private readonly chats: ChatService, private readonly deliveries: Deliveries,
+    private readonly skills: readonly Skill[] = []) {}
   get owner() { return this.store.account.userMemberId(); }
   readonly agentId = AGENT_BOT_ID;
   /** A Bot by name, ignoring case and a leading @. */
@@ -24,6 +26,12 @@ export class AgentOps {
     const bot = this.store.bots.list().find(record => same(name, record.name));
     if (!bot) throw new ChatError(404, `No Bot named ${name} (see bots.list)`);
     return bot;
+  }
+  /** A skill's guide (A55), read from Jarvy itself so it can be read wherever the agent works and when its tools can't. */
+  skill(name: string) {
+    const skill = this.skills.find(item => item.name === name.trim().toLowerCase());
+    if (!skill) throw new ChatError(404, `No skill named ${name}; there are ${this.skills.map(item => item.name).join(", ") || "none"}`);
+    return { name: skill.name, description: skill.description, content: skill.content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "").trim() };
   }
   /** Connected models and their thinking levels; never credentials. */
   models() {

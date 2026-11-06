@@ -68,6 +68,7 @@ Only the agent Bot (A48) lists these; for any other Bot they are unknown tools. 
 
 | Tool | Purpose |
 | --- | --- |
+| `skills.read` | a skill's whole guide, by name, from Jarvy itself: readable wherever the agent works, also when its file tools can't (A84) |
 | `models.list` | connected models with their thinking levels; no credentials |
 | `bots.create` / `bots.update` | name, description, persona, model (a connection and a model from `models.list`) and thinking; update gives only what changes |
 | `bots.start` / `bots.stop` | a Bot's runtime; never stops itself |
@@ -108,7 +109,7 @@ Here your name is {name}, and your description is: {description}
 
 {the agent Bot only: ## Your role — what it is for and its own tools, A48}
 
-{the agent Bot only: ## Skills — each skill's name, description and file in its workspace; read the file before such work, propose plans for the owner to confirm (A55)}
+{the agent Bot only: ## Skills — each skill's name and description; read it with skills.read before such work, propose plans for the owner to confirm (A55, A84)}
 
 ## Language
 Write to people in the language they write to you in. In a channel or thread, use the language its conversation is held in.

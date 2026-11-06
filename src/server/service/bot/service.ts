@@ -28,7 +28,7 @@ import { Tools } from "./tools.js";
 import { AgentRuntime } from "./agent-runtime.js";
 import { BotInbox } from "./inbox.js";
 import { botPromptParts } from "./prompt.js";
-import { builtinSkills } from "../../infra/files/skills.js";
+import { builtinSkills, removeSkillCopies } from "../../infra/files/skills.js";
 import type { Skill } from "../../shared/skill.js";
 import type { RosterEntry } from "./roster.js";
 import { LiveTurns } from "./live.js";
@@ -74,7 +74,7 @@ export class BotService {
   /** The skills that ship with Jarvy, for the agent Bot (A55). */
   private readonly skills: readonly Skill[] = builtinSkills();
   constructor(private readonly deps: BotDependencies) {
-    this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries);
+    this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries, this.skills);
     this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
     this.computers.adopt(deps.store.bots.list().map(record => record.id));
     this.ports = new PublishedPorts(deps.store, this.computers, () => deps.listening?.() ?? null);
@@ -89,7 +89,12 @@ export class BotService {
     let bot = this.bots.get(id);
     if (bot) return bot;
     const { store, chats, files, credentials } = this.deps, live = this.live(id), skills = id === AGENT_BOT_ID ? this.skills : [];
-    const here = () => { const place = this.environments.here(id, record.workspacePath); return { name: place.name, directory: place.directory }; };
+    // Skills are read with skills.read (A55): the copies earlier versions kept in the workspace go.
+    if (skills.length) void removeSkillCopies(record.workspacePath, skills).catch(() => {});
+    const here = () => {
+      const place = this.environments.here(id, record.workspacePath), problem = place.kind === "sandbox" ? this.computers.dockerProblem : null;
+      return { name: place.name, directory: place.directory, ...(problem ? { problem: `${problem}, so your file and command tools don't work here` } : {}) };
+    };
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
@@ -101,7 +106,7 @@ export class BotService {
           if (to) this.deps.deliveries.notify({ to, kind: "followed", reason: "compaction", actorId: null, payloads: [null] });
         } }));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
-      const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; }, skills);
+      const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; });
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
     bot = new Bot(id, {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
