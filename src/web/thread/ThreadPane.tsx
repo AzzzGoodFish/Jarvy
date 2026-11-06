@@ -304,7 +304,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
         </div>
       </div>
       {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label={t("thread.toLatest")}
-        onClick={() => body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" })}>
+        onClick={() => { hold.release(); body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" }); }}>
         {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}
     </div>
     <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder={t("thread.reply")} scrollRef={body} disabled={!chat}
