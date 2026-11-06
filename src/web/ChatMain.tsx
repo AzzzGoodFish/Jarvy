@@ -58,18 +58,20 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
         searchOpen={pane?.kind === "search"} onSearch={() => pane?.kind === "search" ? onPane(null) : find.search(chat)}/>
         : activeBot && <FloatingBot bot={activeBot} chatId={chat.id} status={status} area={chatArea} avoid={composeWrap} onOpen={() => onBot(activeBot.id)}/>}
       {inChannel && <NoticeBar chat={chat} onSave={onSaveNote}/>}
-      <div className={`ui-transcript jarvy-transcript${inChannel ? " jv-channel-transcript" : ""}`} ref={transcript} aria-label={t("chat.transcript")} role="log">
-        {!inChannel && !activeBot?.connectionId && activeBot && <div className="jarvy-model-onboarding"><ModelPicker bot={activeBot} connections={connections} onSaved={updateBot} onManage={onManageModels}/></div>}
-        {loading ? <p className="jarvy-empty-text">{t("chat.loading")}</p> : messages.length === 0
-          ? inChannel ? <div className="jarvy-empty-chat"><p>{t("chat.empty")}</p></div>
-          : activeBot?.connectionId ? <div className="jarvy-empty-chat"><h2>{t("chat.start", { name: botName })}</h2></div> : null : <>
-          {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
-          {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={divider} activeQuestion={activeQuestion}
-            onSettled={onSettled} onPreview={onPreview} onReply={onReply} onOpenThread={onOpenThread}
-            onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>
-          : <DmMessages messages={messages} members={members} me={meId} activeQuestion={activeQuestion} bot={activeBot}
-            onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>}
-        </>}
+      <div className="jv-transcript">
+        <div className={`ui-transcript jarvy-transcript${inChannel ? " jv-channel-transcript" : ""}`} ref={transcript} aria-label={t("chat.transcript")} role="log">
+          {!inChannel && !activeBot?.connectionId && activeBot && <div className="jarvy-model-onboarding"><ModelPicker bot={activeBot} connections={connections} onSaved={updateBot} onManage={onManageModels}/></div>}
+          {loading ? <p className="jarvy-empty-text">{t("chat.loading")}</p> : messages.length === 0
+            ? inChannel ? <div className="jarvy-empty-chat"><p>{t("chat.empty")}</p></div>
+            : activeBot?.connectionId ? <div className="jarvy-empty-chat"><h2>{t("chat.start", { name: botName })}</h2></div> : null : <>
+            {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
+            {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={divider} activeQuestion={activeQuestion}
+              onSettled={onSettled} onPreview={onPreview} onReply={onReply} onOpenThread={onOpenThread}
+              onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>
+            : <DmMessages messages={messages} members={members} me={meId} activeQuestion={activeQuestion} bot={activeBot}
+              onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>}
+          </>}
+        </div>
         {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={toLatest} aria-label={t("chat.toLatest")}>
           {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}
       </div>

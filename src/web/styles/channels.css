@@ -183,10 +183,12 @@
 }
 /* Scrolling back loads older messages (transcript/useTranscript.ts); this line marks where they arrive. */
 .jv-history-more { min-height: 28px; padding: 6px 0; text-align: center; font-size: 12px; color: var(--ui-text-tertiary); }
-/* 「回到最新」: sticks to the bottom of the transcript while you read older messages. */
-.jv-to-latest { position: sticky; bottom: 0; z-index: 4; display: flex; justify-content: center; height: 0; pointer-events: none; }
+/* 「回到最新」: over the transcript's bottom while you read older messages, just above the composer. It sits on the
+ * transcript's box, not in its scrolling content, so it stays there when the messages are shorter than the window. */
+.jv-transcript { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.jv-to-latest { position: absolute; right: 0; bottom: 12px; left: 0; z-index: 4; display: flex; justify-content: center; pointer-events: none; }
 .jv-to-latest > button { display: inline-flex; align-items: center; gap: 6px; height: 34px; min-width: 34px; justify-content: center; padding: 0 10px;
-  border-radius: 999px; transform: translateY(calc(-100% - 12px)); pointer-events: auto; font-size: 12px; font-weight: 500; color: var(--ui-text-primary);
+  border-radius: 999px; pointer-events: auto; font-size: 12px; font-weight: 500; color: var(--ui-text-primary);
   background: color-mix(in srgb, var(--ui-bg-base) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 2px 8px rgb(0 0 0 / .12); }
 .jv-to-latest > button:hover { background: var(--ui-bg-base); }
