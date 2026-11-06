@@ -122,6 +122,9 @@ export const chat: Part<typeof en> = {
   "quote.selection": "选中的文字",
   "quote.copy": "复制",
   "quote.quote": "在回复中引用",
+  "ref.label": "{name} 的消息：{text}",
+  "ref.dm": "私聊 · {title}",
+  "ref.open": "查看消息",
 
   "composer.busy": "附件上传中，请稍后再添加。",
   "composer.tooMany": "每条消息最多添加 {count} 个附件。",

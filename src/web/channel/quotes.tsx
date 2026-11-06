@@ -3,6 +3,7 @@ import type { ChatMessage, Member } from "../../contract/chat";
 import { memberName } from "../members";
 import { copyText, Icon, Markdown } from "../ui";
 import { linkMentions } from "./mentions";
+import { MessageRefTag } from "./MessageRef";
 import { t } from "../i18n";
 import type { DraftStore } from "../composer/drafts";
 
@@ -21,9 +22,10 @@ export function previewText(part: Pick<ChatMessage, "content" | "quotes">): stri
   return quotedText(part).replace(/[*`~#>]/g, "").replace(/\s+/g, " ").trim() || t("common.attachment");
 }
 
-/** A message's text: Markdown with @mentions, and each quote marker as a tag that jumps to its source. */
+/** A message's text: Markdown with @mentions, each quote marker as a tag that jumps to its source, and each message
+ * it names by ID as a tag of that message (A82). */
 export function MessageText({ message, members, me, onJump }: {
-  message: ChatMessage; members: Member[]; me: string; onJump?: (id: string | null, passage: string) => void;
+  message: ChatMessage; members: Member[]; me: string; onJump?: (id: string | null, passage?: string) => void;
 }) {
   // Only markers with a quote behind them are tags; in a message without quotes "[[q1]]" is plain text.
   const text = linkMentions(message.content, members.filter(item => message.mentions.includes(item.id)), me)
@@ -35,7 +37,11 @@ export function MessageText({ message, members, me, onJump }: {
     return <button type="button" className="jv-quote-tag" title={t("sidebar.said", { name, text: quote.text })} data-gone={quote.messageId ? undefined : ""}
       onClick={() => onJump?.(quote.messageId, quote.text)}><Icon name="quote"/><span className="jv-quote-name">{t("quote.by", { name })}</span><span className="jv-quote-text">{short(quote.text, 80)}</span></button>;
   };
-  return <Markdown text={text} renderQuote={renderQuote}/>;
+  const renderRef = (id: string): ReactNode => {
+    const target = message.refs.find(ref => ref.id === id);
+    return target ? <MessageRefTag target={target} members={members} onJump={onJump && (() => onJump(id))}/> : null;
+  };
+  return <Markdown text={text} renderQuote={renderQuote} renderRef={renderRef}/>;
 }
 
 /** Highlights the quoted passage inside a message element: whitespace is ignored while matching, and the match is

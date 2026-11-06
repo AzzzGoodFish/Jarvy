@@ -1,6 +1,7 @@
 import type { Attachment, Chat, Member, Section } from "../contract/chat";
 import type { FollowedSummary } from "../contract/threads";
 import type { Bot, BotStatus } from "../contract/bots";
+import { api } from "./api";
 import { BotDirects } from "./bot/BotDirects";
 import { ChannelInfo } from "./channel/ChannelInfo";
 import type { DraftStore } from "./composer/drafts";
@@ -33,7 +34,7 @@ export function SidePane({ pane, followedView, threadEvents, followed, chats, se
   paneChannel: Chat | undefined;
   /** The open DM's Bot, and its DMs with other Bots. */
   activeBot: Bot | undefined; botDirects: Chat[];
-  find: { search: (chat: Chat) => void; openMessage: (chat: Chat, id: string) => void; focusKey: number };
+  find: { search: (chat: Chat) => void; openMessage: (chat: Chat, id: string, passage?: string) => void; focusKey: number };
   onPane: (pane: Pane | null) => void; onNav: () => void;
   /** Leaving an expanded thread: back to its channel, keeping the thread beside it or not. */
   onBackToChannel: (thread: { id: string; parentId: string }, keep: boolean) => void;
@@ -45,16 +46,17 @@ export function SidePane({ pane, followedView, threadEvents, followed, chats, se
 }) {
   const open = pane?.kind === "thread" ? pane : null, full = open?.mode === "full";
   const close = () => onPane(null);
+  const openElsewhere = (chatId: string, id: string, passage?: string) => void api.chat(chatId).then(chat => find.openMessage(chat, id, passage), onError);
   return <>
     {followedView && !full && <FollowedThreads events={threadEvents} summary={followed} chats={chats} members={members} bots={bots} onNav={onNav}
       renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} live={live} memory={memory} onNav={onNav} onChanged={onThreadChanged}
         onClose={back} onToggleMode={() => onBackToChannel({ id: thread.id, parentId: thread.parentId }, true)}
-        onInvite={member => onInvite(thread.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice}/>}/>}
+        onInvite={member => onInvite(thread.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice} onOpenMessage={openElsewhere}/>}/>}
     {open && <ThreadPane key={`${open.id}:${open.focus?.id ?? ""}:${open.focus?.passage ?? ""}`} threadId={open.id} mode={open.mode} showSummary={open.summary} focus={open.focus} onSearch={find.search}
       channel={chats.find(chat => chat.id === open.parentId)} drafts={drafts} members={members} bots={bots} me={meId} live={live} memory={memory} onNav={onNav} onChanged={onThreadChanged}
       onClose={() => full ? onBackToChannel(open, false) : close()} onToggleMode={() => full ? onBackToChannel(open, true) : onPane({ ...open, mode: "full" })}
-      onInvite={member => onInvite(open.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice}/>}
+      onInvite={member => onInvite(open.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice} onOpenMessage={openElsewhere}/>}
     {pane?.kind === "search" && <SearchPane chat={pane.chat} chats={chats} members={members} focusKey={find.focusKey}
       onOpenMessage={find.openMessage} onClose={close} onError={onError}/>}
     {pane?.kind === "threads" && paneChannel && <ThreadList channel={paneChannel} members={members} bots={bots} changes={changes}

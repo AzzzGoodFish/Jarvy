@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { remarkCjkLinks } from "./cjk-links";
+import { remarkMessageIds } from "./message-ids";
 import remarkGfm from "remark-gfm";
 import { t, useLocale } from "./i18n";
 import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Eye, EyeOff, File, FileAudio, FileVideo, Folder,
@@ -63,15 +64,19 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   </figure>;
 }
 // Chat text keeps single line breaks as typed (soft break -> <br>), like common chat apps.
-// A bare URL ends at Chinese punctuation (cjk-links.ts).
-const MARKDOWN_PLUGINS = [remarkGfm, remarkCjkLinks, remarkBreaks];
-/** Partial quotes: "#quote-N" links (channel/quotes.tsx), handed to the link renderer below. */
-const QuoteRenderer = createContext<((index: number) => ReactNode) | undefined>(undefined);
+// A bare URL ends at Chinese punctuation (cjk-links.ts); message IDs become "#ref-" links (message-ids.ts).
+const MARKDOWN_PLUGINS = [remarkGfm, remarkCjkLinks, remarkMessageIds, remarkBreaks];
+/** What a message's text links to beyond the web: partial quotes ("#quote-N", channel/quotes.tsx) and the messages it
+ * names by ID ("#ref-<id>", A82), handed to the link renderer below. */
+interface MessageParts { quote?: (index: number) => ReactNode; ref?: (id: string) => ReactNode }
+const PartRenderer = createContext<MessageParts>({});
 function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
-  const renderQuote = useContext(QuoteRenderer);
+  const parts = useContext(PartRenderer);
   // channel/mentions.ts turns "@name" into "#mention" / "#mention-me" links; they render as highlights.
   if (href === "#mention" || href === "#mention-me") return <span className="jv-mention" data-me={href === "#mention-me" || undefined}>{children}</span>;
-  if (renderQuote && href?.startsWith("#quote-")) return renderQuote(Number(href.slice(7)));
+  if (parts.quote && href?.startsWith("#quote-")) return parts.quote(Number(href.slice(7)));
+  // An ID of no message the reader can see (or outside a message) stays as written.
+  if (href?.startsWith("#ref-")) return parts.ref?.(href.slice(5)) ?? <>{children}</>;
   return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
 }
 /** Fixed once: a renderer made anew on each render is a new component type to React, which then rebuilds that part of
@@ -81,9 +86,11 @@ const MARKDOWN_COMPONENTS: Components = {
   img: ({ alt }) => <span>{t("ui.image", { alt: alt || t("ui.imageHidden") })}</span>,
   pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
 };
-export const Markdown = memo(function Markdown({ text, renderQuote }: { text: string; /** Partial quotes: "#quote-N" links (channel/quotes.tsx). */ renderQuote?: (index: number) => ReactNode }) {
+export const Markdown = memo(function Markdown({ text, renderQuote, renderRef }: { text: string;
+  /** Partial quotes: "#quote-N" links (channel/quotes.tsx). */ renderQuote?: (index: number) => ReactNode;
+  /** Message IDs (A82): a tag of the message, or null to keep the ID as text. */ renderRef?: (id: string) => ReactNode }) {
   useLocale(); // memo skips the app root's re-render, so follow a language switch here
-  return <QuoteRenderer.Provider value={renderQuote}>
+  return <PartRenderer.Provider value={{ quote: renderQuote, ref: renderRef }}>
     <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} skipHtml components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
-  </QuoteRenderer.Provider>;
+  </PartRenderer.Provider>;
 });

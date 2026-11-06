@@ -95,6 +95,14 @@ export interface ChatMessage {
   quotes: MessageQuote[];
   /** The owner folded it to one line in the interface (A60). */
   folded: boolean;
+  /** Messages its text names by ID (A82) that the reader can see, in order of first mention. */
+  refs: MessageRef[];
+}
+/** A message another one names by its ID (A82), as its tag and preview show it: who wrote it, when, where (a DM by
+ * its Bots' names, a thread with its channel's), and the start of its text with its quotes. */
+export interface MessageRef {
+  id: string; senderId: string; content: string; quotes: MessageQuote[]; createdAt: number;
+  chat: { id: string; type: Chat["type"]; title: string; parentTitle: string | null };
 }
 /** What the search box found: chats only when searching everywhere. */
 export interface SearchResult { chats: Chat[]; messages: { message: ChatMessage; chat: Chat }[] }

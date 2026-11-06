@@ -119,6 +119,9 @@ export const chat = {
   "quote.selection": "Selected text",
   "quote.copy": "Copy",
   "quote.quote": "Quote in reply",
+  "ref.label": "Message from {name}: {text}",
+  "ref.dm": "DM · {title}",
+  "ref.open": "Go to message",
 
   "composer.busy": "Still uploading. Add more once it's done.",
   "composer.tooMany": "A message can have up to {count} attachments.",
