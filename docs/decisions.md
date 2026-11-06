@@ -659,3 +659,13 @@ Settings gains 用量, after 模型: the token use and cost of every Bot togethe
 - **Only Bots that exist**: a deleted Bot's History goes with it (A42), so its calls leave the totals too. Keeping them would need a table outside the Bots' Histories, which is not done.
 
 Why: what the models cost is a question about the whole instance, and adding up a dozen Bot pages by hand is the wrong way to answer it.
+
+## A82 Message IDs show as tags of their messages
+
+Bots refer to messages by ID — 「就按 m2250 做」「上面 m1700 的草案」 — as every message they read carries one and replies, quotes and threads take it. People see no IDs, so on the page these were codes leading nowhere: on one instance, 92 of 940 Bot messages to the owner in 30 days had 204 of them, two thirds into the same chat, one third into others.
+
+- **The page shows them, the Bots keep writing them**: no prompt change. Bot–Bot messages stay exact, and messages already sent show tags too.
+- **Resolved when read, for the reader**: a message's snapshot for a person carries `refs`, the messages its text names that this person may open (as reading a chat is decided: a thread by its channel, the owner's Bots' DMs) — who wrote it, when, where (a DM by its Bots' names, a thread with its channel's), the start of its text with its quotes. At most 20 per message; a message never refers to itself; nothing is stored and the database is unchanged. A Bot's snapshots carry none.
+- **What counts as an ID** (`contract/message-refs.ts`): `m` and digits, not inside a longer word or number, a path, an anchor, a mention or a file name (`m5.large`); Chinese may touch it. The page leaves code and link text as written, and an ID it has no ref for stays text.
+- **The tag** reads 「名字：开头…」 in the line of text, like a quote's tag but shorter. A mouse opens its preview on hover and goes to the message on a click; a tap opens the preview, and its 「查看消息」 goes there — a tap that jumped away at once would leave a phone's reader no way to see where first. Going there is a quote's jump: the message flashes; a thread's reply opens the thread beside its channel; another chat opens on it. On a phone a thread pane covers the chat, and an expanded thread covers it everywhere, so they give way; a thread's tag or quote naming a message elsewhere now opens it there instead of saying it is elsewhere.
+- **Not here**: chat and thread IDs (Bots almost never write them to people: one message in 30 days), notices and summaries (they carry no refs), and one-line previews — sidebar rows, reply bars, Bot activity — which keep the ID as text.

@@ -2,7 +2,7 @@ import { useEffect, useState, type Dispatch, type MutableRefObject, type SetStat
 import type { Chat, ChatMessage } from "../../contract/chat";
 import type { Pane } from "../pane";
 
-/** Opening search results (and quote tags pointing elsewhere, A44), and Ctrl+F. A message opens where it is: in the
+/** Opening search results (and quote and message tags pointing elsewhere, A44, A82), and Ctrl+F. A message opens where it is: in the
  * main transcript (scrolled to and highlighted once its chat has loaded) or in its thread beside the channel; with a
  * passage, that passage is highlighted. Ctrl+F opens search inside the open
  * chat; pressed again while that search box has focus, it is left to the browser. */
@@ -24,11 +24,14 @@ export function useFind({ selected, chats, transcript, openChat, setPane, paneRe
       setPane({ kind: "thread", id: chat.id, parentId: chat.parentId!, mode: "pane", focus: { id, passage } });
       return;
     }
-    // On a phone the search pane covers the chat; get it out of the way.
-    if (paneRef.current?.kind === "search" && window.matchMedia("(max-width: 760px)").matches) setPane(null);
+    // On a phone the search pane, or a thread a tag was in (A82), covers the chat, and an expanded thread covers it
+    // everywhere: get it out of the way, and go to the message once the chat shows again.
+    const pane = paneRef.current, phone = window.matchMedia("(max-width: 760px)").matches;
+    const covered = pane?.kind === "thread" && (phone || pane.mode === "full") || pane?.kind === "search" && phone;
+    if (covered) setPane(null);
     const here = chat.id === selected;
     openChat(chat);
-    if (here) void transcript.toMessage(id, passage); else setPending({ chatId: chat.id, id, passage });
+    if (here && !covered) void transcript.toMessage(id, passage); else setPending({ chatId: chat.id, id, passage });
   }
   function search(chat: Chat) { setPane({ kind: "search", chat }); setFocusKey(key => key + 1); }
   useEffect(() => {

@@ -315,6 +315,20 @@ button.jv-quote-tag:hover { background: var(--ui-fill-ghost-hover); color: var(-
 .jv-quote-tag > .ui-icon { flex: none; width: 12px; height: 12px; color: var(--ui-text-tertiary); }
 .jv-quote-name { flex: none; font-weight: 600; color: var(--ui-text-primary); }
 .jv-quote-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A message named by its ID (A82, channel/MessageRef.tsx): a tag in the line of text, and its preview. */
+.jv-ref-tag { display: inline-flex; align-items: center; gap: 4px; max-width: min(16em, 100%); margin: 0 1px; padding: 0 6px; border-radius: 5px; vertical-align: -3px;
+  background: var(--ui-fill-secondary); font-size: 12px; line-height: 20px; color: var(--ui-text-secondary); text-align: left; cursor: pointer; }
+.jv-ref-tag:hover, .jv-ref-tag[data-state="open"] { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-ref-tag > .ui-icon { flex: none; width: 12px; height: 12px; color: var(--ui-text-tertiary); }
+.jv-ref-card { z-index: 100; width: min(320px, calc(100vw - 24px)); padding: 10px 12px; background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: 10px;
+  box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: 13px; line-height: 1.5; }
+.jv-ref-place { display: flex; justify-content: space-between; gap: 8px; color: var(--ui-text-tertiary); font-size: 12px; }
+.jv-ref-place > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-ref-place > span:last-child { flex: none; }
+.jv-ref-name { margin-top: 4px; font-weight: 600; }
+.jv-ref-text { display: -webkit-box; margin: 2px 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.jv-ref-open { display: block; margin: 8px 0 0 auto; padding: 4px 10px; border-radius: 6px; background: var(--ui-fill-secondary); font-size: 12px; color: var(--ui-text-primary); }
+.jv-ref-open:hover { background: var(--ui-fill-ghost-hover); }
 .jv-compose-quotes { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0 0 6px; }
 .jv-compose-quotes .jv-quote-tag { padding-right: 4px; }
 .jv-compose-quotes .jv-quote-tag button { flex: none; width: 18px; height: 18px; border-radius: 50%; line-height: 1; color: var(--ui-text-tertiary); }

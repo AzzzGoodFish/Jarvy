@@ -11,6 +11,7 @@ import { ChannelRepository } from "./channel-repository.js";
 import { ThreadRepository } from "./thread-repository.js";
 import { InteractionRepository } from "./interaction-repository.js";
 import { QuoteRepository } from "./quote-repository.js";
+import { MessageRefRepository } from "./message-ref-repository.js";
 import { InboxRepository } from "./inbox-repository.js";
 import { mentionsIn, unreadIn } from "./unread.js";
 import { clipMarked, previewQuotes } from "../../shared/quotes.js";
@@ -31,11 +32,12 @@ export class ChatRepository {
   readonly threads: ThreadRepository;
   readonly interactions: InteractionRepository;
   readonly quotes: QuoteRepository;
+  readonly refs: MessageRefRepository;
   /** Every delivery (A41, A61): the one place inbox SQL lives. */
   readonly inbox: InboxRepository;
   constructor(private readonly db: DatabaseSync) {
     this.channels = new ChannelRepository(db, this); this.threads = new ThreadRepository(db, this); this.interactions = new InteractionRepository(db, this);
-    this.quotes = new QuoteRepository(db); this.inbox = new InboxRepository(db, this);
+    this.quotes = new QuoteRepository(db); this.refs = new MessageRefRepository(db, this.quotes); this.inbox = new InboxRepository(db, this);
   }
   member(id: string): Member | null {
     const row = this.db.prepare(`SELECT m.id,m.kind,COALESCE(a.username,b.name,m.id) AS name,b.deleted_at IS NOT NULL AS deleted FROM members m
@@ -150,7 +152,8 @@ export class ChatRepository {
   messagesBefore(actorId: string, chatId: string, before: number, limit: number): ChatMessage[] {
     this.assertAccess(actorId, chatId);
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND sequence<? ORDER BY sequence DESC LIMIT ?`).all(chatId, before, limit) as MessageRow[];
-    return rows.reverse().map(row => this.messageFromRow(row));
+    const reader = this.reader(actorId);
+    return rows.reverse().map(row => this.messageFromRow(row, reader));
   }
   /** Exactly the messages counted as unread for this member (same rule as `unread`), oldest first. */
   unreadMessages(memberId: string, chatId: string, limit: number): ChatMessage[] {
@@ -158,7 +161,8 @@ export class ChatRepository {
     if ((this.db.prepare("SELECT type FROM chats WHERE id=?").get(chatId) as { type: string }).type === "thread" && !this.threads.isFollowing(memberId, chatId)) return [];
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS.split(",").map(column => `m.${column}`).join(",")} ${unreadIn(":chat")} ORDER BY m.sequence LIMIT :limit`)
       .all({ chat: chatId, member: memberId, limit }) as MessageRow[];
-    return rows.map(row => this.messageFromRow(row));
+    const reader = this.reader(memberId);
+    return rows.map(row => this.messageFromRow(row, reader));
   }
   /** Search every chat the member can read: its DMs and channels and their threads (newest first). `within` keeps
    * one chat, a channel with its threads; `sender` keeps one member's messages. */
@@ -168,7 +172,8 @@ export class ChatRepository {
       JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1
       WHERE instr(lower(m.content),lower(?))>0 ${scope} ORDER BY m.position DESC LIMIT ?`)
       .all(actorId, query, ...(within ? [within, within] : []), ...(sender ? [sender] : []), limit) as MessageRow[];
-    return rows.map(row => this.messageFromRow(row));
+    const reader = this.reader(actorId);
+    return rows.map(row => this.messageFromRow(row, reader));
   }
   /** Channels and threads the member can read whose title, topic or notice / summary contains the query (newest first). */
   searchChatIds(actorId: string, query: string, limit: number): string[] {
@@ -180,17 +185,19 @@ export class ChatRepository {
   messages(actorId: string, chatId: string, after = 0, limit = 1000): ChatMessage[] {
     this.assertAccess(actorId, chatId);
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND sequence>? ORDER BY sequence LIMIT ?`).all(chatId, after, limit) as MessageRow[];
-    return rows.map(row => this.messageFromRow(row));
+    const reader = this.reader(actorId);
+    return rows.map(row => this.messageFromRow(row, reader));
   }
   message(actorId: string, id: string): ChatMessage | null {
     const row = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE id=?`).get(id) as MessageRow | undefined;
-    return row && this.canAccess(actorId, row.chatId) ? this.messageFromRow(row) : null;
+    return row && this.canAccess(actorId, row.chatId) ? this.messageFromRow(row, this.reader(actorId)) : null;
   }
   search(actorId: string, chatId: string, query: string, limit: number, sender?: string): ChatMessage[] {
     this.assertAccess(actorId, chatId);
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND instr(lower(content),lower(?))>0 ${sender ? "AND sender_id=?" : ""}
       ORDER BY sequence DESC LIMIT ?`).all(chatId, query, ...(sender ? [sender] : []), limit) as MessageRow[];
-    return rows.map(row => this.messageFromRow(row));
+    const reader = this.reader(actorId);
+    return rows.map(row => this.messageFromRow(row, reader));
   }
   sentActivity(actorId: string, senderId: string, before: ActivityCursor | undefined, limit: number): ChatActivitySummary[] {
     const condition = !before ? "" : before.kind === "chat"
@@ -205,7 +212,9 @@ export class ChatRepository {
       .all(actorId, senderId, ...cursor, limit) as unknown as (Omit<ChatActivitySummary, "source"> & { historyId: number | null; toolCallId: string | null })[];
     return rows.map(({ historyId, toolCallId, ...row }) => ({ ...row, source: historyId === null ? null : { historyId, toolCallId: toolCallId! } }));
   }
-  private messageFromRow(row: MessageRow): ChatMessage {
+  /** Who reads the snapshots: a person gets the messages a text names by ID (A82); a Bot reads IDs itself. */
+  private reader(actorId: string): string | null { return this.member(actorId)?.kind === "bot" ? null : actorId; }
+  private messageFromRow(row: MessageRow, reader: string | null): ChatMessage {
     // A Bot's files share the message's created_at; rowid keeps the order they were given in.
     const attachments = this.db.prepare("SELECT id,name,mime_type AS mimeType,size FROM attachments WHERE message_id=? ORDER BY created_at,rowid")
       .all(row.id) as unknown as Attachment[];
@@ -216,7 +225,7 @@ export class ChatRepository {
       thread: this.threads.info(row.id),
       echoOf: row.echoOf === null ? null : { id: row.echoOf, title: (this.db.prepare("SELECT title FROM chats WHERE id=?").get(row.echoOf) as { title: string }).title },
       replyTo: row.replyTo === null ? null : this.quote(row.replyTo), reactions: this.interactions.reactions(row.id), quotes: this.quotes.of(row.id),
-      folded: row.foldedAt !== null };
+      folded: row.foldedAt !== null, refs: reader ? this.refs.of(reader, row.id, row.content) : [] };
   }
   /** What a reply shows of the message it answers: who wrote it and the start of its content, with its quotes ("" is attachments only). */
   private quote(id: string): ChatMessage["replyTo"] {
@@ -232,7 +241,7 @@ export class ChatRepository {
         const prior = this.db.prepare(`SELECT ${MESSAGE_COLUMNS},request_hash AS requestHash FROM messages WHERE sender_id=? AND client_key=?`).get(actorId, draft.clientMessageId) as (MessageRow & { requestHash: string }) | undefined;
         if (prior) {
           if (prior.requestHash !== requestHash) throw new ChatError(409, "Message key already used with different content");
-          const message = this.messageFromRow(prior);
+          const message = this.messageFromRow(prior, this.reader(actorId));
           return { message, duplicate: true };
         }
       }
@@ -275,7 +284,7 @@ export class ChatRepository {
           this.db.prepare("UPDATE chats SET updated_at=? WHERE id=?").run(createdAt, chat.parentId);
           this.deliver(deliveries.echo, chat.parentId, `m${position + 1}`, actorId, createdAt);
           echo = this.messageFromRow({ id: `m${position + 1}`, chatId: chat.parentId, sequence: echoSequence, senderId: actorId, content: draft.content, createdAt,
-            historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question: null, echoOf: chatId, replyTo: null, foldedAt: null });
+            historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question: null, echoOf: chatId, replyTo: null, foldedAt: null }, this.reader(actorId));
         }
       }
       // The first message names an untitled DM (v18: untitled is ""): its text, or the file it carries.
@@ -283,7 +292,7 @@ export class ChatRepository {
       const title = draft.content ? previewQuotes(draft.content, draft.quotes ?? []).slice(0, 46).replace(/\s+/g, " ") : file?.name.slice(0, 46) ?? "";
       this.db.prepare("UPDATE chats SET title=CASE WHEN title='' AND ?=1 THEN ? ELSE title END,updated_at=? WHERE id=?")
         .run(sequence, title, createdAt, chatId);
-      const message = this.messageFromRow({ id, chatId, sequence, senderId: actorId, content: draft.content, createdAt, historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question, echoOf: null, replyTo: draft.replyTo ?? null, foldedAt: null });
+      const message = this.messageFromRow({ id, chatId, sequence, senderId: actorId, content: draft.content, createdAt, historyId: draft.source?.historyId ?? null, toolCallId: draft.source?.toolCallId ?? null, question, echoOf: null, replyTo: draft.replyTo ?? null, foldedAt: null }, this.reader(actorId));
       return { message, duplicate: false, ...(echo ? { echo } : {}) };
     });
   }

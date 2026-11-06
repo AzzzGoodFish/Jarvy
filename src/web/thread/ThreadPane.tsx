@@ -22,7 +22,7 @@ type Replies = { messages: ChatMessage[]; hasOlder?: boolean; after?: number };
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, memory, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice }: {
+export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, memory, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice, onOpenMessage }: {
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
   showSummary?: boolean;
@@ -38,6 +38,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   onClose: () => void; onToggleMode: () => void; onNav: () => void;
   onChanged: (chat: Chat) => void; onInvite: (member: Member) => void; onPreview: (files: Attachment[], index: number) => void;
   onError: (error: unknown) => void; onNotice: (text: string) => void;
+  /** A message a reply names or quotes that is in another chat (A82): open it there. */
+  onOpenMessage?: (chatId: string, id: string, passage?: string) => void;
 }) {
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null);
@@ -56,10 +58,11 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const spot = useRef<Place>({ bottom: true }), restoreTo = useRef<Place | null>(null), chatNow = useRef(chat), rootNow = useRef(root), [hold] = useState(() => new Hold());
   chatNow.current = chat; rootNow.current = root;
   useEffect(() => { setChat(null); setRoot(null); setMessages([]); setHasOlder(false); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; ahead.current = 0; }, [threadId]);
-  /** The replies from a little before this one to the newest, to land on it; null when it is not a reply here. */
-  const around = async (id: string): Promise<Replies | null> => {
+  /** The replies from a little before this one to the newest, to land on it; another chat's id when the message is
+   * there, null when it is gone. */
+  const around = async (id: string): Promise<Replies | string | null> => {
     const target = await api.message(id).catch(() => null);
-    if (!target || target.chatId !== threadId) return null;
+    if (!target || target.chatId !== threadId) return target?.chatId ?? null;
     const after = Math.max(0, target.sequence - 1 - PAGE / 2);
     return { ...await api.messages(threadId, after), hasOlder: after > 0 };
   };
@@ -68,7 +71,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const replies = async (): Promise<Replies> => {
     const first = list.current[0];
     if (first?.chatId === threadId) return { ...await api.messages(threadId, first.sequence - 1), after: first.sequence - 1 };
-    return (focus && opened.current !== threadId ? await around(focus.id) : null) ?? await api.latestMessages(threadId, PAGE);
+    const page = focus && opened.current !== threadId ? await around(focus.id) : null;
+    return page && typeof page === "object" ? page : await api.latestMessages(threadId, PAGE);
   };
   // A page prepended meanwhile stays, and so do replies heard of meanwhile.
   const take = (page: Replies) => {
@@ -231,7 +235,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     if (element) { jumpToPassage(element, passage); return; }
     if (!id) { onNotice(t("app.sourceGone")); return; }
     void around(id).then(page => {
-      if (!page) { onNotice(t("thread.sourceElsewhere")); return; }
+      if (typeof page === "string" && onOpenMessage) { onOpenMessage(page, id, passage); return; }
+      if (!page || typeof page === "string") { onNotice(t("thread.sourceElsewhere")); return; }
       take(page); requestAnimationFrame(() => { const loaded = find(); if (loaded) jumpToPassage(loaded, passage); });
     });
   };

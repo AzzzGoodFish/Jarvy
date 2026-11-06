@@ -27,5 +27,5 @@ export function messageView(message: ChatMessage): MessageView {
   return { id: message.id, chatId: message.chatId, sequence: message.sequence, senderId: message.sender.id,
     role: message.sender.kind === "bot" ? "assistant" : "user", content: message.content,
     createdAt: message.createdAt, attachments: message.attachments, source: message.source, question: message.question, mentions: message.mentions,
-    thread: message.thread, echoOf: message.echoOf, replyTo: message.replyTo, reactions: message.reactions, quotes: message.quotes, folded: message.folded };
+    thread: message.thread, echoOf: message.echoOf, replyTo: message.replyTo, reactions: message.reactions, quotes: message.quotes, folded: message.folded, refs: message.refs };
 }

@@ -1,5 +1,5 @@
 import type { ErrorCode, ErrorParams } from "../../contract/errors.js";
-import type { Attachment, ChatHint, ChatNote, Member, MessageDraft, MessageQuote, MessageSource, Question, QuestionSpec, ThreadInfo } from "../../contract/chat.js";
+import type { Attachment, ChatHint, ChatNote, Member, MessageDraft, MessageQuote, MessageRef, MessageSource, Question, QuestionSpec, ThreadInfo } from "../../contract/chat.js";
 export interface Chat {
   id: string; type: "dm" | "channel" | "thread"; title: string; ownerId: string;
   memberIds: string[]; createdAt: number; updatedAt: number; lastMessage: { content: string; quotes: MessageQuote[] } | null;
@@ -44,6 +44,8 @@ export interface ChatMessage {
   quotes: MessageQuote[];
   /** The owner folded it to one line in the interface (A60). Only the interface reads it; a Bot's views leave it out. */
   folded: boolean;
+  /** Messages its text names by ID that the reader of this snapshot can see (A82). Only the interface reads it. */
+  refs: MessageRef[];
 }
 export class ChatError extends Error {
   constructor(readonly status: 400 | 403 | 404 | 409 | 413, message: string, readonly code?: ErrorCode, readonly params?: ErrorParams) { super(message); }
