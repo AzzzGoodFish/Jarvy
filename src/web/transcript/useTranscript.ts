@@ -109,7 +109,10 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
     // every one of them is watched, not only the first.
     const grown = new ResizeObserver(() => {
       note();
-      if (!settled.current || !atBottom.current) return;
+      if (!settled.current) return;
+      // Everything fits now (the window grew back): that is the bottom, and no scroll comes to say so.
+      if (el.scrollHeight - el.clientHeight < 8) { track(); return; }
+      if (!atBottom.current) return;
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return; // already there
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
     });

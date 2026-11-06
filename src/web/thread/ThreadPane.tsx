@@ -178,13 +178,17 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     // not while hidden (a phone showing the list instead) or held, which say nothing about it.
     let frame = 0;
     const note = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { if (settled.current && el.clientHeight && !hold.on) spot.current = placeOf(el, 120); }); };
+    // The replies or the pane changing size: kept at the bottom when there. With everything fitting (the window grew
+    // back) that is the bottom, and no scroll comes to say so.
     const grown = new ResizeObserver(() => {
       note();
-      if (!settled.current || !atBottom.current) return;
+      if (!settled.current) return;
+      if (el.scrollHeight - el.clientHeight < 8) { track(); return; }
+      if (!atBottom.current) return;
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) return;
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
     });
-    grown.observe(inner);
+    grown.observe(inner); grown.observe(el);
     const track = () => {
       if (hold.on) return;
       atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
@@ -280,14 +284,16 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
             onNotice(t("thread.concluded", { channel: channelName }));
           } catch (error) { onError(error); throw error; }
         }}/></div>}
-    <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>
-      <div ref={rows}>
-      {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
-        onSettled={() => {}} onPreview={onPreview} onReact={react} onFold={fold} onJump={jump} onError={onError}/>}
-      <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: root?.thread?.replies ?? messages.length }) : t("thread.noReplies")}</span></div>
-      {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
-      <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER} before={root?.createdAt}
-        onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
+    <div className="jv-transcript">
+      <div ref={body} className={mode === "pane" ? "ui-pane-body jv-pane-body" : "ui-transcript jv-thread-wide"}>
+        <div ref={rows}>
+          {root && <ChannelMessages messages={[{ ...root, thread: null }]} members={members} bots={bots} me={me} divider={Number.MAX_SAFE_INTEGER}
+            onSettled={() => {}} onPreview={onPreview} onReact={react} onFold={fold} onJump={jump} onError={onError}/>}
+          <div className="jv-divider" data-tone="count" role="separator"><span>{messages.length ? t("channel.replies", { count: root?.thread?.replies ?? messages.length }) : t("thread.noReplies")}</span></div>
+          {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
+          <ChannelMessages messages={messages} members={members} bots={bots} me={me} divider={divider ?? Number.MAX_SAFE_INTEGER} before={root?.createdAt}
+            onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))} onPreview={onPreview} {...actions}/>
+        </div>
       </div>
       {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label={t("thread.toLatest")}
         onClick={() => body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" })}>
