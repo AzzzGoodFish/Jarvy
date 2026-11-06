@@ -38,7 +38,7 @@ src/
     infra/
       storage/               Store (opens the database, runs migrations, holds the repositories), one repository per domain (account, bots, model connections, chats, …), migrations/
       pi/                    Pi session, models, credentials, History and live-event conversion, HTTP dispatcher
-      env/                   work environments: where a Bot's file and command tools run (pi-env, Pi Durable)
+      env/                   work environments: where a Bot's file and command tools run (pi-env, Pi Durable); Docker, Kata (A85) and SSH
       tls/                   Jarvy's own root and server certificates (A51)
       vault/                 the master key and sealing under it (A52)
       credentials/           per-connection credential serialisation

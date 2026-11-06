@@ -10,6 +10,9 @@ import type { HostKeys } from "../../../contract/environment.js";
 export function environmentRoutes(bots: ApiServices["bots"]) {
   const routes = new Hono<ApiEnv>(), machines = bots.machines;
   routes.get("/", c => c.json({ machines: machines.list() }));
+  /** Whether VM sandboxes can be used on this machine (A85): a trial VM the first time, and again when asked. */
+  routes.get("/vm", c => c.json(bots.vmSupport()));
+  routes.post("/vm/check", c => c.json(bots.vmSupport(true)));
   /** The host keys a machine presents, for the owner to check before typing its password. */
   routes.post("/scan", jsonBody, async c => {
     const input = await readJson(c);

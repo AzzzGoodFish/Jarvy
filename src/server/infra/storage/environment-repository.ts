@@ -49,6 +49,13 @@ export class EnvironmentRepository {
     this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
       ...(limits.memory !== null ? { memory: String(limits.memory) } : {}), ...(limits.cpus !== null ? { cpus: String(limits.cpus) } : {}) }), id);
   }
+  /** Keeps what a computer is (A85): a VM, or left out for a container. */
+  setType(id: string, type: "container" | "vm"): void {
+    const computer = this.get(id);
+    if (computer?.kind !== "computer") return;
+    const { type: _type, ...spec } = computer.spec;
+    this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec, ...(type === "vm" ? { type } : {}) }), id);
+  }
   /** The Bot is deleted, and its computer with it. Its row stays its home, deleted, so what reads a deleted Bot's
    * placement still finds one. */
   dropComputer(botId: string): void {

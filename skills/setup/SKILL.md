@@ -37,6 +37,12 @@ Every Bot works in a sandbox of its own, a Docker container on the computer runn
 
 **Afterwards.** Jarvy looks for Docker again every 30 seconds, so after installing or starting it nothing needs restarting, except for the group change above. The first sandbox to start builds the sandboxes' image, which takes a few minutes and about 3 GB of disk. `docker version` failing in another way: ask for its whole output and read it with them.
 
+**Virtual machine sandboxes (optional, Linux only).** A Bot's sandbox can instead be a small virtual machine, run by Kata Containers, in which the Bot can use Docker and Docker Compose itself. Bot info › Environment (环境) › Type (类型) offers it once Jarvy finds that the computer can run one, and says why not otherwise.
+- It needs KVM: `ls -l /dev/kvm` exists, and `grep -cwE 'vmx|svm' /proc/cpuinfo` is above 0 (virtualization turned on in the firmware). Not on macOS or Windows.
+- Installing Kata: download `kata-static-<version>-amd64.tar.zst` from https://github.com/kata-containers/kata-containers/releases, then `sudo tar --zstd -xf kata-static-<version>-amd64.tar.zst -C /` (it unpacks to /opt/kata) and `sudo ln -sf /opt/kata/runtime-rs/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2`. Docker's own settings stay as they are, and nothing needs restarting.
+- "Taken by other virtual machine software": while a VirtualBox machine runs, KVM can't, and the other way round. Stop that machine, or move it to KVM (virt-manager or libvirt).
+- Then Check again (重新检查) in Bot info. Each VM takes the memory and CPUs it is given (4 GB and 2 by default), changed with its size, which takes effect at its next start. Switching type makes the sandbox afresh: the workspace stays, installed software goes.
+
 ## 3. Phones and other devices
 
 By default Jarvy answers only on the computer running it. Settings › Network (设置 › 网络) turns on LAN access (局域网访问) and shows the addresses to open on other devices. They reach it over HTTPS with Jarvy's own certificate: each device installs and trusts it once, from Download certificate (下载证书) there, which also has the steps for Mac, Windows, iPhone and Android. Until a device trusts it, its browser warns that the connection isn't private. Plain HTTP can be allowed there too, but then others on the same network could read passwords and conversations.

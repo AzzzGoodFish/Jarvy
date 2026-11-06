@@ -15,6 +15,6 @@ export type ErrorCode =
   | "session_path" | "ssh_auth_failed" | "ssh_bad_directory" | "ssh_bad_host" | "ssh_bad_port" | "ssh_bad_user"
   | "ssh_failed" | "ssh_host_key_changed" | "ssh_key_expired" | "ssh_key_refused" | "ssh_key_unreadable"
   | "ssh_password_missing" | "ssh_password_refused" | "ssh_unreachable" | "ssh_unsupported" | "stopping"
-  | "task_invalid" | "task_schedule_invalid" | "task_time_past" | "thinking_format" | "tools_missing" | "unsafe_replay";
+  | "task_invalid" | "task_schedule_invalid" | "task_time_past" | "thinking_format" | "tools_missing" | "type_invalid" | "unsafe_replay" | "vm_size_invalid" | "vm_unavailable";
 /** Values a failure's wording fills in. */
 export type ErrorParams = Record<string, string | number>;

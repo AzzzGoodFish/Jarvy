@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { Connection, RemoteExecutionEnv, packagedDaemon } from "@earendil-works/pi-env";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import type { DockerProblemReason } from "../../../contract/environment.js";
-import { COMPUTER_DOCKERFILE } from "./computer-image.js";
+import { COMPUTER_DOCKERFILE, DOCKER_UP, VM_DISK, vmDockerfile } from "./computer-image.js";
 import { overDurable } from "./durable.js";
 
 /** Bots' sandboxes (A50): Docker containers from an image built on this machine, driven with the docker command
@@ -26,18 +26,24 @@ export interface ContainerSpec {
   labels: Record<string, string>;
   /** The network it joins instead of Docker's default bridge (A74), and names it resolves, such as the host's. */
   network?: string; hosts?: Record<string, string>;
-  /** What it may use at most (A75); none when absent. */
+  /** What it may use at most (A75); none when absent. A VM's size (A85). */
   limits?: ResourceLimits;
+  /** A VM sandbox (A85): run by Kata, with the Bot's Docker disk, a file of this machine. */
+  vm?: { disk: string };
 }
 /** Memory in bytes and CPUs in cores; null is no limit. */
 export interface ResourceLimits { memory: number | null; cpus: number | null }
 /** A machine's CPUs and memory in bytes. */
 export interface Capacity { cpus: number; memory: number }
 
-function docker(args: string[], timeoutMs = 60_000): Promise<string> {
+/** Runs the docker command line; a failure says Docker's last line of error (not its hint to run `--help`), or how
+ * the command ended when it said nothing. */
+export function docker(args: string[], timeoutMs = 60_000): Promise<string> {
   return new Promise((resolve, reject) => execFile("docker", args, { timeout: timeoutMs, maxBuffer: 8 << 20 }, (error, stdout, stderr) => {
-    if (error) reject(Object.assign(new Error((stderr || error.message).trim().split("\n").at(-1) ?? "docker failed"), { code: "docker_failed" }));
-    else resolve(stdout.trim());
+    if (!error) return resolve(stdout.trim());
+    const said = stderr.trim().split("\n").filter(line => line.trim() && !/^Run 'docker .*--help'/.test(line)).at(-1);
+    const ended = error.killed ? `docker ${args[0]} was stopped after ${timeoutMs / 1000} seconds` : `docker ${args[0]} exited with ${error.code ?? error.signal}`;
+    reject(Object.assign(new Error(said ?? (stdout.trim().split("\n").at(-1) || ended)), { code: "docker_failed" }));
   }));
 }
 
@@ -60,12 +66,20 @@ export function dockerProblem(): Promise<DockerProblem | null> {
 export function computerImage(uid: number, gid: number): string {
   return `jarvy-computer:${createHash("sha256").update(`${COMPUTER_DOCKERFILE}\n${uid}:${gid}`).digest("hex").slice(0, 12)}`;
 }
+/** A VM sandbox's image (A85), named after the sandbox image it is built on and what it adds. */
+export function vmImage(base: string): string {
+  return `jarvy-computer:vm-${createHash("sha256").update(`${vmDockerfile(base)}\n${DOCKER_UP}`).digest("hex").slice(0, 12)}`;
+}
+/** What a sandbox image is built from: its Dockerfile, the files it copies, and its build arguments. */
+export interface ImageRecipe { dockerfile: string; files?: Record<string, string>; args?: Record<string, string> }
+export const computerRecipe = (uid: number, gid: number): ImageRecipe => ({ dockerfile: COMPUTER_DOCKERFILE, args: { UID: String(uid), GID: String(gid) } });
+export const vmRecipe = (base: string): ImageRecipe => ({ dockerfile: vmDockerfile(base), files: { "jarvy-docker-up": DOCKER_UP } });
 
 /** Removes the other images of Bots' computers that no container uses; Docker refuses those still in use. */
-export async function pruneImages(keep: string): Promise<string[]> {
+export async function pruneImages(keep: readonly string[]): Promise<string[]> {
   const tags = (await docker(["images", "--filter", "label=jarvy.computer=1", "--format", "{{.Repository}}:{{.Tag}}"])).split("\n").filter(Boolean);
   const removed: string[] = [];
-  for (const tag of tags) if (tag !== keep) {
+  for (const tag of tags) if (!keep.includes(tag)) {
     try { await docker(["image", "rm", tag], 120_000); removed.push(tag); }
     catch { /* a container still uses it */ }
   }
@@ -77,16 +91,18 @@ export async function imageExists(tag: string): Promise<boolean> {
   catch { return false; }
 }
 
-/** Builds the image from the Dockerfile alone; its output goes to `logFile`. Pulling the base takes minutes the first
+/** Builds an image from its recipe alone; its output goes to `logFile`. Pulling the base takes minutes the first
  * time. */
-export async function buildImage(tag: string, uid: number, gid: number, logFile: string): Promise<void> {
+export async function buildImage(tag: string, recipe: ImageRecipe, logFile: string): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "jarvy-computer-"));
   try {
-    await writeFile(join(dir, "Dockerfile"), COMPUTER_DOCKERFILE);
+    await writeFile(join(dir, "Dockerfile"), recipe.dockerfile);
+    // Files copied in keep their mode: scripts run.
+    for (const [name, content] of Object.entries(recipe.files ?? {})) await writeFile(join(dir, name), content, { mode: 0o755 });
     const log = createWriteStream(logFile, { flags: "w", mode: 0o600 });
     const code = await new Promise<number | null>((resolve, reject) => {
-      const child = spawn("docker", ["build", "-t", tag, "--label", "jarvy.computer=1", "--build-arg", `UID=${uid}`, "--build-arg", `GID=${gid}`, dir],
-        { stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn("docker", ["build", "-t", tag, "--label", "jarvy.computer=1",
+        ...Object.entries(recipe.args ?? {}).flatMap(([key, value]) => ["--build-arg", `${key}=${value}`]), dir], { stdio: ["ignore", "pipe", "pipe"] });
       child.stdout.pipe(log, { end: false }); child.stderr.pipe(log, { end: false });
       child.on("error", reject);
       child.on("close", resolve);
@@ -120,9 +136,19 @@ export async function runContainer(spec: ContainerSpec): Promise<void> {
     ...Object.entries(spec.labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
     ...(spec.network ? ["--network", spec.network] : []), ...Object.entries(spec.hosts ?? {}).flatMap(([name, address]) => ["--add-host", `${name}:${address}`]),
     ...(spec.limits?.memory ? memoryFlags(spec.limits.memory, spec.limits.memory) : []), ...(spec.limits?.cpus ? ["--cpus", String(spec.limits.cpus)] : []),
+    ...(spec.vm ? vmFlags(spec.vm.disk) : []),
     "-v", `${spec.workspace}:${COMPUTER_CWD}`, "-v", `${spec.daemonDir}:${DAEMON_DIR}:ro`, "-w", COMPUTER_CWD,
     spec.image, "sleep", "infinity"], 120_000);
 }
+/** The runtime for VM sandboxes (A85): Kata's shim for containerd, found on the PATH of Docker's containerd. */
+export const KATA_RUNTIME = "io.containerd.kata.v2";
+/** A VM sandbox's flags (A85). The VM is the boundary, so what the container may do inside it is opened up — every
+ * capability, no seccomp, AppArmor or masked system paths, loop devices — for Docker to run there; never
+ * `--privileged`, which would hand it this machine's devices. Its user is in the docker group, and its disk is
+ * mounted where DOCKER_UP looks. */
+const vmFlags = (disk: string) => ["--runtime", KATA_RUNTIME, "--group-add", "docker", "--cap-add", "ALL",
+  "--security-opt", "seccomp=unconfined", "--security-opt", "apparmor=unconfined", "--security-opt", "systempaths=unconfined",
+  "--device-cgroup-rule", "b 7:* rmw", "--device-cgroup-rule", "c 10:237 rmw", "-v", `${disk}:${VM_DISK}`];
 /** Memory and swap together: swap equal to memory leaves the container none, so a limit can't be got around. */
 const memoryFlags = (memory: number, withSwap: number) => ["--memory", String(memory), "--memory-swap", String(withSwap)];
 /** Changes the limits given, of a container running or not, at once (A75). Docker can't take a limit off a container,
