@@ -218,6 +218,9 @@
 .jv-emoji-panel { display: flex; flex-direction: column; gap: 6px; }
 .jv-emoji-quick { display: flex; gap: 2px; }
 .jv-emoji-quick button, .jv-emoji-cell { width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; }
+/* A cell is a ninth of the row, whatever a scrollbar takes from it: 30 px with an overlay scrollbar, a little less
+ * where it takes room (Windows), wider on a phone. */
+.jv-emoji-cell { width: 100%; }
 .jv-emoji-quick button:hover, .jv-emoji-cell:hover { background: var(--ui-fill-ghost-hover); }
 .jv-emoji-cell:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
 .jv-emoji-search { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: 8px;
@@ -230,11 +233,10 @@
 .jv-emoji-groups button[aria-selected="true"] { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-emoji-groups[data-hidden] { display: none; }
 .jv-emoji-groups .lucide { width: 16px; height: 16px; }
-.jv-emoji-scroll { height: 236px; overflow: auto; overscroll-behavior: contain; }
-.jv-emoji-section h2 { display: flex; align-items: center; gap: 4px; position: sticky; top: 0; z-index: 1; margin: 0; padding: 4px 4px 3px;
+.jv-emoji-scroll { height: 236px; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
+.jv-emoji-section h2 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 4px 4px 3px;
   background: var(--ui-bg-elevated, var(--ui-bg-base)); font-size: 11px; font-weight: 500; color: var(--ui-text-tertiary); }
-.jv-emoji-section .lucide { width: 12px; height: 12px; }
-.jv-emoji-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; }
+.jv-emoji-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; }
 .jv-emoji-empty { margin: 0; padding: 18px 0; text-align: center; font-size: 13px; color: var(--ui-text-tertiary); }
 /* Jumped-to message (a reply's quote): a brief highlight. */
 .jv-jump .ui-bubble, .jv-jump > .ui-bubble { animation: jv-jump 1.2s ease-out; }

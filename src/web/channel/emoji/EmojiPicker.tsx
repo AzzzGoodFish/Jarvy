@@ -9,7 +9,7 @@ export const QUICK_EMOJI = ["👍", "👎", "👌", "✅", "❌", "👀", "🙏"
 /** One row of the emoji used last, kept in this browser. */
 const RECENT = 9, RECENT_KEY = "jarvy-emoji-recent";
 // One icon per group, in the panel's order.
-const ICONS: Record<GroupName, typeof Smile> = { "Smileys & Emotion": Smile, "People & Body": Hand, "Animals & Nature": Cat,
+const ICONS: Record<GroupName, typeof Clock> = { "Smileys & Emotion": Smile, "People & Body": Hand, "Animals & Nature": Cat,
   "Food & Drink": Utensils, "Travel & Places": Plane, Activities: Trophy, Objects: Lightbulb, Symbols: Heart, Flags: Flag };
 
 /** The emoji used last, newest first, across the whole picker. */
@@ -34,16 +34,25 @@ function score(emoji: Emoji, query: string): number {
   return tier && tier * 1000 - Math.min(words.length + zh.length, 999);
 }
 
-/** The emoji panel: a search box, the nine Unicode groups with their icons, and a grid each. Picking one marks the
- * message and closes the panel; the arrow keys move through the grid, arrows left and right through the groups. */
+/** A tab of the panel and its section of the grid: Recent, then the nine Unicode groups. */
+interface Tab { key: string; label: string; Icon: typeof Clock; emoji: Emoji[] }
+
+/** The emoji panel: a search box, the tabs (Recent when there is any, then the nine Unicode groups) with their icons,
+ * and a grid each. Picking one marks the message and closes the panel; the arrow keys move through the grid, arrows
+ * left and right through the tabs. */
 export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   const [query, setQuery] = useState(""), [recent, setRecent] = useState(readRecent), [group, setGroup] = useState(0);
   const [groups, setGroups] = useState<EmojiGroup[]>([]);
   useEffect(() => { let alive = true; void loadEmoji().then(list => { if (alive) setGroups(list); }); return () => { alive = false; }; }, []);
   const box = useRef<HTMLDivElement>(null), grid = useRef<HTMLDivElement>(null);
   const sections = useRef<(HTMLElement | null)[]>([]);
-  // Recent keeps only the emoji; their names come from the list.
-  const named = useMemo(() => new Map(groups.flatMap(item => item.emoji.map(emoji => [emoji[0], emoji] as const))), [groups]);
+  const tabs = useMemo(() => {
+    if (!groups.length) return [];
+    // Recent keeps only the emoji; their names come from the list.
+    const named = new Map(groups.flatMap(item => item.emoji.map(emoji => [emoji[0], emoji] as const)));
+    const list: Tab[] = groups.map(({ name, emoji }) => ({ key: name, label: t(`actions.emoji.${name}`), Icon: ICONS[name], emoji }));
+    return recent.length ? [{ key: "recent", label: t("actions.recent"), Icon: Clock, emoji: recent.map(emoji => named.get(emoji) ?? [emoji, "", "", "", ""] as Emoji) }, ...list] : list;
+  }, [groups, recent]);
   const found = useMemo(() => {
     const text = query.trim();
     if (!text || !groups.length) return null;
@@ -101,36 +110,28 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
           if (event.key === "Enter" && found?.[0]) { event.preventDefault(); pick(found[0][0]); }
         }}/>
     </label>
-    <div className="jv-emoji-groups" role="tablist" data-hidden={!groups.length || undefined}>
-      {groups.map(({ name }, index) => {
-        const Glyph = ICONS[name];
-        return <button key={name} type="button" role="tab" aria-selected={!found && index === group} title={t(`actions.emoji.${name}`)}
+    <div className="jv-emoji-groups" role="tablist" data-hidden={!tabs.length || undefined}>
+      {tabs.map(({ key, label, Icon }, index) =>
+        <button key={key} type="button" role="tab" aria-selected={!found && index === group} title={label}
           onKeyDown={event => {
             if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
             event.preventDefault();
-            const next = (index + (event.key === "ArrowRight" ? 1 : -1) + groups.length) % groups.length;
+            const next = (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
             jump(next);
             (box.current?.querySelectorAll(".jv-emoji-groups button")[next] as HTMLButtonElement | undefined)?.focus();
           }} onClick={() => {
             // From a search, a group clears it first; the grid is back on the next frame.
             if (found) { setQuery(""); requestAnimationFrame(() => jump(index)); } else jump(index);
-          }}><Glyph aria-hidden="true"/></button>;
-      })}
+          }}><Icon aria-hidden="true"/></button>)}
     </div>
     <div className="jv-emoji-scroll" ref={grid} role={found ? undefined : "tabpanel"}>
       {found ? found.length
         ? <div className="jv-emoji-grid">{found.map(cell)}</div>
         : <p className="jv-emoji-empty">{t("actions.noEmoji")}</p>
-        : <>
-          {!!recent.length && <section className="jv-emoji-section">
-            <h2><Clock aria-hidden="true"/>{t("actions.recent")}</h2>
-            <div className="jv-emoji-grid">{recent.map(emoji => cell(named.get(emoji) ?? [emoji, "", "", "", ""]))}</div>
-          </section>}
-          {groups.map(({ name, emoji }, index) => <section key={name} className="jv-emoji-section" ref={element => { sections.current[index] = element; }}>
-            <h2>{t(`actions.emoji.${name}`)}</h2>
-            <div className="jv-emoji-grid">{emoji.map(cell)}</div>
-          </section>)}
-        </>}
+        : tabs.map(({ key, label, emoji }, index) => <section key={key} className="jv-emoji-section" ref={element => { sections.current[index] = element; }}>
+          <h2>{label}</h2>
+          <div className="jv-emoji-grid">{emoji.map(cell)}</div>
+        </section>)}
     </div>
   </div>;
 }
