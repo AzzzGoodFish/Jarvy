@@ -3,15 +3,18 @@ import { dirname, join } from "node:path";
 import type { Store } from "../../infra/storage/store.js";
 import {
   COMPUTER_CWD, addHost, buildImage, computerImage, containerEnvironment, containerNetworks, containerState, containerStates, containerUsage,
-  dockerAvailable, dockerCapacity, ensureNetwork, homeAtWorkspace, imageExists, listeningPorts, moveToNetwork, networkAddresses, pruneImages,
-  removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity,
+  dockerCapacity, dockerProblem, ensureNetwork, homeAtWorkspace, imageExists, listeningPorts, moveToNetwork, networkAddresses, pruneImages,
+  removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
+import { userInfo } from "node:os";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import type { ComputerInfo, ComputerLimits, ComputerResources, ComputerStatus } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { ValidationError } from "../../shared/errors.js";
 
 const SWEEP_MS = 60_000;
+/** How often Jarvy looks for Docker again while it can't be used, so fixing it needs no restart. */
+const RECHECK_MS = 30_000;
 /** The name sandboxes reach this machine by (A74), as Docker Desktop calls it. */
 export const HOST_NAME = "host.docker.internal";
 /** The least a limit may be (A75): less leaves too little for the tools' own daemon. */
@@ -37,6 +40,10 @@ export interface ComputerDependencies {
  * each other; a published port is how one Bot's service is reached. */
 export class Computers {
   private docker: boolean | null = null;
+  /** Why Docker can't be used, while it can't. */
+  private problem: DockerProblem | null = null;
+  private recheck: NodeJS.Timeout | null = null;
+  private closed = false;
   private probing: Promise<void> | null = null;
   private image: Promise<string> | null = null;
   private timer: NodeJS.Timeout | null = null;
@@ -62,26 +69,51 @@ export class Computers {
     this.tag = createHash("sha256").update(this.dataDir).digest("hex").slice(0, 12);
   }
 
-  /** Looks for Docker and learns the state of every computer, once; every computer waits for it. */
+  /** Looks for Docker and learns the state of every computer; every computer waits for the first look. While Docker
+   * can't be used, it looks again every 30 seconds and takes it up once it can. */
   start(): Promise<void> {
     this.probing ??= this.probe();
     return this.probing;
   }
   private async probe(): Promise<void> {
-    this.docker = await dockerAvailable();
-    if (!this.docker) return;
+    const problem = await dockerProblem();
+    if (problem) return this.unusable(problem);
     try { await syncDaemon(join(this.dataDir, "computers", "bin")); }
-    catch (error) { this.docker = false; this.log(`computers disabled: ${(error as Error).message}`); return; }
+    catch (error) { return this.unusable({ reason: "failed", detail: `the tools' daemon could not be put in place: ${(error as Error).message}` }); }
+    const found = this.docker === false;
+    this.docker = true; this.problem = null;
+    if (found) this.log("Docker can be used now");
     await this.joinNetwork().catch(error => this.log(`sandbox network unavailable, staying on the default bridge: ${(error as Error).message}`));
     await this.sweep().catch(error => this.log(`computer sweep failed: ${(error as Error).message}`));
     this.timer = setInterval(() => void this.sweep().catch(error => this.log(`computer sweep failed: ${(error as Error).message}`)), SWEEP_MS);
     this.timer.unref();
+    if (found) this.deps.changed();
+  }
+  /** Docker can't be used: said once in the log per reason, and looked for again later. */
+  private unusable(problem: DockerProblem): void {
+    const before = this.docker === null ? null : this.problem?.reason;
+    if (before !== problem.reason) this.log(`Docker can't be used (${problem.reason}): ${problem.detail}`);
+    this.docker = false; this.problem = problem;
+    // Another reason than before: Bot info says it.
+    if (before && before !== problem.reason) this.deps.changed();
+    if (this.closed) return;
+    this.recheck = setTimeout(() => { this.recheck = null; void this.probe(); }, RECHECK_MS);
+    this.recheck.unref();
+  }
+  /** Why Docker can't be used, in a Bot's words; null when it can, or before Jarvy has looked. */
+  get dockerProblem(): string | null {
+    const problem = this.docker === false ? this.problem : null;
+    if (!problem) return null;
+    if (problem.reason === "missing") return "Docker isn't installed on the computer running Jarvy";
+    if (problem.reason === "stopped") return "Docker is installed on the computer running Jarvy but isn't running";
+    if (problem.reason === "denied") return `Docker on the computer running Jarvy refuses the user Jarvy runs as (${userInfo().username})`;
+    return `Docker on the computer running Jarvy can't be used (${problem.detail})`;
   }
   /** Whether new computers can be made here; false until `start` found Docker. */
   get available(): boolean { return this.docker === true; }
   status(botId: string): ComputerStatus | null {
     if (!this.deps.store.environments.computerOf(botId)) return null;
-    if (!this.available) return { state: "unavailable" };
+    if (!this.available) return { state: "unavailable", ...(this.problem ? { error: this.problem.reason } : {}) };
     return this.states.get(botId) ?? { state: "stopped" };
   }
   /** The sandbox as Bot info shows it: its state, and the container, image and workspace folder it is made of. */
@@ -222,7 +254,7 @@ export class Computers {
     const task = (async () => {
       try {
         await this.start();
-        if (!this.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 503);
+        if (!this.available) throw this.unavailable(503);
         const image = await this.imageReady();
         const state = await containerState(container);
         if (state === "missing") await runContainer({ name: container, image, workspace: this.workspace(botId),
@@ -234,7 +266,9 @@ export class Computers {
         this.set(botId, { state: "running" });
         return container;
       } catch (error) {
-        this.set(botId, { state: "failed", error: error instanceof RuntimeFault ? error.code : "computer_failed" });
+        // Without Docker the sandbox didn't fail: it shows as unavailable, and as it is once Docker is found.
+        if (error instanceof RuntimeFault && error.code === "docker_unavailable") { this.states.delete(botId); this.deps.changed(); }
+        else this.set(botId, { state: "failed", error: error instanceof RuntimeFault ? error.code : "computer_failed" });
         this.log(`computer of ${botId} failed: ${(error as Error).message}`);
         if (error instanceof RuntimeFault) throw error;
         throw new RuntimeFault("computer_failed", `Your sandbox could not start: ${(error as Error).message}`, 503);
@@ -269,16 +303,22 @@ export class Computers {
   }
   /** Closes the connections; containers keep running. */
   async close(): Promise<void> {
+    this.closed = true;
     if (this.timer) clearInterval(this.timer);
-    this.timer = null;
+    if (this.recheck) clearTimeout(this.recheck);
+    this.timer = null; this.recheck = null;
     await Promise.all([...this.connections.keys()].map(botId => this.disconnect(botId)));
   }
 
+  private unavailable(status: number): RuntimeFault {
+    const problem = this.dockerProblem;
+    return new RuntimeFault("docker_unavailable", problem ? `${problem[0]!.toUpperCase()}${problem.slice(1)}.` : "Docker is not available on this machine.", status);
+  }
   private workspace(botId: string): string { return join(this.dataDir, "bots", botId, "workspace"); }
   private need(botId: string): EnvironmentRecord {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
-    if (!this.available) throw new RuntimeFault("docker_unavailable", "Docker is not available on this machine.", 409);
+    if (!this.available) throw this.unavailable(409);
     return computer;
   }
   private imageReady(): Promise<string> {

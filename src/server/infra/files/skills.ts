@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { rm, rmdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { skillPath, type Skill } from "../../shared/skill.js";
+import type { Skill } from "../../shared/skill.js";
 
 /** The skills that ship with Jarvy (A55), in the package's `skills/` folder: one folder per skill with a SKILL.md
  * that starts with `name` and `description` lines between `---` markers. Found from this file upward, so it works
@@ -22,14 +22,15 @@ export function builtinSkills(): Skill[] {
   return skills.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Writes the skills into a workspace as `skills/<name>/SKILL.md`, replacing what is there, so an upgrade brings the
- * new text. Nothing else under `skills/` is touched. */
-export async function installSkills(workspace: string, skills: readonly Skill[]): Promise<void> {
+/** Removes the copies of the skills that earlier versions wrote into the agent Bot's workspace (`skills/<name>/SKILL.md`),
+ * and the folders they leave empty; anything else there stays. */
+export async function removeSkillCopies(workspace: string, skills: readonly Skill[]): Promise<void> {
+  const root = join(workspace, "skills");
   for (const skill of skills) {
-    const file = join(workspace, skillPath(skill.name));
-    await mkdir(dirname(file), { recursive: true });
-    await writeFile(file, skill.content, "utf8");
+    await rm(join(root, skill.name, "SKILL.md"), { force: true });
+    await rmdir(join(root, skill.name)).catch(() => {});
   }
+  await rmdir(root).catch(() => {});
 }
 
 function skillsDir(): string | null {

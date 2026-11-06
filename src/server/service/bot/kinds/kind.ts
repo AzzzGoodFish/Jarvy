@@ -4,7 +4,7 @@ import type { Place } from "../environments.js";
 
 /** What the code that runs tools needs, whatever kind of environment it is (A50). Three things differ by kind and
  * nothing else does: how to reach it, what the Bot is told it is, and what changes when the owner edits it. */
-export interface KindDeps { computers: { available: boolean; status(botId: string): { state: string } | null; create(botId: string): void;
+export interface KindDeps { computers: { available: boolean; dockerProblem: string | null; status(botId: string): { state: string } | null; create(botId: string): void;
   ensure(botId: string): Promise<string>; environment(botId: string, record: EnvironmentRecord): WorkEnvironment };
   machines: { environment(record: EnvironmentRecord, botId: string): WorkEnvironment; about(record: EnvironmentRecord, botId: string): string;
     address(record: EnvironmentRecord): string } }

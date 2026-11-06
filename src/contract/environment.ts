@@ -23,6 +23,10 @@ export interface HostKeys { keys: string[]; fingerprints: string[] }
 /** A Bot's sandbox as people see it. `preparing` covers building the image and creating or starting the
  * container; `unavailable` means this machine has no usable Docker. */
 export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "unavailable";
+/** Why Docker can't be used on the computer running Jarvy: not installed, installed but not running, refusing the user
+ * Jarvy runs as, or something else. */
+export type DockerProblemReason = "missing" | "stopped" | "denied" | "failed";
+/** `error` is the reason it failed, or for `unavailable` why Docker can't be used (`DockerProblemReason`). */
 export interface ComputerStatus { state: ComputerState; error?: string }
 /** A Bot's sandbox in Bot info: its state, and what it is: the container's name, the image it is made from, and the
  * folder on this machine mounted as its workspace. */
