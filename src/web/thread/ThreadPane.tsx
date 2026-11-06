@@ -161,6 +161,12 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     } else if (atBottom.current || mine) { hold.release(); el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); }
     if (atBottom.current || mine) seen.current = last?.sequence ?? 0;
   }, [messages, root, chat]);
+  // Widened or narrowed, the replies wrap anew: the one being read stays where it was (at the bottom, the size watch
+  // below keeps the newest in view).
+  useLayoutEffect(() => {
+    const el = body.current, place = spot.current;
+    if (el && settled.current && restorePlace(el, place)) hold.start(el, place);
+  }, [mode]);
   // The same reply asked for again while this pane is open (a quote tag pressed twice): land on it again.
   useEffect(() => { if (settled.current && focus) jump(focus.id, focus.passage); }, [focus]);
   // Near the top of the replies: load the page before. Re-armed after each page, so a short page keeps filling the view.
@@ -255,11 +261,13 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   };
   const channelName = channel?.title ?? t("search.channel"), rootSender = members.find(member => member.id === root?.senderId);
   const unseen = away ? messages.filter(message => message.sequence > seen.current && message.senderId !== me).length : 0;
-  const Shell = mode === "pane" ? "aside" : mode === "embed" ? "section" : "main";
   // Who takes part in the thread, first in its @ list: the root's author, whoever replied, and whoever was @-ed in it.
   const participants = new Set([...(root ? [root.senderId, ...root.mentions] : []), ...messages.flatMap(message => [message.senderId, ...message.mentions])]);
   participants.delete(me);
-  return <Shell className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label={t("thread.label")}
+  // One element in every mode, its role saying which: widened over the main area or put back beside the channel, the
+  // thread is the same pane, keeping its scroll and what watches it, the composer and an unfolded summary.
+  return <section role={mode === "pane" ? "complementary" : mode === "full" ? "main" : undefined}
+    className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label={t("thread.label")}
     onKeyDown={event => { if (chat && onSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") { event.preventDefault(); onSearch(chat); } }}>
     <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
       {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>}
@@ -296,7 +304,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
         </div>
       </div>
       {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" aria-label={t("thread.toLatest")}
-        onClick={() => body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" })}>
+        onClick={() => { hold.release(); body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" }); }}>
         {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}
     </div>
     <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder={t("thread.reply")} scrollRef={body} disabled={!chat}
@@ -307,5 +315,5 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     {/* Passages go into this thread's draft; the root can be quoted too (A44). */}
     <QuoteSelection container={body} drafts={drafts} chatId={threadId} members={members} onNotice={onNotice}
       source={id => id === root?.id ? root : messages.find(message => message.id === id)}/>
-  </Shell>;
+  </section>;
 }
