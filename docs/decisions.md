@@ -83,7 +83,7 @@ Supersedes A10's timing. A switch is serialised only with start, stop and other 
 
 ## A29 Settings and Bot info redesign
 
-Settings and Bot info share one set of `--jv-*` tokens mapped from the theme. Settings: navigation on the left, providers grouped as custom API / subscription / API key. Bot info is a single page — identity, model, persona, 运行 — with the former "advanced" page folded into 运行; the activity timeline remains its own view.
+Settings and Bot info share one set of `--jv-*` tokens mapped from the theme. Settings: navigation on the left, providers grouped as custom API / subscription / API key. Bot info: identity, model, persona and 运行 on one page; the activity timeline is its own view (A83 puts them in tabs).
 
 ## A30 Cookie name per data directory
 
@@ -670,3 +670,15 @@ Bots refer to messages by ID — 「就按 m2250 做」「上面 m1700 的草案
 - **What counts as an ID** (`contract/message-refs.ts`): `m` and digits, not inside a longer word or number, a path, an anchor, a mention or a file name (`m5.large`); Chinese may touch it. The page leaves code and link text as written, and an ID it has no ref for stays text.
 - **The tag** reads 「名字：开头…」 in the line of text, like a quote's tag but shorter. A mouse opens its preview on hover and goes to the message on a click; a tap opens the preview, and its 「查看消息」 goes there — a tap that jumped away at once would leave a phone's reader no way to see where first. Going there is a quote's jump: the message flashes; a thread's reply opens the thread beside its channel; another chat opens on it. On a phone a thread pane covers the chat, and an expanded thread covers it everywhere, so they give way; a thread's tag or quote naming a message elsewhere now opens it there instead of saying it is elsewhere.
 - **Not here**: chat and thread IDs (Bots almost never write them to people: one message in 30 days), notices and summaries (they carry no refs), and one-line previews — sidebar rows, reply bars, Bot activity — which keep the ID as text.
+
+## A83 Bot info in tabs
+
+Bot info was one page of eight sections — hero, 主 Bot, 模型, 个人设定, 工作环境, 定时任务, 端口转发, 运行, 订阅 — about 1,800 px for an ordinary Bot and 2,000 for the agent Bot, and the switch for the runtime, the activity timeline and the usage page all sat at the bottom of it.
+
+- **A fixed top**: the avatar, name, description and colour on the left; the runtime's state, Start or Stop and, while it runs, Abort on the right. The 运行 section is gone.
+- **Six tabs**: 概览 (the agent Bot's intro, model and thinking level, context, workspace, subscriptions), 设定 (name, description, Persona), 环境 (environment and port forwarding), 任务 (scheduled tasks), 活动 (the timeline, and a card's details in its place with 返回时间线) and 用量.
+- **One size**: the dialog is the same width and height on every tab, so changing one does not move it; each tab scrolls on its own, and 设定's Persona takes the height there is. It always opens on 概览. A tab is read the first time it is opened and kept, with its scroll and unsaved edits, until the dialog closes.
+- **Kept whole below 560 px**: the tabs are one row that scrolls, the open one stayed in view, and the runtime's switch moves under the name. On a phone they are a row like Settings'.
+- Frontend only: the sections moved into their own components (`web/bot/`) and no API changed.
+
+Why: what someone opens Bot info for is one of a few things, and the runtime's switch, the activity and the usage were the hardest to reach of all.

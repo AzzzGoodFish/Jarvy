@@ -75,7 +75,7 @@ A message's `source: {historyId, toolCallId} | null` names the assistant History
 
 ## Web views
 
-- **Activity timeline** (Bot info → 运行 → 活动历史): the Bot's messages in chats you can read on the left, time in the middle, its History on the right; cards open details, and sources link to History (A22). There is no History button next to chat messages (A23).
+- **Activity timeline** (Bot info → 活动): the Bot's messages in chats you can read on the left, time in the middle, its History on the right; cards open details, and sources link to History (A22). There is no History button next to chat messages (A23).
 - `GET /api/bots/:id/activity?before=&limit=` (default 40, max 100) returns summaries of both, newest first. Ties in the same millisecond put History first, then each source's ID descending; the cursor holds time, type and ID so pages never skip or repeat. The order is for stable display, not causality.
 - `GET /api/bots/:id/activity/messages/:messageId`, `GET /api/bots/:id/history?before=&limit=`, `GET /api/bots/:id/history/:recordId` return details.
 - All of these require owning the Bot; chat items also require read access to the chat. Being in one of the Bot's chats does not open its History.
