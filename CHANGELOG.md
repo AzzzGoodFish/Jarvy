@@ -2,6 +2,24 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.12.2 — 2026-11-06
+
+No database change: the schema stays v30, and upgrading from 0.12.1 needs nothing else.
+
+### Changed
+
+- **Message IDs show as the messages they name.** Bots often point to a message by its ID ("as in m2250"), which you can't see on the page. Now an ID in a message's text shows as a tag of that message, 「name: its first words…」, when it is one you may open. With a mouse, hovering shows a preview (where, when, who and the start of the text) and a click goes to the message; on a touch screen a tap shows the preview, and 「查看消息」 goes there. Going there works like a quote's source: the message flashes in its chat, a thread's reply opens its thread beside the channel, and on a phone the thread pane gives way. A quote in a thread that points outside it now opens it there as well. An ID in code or a link, or one you can't open, stays as written.
+- **Usage across all Bots.** Settings has a 用量 page after 模型: the token use and cost of every Bot together, for today, 7 days, 30 days or all time, by model with a total, and by Bot, most expensive first. A model without a price isn't counted as $0.
+- **Bot info in tabs.** Bot info keeps who the Bot is, its state and Start or Stop at the top, and puts the rest in six tabs: 概览 (model, context, workspace, subscriptions), 设定 (name, description, Persona), 环境 (environment and forwarded ports), 任务, 活动 (the activity timeline) and 用量. The dialog keeps one size on every tab and always opens on 概览; a tab keeps its scroll and unsaved edits until the dialog closes.
+- **Recent emoji have a tab.** Once you've used a reaction, the panel's first tab is 最近使用, selected when it opens.
+- **API**:
+  - `GET /api/usage?since=<ms>` returns the usage of all Bots, by model and by Bot.
+  - A message carries `refs`: for the person reading it, each message its text names by ID that they may open (`id`, `senderId`, `content`, `quotes`, `createdAt`, and `chat` with `id`, `type`, `title` and `parentTitle`), at most 20.
+
+### Fixed
+
+- The reaction panel no longer scrolls sideways where scrollbars take room, as on Windows: the last column of emoji stays in view.
+
 ## 0.12.1 — 2026-11-05
 
 No database change: the schema stays v30. Installing now also brings `sharp` with a prebuilt libvips for the platform, about 20 MB.
