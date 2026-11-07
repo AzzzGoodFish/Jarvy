@@ -2,6 +2,30 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.13.0 — 2026-11-07
+
+No database change: the schema stays v30, and upgrading from 0.12.2 needs nothing else. Every sandbox stays a container; a VM sandbox needs Kata Containers and KVM on this machine, which the agent Bot's setup guide explains.
+
+### Added
+
+- **VM sandboxes with Docker inside.** A container shares this machine's kernel, so Docker can't run in one without `--privileged`, which sandboxes never get. Bot info › 环境 › 类型 can now make a Bot's sandbox a small VM instead, run by Kata Containers from the same image, with Docker Engine and Docker Compose inside: the Bot runs `docker` and `docker compose` with its own tools, without sudo. Switching asks first and works as a reset: the workspace is kept, what was installed in the sandbox isn't. Docker's data lives on a disk of the VM's own (64 GB, allocated as it fills, under `computers/disks/`), which goes with a reset, a switch back or the Bot. A VM has 4 GB and 2 CPUs unless set otherwise: the Resource limits row becomes 虚拟机大小, and a change takes effect at the next start, with 现在重启 offered at once. Like a container, a VM can't reach other sandboxes, and a port that a container inside it publishes can be forwarded with `ports.publish`. Where VMs can't run, 虚拟机 can't be chosen and Bot info says why: Kata isn't installed, there is no KVM, another hypervisor such as VirtualBox holds it, or a trial VM failed; 重新检查 looks again.
+
+### Changed
+
+- **Docker that can't be used says why.** Bot info › 环境 now says in one sentence whether Docker isn't installed, its service isn't running, Jarvy may not use it, or it fails otherwise, and what that stops: without a sandbox, a Bot can't read or write files or run commands. Jarvy looks again every 30 seconds, so sandboxes start once Docker is fixed, without restarting Jarvy (joining the docker group still needs a new login and a restart). Bots see the problem when they list or switch environments, in a failing tool and in their batches, and on first setup the agent Bot offers to help.
+- **The agent Bot has a setup guide.** A skill on getting Jarvy ready: model connections, Docker on each system (and what joining the docker group grants), reaching Jarvy from phones and other devices with its certificate, adding SSH machines, secrets, and VM sandboxes.
+- **Skills are read with `skills.read`.** The agent Bot reads a skill when a task matches it, instead of keeping copies in its workspace; old copies are removed at start.
+- **API**:
+  - `PUT /bots/:id/computer/type {type}` (`container` or `vm`) and `POST /bots/:id/computer/restart`. A sandbox's computer info includes `type`, and `restartNeeded` after a VM was resized while it ran.
+  - `GET /environments/vm` returns whether VM sandboxes can run here (`state`, and `reason` and `detail` when they can't); `POST /environments/vm/check` looks again.
+  - An `unavailable` computer's `error` is why Docker can't be used: `missing`, `stopped`, `denied` or `failed`.
+
+### Fixed
+
+- 「回到最新」 stays 12 px above the composer. In a chat or thread shorter than the window, it hung under the last message after the window grew back; it now goes once everything fits, and a thread beside its channel stays at the bottom when the window shrinks.
+- A thread expanded to full width or put back beside its channel stays where it was read, with its draft and an unfolded summary, instead of starting over.
+- A thread's 「回到最新」 hides once it has gone to the newest, also when the thread had reopened where it was read.
+
 ## 0.12.2 — 2026-11-06
 
 No database change: the schema stays v30, and upgrading from 0.12.1 needs nothing else.
