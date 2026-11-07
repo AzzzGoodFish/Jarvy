@@ -7,6 +7,7 @@ import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
 import { useAction } from "../action";
 import { SandboxLimits } from "./SandboxLimits";
+import { SandboxType } from "./SandboxType";
 import "../styles/environment.css";
 
 const STATE = {
@@ -18,18 +19,19 @@ const STATE = {
 const unusable = (error: string | undefined): DockerProblemReason =>
   error === "missing" || error === "stopped" || error === "denied" ? error : "failed";
 
-/** Bot info's section (A50, A68), in two parts. Its Docker sandbox, the only default there is: its state,
- * the container, image and mount it is made of, its resource limits and usage (A75), Start or Stop and Reset, and where the Bot is when it switched to a
+/** Bot info's section (A50, A68), in two parts. Its Docker sandbox, the only default there is: its state, its type
+ * (container or VM, A85), the container, image and mount it is made of, its resource limits or a VM's size and usage
+ * (A75), Start or Stop and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it switched to a
  * machine. Then the external environments it may switch to, the SSH machines (A57), each with a switch; with none yet,
  * a row to add one in Settings. */
 export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSaved: (bot: Bot) => void; onAddMachine: () => void }) {
-  const { doing: busy, error, run: perform } = useAction<"grant" | "start" | "stop" | "reset">();
-  /** Stopping and resetting are destructive: both ask in place first. */
-  const [confirming, setConfirming] = useState<"stop" | "reset" | null>(null);
+  const { doing: busy, error, run: perform } = useAction<"grant" | "start" | "stop" | "reset" | "restart">();
+  /** Stopping, restarting and resetting are destructive: each asks in place first. */
+  const [confirming, setConfirming] = useState<"stop" | "reset" | "restart" | null>(null);
   const { computer, current, currentName, machines = [] } = bot.environment;
   const act = (what: NonNullable<typeof busy>, work: () => Promise<Bot>, fallback: Key) => perform(what, async () => onSaved(await work()), fallback);
-  const run = (what: "start" | "stop" | "reset") => void act(what, () => api.computer(bot.id, what), "common.failed");
-  const state = computer?.state;
+  const run = (what: "start" | "stop" | "reset" | "restart") => void act(what, () => api.computer(bot.id, what), "common.failed");
+  const state = computer?.state, vm = computer?.type === "vm";
   const label = state ? STATE[state] : null;
   return <section className="jv-section" aria-label={t("environment.title")}><h3 className="jv-section-title">{t("environment.title")}</h3>
     {computer && state && label && <div className="jv-list jv-env-sandbox">
@@ -38,6 +40,7 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
           {current === "ssh" && <span className="jv-env-away">{t("environment.awayMachine", { name: currentName ?? "" })}</span>}</span>
         <span className="jv-status" data-ok={state === "running" || undefined} data-busy={state === "preparing" || undefined}>{t(label)}</span>
       </div>
+      {state !== "unavailable" && <SandboxType bot={bot} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>}
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.container")}</span><code>{computer.container}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
@@ -45,14 +48,16 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
       <div className="jv-list-row jv-static-row jv-env-details">
         {/* The state says the rest; only Docker that can't be used needs words: why, and what that stops. The agent Bot
           * helps fix it (its setup skill). */}
+        {computer.restartNeeded && state === "running" && !confirming && <p>{t("environment.restartNote")}</p>}
         {state === "unavailable" ? <p>{t("environment.unavailable", { why: t(`environment.unavailable.${unusable(computer.error)}`) })}</p> : !confirming && <div className="jv-env-actions">
+          {computer.restartNeeded && state === "running" && <Button type="button" className="jv-primary" size="sm" disabled={!!busy} onClick={() => setConfirming("restart")}>{t("environment.restart")}</Button>}
           <Button type="button" variant="outline" size="sm" disabled={!!busy || state === "preparing"} onClick={() => state === "running" ? setConfirming("stop") : run("start")}>
             {t(busy === "start" ? "environment.starting" : busy === "stop" ? "environment.stopping" : state === "running" ? "environment.stop" : "environment.start")}</Button>
           <Button type="button" variant="ghost" size="sm" disabled={!!busy || state === "preparing"} onClick={() => setConfirming("reset")}>{t("environment.reset")}</Button>
         </div>}
         {/* Asked in place: Bot info is itself a dialog. */}
         {confirming && <div className="jv-env-confirm" role="group" aria-label={t(`environment.${confirming}Title`, { name: bot.name })}>
-          <strong>{t(`environment.${confirming}Title`, { name: bot.name })}</strong><p>{t(`environment.${confirming}Body`)}</p>
+          <strong>{t(`environment.${confirming}Title`, { name: bot.name })}</strong><p>{t(confirming === "reset" && vm ? "environment.resetBodyVm" : `environment.${confirming}Body`)}</p>
           <div className="jv-env-confirm-actions"><Button type="button" variant="ghost" size="sm" onClick={() => setConfirming(null)}>{t("common.cancel")}</Button>
             <Button type="button" className="jv-primary" size="sm" onClick={() => { const what = confirming; setConfirming(null); run(what); }}>{t(`environment.${confirming}Confirm`)}</Button></div>
         </div>}

@@ -28,3 +28,9 @@
 .jv-env-limits-form > p { margin: 0; font-size: 13px; line-height: 1.5; }
 .jv-env-limit-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .jv-env-warn { color: var(--ui-text-warning); }
+/* A85: the sandbox's type, a container or a VM, chosen in its row. */
+.jv-list .jv-list-row.jv-env-type { align-items: center; padding-top: 8px; padding-bottom: 8px; }
+.jv-env-type > .jv-seg { margin-left: auto; }
+.jv-env-type > .jv-seg > button { padding: 3px 12px; font-size: 12px; }
+.jv-env-details > p.jv-env-type-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.jv-env-type-note > button { height: auto; padding: 0; font-size: 13px; }

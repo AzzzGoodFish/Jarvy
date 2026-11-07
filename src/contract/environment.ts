@@ -28,11 +28,21 @@ export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "un
 export type DockerProblemReason = "missing" | "stopped" | "denied" | "failed";
 /** `error` is the reason it failed, or for `unavailable` why Docker can't be used (`DockerProblemReason`). */
 export interface ComputerStatus { state: ComputerState; error?: string }
-/** A Bot's sandbox in Bot info: its state, and what it is: the container's name, the image it is made from, and the
- * folder on this machine mounted as its workspace. */
-export interface ComputerInfo extends ComputerStatus { container: string; image: string; workspace: string; mount: string; limits: ComputerLimits }
+/** What a sandbox is (A85): a container (the default), or a virtual machine run by Kata, with Docker inside. */
+export type ComputerType = "container" | "vm";
+/** A Bot's sandbox in Bot info: its state, and what it is: its type, the container's name, the image it is made from,
+ * and the folder on this machine mounted as its workspace. `restartNeeded`: a VM's size was changed while it ran, which
+ * takes effect at its next start. */
+export interface ComputerInfo extends ComputerStatus { type: ComputerType; container: string; image: string; workspace: string; mount: string; limits: ComputerLimits;
+  restartNeeded?: boolean }
+/** Why this machine can't run VM sandboxes (A85): Kata isn't installed for Docker, there is no KVM, KVM is held by
+ * another hypervisor (such as VirtualBox), or something else. */
+export type VmProblemReason = "no_kata" | "no_kvm" | "busy" | "failed";
+/** Whether VM sandboxes can be used here, as last checked; `checking` while a trial VM runs, `unknown` before the
+ * first check. `detail` keeps what Docker or Kata said. */
+export interface VmSupport { state: "unknown" | "checking" | "available" | "unavailable"; reason?: VmProblemReason; detail?: string }
 /** What a sandbox may use at most (A75): memory in bytes, CPUs in cores; null is no limit. A limit caps and reserves
- * nothing, so a sandbox under it takes only what it uses. */
+ * nothing, so a sandbox under it takes only what it uses. A VM always has a size: 4 GB and 2 CPUs unless set. */
 export interface ComputerLimits { memory: number | null; cpus: number | null }
 /** What a running sandbox uses now: memory in bytes, and CPU in percent of one core, so over 100 with several. */
 export interface ComputerUsage { memory: number; cpu: number }

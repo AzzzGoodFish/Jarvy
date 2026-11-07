@@ -2,7 +2,7 @@ import type { Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
 import type { PortRange, PublishedPort } from "../contract/ports";
-import type { ComputerLimits, ComputerResources, HostKeys, SshMachine } from "../contract/environment";
+import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
 import type { Task, TaskInput } from "../contract/tasks";
@@ -136,7 +136,11 @@ export const api = {
   grantMachine: (id: string, botId: string, granted: boolean) => request<SshMachine>(`/environments/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   fulfilMachine: (chatId: string, messageId: string, answer: { password: string } | { keyId: string }) =>
     request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body(answer) }),
-  computer: (id: string, action: "start" | "stop" | "reset") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),
+  computer: (id: string, action: "start" | "stop" | "reset" | "restart") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),
+  setComputerType: (id: string, type: ComputerType) => request<Bot>(`/bots/${id}/computer/type`, { method: "PUT", body: body({ type }) }),
+  /** Whether VM sandboxes can be used here (A85); the first ask starts a check, `checking` until it is done. */
+  vmSupport: () => request<VmSupport>("/environments/vm"),
+  checkVmSupport: () => request<VmSupport>("/environments/vm/check", { method: "POST" }),
   setComputerLimits: (id: string, limits: ComputerLimits) => request<Bot>(`/bots/${id}/computer/limits`, { method: "PUT", body: body(limits) }),
   computerResources: (id: string) => request<ComputerResources>(`/bots/${id}/computer/resources`),
   /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */

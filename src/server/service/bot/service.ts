@@ -9,6 +9,7 @@ import { AGENT_BOT_ID, type Bot as BotRecord } from "../../shared/models.js";
 import type { Bot as BotView } from "../../../contract/bots.js";
 import type { BotStatus } from "./contracts.js";
 import { RuntimeFault, publicFault } from "../../shared/runtime.js";
+import { ValidationError } from "../../shared/errors.js";
 import type { ChatService } from "../chat/service.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
@@ -196,17 +197,31 @@ export class BotService {
     if (!record) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     return record;
   }
-  /** Starting (or resetting, which starts afresh) returns at once: the Bot's state follows as it changes. */
-  async computer(id: string, action: "start" | "stop" | "reset") {
+  /** Starting (or resetting, which starts afresh, or restarting, which a VM's new size needs) returns at once: the
+   * Bot's state follows as it changes. */
+  async computer(id: string, action: "start" | "stop" | "reset" | "restart") {
     this.describe(id);
-    if (action === "stop") await this.computers.stop(id);
-    else {
+    if (action === "stop" || action === "restart") await this.computers.stop(id);
+    if (action !== "stop") {
       // What ran there is gone, and so are the links to it.
       if (action === "reset") { await this.computers.reset(id); this.ports.unpublishAll(id); }
       void this.computers.ensure(id).catch(() => {});
     }
     return this.describe(id);
   }
+  /** Makes the sandbox a container or a VM (A85) and starts the new one; what ran there is gone, and so are the links
+   * to it. */
+  async setComputerType(id: string, type: unknown) {
+    this.describe(id);
+    if (type !== "container" && type !== "vm") throw new ValidationError("type is container or vm", "type_invalid");
+    await this.computers.setType(id, type);
+    this.ports.unpublishAll(id);
+    void this.computers.ensure(id).catch(() => {});
+    return this.describe(id);
+  }
+  /** Whether VM sandboxes can be used here (A85), as last checked; asking the first time, or `again`, starts a check,
+   * `checking` until it is done. */
+  vmSupport(again = false) { void this.computers.checkVms(again).catch(() => {}); return this.computers.vmSupport; }
   /** What the sandbox may use at most (A75); returns the Bot with them. */
   async setComputerLimits(id: string, limits: { memory: unknown; cpus: unknown }) {
     this.describe(id);

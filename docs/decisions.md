@@ -695,3 +695,17 @@ Jarvy asked `docker version` once at start, and any failure meant "no Docker": B
 - **Skills read with `skills.read`** (the agent's tool, A55 amended): Jarvy returns a skill's guide itself, wherever the agent works and whatever its environment can do; the prompt lists names and descriptions and says to read them that way. Skills are no longer copied into the workspace, and the copies earlier versions wrote there are removed when the agent starts.
 
 Why: a person who can't run Bots' tools should learn what is wrong from the platform, and how to fix it from the Bot whose job is helping them set Jarvy up, even before Docker works.
+
+## A85 VM sandboxes (Kata)
+
+A container shares this machine's kernel, so Docker can't run in one without `--privileged`, which A50 rules out: a Bot that builds or tests with Docker and Compose had nowhere to do it. Kata Containers runs a container in a small virtual machine of its own, from the same image and with the same `docker` command line, so the VM, not the container, is the boundary. Tried on 192.168.31.77 (11-04, 11-06): about 4 seconds to start, from 290 MB more per VM, small files 3–15 times slower in the shared workspace, a loop-mounted disk with direct I/O as fast as the container's workspace.
+
+- **A type per sandbox**: a container (the default) or a VM, kept in the computer's `connection` (`type: "vm"`); no schema change. Bot info › 环境 › 类型 switches; switching asks in place and works as a reset (`PUT /bots/:id/computer/type`).
+- **Only where it runs**: a trial VM from the sandbox image, when the tab first opens and when asked again, tells apart why not: Kata not installed, no KVM, KVM taken by another hypervisor (VirtualBox), or the trial failing otherwise. Bot info says the reason; how to fix it is in the agent's setup skill. Kata is the owner's to install (its release unpacked to /opt/kata, the shim linked onto the PATH); Docker's settings stay as they are.
+- **Docker inside**: an image on top of the sandbox image with Ubuntu's Docker Engine and Compose, `bot` in the docker group; every capability, no seccomp, AppArmor or masked paths, and loop devices inside the VM, never `--privileged`. Its data is on a 64 GB sparse disk of the Bot's (`computers/disks/`), loop-mounted with direct I/O at /var/lib/docker after each start, where Jarvy also starts dockerd. It stays across restarts and goes with a reset, a switch or the Bot.
+- **Names**: on Jarvy's network (A74) a container resolves through Docker's server at 127.0.0.11, which a VM doesn't have; Jarvy writes this machine's upstream name servers into the VM after each start, as Docker does for its default bridge.
+- **Size**: the A75 limits are the VM's size, always set: 4 GB and 2 CPUs unless the owner chose (Kata's own default, one CPU and 2 GB, is too small); a running VM keeps its size, so a change says it waits for the next start and offers 现在重启. Its usage isn't shown: Docker counts only its container's processes.
+- **Unchanged**: the network and its isolation, published ports (a port a container inside publishes is the sandbox's), the workspace mount, the tools' daemon, and the prompt. The Bot reads that it is in a VM with Docker in `environments.list` and a switch's description.
+
+Why: Docker in a Bot's sandbox, on the machines that can run it, without giving any sandbox this machine's devices.
+

@@ -2,13 +2,15 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { Store } from "../../infra/storage/store.js";
 import {
-  COMPUTER_CWD, addHost, buildImage, computerImage, containerEnvironment, containerNetworks, containerState, containerStates, containerUsage,
-  dockerCapacity, dockerProblem, ensureNetwork, homeAtWorkspace, imageExists, listeningPorts, moveToNetwork, networkAddresses, pruneImages,
+  COMPUTER_CWD, addHost, containerEnvironment, containerNetworks, containerState, containerStates, containerUsage,
+  dockerCapacity, dockerProblem, ensureNetwork, homeAtWorkspace, listeningPorts, moveToNetwork, networkAddresses,
   removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
+import { createDisk, dockerUp, hostResolvers, removeDisk, useResolvers } from "../../infra/env/kata.js";
+import { ComputerImages, VM_SIZE, VmSupportCheck, computerType, vmDisk } from "./computer-vm.js";
 import { userInfo } from "node:os";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
-import type { ComputerInfo, ComputerLimits, ComputerResources, ComputerStatus } from "../../../contract/environment.js";
+import type { ComputerInfo, ComputerLimits, ComputerResources, ComputerStatus, ComputerType, VmSupport } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { ValidationError } from "../../shared/errors.js";
 
@@ -17,12 +19,15 @@ const SWEEP_MS = 60_000;
 const RECHECK_MS = 30_000;
 /** The name sandboxes reach this machine by (A74), as Docker Desktop calls it. */
 export const HOST_NAME = "host.docker.internal";
-/** The least a limit may be (A75): less leaves too little for the tools' own daemon. */
-const MIN_MEMORY = 256 * 2 ** 20, MIN_CPUS = 0.1;
-/** A computer's limits as kept with it (A75); none when absent. */
+/** The least a limit may be (A75): less leaves too little for the tools' own daemon, or in a VM (A85) for its kernel
+ * and Docker. */
+const MIN = { container: { memory: 256 * 2 ** 20, cpus: 0.1 }, vm: { memory: 2 ** 30, cpus: 1 } } as const;
+/** A computer's limits as kept with it (A75); none when absent. A VM (A85) always has a size, its default where none
+ * was set. */
 export function computerLimits(record: EnvironmentRecord): ComputerLimits {
   const read = (value: string | undefined) => value && Number(value) > 0 ? Number(value) : null;
-  return { memory: read(record.spec.memory), cpus: read(record.spec.cpus) };
+  const memory = read(record.spec.memory), cpus = read(record.spec.cpus);
+  return computerType(record) === "vm" ? { memory: memory ?? VM_SIZE.memory, cpus: cpus ?? VM_SIZE.cpus } : { memory, cpus };
 }
 
 export interface ComputerDependencies {
@@ -45,7 +50,11 @@ export class Computers {
   private recheck: NodeJS.Timeout | null = null;
   private closed = false;
   private probing: Promise<void> | null = null;
-  private image: Promise<string> | null = null;
+  private readonly images: ComputerImages;
+  /** Whether VM sandboxes can be used here (A85). */
+  private readonly vms: VmSupportCheck;
+  /** VM sandboxes resized while they ran: the new size comes with their next start. */
+  private readonly resized = new Set<string>();
   private timer: NodeJS.Timeout | null = null;
   private readonly states = new Map<string, ComputerStatus>();
   private readonly preparing = new Map<string, Promise<string>>();
@@ -67,6 +76,8 @@ export class Computers {
   constructor(private readonly deps: ComputerDependencies) {
     this.dataDir = dirname(deps.store.path);
     this.tag = createHash("sha256").update(this.dataDir).digest("hex").slice(0, 12);
+    this.images = new ComputerImages(this.dataDir, this.uid, this.gid, text => this.log(text));
+    this.vms = new VmSupportCheck(this.images, text => this.log(text));
   }
 
   /** Looks for Docker and learns the state of every computer; every computer waits for the first look. While Docker
@@ -120,25 +131,53 @@ export class Computers {
   info(botId: string): ComputerInfo | null {
     const computer = this.deps.store.environments.computerOf(botId), status = this.status(botId);
     if (!computer || !status) return null;
-    return { ...status, container: computer.spec.container!, image: computerImage(this.uid, this.gid), workspace: this.workspace(botId), mount: COMPUTER_CWD,
-      limits: computerLimits(computer) };
+    const type = computerType(computer);
+    return { ...status, type, container: computer.spec.container!, image: this.images.tag(type), workspace: this.workspace(botId), mount: COMPUTER_CWD,
+      limits: computerLimits(computer), ...(this.resized.has(botId) ? { restartNeeded: true } : {}) };
   }
-  /** What the sandbox uses now, when it runs, and what this machine has; null for what Docker doesn't answer. */
+  /** Whether VM sandboxes can be used here, as last checked (A85). */
+  get vmSupport(): VmSupport { return this.available ? this.vms.current : { state: "unavailable", reason: "failed", detail: this.dockerProblem ?? "Docker can't be used" }; }
+  /** Checks whether VM sandboxes can be used here: the first time when asked, or `again`. */
+  checkVms(again = false): Promise<VmSupport> { return this.available ? this.vms.check(again) : Promise.resolve(this.vmSupport); }
+  /** Makes the Bot's sandbox a container or a VM (A85). Like a reset, what was installed goes and the workspace stays;
+   * a VM's Docker disk goes too. The next start makes the new one. */
+  async setType(botId: string, type: ComputerType): Promise<void> {
+    const computer = this.need(botId);
+    if (computerType(computer) === type) return;
+    if (type === "vm") {
+      const support = await this.vms.check();
+      if (support.state !== "available") throw new ValidationError("This machine can't run VM sandboxes", "vm_unavailable", { reason: support.reason ?? "failed" });
+    }
+    await this.settled(botId);
+    await this.disconnect(botId);
+    await removeContainer(computer.spec.container!);
+    await removeDisk(vmDisk(this.dataDir, computer.spec.container!));
+    this.homes.delete(computer.spec.container!); this.resized.delete(botId);
+    this.deps.store.environments.setType(computer.id, type);
+    this.set(botId, { state: "stopped" });
+    this.deps.changed();
+  }
+  /** What the sandbox uses now, when it runs, and what this machine has; null for what Docker doesn't answer. A VM's
+   * use isn't known (A85): Docker counts only its container's own processes, not what runs in the VM besides. */
   async resources(botId: string): Promise<ComputerResources> {
     const computer = this.need(botId);
-    const usage = this.status(botId)?.state === "running" ? await containerUsage(computer.spec.container!).catch(() => null) : null;
+    const usage = this.status(botId)?.state === "running" && computerType(computer) === "container" ? await containerUsage(computer.spec.container!).catch(() => null) : null;
     return { usage, capacity: await this.capacity().catch(() => null) };
   }
   /** Sets what the sandbox may use at most (A75): a container that exists changes at once, running or not, and one made
    * later, after a reset too, starts with them. Each is null for no limit, or from a floor up to this machine's size. */
   async setLimits(botId: string, input: { memory: unknown; cpus: unknown }): Promise<void> {
-    const computer = this.need(botId), machine = await this.capacity();
-    const memory = limit(input.memory, MIN_MEMORY, machine.memory, 2 ** 20), cpus = limit(input.cpus, MIN_CPUS, machine.cpus, 0.01);
-    if (memory === undefined || cpus === undefined) throw new ValidationError("Limits are null or a number within this machine's size", "limits_invalid",
+    const computer = this.need(botId), machine = await this.capacity(), type = computerType(computer), least = MIN[type];
+    const memory = limit(input.memory, least.memory, machine.memory, 2 ** 20), cpus = limit(input.cpus, least.cpus, machine.cpus, 0.01);
+    if (memory === undefined || cpus === undefined) throw new ValidationError("Limits are null or a number within this machine's size", type === "vm" ? "vm_size_invalid" : "limits_invalid",
       { memory: Math.floor(machine.memory / 2 ** 30 * 10) / 10, cpus: machine.cpus });
-    // Only what changed goes to the container: one never limited stays without limits.
-    const before = computerLimits(computer), change = { ...(memory !== before.memory ? { memory } : {}), ...(cpus !== before.cpus ? { cpus } : {}) };
-    if (Object.keys(change).length && await containerState(computer.spec.container!) !== "missing") await updateLimits(computer.spec.container!, change, machine);
+    // Only what changed goes to the container: one never limited stays without limits. A VM's null is its default size.
+    const next = computerLimits({ ...computer, spec: { ...computer.spec, memory: memory === null ? "" : String(memory), cpus: cpus === null ? "" : String(cpus) } });
+    const before = computerLimits(computer), change = { ...(next.memory !== before.memory ? { memory: next.memory } : {}), ...(next.cpus !== before.cpus ? { cpus: next.cpus } : {}) };
+    const state = Object.keys(change).length ? await containerState(computer.spec.container!) : "missing";
+    if (state !== "missing") await updateLimits(computer.spec.container!, change, machine);
+    // Docker keeps a VM's new size for its next start; the running VM keeps its own.
+    if (type === "vm" && state === "running") this.resized.add(botId);
     this.deps.store.environments.setLimits(computer.id, { memory, cpus });
     this.deps.changed();
   }
@@ -189,17 +228,21 @@ export class Computers {
   private async connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
     const container = await this.ensure(botId);
     let home = this.homes.get(container);
-    if (!home) { home = this.prepare(container).catch(error => this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`)); this.homes.set(container, home); }
+    if (!home) {
+      home = this.prepare(container, computerType(record) === "vm").catch(error => { this.homes.delete(container); this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`); });
+      this.homes.set(container, home);
+    }
     await home;
     let env = this.connections.get(botId);
     if (!env) { env = containerEnvironment(record.id, container, text => this.log(`[${botId.slice(0, 8)}] ${text}`)); this.connections.set(botId, env); }
     return env;
   }
-  /** Sets up a container after it starts: the workspace as its home, and this machine's name for one made before
-   * containers got it at creation. */
-  private async prepare(container: string): Promise<void> {
+  /** Sets up a container after it starts: the workspace as its home, this machine's name for one made before
+   * containers got it at creation, and in a VM (A85) Docker on its disk. */
+  private async prepare(container: string, vm: boolean): Promise<void> {
     await homeAtWorkspace(container);
     if (this.network) await addHost(container, HOST_NAME, this.network.gateway);
+    if (vm) { await useResolvers(container, hostResolvers()); await dockerUp(container); }
   }
   /** Makes this Jarvy's network and moves the containers still on Docker's default bridge there, running or not. */
   private async joinNetwork(): Promise<void> {
@@ -255,14 +298,15 @@ export class Computers {
       try {
         await this.start();
         if (!this.available) throw this.unavailable(503);
-        const image = await this.imageReady();
+        const type = computerType(computer), image = await this.images.ready(type), disk = vmDisk(this.dataDir, container);
+        if (type === "vm") await createDisk(disk);
         const state = await containerState(container);
         if (state === "missing") await runContainer({ name: container, image, workspace: this.workspace(botId),
           daemonDir: join(this.dataDir, "computers", "bin"), uid: this.uid, gid: this.gid, labels: { "jarvy.data": this.tag, "jarvy.bot": botId }, limits: computerLimits(computer),
-          ...(this.network ? { network: this.network.name, hosts: { [HOST_NAME]: this.network.gateway } } : {}) });
+          ...(this.network ? { network: this.network.name, hosts: { [HOST_NAME]: this.network.gateway } } : {}), ...(type === "vm" ? { vm: { disk } } : {}) });
         else if (state === "stopped") await startContainer(container);
-        // Docker wrote its /etc/hosts afresh.
-        if (state !== "running") { this.homes.delete(container); this.book = null; }
+        // Docker wrote its /etc/hosts afresh; a VM came up at its new size, without Docker running in it yet.
+        if (state !== "running") { this.homes.delete(container); this.book = null; this.resized.delete(botId); }
         this.set(botId, { state: "running" });
         return container;
       } catch (error) {
@@ -281,15 +325,19 @@ export class Computers {
     const computer = this.need(botId);
     await this.disconnect(botId);
     await stopContainer(computer.spec.container!);
+    this.resized.delete(botId);
     this.set(botId, { state: "stopped" });
   }
   /** Removes the container, so the next start makes a fresh one from the image: what was installed goes, the
    * workspace stays. */
   async reset(botId: string): Promise<void> {
     const computer = this.need(botId);
+    await this.settled(botId);
     await this.disconnect(botId);
     await removeContainer(computer.spec.container!);
-    this.homes.delete(computer.spec.container!);
+    // A VM's Docker starts empty again (A85).
+    await removeDisk(vmDisk(this.dataDir, computer.spec.container!));
+    this.homes.delete(computer.spec.container!); this.resized.delete(botId);
     this.set(botId, { state: "stopped" });
   }
   /** The Bot is being deleted: its container goes with it. */
@@ -298,6 +346,7 @@ export class Computers {
     if (!computer) return;
     await this.disconnect(botId);
     if (this.available) await removeContainer(computer.spec.container!);
+    await removeDisk(vmDisk(this.dataDir, computer.spec.container!));
     this.deps.store.environments.dropComputer(botId);
     this.states.delete(botId);
   }
@@ -321,19 +370,8 @@ export class Computers {
     if (!this.available) throw this.unavailable(409);
     return computer;
   }
-  private imageReady(): Promise<string> {
-    this.image ??= (async () => {
-      const tag = computerImage(this.uid, this.gid);
-      if (!(await imageExists(tag))) {
-        this.log(`building ${tag}`);
-        await buildImage(tag, this.uid, this.gid, join(this.dataDir, "computers", "build.log"));
-        // Older images go once no container uses them: each is gigabytes.
-        void pruneImages(tag).then(removed => { if (removed.length) this.log(`removed ${removed.join(", ")}`); }).catch(() => {});
-      }
-      return tag;
-    })().catch(error => { this.image = null; throw error; });
-    return this.image;
-  }
+  /** Waits for a start under way, so a container it is making isn't made after the one replacing it is asked for. */
+  private async settled(botId: string): Promise<void> { await this.preparing.get(botId)?.catch(() => {}); }
   private async disconnect(botId: string): Promise<void> {
     const env = this.connections.get(botId);
     this.connections.delete(botId);
@@ -358,7 +396,7 @@ export class Computers {
       const botId = computer.botId!;
       if (this.preparing.has(botId)) continue;
       const running = states.get(computer.spec.container!) === "running";
-      if (!running) { if (this.states.get(botId)?.state !== "failed") this.set(botId, { state: "stopped" }); await this.disconnect(botId); continue; }
+      if (!running) { if (this.states.get(botId)?.state !== "failed") this.set(botId, { state: "stopped" }); this.resized.delete(botId); await this.disconnect(botId); continue; }
       // Started outside Jarvy: set it up again on next use.
       if (this.states.get(botId)?.state !== "running") this.homes.delete(computer.spec.container!);
       this.set(botId, { state: "running" });

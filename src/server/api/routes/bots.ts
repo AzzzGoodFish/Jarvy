@@ -27,9 +27,14 @@ export function botRoutes(bots: ApiServices["bots"]) {
     return c.json(await bots.setComputerLimits(c.req.param("id"), { memory: input.memory, cpus: input.cpus }));
   });
   routes.get("/:id/computer/resources", async c => c.json(await bots.computerResources(c.req.param("id"))));
+  // A container or a VM (A85); switching makes a fresh one, as a reset does.
+  routes.put("/:id/computer/type", jsonBody, async c => {
+    const input = await readJson(c);
+    return c.json(await bots.setComputerType(c.req.param("id"), input.type));
+  });
   routes.post("/:id/computer/:action", async c => {
     const action = c.req.param("action");
-    if (action !== "start" && action !== "stop" && action !== "reset") throw new HTTPException(404, { message: "Not found" });
+    if (action !== "start" && action !== "stop" && action !== "reset" && action !== "restart") throw new HTTPException(404, { message: "Not found" });
     return c.json(await bots.computer(c.req.param("id"), action));
   });
   routes.get("/:id", c => c.json(bots.describe(c.req.param("id"))));

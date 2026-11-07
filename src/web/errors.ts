@@ -32,6 +32,7 @@ const ERROR_KEYS: Record<ErrorCode, Key> = {
   task_invalid: "error.taskInvalid",
   task_schedule_invalid: "error.taskScheduleInvalid", task_time_past: "error.taskTimePast",
   thinking_format: "error.thinkingFormat", tools_missing: "error.toolsMissing", unsafe_replay: "error.unsafeReplay",
+  type_invalid: "error.typeInvalid", vm_size_invalid: "error.vmSizeInvalid", vm_unavailable: "error.vmUnavailable",
 };
 const worded = (code: string | null | undefined, params?: Record<string, string | number>) => {
   // A code comes from the server's JSON: only a listed one is worded.
