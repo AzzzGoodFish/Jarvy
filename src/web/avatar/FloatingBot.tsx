@@ -3,6 +3,7 @@ import type { Bot, BotStatus } from "../../contract/bots";
 import { BotAvatar } from "./BotAvatar";
 import { crownAt, makeFigure, type Figure } from "./face";
 import { MARKS, Rig, type FigureInput, type FigureMotion } from "./motion";
+import { Persona } from "./acts";
 import { BOT_COLORS } from "./palette";
 import { crownMark } from "./snapshot";
 import { type BotColor, type BotMood } from "../../contract/models";
@@ -14,6 +15,7 @@ import { t } from "../i18n";
 import "../styles/floating-bot.css";
 
 const KEY = "jarvy-floating-bot", MARGIN = 10, DRAG = 4;
+const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** With `?npc=demo` in the address the scripted demo turn drives the cat instead of the Bot's live turn (A47), with the
  * prototype toolbar. */
 const NPC_DEMO = new URLSearchParams(location.search).get("npc") === "demo";
@@ -51,17 +53,19 @@ function savedSpot(): Spot {
  * fractions of the free area, so it survives resizes; it never leaves the chat area or covers the composer. Click opens
  * Bot info — or, once the last turn's line has faded, brings it back first. Eyes follow the pointer, or the composer
  * while typing. */
-export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
-  bot: Bot; chatId: string; status?: BotStatus; area: RefObject<HTMLElement | null>; avoid: RefObject<HTMLElement | null>; onOpen: () => void;
+export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen }: {
+  bot: Bot; chatId: string; status?: BotStatus; area: RefObject<HTMLElement | null>; avoid: RefObject<HTMLElement | null>;
+  /** The newest message you sent here: the cat listens for it (A86). */
+  lastMine?: string; onOpen: () => void;
 }) {
   const button = useRef<HTMLButtonElement>(null), canvas = useRef<HTMLCanvasElement>(null);
   const spot = useRef<Spot>(savedSpot()), drag = useRef<{ id: number; x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const moved = useRef(false), look = useRef<{ x: number; y: number } | null>(null);
   const input = useRef<FigureInput>({ motion: "sleep", mood: "normal", lookX: 0, lookY: 0 });
-  const figure = useRef<{ shake(): void } | null>(null);
+  const figure = useRef<{ shake(): void } | null>(null), persona = useRef(new Persona()), busy = useRef(false);
   const [rendering, setRendering] = useState(false);
   const layout = useRef<(() => void) | null>(null);
-  const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), turn = useNpcLive(NPC_DEMO ? null : bot.id, chatId, status, bot.mood as BotMood, motionOf(status));
+  const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), turn = useNpcLive(NPC_DEMO ? null : bot.id, chatId, bot.mood as BotMood, motionOf(status));
   const npc = NPC_DEMO ? demo : turn;
   input.current.motion = npc.motion; input.current.fast = npc.fast; input.current.mood = npc.mood;
   const mark = MARKS[npc.motion];
@@ -112,6 +116,32 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     };
   }, []);
 
+  // The acts (A86): you send a message, it listens; it starts working, it hops; a turn completes, it celebrates;
+  // touched, it is poked; dragged, it is carried. Nothing at all with reduced motion.
+  const heard = useRef<{ chat: string; id?: string } | null>(null);
+  useEffect(() => {
+    const before = heard.current;
+    heard.current = { chat: chatId, id: lastMine };
+    // The first message here, and the chat you just opened, are not something to listen to.
+    if (!before || before.chat !== chatId || !lastMine || lastMine === before.id) return;
+    if (!reduced()) persona.current.play("listen", performance.now());
+  }, [lastMine, chatId]);
+  useEffect(() => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rest = npc.motion === "idle" || npc.motion === "sleep";
+    if (rest) { busy.current = false; return; }
+    // A turn under way after a rest: the wind-up before it works.
+    if (!busy.current) { busy.current = true; persona.current.play("hop", performance.now(), true); }
+  }, [npc.motion]);
+  const finished = useRef<number | null>(null);
+  useEffect(() => {
+    const done = npc.view.done;
+    if (!done || finished.current === npc.view.startedAt) return;
+    finished.current = npc.view.startedAt;
+    if (done.outcome !== "completed" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const pick = ["joy", "hopSpin", "dance"][Math.floor(Math.random() * 3)] as "joy" | "hopSpin" | "dance";
+    persona.current.play(pick, performance.now());
+  }, [npc.view.done, npc.view.startedAt]);
   const color = useRef((BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex), crown = useRef(bot.agent);
   useEffect(() => { color.current = (BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex; }, [bot.color]);
   useEffect(() => { crown.current = bot.agent; }, [bot.agent]);
@@ -120,7 +150,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     let drawn: Figure | undefined;
     try { drawn = makeFigure(); } catch { /* the shader did not build: the still avatar stays */ }
     if (!out || !paint || !drawn) return; // no WebGL: the still avatar stays
-    const live = drawn, rig = new Rig(), reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const live = drawn, rig = new Rig(), reduced = matchMedia("(prefers-reduced-motion: reduce)"), last = { current: 0 };
     let frame = 0;
     figure.current = { shake: () => rig.shake() };
     const tick = (now: number) => {
@@ -134,13 +164,21 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
         // The figure turns towards the middle of the chat (the dialogue takes that side whenever it is placed). Not
         // working, it keeps its turn while it is carried, and asleep until it wakes; the first frame always takes it
         // from where the figure is.
-        const motion = input.current.motion, carried = !!drag.current?.moved && (motion === "idle" || motion === "groom" || motion === "stretch");
+        const motion = input.current.motion, carried = !!drag.current?.moved && motion === "idle";
         if (input.current.faceX === undefined || !(carried || motion === "sleep")) input.current.faceX = facing();
         // A little smaller than a still avatar, so a stretch or a lift never touches the edge.
-        const face = rig.frame(now, input.current), zoom = .86;
+        const base = rig.frame(now, input.current), being = persona.current;
+        // An idle act now and then, only while the cat is at rest and the page is being looked at.
+        if (!input.current.reduced) being.idle(now, last.current ? Math.min(50, now - last.current) : 16, input.current.motion !== "idle", input.current.motion === "sleep");
+        last.current = now;
+        const { face, zoom: swell } = being.apply(base, now), zoom = .86 * swell;
+        // What it is doing, for the stylesheet and for tests: the act's name, while one plays.
+        const act = being.playing ?? "";
+        if (el.dataset.act !== act) { if (act) el.dataset.act = act; else delete el.dataset.act; }
         if (out.width !== pixels) out.width = out.height = pixels; else paint.clearRect(0, 0, pixels, pixels);
         live.paint(paint, pixels, color.current, face, { zoom });
-        if (crown.current) crownMark(paint, pixels, crownAt(face, zoom));
+        // The crown turns with the head: side on, it is edge-on and unseen.
+        if (crown.current) { paint.globalAlpha = Math.max(0, Math.cos(face.spin) * 1.6 - .2); crownMark(paint, pixels, crownAt(face, zoom)); paint.globalAlpha = 1; }
       }
       frame = requestAnimationFrame(tick);
     };
@@ -161,6 +199,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
       const d = drag.current; if (!d || d.id !== event.pointerId) return;
       const dx = event.clientX - d.x, dy = event.clientY - d.y;
       if (!d.moved && Math.hypot(dx, dy) < DRAG) return;
+      if (!d.moved && !reduced()) persona.current.carry(true, performance.now());
       d.moved = true;
       const b = bounds(), left = Math.min(b.maxX, Math.max(b.minX, d.left + dx)), top = Math.min(b.maxY, Math.max(b.minY, d.top + dy));
       spot.current = { x: b.maxX > b.minX ? (left - b.minX) / (b.maxX - b.minX) : 0, y: b.maxY > b.minY ? (top - b.minY) / (b.maxY - b.minY) : 0 };
@@ -169,10 +208,10 @@ export function FloatingBot({ bot, chatId, status, area, avoid, onOpen }: {
     onPointerUp={event => {
       const d = drag.current; if (!d || d.id !== event.pointerId) return;
       drag.current = null; moved.current = d.moved;
-      if (d.moved) localStorage.setItem(KEY, JSON.stringify(spot.current));
+      if (d.moved) { localStorage.setItem(KEY, JSON.stringify(spot.current)); if (!reduced()) persona.current.carry(false, performance.now()); }
     }}
     onPointerCancel={() => { drag.current = null; }}
-    onClick={() => { if (moved.current) { moved.current = false; return; } if (npc.canRecap) npc.showRecap(); else onOpen(); }}
+    onClick={() => { if (moved.current) { moved.current = false; return; } if (!reduced()) persona.current.play("poke", performance.now()); if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>
     {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88} crown={bot.agent}/>}
