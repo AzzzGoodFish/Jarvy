@@ -178,7 +178,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
         if (out.width !== pixels) out.width = out.height = pixels; else paint.clearRect(0, 0, pixels, pixels);
         live.paint(paint, pixels, color.current, face, { zoom });
         // The crown turns with the head: side on, it is edge-on and unseen.
-        if (crown.current) { paint.globalAlpha = Math.max(0, Math.cos(face.spin) * 1.6 - .2); crownMark(paint, pixels, crownAt(face, zoom)); paint.globalAlpha = 1; }
+        if (crown.current) { paint.globalAlpha = Math.min(1, Math.max(0, Math.cos(face.spin) * 1.6 - .2)); crownMark(paint, pixels, crownAt(face, zoom)); paint.globalAlpha = 1; }
       }
       frame = requestAnimationFrame(tick);
     };
@@ -210,7 +210,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
       drag.current = null; moved.current = d.moved;
       if (d.moved) { localStorage.setItem(KEY, JSON.stringify(spot.current)); if (!reduced()) persona.current.carry(false, performance.now()); }
     }}
-    onPointerCancel={() => { drag.current = null; }}
+    onPointerCancel={() => { drag.current = null; if (!reduced()) persona.current.carry(false, performance.now()); }}
     onClick={() => { if (moved.current) { moved.current = false; return; } if (!reduced()) persona.current.play("poke", performance.now()); if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>

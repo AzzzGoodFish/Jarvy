@@ -40,7 +40,7 @@ class Spring {
  * rest answer something that happened. */
 export const ACTS = {
   hop: { name: "hop", dur: 2.0,
-    pose: t => ({ squash: 1 + .22 * ramp(t, 0, .18, easeOut) * (t < .2 ? 1 : 0), lift: hop(t, .2, .46, .3),
+    pose: t => ({ squash: 1 + .22 * span(t, 0, .14, .16, .22), lift: hop(t, .2, .46, .3),
       lid: .22 * span(t, 0, .12, .16, .22), eyeScale: 1 + .08 * span(t, .2, .3, .55, .7), mouth: t > .2 && t < .9 ? 2 : 0, mouthOpen: .6 }),
     beats: [[.66, k => k.squash(2.4)]] },
   spin: { name: "spin", dur: 2.8,
@@ -146,8 +146,8 @@ const IDLE: [ActName, number][] = [["flick", 3], ["tilt", 3], ["look", 2], ["swa
 const ASLEEP: [ActName, number][] = [["flick", 3], ["sway", 3]];
 /** Idle acts come this far apart, plus a random part, in seconds. */
 const GAP = 8, SPREAD = 12;
-/** Nothing of its own this long, toward an awake cat that is at rest, and it dozes off. */
-const QUIET = 45;
+/** Nothing at all for this long, and an awake cat at rest dozes off. */
+const QUIET = 150;
 /** After the doze it wakes for a while before settling again. */
 const AWAKE = 45_000;
 /** How often an idle act is the surprise instead. */
@@ -166,7 +166,7 @@ export class Persona {
   private readonly earR = new Spring(260, 9);
   private lift = 0; private vy = 0; private tilt = 0; private turn = 0; private vTilt = 0; private vTurn = 0; private quiet = 0;
   private next = 0; private lastAct: ActName | null = null;
-  private blink = -1e9; private blinkAt = 0; private wasAt = 0;
+  private blink = -1e9; private blinkAt = 0;
 
   /** The act under way, or null. */
   get playing(): string | null { return this.name; }
@@ -176,8 +176,7 @@ export class Persona {
    * (you speaking, a turn finishing) — the two often land in the same frame. */
   play(name: ActName, now: number, weak = false) {
     if (this.carried || (weak && this.act && (now - this.at) / 1000 < .8)) return;
-    this.act = ACTS[name]; this.name = name; this.at = now; this.beat = 0; this.quiet = 0; this.lastAct = name;
-    if (name !== "doze") this.wasAt = now;
+    this.act = ACTS[name]; this.name = name; this.at = now; this.beat = 0; this.lastAct = name;
   }
   /** Picked up, the cat hangs and sways; put down, it lands with a squash and wobbles. */
   carry(up: boolean, now: number) {
@@ -186,16 +185,17 @@ export class Persona {
     if (up) { this.act = null; this.name = null; this.at = now; }
     else { this.act = ACTS.land; this.name = "land"; this.at = now; this.beat = 0; }
   }
-  /** The frame's beat: while nothing is happening, an idle act now and then; after a long quiet, the doze. */
+  /** The frame's beat: while the cat is at rest, an idle act now and then; a long rest with nothing else happening, the
+   * doze. Nothing at all while it works — that is the Rig's to show. */
   idle(now: number, ms: number, busy: boolean, asleep = false) {
-    // Only an awake cat at rest drifts off; a working or a sleeping one is doing something of its own.
     this.quiet = busy ? 0 : this.quiet + ms;
     // The first one comes a while after the chat opens, not the instant it does.
-    if (!this.next) { this.next = now + (GAP + Math.random() * SPREAD) * 1000; this.wasAt = now; return; }
-    if (this.act || this.carried || now < this.next) return;
-    if (asleep) return;
-    if (now - this.wasAt > QUIET * 1000) { this.next = now + AWAKE; this.wasAt = now; this.play("doze", now); return; }
-    const pool = (asleep ? ASLEEP : IDLE).filter(([name]) => name !== this.lastAct), total = pool.reduce((sum, [, weight]) => sum + weight, 0);
+    if (!this.next) { this.next = now + (GAP + Math.random() * SPREAD) * 1000; return; }
+    if (busy || this.act || this.carried || now < this.next) return;
+    // Its own beat never wakes the doze: only a long rest with no act of its own at all.
+    if (!asleep && this.quiet > QUIET * 1000) { this.next = now + AWAKE; this.quiet = 0; this.play("doze", now); return; }
+    // A sleeping cat, or one that just dozed, keeps to the few that read asleep.
+    const pool = (asleep || this.lastAct === "doze" ? ASLEEP : IDLE).filter(([name]) => name !== this.lastAct), total = pool.reduce((sum, [, weight]) => sum + weight, 0);
     let pick = Math.random() * total, name: ActName = pool[0]![0];
     for (const [candidate, weight] of pool) { pick -= weight; if (pick <= 0) { name = candidate; break; } }
     this.next = now + (GAP + Math.random() * SPREAD) * 1000;
@@ -210,7 +210,7 @@ export class Persona {
     const act = this.act;
     // In over a tenth of a second and out over the last fifth, so a cut act never jumps; the shape of the face (eyes,
     // mouth, blush) has no blend in the shader, so it switches at half way.
-    this.weight = act ? (this.carried ? 1 : clamp(local / .1) * clamp((act.dur - local) / .18)) : Math.max(0, this.weight - dt / .18);
+    this.weight = this.carried ? 1 : act ? clamp(local / .1) * clamp((act.dur - local) / .18) : Math.max(0, this.weight - dt / .18);
     const w = this.weight;
     const pose: ActPose = this.carried
       ? { lift: .22, squash: .8, tilt: .13 * Math.sin(TAU * 1.1 * local), eyeScale: 1.1, mouth: 1, earL: .46, earR: .46 }
@@ -233,19 +233,22 @@ export class Persona {
     // A turn of the body leaves the ears behind: the side it turns from swings out.
     this.earL.kick(-.5 * dTilt - .4 * dTurn); this.earR.kick(.5 * dTilt + .4 * dTurn);
     // The pose is blended into what the figure asked for, not written over it: twice the breathing, none of it lost.
+    // Absolute values a pose sets are blended into what the figure asked for, never written over it: an act that is not
+    // playing (w = 0) leaves the figure exactly as the Rig drew it. Offsets — the springs, the roll, the spin — add.
     const own = face.squash;
     const blend = <K extends keyof Face>(key: K, value: number | undefined) => { if (value !== undefined) (face[key] as number) = lerp(face[key] as number, value, w); };
     blend("lift", pose.lift); blend("eyeScale", pose.eyeScale);
     blend("lid", pose.lid); blend("open", pose.open); blend("blush", pose.blush); blend("mouthOpen", pose.mouthOpen);
-    blend("earL", pose.earL); blend("earR", pose.earR); blend("spin", pose.spin);
+    blend("earL", pose.earL); blend("earR", pose.earR);
+    blend("spin", pose.spin === undefined ? undefined : face.spin + pose.spin);
+    blend("yaw", pose.yaw === undefined ? undefined : face.yaw + pose.yaw);
     if (pose.look) face.look = [lerp(face.look[0], pose.look[0], w), lerp(face.look[1], pose.look[1], w)];
     if (w > .5) for (const key of ["kind", "happy", "mouth"] as const) { const value = pose[key]; if (value !== undefined) (face[key] as number) = value; }
     // The springs add to what was asked for, and the body never flattens past a ball.
     const wanted = pose.squash === undefined ? 1 : pose.squash;
-    face.squash = clamp(own * lerp(1, wanted, w) + this.squash.value + .025 * Math.abs(this.roll.value), .82, 1.24);
-    face.tilt = tilt;
-    face.lift = lift;
-    face.earL += this.earL.value; face.earR += this.earR.value;
+    face.squash = clamp(own * lerp(1, wanted, w) + this.squash.value + .025 * Math.abs(this.roll.value) * w, .82, 1.24);
+    face.tilt += tilt * w;
+    face.earL += this.earL.value * w; face.earR += this.earR.value * w;
     // Its own blink, unless the eyes are already shut or shaped otherwise.
     if (face.kind === 0 && face.open > .5 && now >= this.blinkAt && now - this.blink > 400) { this.blink = now; this.blinkAt = now + 2200 + Math.random() * 3200; }
     const blink = (now - this.blink) / 160;
