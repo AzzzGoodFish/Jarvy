@@ -169,7 +169,9 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
         // A little smaller than a still avatar, so a stretch or a lift never touches the edge.
         const base = rig.frame(now, input.current), being = persona.current;
         // An idle act now and then, only while the cat is at rest and the page is being looked at.
-        if (!input.current.reduced) being.idle(now, last.current ? Math.min(50, now - last.current) : 16, input.current.motion !== "idle", input.current.motion === "sleep");
+        // Busy is anything but rest: asleep counts as rest, so a sleeping cat still flicks an ear now and then.
+        const busy = input.current.motion !== "idle" && input.current.motion !== "sleep";
+        if (!input.current.reduced) being.idle(now, last.current ? Math.min(50, now - last.current) : 16, busy, input.current.motion === "sleep");
         last.current = now;
         const { face, zoom: swell } = being.apply(base, now), zoom = .86 * swell;
         // What it is doing, for the stylesheet and for tests: the act's name, while one plays.

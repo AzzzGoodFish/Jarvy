@@ -132,10 +132,11 @@ export const ACTS = {
         mouth: t > 1.4 && t < 1.8 ? 3 : 0, mouthOpen: .55, lift: hop(t, 1.45, .2, .05) };
     },
     beats: [[1.47, k => { k.squash(1.8); k.ears(1.5, 1.5); }]] },
-  /** Put down after being carried: the land, and the wobble that settles it. */
+  /** Put down after being carried: the squash as it meets the ground (the drop itself is `Persona`'s hold easing out),
+   * and the wobble that settles it. */
   land: { name: "land", dur: .8,
-    pose: t => ({ kind: t > .05 && t < .3 ? 1 : 0, squash: 1 - .05 * span(t, 0, .1, .3, .7) }),
-    beats: [[.02, k => { k.squash(1.5); k.tilt(1.6); }]] },
+    pose: t => ({ kind: t > .16 && t < .34 ? 1 : 0, squash: 1 - .05 * span(t, .16, .24, .4, .75) }),
+    beats: [[.18, k => { k.squash(1.6); k.tilt(1.6); }]] },
 } as const satisfies Record<string, Act>;
 
 export type ActName = keyof typeof ACTS;
@@ -167,6 +168,8 @@ export class Persona {
   private lift = 0; private vy = 0; private tilt = 0; private turn = 0; private vTilt = 0; private vTurn = 0; private quiet = 0;
   private next = 0; private lastAct: ActName | null = null;
   private blink = -1e9; private blinkAt = 0;
+  /** How much the cat is held up: 1 while carried, easing to 0 after it is put down, so the fall takes a moment. */
+  private hold = 0;
 
   /** The act under way, or null. */
   get playing(): string | null { return this.name; }
@@ -199,7 +202,8 @@ export class Persona {
     let pick = Math.random() * total, name: ActName = pool[0]![0];
     for (const [candidate, weight] of pool) { pick -= weight; if (pick <= 0) { name = candidate; break; } }
     this.next = now + (GAP + Math.random() * SPREAD) * 1000;
-    this.play(Math.random() < SURPRISE ? "puff" : name, now);
+    // The surprise is for an awake cat: asleep it has nothing to be surprised by.
+    this.play(!asleep && Math.random() < SURPRISE ? "puff" : name, now);
   }
   /** The figure's face with the act on it, and how much the act swells it (1 when it doesn't). */
   apply(face: Face, now: number): { face: Face; zoom: number } {
@@ -209,11 +213,15 @@ export class Persona {
     if (this.act && !this.carried && local > this.act.dur) { this.act = null; this.name = null; }
     const act = this.act;
     // In over a tenth of a second and out over the last fifth, so a cut act never jumps; the shape of the face (eyes,
-    // mouth, blush) has no blend in the shader, so it switches at half way.
-    this.weight = this.carried ? 1 : act ? clamp(local / .1) * clamp((act.dur - local) / .18) : Math.max(0, this.weight - dt / .18);
+    // mouth, blush) has no blend in the shader, so it switches at half way. The landing starts at full weight — the cat
+    // comes down from where it was held — and only fades out; it is the hold, not the act, that brings it down.
+    this.weight = this.carried ? 1 : act ? (act === ACTS.land ? 1 : clamp(local / .1)) * clamp((act.dur - local) / .18)
+      : Math.max(0, this.weight - dt / .18);
+    // Put down, it drops: the hold eases out over about a fifth of a second, and the landing's squash meets the ground.
+    this.hold = this.carried ? Math.min(1, this.hold + dt / .12) : Math.max(0, this.hold - dt / .2);
     const w = this.weight;
     const pose: ActPose = this.carried
-      ? { lift: .22, squash: .8, tilt: .13 * Math.sin(TAU * 1.1 * local), eyeScale: 1.1, mouth: 1, earL: .46, earR: .46 }
+      ? { squash: .8, tilt: .13 * Math.sin(TAU * 1.1 * local), eyeScale: 1.1, mouth: 1 }
       : act ? act.pose(local) : {};
     if (act && !this.carried) for (const [at, kick] of act.beats ?? []) {
       if (local < at || this.beat > at) continue;
@@ -221,7 +229,7 @@ export class Persona {
       kick({ squash: v => this.squash.kick(v), tilt: v => this.roll.kick(v), ears: (l, r) => { this.earL.kick(l); this.earR.kick(r); } });
     }
     // A hop pulls the ears with it as it starts and as it stops — that lag is what makes it look alive.
-    const lift = (pose.lift ?? 0) * w, vy = dt ? (lift - this.lift) / dt : 0, dvy = vy - this.vy;
+    const lift = (pose.lift ?? 0) * w + .22 * this.hold, vy = dt ? (lift - this.lift) / dt : 0, dvy = vy - this.vy;
     this.lift = lift; this.vy = vy;
     this.earL.kick(1.4 * dvy); this.earR.kick(1.4 * dvy);
     const n = 4, h = dt / n;
@@ -237,7 +245,7 @@ export class Persona {
     // playing (w = 0) leaves the figure exactly as the Rig drew it. Offsets — the springs, the roll, the spin — add.
     const own = face.squash;
     const blend = <K extends keyof Face>(key: K, value: number | undefined) => { if (value !== undefined) (face[key] as number) = lerp(face[key] as number, value, w); };
-    blend("lift", pose.lift); blend("eyeScale", pose.eyeScale);
+    blend("eyeScale", pose.eyeScale);
     blend("lid", pose.lid); blend("open", pose.open); blend("blush", pose.blush); blend("mouthOpen", pose.mouthOpen);
     blend("earL", pose.earL); blend("earR", pose.earR);
     blend("spin", pose.spin === undefined ? undefined : face.spin + pose.spin);
@@ -247,8 +255,11 @@ export class Persona {
     // The springs add to what was asked for, and the body never flattens past a ball.
     const wanted = pose.squash === undefined ? 1 : pose.squash;
     face.squash = clamp(own * lerp(1, wanted, w) + this.squash.value + .025 * Math.abs(this.roll.value) * w, .82, 1.24);
-    face.tilt += tilt * w;
-    face.earL += this.earL.value * w; face.earR += this.earR.value * w;
+    // The tilt already carries the act's weight; the roll and the springs ring on after the act has gone. The ears hang
+    // as it is carried and lift again as it comes down, without being asked for as a pose.
+    face.tilt += tilt;
+    face.lift += lift;
+    face.earL += this.earL.value + .24 * this.hold; face.earR += this.earR.value + .24 * this.hold;
     // Its own blink, unless the eyes are already shut or shaped otherwise.
     if (face.kind === 0 && face.open > .5 && now >= this.blinkAt && now - this.blink > 400) { this.blink = now; this.blinkAt = now + 2200 + Math.random() * 3200; }
     const blink = (now - this.blink) / 160;
