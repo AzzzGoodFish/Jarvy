@@ -8,11 +8,13 @@
 export interface Face {
   open: number; happy: number; eyeScale: number; kind: number; lid: number; lidTilt: number; smile: number; blush: number;
   mouth: number; mouthOpen: number; earL: number; earR: number; tilt: number; lift: number; squash: number; yaw: number; look: [number, number];
+  /** Turned about its own axis, in radians: a whole circle spins the cat around once (an act, A86). */
+  spin: number;
 }
 
 /** A resting face: two pill eyes, ears up, nothing else. */
 export const FACE: Face = { open: 1, happy: 0, eyeScale: 1, kind: 0, lid: 0, lidTilt: 0, smile: 0, blush: 0, mouth: 0, mouthOpen: 1,
-  earL: .22, earR: .22, tilt: 0, lift: 0, squash: 1, yaw: 0, look: [0, 0] };
+  earL: .22, earR: .22, tilt: 0, lift: 0, squash: 1, yaw: 0, look: [0, 0], spin: 0 };
 
 /** The body all sizes share: a flattened ellipsoid, slightly narrower at the bottom, with the standard ears. */
 export const BODY = { body: .85, waist: .10, ears: 1, earSize: 1.1, earX: .30, earY: .26, earW: .16, earH: .32, earBlend: .03,
@@ -25,7 +27,7 @@ const FRAG = `
 precision highp float;
 uniform vec2 uRes, uLook;
 uniform vec3 uColor, uInk;
-uniform float uSquash, uEarL, uEarR, uOpen, uHappy, uTilt, uLift, uZoom, uShadow, uYaw;
+uniform float uSquash, uEarL, uEarR, uOpen, uHappy, uTilt, uLift, uZoom, uShadow, uYaw, uSpin;
 uniform float uEars, uEarSize, uBody, uEyeGap, uEyeSize, uWaist, uEarX, uEarY, uEarW, uEarH, uEarBlend;
 uniform float uKind, uEyeScale, uLid, uLidTilt, uSmile, uBlush, uMouth, uMouthOpen, uEarThick;
 uniform float uLit, uRim;
@@ -70,7 +72,7 @@ float sdEar(vec3 q, float ang){
 // Down to body space: lifted, tilted about the bottom edge, then squashed at a constant volume, so a squat ball widens.
 vec3 toBody(vec3 p){
   p.y -= uLift;
-  p.xz = rot(uYaw) * p.xz;
+  p.xz = rot(uYaw + uSpin) * p.xz;
   float floorY = -.58 * uBody;
   p.y -= floorY; p.xy = rot(uTilt) * p.xy; p.y += floorY;
   float widen = 1. / sqrt(max(uSquash, .55));
@@ -178,8 +180,10 @@ void main(){
   float tf = (-.585 - ro.y) / rd.y;
   if (tf > 0. && uShadow > 0.){
     vec3 g = ro + rd * tf;
-    float s = exp(-pow(length(vec2(g.x / .95, g.z / .8)) / .58, 2.) * 2.0);
-    col = vec4(0., 0., 0., .20 * s * uShadow);
+    // Off the ground, the shadow tightens and fades, so a hop reads as a hop rather than as floating.
+    float up = clamp(uLift / .35, 0., 1.), wide = 1. - .38 * up;
+    float s = exp(-pow(length(vec2(g.x / (.95 * wide), g.z / (.8 * wide))) / (.58 * wide), 2.) * 2.0);
+    col = vec4(0., 0., 0., .20 * s * uShadow * (1. - .55 * up));
   }
   if (hit){
     vec3 p = ro + rd * t, n = normal(p);
@@ -254,7 +258,7 @@ export function makeFigure(): Figure | undefined {
     for (const [name, value] of [["uSquash", face.squash], ["uEarL", face.earL], ["uEarR", face.earR], ["uOpen", face.open],
       ["uHappy", face.happy], ["uTilt", face.tilt], ["uLift", face.lift], ["uKind", face.kind], ["uEyeScale", face.eyeScale],
       ["uLid", face.lid], ["uLidTilt", face.lidTilt], ["uSmile", face.smile], ["uBlush", face.blush], ["uMouth", face.mouth],
-      ["uMouthOpen", face.mouthOpen], ["uYaw", -face.yaw]] as const) gl.uniform1f(u(name), value);
+      ["uMouthOpen", face.mouthOpen], ["uYaw", -face.yaw], ["uSpin", face.spin]] as const) gl.uniform1f(u(name), value);
     for (const [name, value] of Object.entries(BODY)) gl.uniform1f(u("u" + name[0]!.toUpperCase() + name.slice(1)), value);
     gl.uniform1f(u("uZoom"), zoom); gl.uniform1f(u("uShadow"), shadow ? 1 : 0);
     gl.uniform1f(u("uLit"), LIGHT.lit); gl.uniform1f(u("uRim"), LIGHT.rim);

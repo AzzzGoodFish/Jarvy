@@ -3,8 +3,8 @@ import { faceOf } from "./pose";
 import type { BotMood } from "../../contract/models";
 
 /** What the body does, from the Bot's status. The live turn adds actions by fact: read (eyes run along a line), turn
- * (faces you to talk), ask (head tilted, watching you), yawn (compacting), stretch (a long turn ended), groom.
- * mood is separate and only changes the face. */
+ * (faces you to talk), ask (head tilted, watching you), yawn (compacting). stretch and groom are the scripted demo's
+ * poses. What the cat does at rest is its acts (A86). mood is separate and only changes the face. */
 export type FigureMotion = "sleep" | "idle" | "think" | "work" | "busy" | "read" | "turn" | "ask" | "yawn" | "stretch" | "groom";
 /** faceX: which way the figure turns — +1 right, −1 left, 0 straight at you. lookX/lookY: where the pointer is, −1..1, or
  * 0 when unknown. fast: tool calls move quicker than text. reduced: prefers-reduced-motion keeps only poses and blinks. */
@@ -14,7 +14,8 @@ export interface FigureInput { motion: FigureMotion; mood: BotMood; lookX: numbe
  * and pleased with a long turn. */
 export const MARKS: Partial<Record<FigureMotion, "zz" | "sweat" | "ask" | "sparkle">> = { sleep: "zz", busy: "sweat", ask: "ask", stretch: "sparkle" };
 
-/** Each motion's face, from the design study's beats; the mood's face shows through wherever a motion leaves it alone. */
+/** Each motion's face, from the design study's beats; the mood's face shows through wherever a motion leaves it alone.
+ * The two the demo alone uses are kept for its pose buttons. */
 const POSES: Partial<Record<FigureMotion, Partial<Face>>> = {
   sleep: { kind: 4, earL: .36, earR: .36, look: [0, -.02] },
   think: { lid: .16, earL: .16, earR: .46 },
@@ -47,11 +48,11 @@ class Spring {
 }
 
 /** The live figure's motion: the mood's face, moved by what the Bot is doing. Every state is a handful of numbers on the
- * same face, so a turn cannot drift out of the character the way a second drawing would. */
+ * same face, so a turn cannot drift out of the character the way a second drawing would. The acts (A86) and the blinking
+ * are added over it by `Persona`; this is the base the cat never leaves. */
 export class Rig {
   private readonly squash = new Spring();
   private start = 0; private motion: FigureMotion | null = null; private motionAt = 0;
-  private blinkAt = 1400; private blinkStart = -1e9;
   private lookX = 0; private lookY = 0; private yaw = 0; private lift = 0; private tilt = 0;
 
   /** Runs one frame and returns the face to draw. */
@@ -108,14 +109,7 @@ export class Rig {
     this.lift = chase(this.lift, lift, .2);
     this.tilt = chase(this.tilt, tilt, .2);
 
-    // Blinking, unless the eyes are already closed or changed for another reason.
-    if (target.kind === 0 && target.open > .5 && now - this.start > this.blinkAt && now - this.blinkStart > 400) {
-      this.blinkStart = now; this.blinkAt = now - this.start + 2200 + Math.random() * 3200;
-    }
-    const blink = (now - this.blinkStart) / 160;
-    const shut = blink >= 0 && blink <= 1 ? 1 - .94 * Math.sin(Math.PI * blink) : 1;
-
-    return { ...target, open: target.open * shut, squash: squash * target.squash + this.squash.step(now), lift: this.lift, tilt: this.tilt,
+    return { ...target, squash: squash * target.squash + this.squash.step(now), lift: this.lift, tilt: this.tilt,
       yaw: this.yaw, look: [this.lookX + look[0], this.lookY + look[1]] };
   }
 
