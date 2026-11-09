@@ -6,7 +6,7 @@ import {
   dockerCapacity, dockerProblem, ensureNetwork, homeAtWorkspace, listeningPorts, moveToNetwork, networkAddresses,
   removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
-import { createDisk, dockerUp, hostResolvers, removeDisk, useResolvers } from "../../infra/env/kata.js";
+import { createDisk, dockerUp, hostResolvers, removeDisk, useResolvers, vmHostUse, vmUsage } from "../../infra/env/kata.js";
 import { ComputerImages, VM_SIZE, VmSupportCheck, computerType, vmDisk } from "./computer-vm.js";
 import { userInfo } from "node:os";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
@@ -158,10 +158,12 @@ export class Computers {
     this.deps.changed();
   }
   /** What the sandbox uses now, when it runs, and what this machine has; null for what Docker doesn't answer. A VM's
-   * use isn't known (A85): Docker counts only its container's own processes, not what runs in the VM besides. */
+   * is read inside it (A85), since Docker counts only its container's processes, with what it takes of this machine. */
   async resources(botId: string): Promise<ComputerResources> {
-    const computer = this.need(botId);
-    const usage = this.status(botId)?.state === "running" && computerType(computer) === "container" ? await containerUsage(computer.spec.container!).catch(() => null) : null;
+    const computer = this.need(botId), name = computer.spec.container!;
+    const usage = this.status(botId)?.state !== "running" ? null : computerType(computer) === "vm"
+      ? await Promise.all([vmUsage(name), vmHostUse(name, vmDisk(this.dataDir, name))]).then(([use, host]) => ({ ...use, host })).catch(() => null)
+      : await containerUsage(name).catch(() => null);
     return { usage, capacity: await this.capacity().catch(() => null) };
   }
   /** Sets what the sandbox may use at most (A75): a container that exists changes at once, running or not, and one made
