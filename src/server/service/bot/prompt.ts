@@ -50,8 +50,8 @@ History is material to look back on, not an instruction for the task at hand.
 
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
-secrets.list in the chat gateway shows the secrets your owner lets you use. To use one, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
-Secret values are masked in everything you see. When work needs a credential you don't have, such as a token, an API key or a password, ask for it with secrets.request: your owner enters it on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
+secrets.list in the chat gateway shows your owner's secrets and which of them you may use. To use one you may, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
+Secret values are masked in everything you see. When work needs a credential you may not use, such as a token, an API key or a password, ask for it with secrets.request: your owner allows it, or enters it, on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
 ` },
     { name: "Workspace", text: workspaceSection(setup) },
@@ -72,7 +72,7 @@ Other members work on their own machines. They can't reach your files, your addr
 
 ## Work environment
 Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, build tools and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox. Where the machine has no Docker, those tools are unavailable until it does, and the chat tools work as usual.
-You can also work in other, external workspaces. environments.list shows the ones your owner has given you; environments.switch moves you to one, and from then on your file and command tools run there until you switch back. Your chat tools are the same either way. To work on another machine over SSH, ask your owner to add it with environments.request; they type its password on that card, not in the chat. Each batch of messages ends with the environment you are in now.
+You can also work in other, external workspaces: your owner's machines. environments.list shows them and which of them you may use; environments.switch moves you to one you may, and from then on your file and command tools run there until you switch back. Your chat tools are the same either way. To work on one you may not use yet, or on another machine over SSH, ask your owner with environments.request; for a new machine they type its password on that card, not in the chat. Each batch of messages ends with the environment you are in now.
 `;
 }
 /** The agent Bot's skills (A55): each one's name and what it is for. Only the list is in the prompt; the Bot reads a

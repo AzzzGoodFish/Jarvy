@@ -9,20 +9,21 @@ import { BotHeader } from "./bot/BotHeader";
 import { BotOverview } from "./bot/BotOverview";
 import { BotProfile } from "./bot/BotProfile";
 import { BotEnvironment } from "./environment/BotEnvironment";
+import { BotAccess } from "./bot/BotAccess";
 import { BotTasks } from "./tasks/BotTasks";
 import { BotPorts } from "./ports/BotPorts";
 import { t } from "./i18n";
 import type { Key } from "./i18n/keys";
 import { Dialog, DialogContent } from "./components/ui/dialog";
 
-type Tab = "overview" | "profile" | "environment" | "tasks" | "activity" | "usage";
-const TABS: readonly (readonly [Tab, Key])[] = [["overview", "bot.tab.overview"], ["profile", "bot.tab.profile"], ["environment", "bot.tab.environment"],
+type Tab = "overview" | "profile" | "environment" | "access" | "tasks" | "activity" | "usage";
+const TABS: readonly (readonly [Tab, Key])[] = [["overview", "bot.tab.overview"], ["profile", "bot.tab.profile"], ["environment", "bot.tab.environment"], ["access", "bot.tab.access"],
   ["tasks", "bot.tab.tasks"], ["activity", "bot.tab.activity"], ["usage", "usage.title"]];
 
-/** Bot info (A83): a fixed top with who the Bot is and whether it runs, then six tabs. It always opens on 概览; a tab
+/** Bot info (A83): a fixed top with who the Bot is and whether it runs, then seven tabs. It always opens on 概览; a tab
  * is loaded the first time it is opened and kept, with its scroll and edits, until the dialog closes. */
-export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onAddMachine, onClose, onOpenChat, onOpenSubscription }: {
-  onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onAddMachine: () => void; onClose: () => void;
+export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onManageSecrets, onAddMachine, onClose, onOpenChat, onOpenSubscription }: {
+  onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onManageSecrets: () => void; onAddMachine: () => void; onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [opened, setOpened] = useState<ReadonlySet<Tab>>(() => new Set(["overview"]));
@@ -51,7 +52,8 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
       </div>
       {panel("overview", <BotOverview bot={bot} status={status} connections={connections} chats={chats} onSaved={onSaved} onManageModels={onManageModels} onOpenSubscription={onOpenSubscription}/>)}
       {panel("profile", <BotProfile bot={bot} onSaved={onSaved}/>)}
-      {panel("environment", <><BotEnvironment bot={bot} onSaved={onSaved} onAddMachine={onAddMachine}/><BotPorts bot={bot} runs={runs}/></>)}
+      {panel("environment", <><BotEnvironment bot={bot} onSaved={onSaved}/><BotPorts bot={bot} runs={runs}/></>)}
+      {panel("access", <BotAccess bot={bot} onSaved={onSaved} onManageSecrets={onManageSecrets} onAddMachine={onAddMachine}/>)}
       {panel("tasks", <BotTasks bot={bot} runs={runs}/>)}
       {panel("activity", <BotActivity botId={bot.id} onOpenChat={onOpenChat}/>, true)}
       {panel("usage", <BotUsage botId={bot.id}/>, true)}

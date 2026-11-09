@@ -33,10 +33,11 @@ The owner's tokens, passwords and keys (A52). Values go in once, through Setting
 
 ## Using a secret
 
-- `secrets.list` (chat gateway) gives the Bot the names, placeholders and descriptions of the secrets granted to it until revoked; never values.
+- Bot info › 授权 › 密钥 lists the secrets granted to the Bot, with their description and 仅限本次 for a grant that lasts only for its run; ✕ takes one back, 添加 picks more of the owner's (searched by name or description) and allows them until revoked, and with none kept at all offers 新建密钥 (Settings › Secrets). Settings shows the same grants per secret.
+- `secrets.list` (chat gateway) gives the Bot the names, placeholders and descriptions of every secret the owner keeps, and `granted`: whether it may use one (with `until` when only for this run); never values. One it may not use, it asks for with `secrets.request` and the name, and the owner only has to allow it.
 - In a `bash` command the model writes `{{secret:NAME}}`. Before the command runs (`infra/pi/secret-placeholders.ts`), each becomes `${JARVY_SECRET_NAME}`: kept as is inside double quotes, wrapped in double quotes when unquoted, and closed out of single quotes (`'…'"${…}"'…'`, and the same for `$'…'`). In an unquoted heredoc it expands as written; in a quoted one (`<<'EOF'`) it would stay literal, so the call fails. Placeholders in comments are left alone.
 - The values go into that command's environment only (`ExecOptions.secrets`), in a sandbox and on an SSH machine alike; the command text keeps the variables. Programs the command starts see the expanded value in their arguments, so the prompt prefers handing it over through the environment (`GH_TOKEN={{secret:…}} gh …`).
-- A name the Bot has no grant for, or whose value doesn't open, fails the call before anything runs, naming `secrets.list` and `secrets.request`.
+- A name the Bot may not use (no such secret, no grant, or a value that doesn't open) fails the call before anything runs, naming `secrets.list` and `secrets.request`.
 - Each command that uses secrets writes one `secret_uses` row per secret: Bot, time, environment, tool call and the command as written (with placeholders, up to 4,000 characters).
 - `write` and `edit` content is never filled in.
 

@@ -60,17 +60,25 @@ export class BotEnvironments {
   default(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).home, workspacePath); }
   /** Where the Bot works now, for the end of each batch. */
   here(botId: string, workspacePath: string): Place { return this.place(botId, this.store.environments.placement(botId).current, workspacePath); }
-  /** environments.list: where the Bot is and where else it may go. */
+  /** environments.list: where the Bot is, where else it may go, and the owner's machines it may not use yet, so it
+   * knows what to ask for. */
   list(botId: string, workspacePath: string) {
-    const { home, current } = this.store.environments.placement(botId);
-    return { current: current.id, environments: this.usable(botId).map(record => ({ ...this.place(botId, record, workspacePath),
-      ...(record.id === home.id ? { default: true } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) })) };
+    const { home, current } = this.store.environments.placement(botId), usable = this.usable(botId), mine = new Set(usable.map(record => record.id));
+    const others = this.store.environments.sshMachines().filter(record => !mine.has(record.id));
+    const entry = (record: EnvironmentRecord, granted: boolean) => ({ ...this.place(botId, record, workspacePath), ...(record.id === home.id ? { default: true } : {}),
+      ...(KINDS[record.kind].grantable ? { granted } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) });
+    return { current: current.id, environments: [...usable.map(record => entry(record, true)), ...others.map(record => entry(record, false))],
+      ...(others.length ? { note: "granted=false: your owner's, but you may not use it. Ask for it with environments.request and its id; your owner only has to allow it." } : {}) };
   }
   /** environments.switch: the Bot moves itself, like cd, until it switches back. A sandbox is started first, an SSH
    * machine connected first; if that fails, the Bot stays where it was. */
   async switch(botId: string, environmentId: string, workspacePath: string) {
     const target = this.usable(botId).find(record => record.id === environmentId);
-    if (!target) throw new ChatError(404, "No work environment with this id that you may use; see environments.list");
+    if (!target) {
+      const owners = this.store.environments.get(environmentId);
+      if (owners && KINDS[owners.kind].grantable) throw new ChatError(403, `You may not use ${owners.name} yet: ask your owner for it with environments.request and id ${owners.id}`);
+      throw new ChatError(404, "No work environment with this id; see environments.list");
+    }
     const previous = this.store.environments.placement(botId).current, already = previous.id === target.id, entry = KINDS[target.kind];
     await entry.ensure?.(target, botId, this.kinds);
     this.store.environments.setCurrent(botId, target.id);

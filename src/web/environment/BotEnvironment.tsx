@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { PlusIcon } from "lucide-react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import type { DockerProblemReason } from "../../contract/environment";
@@ -19,16 +18,15 @@ const STATE = {
 const unusable = (error: string | undefined): DockerProblemReason =>
   error === "missing" || error === "stopped" || error === "denied" ? error : "failed";
 
-/** Bot info's section (A50, A68), in two parts. Its Docker sandbox, the only default there is: its state, its type
- * (container or VM, A85), the container, image and mount it is made of, its resource limits or a VM's size and usage
- * (A75), Start or Stop and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it switched to a
- * machine. Then the external environments it may switch to, the SSH machines (A57), each with a switch; with none yet,
- * a row to add one in Settings. */
-export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSaved: (bot: Bot) => void; onAddMachine: () => void }) {
-  const { doing: busy, error, run: perform } = useAction<"grant" | "start" | "stop" | "reset" | "restart">();
+/** Bot info's section (A50, A68): its Docker sandbox, the only default there is: its state, its type (container or VM,
+ * A85), the container, image and mount it is made of, its resource limits or a VM's size and usage (A75), Start or Stop
+ * and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it switched to a machine. The
+ * machines it may use are on the 授权 tab (BotAccess). */
+export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
+  const { doing: busy, error, run: perform } = useAction<"start" | "stop" | "reset" | "restart">();
   /** Stopping, restarting and resetting are destructive: each asks in place first. */
   const [confirming, setConfirming] = useState<"stop" | "reset" | "restart" | null>(null);
-  const { computer, current, currentName, machines = [] } = bot.environment;
+  const { computer, current, currentName } = bot.environment;
   const act = (what: NonNullable<typeof busy>, work: () => Promise<Bot>, fallback: Key) => perform(what, async () => onSaved(await work()), fallback);
   const run = (what: "start" | "stop" | "reset" | "restart") => void act(what, () => api.computer(bot.id, what), "common.failed");
   const state = computer?.state, vm = computer?.type === "vm";
@@ -63,17 +61,6 @@ export function BotEnvironment({ bot, onSaved, onAddMachine }: { bot: Bot; onSav
         </div>}
       </div>
     </div>}
-    <h4 className="jv-env-heading">{t("environment.external")}</h4>
-    <div className="jv-list" role="group" aria-label={t("environment.external")}>
-      {machines.length === 0 && <button type="button" className="jv-list-row jv-env-add" onClick={onAddMachine}>
-        <span className="jv-row-icon"><PlusIcon/></span><span className="jv-row-text"><strong>{t("machines.add")}</strong></span>
-      </button>}
-      {machines.map(machine => <button key={machine.id} type="button" role="switch" aria-checked={machine.granted} disabled={!!busy} className="jv-list-row jv-choice-row jv-env-access"
-        onClick={() => void act("grant", () => api.grantBotMachine(bot.id, machine.id, !machine.granted), "environment.accessFailed")}>
-        <span className="jv-row-text"><strong>{machine.name}</strong></span>
-        <span className="jv-env-switch" aria-hidden="true"/>
-      </button>)}
-    </div>
     {error && <p className="jv-note-error" role="alert">{error}</p>}
   </section>;
 }
