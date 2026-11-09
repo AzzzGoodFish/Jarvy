@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isIP } from "node:net";
-import { mkdir, open, rm } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rm, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { VmProblemReason } from "../../../contract/environment.js";
 import { KATA_RUNTIME, docker } from "./docker.js";
@@ -66,4 +66,57 @@ export function hostResolvers(): string[] {
  * is redone after each. */
 export async function useResolvers(container: string, servers: readonly string[]): Promise<void> {
   await docker(["exec", "-u", "root", container, "sh", "-c", `printf 'nameserver %s\\n' ${servers.join(" ")} > /etc/resolv.conf`], 30_000);
+}
+
+/** What a running VM sandbox uses, read inside it (A85): Docker's own count is only its container's cgroup in the VM,
+ * file cache included, and not what else runs there, such as the containers Docker in it starts. Memory is the VM's
+ * total less what it has available; CPU, over a second, is in percent of one core, as `docker stats` gives it; the
+ * Docker disk's use once it is mounted. */
+export async function vmUsage(container: string): Promise<{ memory: number; cpu: number; disk?: { used: number; size: number } }> {
+  const out = await docker(["exec", container, "sh", "-c", VM_USAGE], 30_000);
+  const [meminfo = "", before = "", after = "", disk = ""] = out.split(/^@$/m).map(part => part.trim());
+  const kib = (field: string) => Number(new RegExp(`^${field}:\\s+(\\d+)`, "m").exec(meminfo)?.[1] ?? NaN) * 1024;
+  const memory = kib("MemTotal") - kib("MemAvailable");
+  if (!Number.isFinite(memory)) throw new Error(`no meminfo in the VM: ${out.slice(0, 200)}`);
+  const used = Number(disk);
+  return { memory, cpu: cpuPercent(before, after), ...(disk && Number.isFinite(used) ? { disk: { used, size: VM_DISK_SIZE } } : {}) };
+}
+/** /proc/meminfo, the CPU line of /proc/stat a second apart with the number of CPUs, and the bytes used on the Docker
+ * disk when it is mounted, parted by `@`. */
+const VM_USAGE = "cat /proc/meminfo; echo @; grep -c '^cpu[0-9]' /proc/stat; head -1 /proc/stat; sleep 1; echo @; head -1 /proc/stat; echo @; "
+  + "if mountpoint -q /var/lib/docker; then df -B1 --output=used /var/lib/docker | tail -1; fi";
+/** CPU use between two samples of /proc/stat's first line, after the count of CPUs: the share of all CPUs' time that
+ * wasn't idle or waiting for I/O, times the CPUs, in percent of one core. */
+export function cpuPercent(before: string, after: string): number {
+  const [count = "", first = ""] = before.split("\n");
+  const fields = (line: string) => line.trim().split(/\s+/).slice(1, 9).map(Number);
+  const a = fields(first), b = fields(after), cpus = Number(count);
+  if (a.length < 8 || b.length < 8 || !cpus) return 0;
+  const total = b.reduce((sum, value, index) => sum + value - a[index]!, 0), idle = b[3]! - a[3]! + b[4]! - a[4]!;
+  return total > 0 ? Math.max(0, (total - idle) / total * cpus * 100) : 0;
+}
+/** What a running VM sandbox takes of this machine: its hypervisor's resident memory, which keeps what the VM once used
+ * since its kernel fills spare memory with cache, and what its Docker disk's sparse file holds. Null for what can't be
+ * read: a hypervisor run inside Kata's shim has no process of its own. */
+export async function vmHostUse(container: string, disk: string): Promise<{ memory: number | null; disk: number | null }> {
+  const [memory, held] = await Promise.all([hypervisorMemory(container).catch(() => null), stat(disk).then(file => file.blocks * 512).catch(() => null)]);
+  return { memory, disk: held };
+}
+const HYPERVISOR = /(qemu-system|cloud-hypervisor|firecracker)[^/]*$/;
+/** The hypervisor process of each VM sandbox, found once: its command line names the container's ID. */
+const hypervisors = new Map<string, string>();
+async function hypervisorMemory(container: string): Promise<number | null> {
+  const id = await docker(["inspect", "--format", "{{.Id}}", container]);
+  const runs = async (pid: string) => {
+    const command = await readFile(`/proc/${pid}/cmdline`, "utf8").catch(() => "");
+    return command.includes(id) && HYPERVISOR.test(command.split("\0")[0] ?? "");
+  };
+  let pid = hypervisors.get(container);
+  if (!pid || !await runs(pid)) {
+    pid = undefined; hypervisors.delete(container);
+    for (const entry of await readdir("/proc")) if (/^\d+$/.test(entry) && await runs(entry)) { pid = entry; hypervisors.set(container, entry); break; }
+  }
+  if (!pid) return null;
+  const kib = /^VmRSS:\s+(\d+)\s+kB/m.exec(await readFile(`/proc/${pid}/status`, "utf8"))?.[1];
+  return kib ? Number(kib) * 1024 : null;
 }

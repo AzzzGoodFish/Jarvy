@@ -7,14 +7,8 @@ import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useAction } from "../action";
-
-const GB = 2 ** 30, MB = 2 ** 20;
-/** At most two decimals, none when whole: 8, 0.5, 62.88. */
-const short = (value: number, digits = 2) => String(Number(value.toFixed(digits)));
-/** A size in use: megabytes below a gigabyte, else gigabytes to one decimal. */
-const size = (bytes: number) => bytes < GB ? `${Math.round(bytes / MB)} MB` : `${short(bytes / GB, 1)} GB`;
-const percent = (value: number) => `${value < 10 ? short(value, 1) : Math.round(value)}%`;
-const cores = (count: number) => count === 1 ? t("environment.limits.oneCore") : t("environment.limits.cores", { count: short(count) });
+import { GB, cores, short, size } from "./amounts";
+import { SandboxUsage } from "./SandboxUsage";
 
 /** What the limits row says: no limits, or each limit with the other unlimited. */
 function limitsText({ memory, cpus }: ComputerLimits): string {
@@ -24,8 +18,8 @@ function limitsText({ memory, cpus }: ComputerLimits): string {
 }
 
 /** Bot info's resource rows for a sandbox (A75): the limits, changed in place, and while it runs what it uses now,
- * read again every ten seconds. A field left empty is no limit; memory below what is in use warns first, since the
- * kernel then ends its largest programs. */
+ * read again every ten seconds and shown while the limits change too. A field left empty is no limit; memory below
+ * what is in use warns first, since the kernel then ends its largest programs. */
 export function SandboxLimits({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
   const computer = bot.environment.computer!, running = computer.state === "running";
   // A VM (A85) always has a size: an empty field is its default, and it takes a new one at its next start.
@@ -59,8 +53,7 @@ export function SandboxLimits({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) 
     <button type="button" className="jv-list-row jv-env-fact jv-env-limits" aria-expanded={editing} onClick={() => editing ? setEditing(false) : edit()}>
       <span>{t(vm ? "environment.limits.vm" : "environment.limits")}</span><span className="jv-env-value">{limitsText(computer.limits)}</span><ChevronRightIcon className="jv-row-chevron"/>
     </button>
-    {usage && !editing && <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.usage")}</span>
-      <span className="jv-env-value">{t("environment.usage.value", { memory: size(usage.memory), cpu: percent(usage.cpu) })}</span></div>}
+    {usage && <SandboxUsage usage={usage} limits={computer.limits} capacity={capacity}/>}
     {editing && <div className="jv-list-row jv-static-row jv-env-details">
       <form className="jv-env-limits-form" aria-label={t(vm ? "environment.limits.vmEdit" : "environment.limits.edit")} onSubmit={save}>
         <div className="jv-env-limit-fields">

@@ -44,8 +44,10 @@ export interface VmSupport { state: "unknown" | "checking" | "available" | "unav
 /** What a sandbox may use at most (A75): memory in bytes, CPUs in cores; null is no limit. A limit caps and reserves
  * nothing, so a sandbox under it takes only what it uses. A VM always has a size: 4 GB and 2 CPUs unless set. */
 export interface ComputerLimits { memory: number | null; cpus: number | null }
-/** What a running sandbox uses now: memory in bytes, and CPU in percent of one core, so over 100 with several. */
-export interface ComputerUsage { memory: number; cpu: number }
+/** What a running sandbox uses now: memory in bytes, and CPU in percent of one core, so over 100 with several. A VM's
+ * (A85) is the whole VM's, read inside it, with its Docker disk's use once mounted and `host`: what it takes of this
+ * machine, its process's memory (which keeps what the VM once used) and its disk file's blocks, null where unknown. */
+export interface ComputerUsage { memory: number; cpu: number; disk?: { used: number; size: number }; host?: { memory: number | null; disk: number | null } }
 /** This machine's CPUs and memory in bytes, as Docker sees them: what limits may go up to. */
 export interface ComputerCapacity { cpus: number; memory: number }
 /** Bot info's view of a sandbox's resources: its usage when it runs, and this machine's capacity when Docker answers. */

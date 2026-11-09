@@ -32,3 +32,13 @@
 .jv-env-type > .jv-seg > button { padding: 3px 12px; font-size: 12px; }
 .jv-env-details > p.jv-env-type-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
 .jv-env-type-note > button { height: auto; padding: 0; font-size: 13px; }
+/* What a running sandbox uses (A75, A85): a row per resource, its figure and a bar under it; a VM's memory and disk
+   open what they take of this machine. */
+.jv-list .jv-list-row.jv-env-meter { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; row-gap: 5px; }
+/* The last one keeps the bar off the line under it. */
+.jv-list .jv-list-row.jv-env-meter:not(:has(+ .jv-env-meter)) { padding-bottom: 14px; }
+.jv-env-meter > .jv-env-bar { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--jv-field); overflow: hidden; }
+.jv-env-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--jv-muted); }
+.jv-env-bar > span[data-high] { background: var(--ui-text-warning); }
+button.jv-env-meter { width: 100%; text-align: left; cursor: help; }
+.jv-env-tip { z-index: 100; max-width: min(280px, calc(100vw - 24px)); padding: 6px 10px; background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: 8px; box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: 12px; line-height: 1.5; }
