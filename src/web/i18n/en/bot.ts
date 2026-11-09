@@ -67,6 +67,7 @@ export const bot = {
   "bot.tab.profile": "Profile",
   "bot.tab.environment": "Environment",
   "bot.tab.tasks": "Tasks",
+  "bot.tab.access": "Access",
   "bot.tab.activity": "Activity",
   "bot.subscriptions": "Subscriptions",
   "bot.noSubscriptions": "No subscriptions",

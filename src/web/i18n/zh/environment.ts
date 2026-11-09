@@ -9,7 +9,6 @@ export const environment: Part<typeof en> = {
   "environment.image": "镜像",
   "environment.mount": "工作区挂载点",
   "environment.external": "外部环境",
-  "environment.accessFailed": "无法更改访问权限",
   "environment.state.preparing": "准备中",
   "environment.state.running": "运行中",
   "environment.state.stopped": "已停止",

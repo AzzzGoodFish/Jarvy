@@ -70,6 +70,7 @@ export const bot: Part<typeof en> = {
   "bot.tab.profile": "设定",
   "bot.tab.environment": "环境",
   "bot.tab.tasks": "任务",
+  "bot.tab.access": "授权",
   "bot.tab.activity": "活动",
   "bot.subscriptions": "订阅",
   "bot.noSubscriptions": "暂无订阅",

@@ -70,4 +70,17 @@ export const secrets = {
   "error.secretDescriptionInvalid": "The description must be a single line of up to 200 characters.",
   "error.secretMissing": "Can't find this secret. It may have been deleted.",
   "error.credentialUnreadable": "The saved API key can't be decrypted. Enter it again in Settings › Models.",
+
+  "access.secrets": "Secrets",
+  "access.searchSecrets": "Search secrets",
+  "access.searchMachines": "Search environments",
+  "access.noSecrets": "No secrets granted.",
+  "access.noMachines": "No external environments granted.",
+  "access.noMatch": "No matches",
+  "access.allSecrets": "Every secret is granted.",
+  "access.allMachines": "Every external environment is granted.",
+  "access.noSecretsYet": "No secrets yet.",
+  "access.newSecret": "New secret",
+  "access.noMachinesYet": "No external environments yet.",
+  "access.loadFailed": "Couldn't load access.",
 } as const;

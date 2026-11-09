@@ -11,9 +11,11 @@ import type { AgentOps } from "../agent.js";
 import type { ToolCall } from "./registry.js";
 
 /** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list;
- * environments.request asks the owner for an SSH machine (A57) on a card, and finds it once added. */
+ * environments.request asks the owner for an SSH machine (A57) on a card, by its address or, for one of the owner's,
+ * its id, and finds it once added. */
 export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown;
-  request(input: MachineRequest): Promise<{ granted: EnvironmentRecord } | { question: QuestionSpec }>; found(input: MachineRequest): EnvironmentRecord | null }
+  request(input: MachineRequest): Promise<{ granted: EnvironmentRecord } | { question: QuestionSpec }>; found(input: MachineRequest): EnvironmentRecord | null;
+  address(id: string): { host: string; user: string; port: number } | null }
 export type MachineRequest = { host: string; user: string; port?: number; directory?: string; name?: string; purpose: string };
 /** What the tools of one Bot work with. `agent`: the agent Bot's operations (A48); other Bots have none. */
 export interface ToolScope {

@@ -35,11 +35,17 @@ export class SecretService {
   }
   uses(id: string): SecretUse[] { if (!this.store.secrets.get(id)) this.missing(); return this.store.secrets.uses(id); }
   masker(): Masker { return this.cached ??= new Masker(this.store.secrets.values()); }
-  /** secrets.list: what the Bot may use, never a value. */
+  /** secrets.list: every secret the owner keeps and whether the Bot may use it, never a value. One it may not use is
+   * named too, so it knows what to ask for. */
   listFor(botId: string) {
-    const secrets = this.store.secrets.grantedTo(botId).map(({ name, description, scope }) => ({ name, placeholder: placeholder(name),
-      ...(description ? { description } : {}), ...(scope === "once" ? { until: "this run ends" } : {}) }));
-    return { secrets, ...(secrets.length ? {} : { note: "None yet. If you need one, use secrets.request; never ask for a value in the chat." }) };
+    const grants = new Map(this.store.secrets.grantedTo(botId).map(grant => [grant.id, grant.scope]));
+    const secrets = this.store.secrets.list().filter(secret => secret.kind === "value").map(({ id, name, description }) => {
+      const scope = grants.get(id);
+      return { name, placeholder: placeholder(name), ...(description ? { description } : {}), granted: !!scope, ...(scope === "once" ? { until: "this run ends" } : {}) };
+    });
+    const note = !secrets.length ? "None yet. If you need one, use secrets.request; never ask for a value in the chat."
+      : secrets.some(secret => !secret.granted) ? "granted=false: your owner keeps it, but you may not use it, and its placeholder isn't filled in. Ask for it with secrets.request and its name; your owner only has to allow it." : null;
+    return { secrets, ...(note ? { note } : {}) };
   }
   /** secrets.request: nothing to ask when the Bot may already use it; else the card to post. */
   prepareRequest(botId: string, name: string, purpose: string): { granted: true } | { question: QuestionSpec } {

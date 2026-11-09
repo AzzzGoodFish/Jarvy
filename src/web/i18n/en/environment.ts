@@ -6,7 +6,6 @@ export const environment = {
   "environment.image": "Image",
   "environment.mount": "Workspace mount",
   "environment.external": "External environments",
-  "environment.accessFailed": "Couldn't change access",
   "environment.state.preparing": "Preparing",
   "environment.state.running": "Running",
   "environment.state.stopped": "Stopped",

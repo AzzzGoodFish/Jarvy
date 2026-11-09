@@ -167,6 +167,11 @@ export class SshMachines {
       ...(input.keyId !== undefined ? { keyId: input.keyId } : {}), hostKeys: ask.hostKeys }, { botId, by });
     return this.chats.questions.respond(actorId, chatId, messageId, { action: "answer", selected: [0] });
   }
+  /** Where one of the owner's machines is, for a request by its id. */
+  located(id: string): SshAddress | null {
+    const record = this.store.environments.get(id);
+    return record?.kind === "ssh" && record.spec.host && record.spec.user ? this.addressOf(record) : null;
+  }
   /** The machine a request card added or granted, by its address. */
   find(botId: string, input: MachineInput): EnvironmentRecord | null {
     const where = address(input);
