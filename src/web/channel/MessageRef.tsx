@@ -16,12 +16,12 @@ function place(chat: MessageRef["chat"]): string {
  * mouse its preview opens on hover and a click goes to the message; a tap opens the preview, whose button goes there. */
 export function MessageRefTag({ target, members, onJump }: { target: MessageRef; members: Member[]; onJump?: () => void }) {
   const [open, setOpen] = useState(false);
-  const pointer = useRef(""), timer = useRef<number | undefined>(undefined);
+  const pointer = useRef(""), timer = useRef<number | undefined>(undefined), going = useRef(false);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const name = memberName(members.find(member => member.id === target.senderId)), text = previewText(target);
   const later = (on: boolean, wait: number) => { window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setOpen(on), wait); };
   const hover = (on: boolean) => (event: PointerEvent) => { if (event.pointerType === "mouse") later(on, on ? 350 : 150); };
-  const go = () => { window.clearTimeout(timer.current); setOpen(false); onJump?.(); };
+  const go = () => { window.clearTimeout(timer.current); going.current = true; setOpen(false); onJump?.(); };
   return <Popover.Root open={open} onOpenChange={setOpen}>
     <Popover.Trigger className="jv-ref-tag" title="" aria-label={t("ref.label", { name, text })}
       onPointerDown={event => { pointer.current = event.pointerType; }} onPointerEnter={hover(true)} onPointerLeave={hover(false)}
@@ -30,7 +30,9 @@ export function MessageRefTag({ target, members, onJump }: { target: MessageRef;
       <Icon name="chat-bubble"/><span className="jv-quote-name">{t("quote.by", { name })}</span><span className="jv-quote-text">{text}</span>
     </Popover.Trigger>
     <Popover.Portal><Popover.Content className="jv-ref-card jv-ui" side="top" align="start" sideOffset={6} collisionPadding={12}
-      onOpenAutoFocus={event => event.preventDefault()} onPointerEnter={hover(true)} onPointerLeave={hover(false)}>
+      onOpenAutoFocus={event => event.preventDefault()} onPointerEnter={hover(true)} onPointerLeave={hover(false)}
+      // Going to the message, focus stays put: given back to the tag, it would stop the scroll to the message.
+      onCloseAutoFocus={event => { if (going.current) event.preventDefault(); going.current = false; }}>
       <div className="jv-ref-place"><span>{place(target.chat)}</span><span>{formatDay(target.createdAt)} {formatClock(target.createdAt)}</span></div>
       <div className="jv-ref-name">{name}</div>
       <p className="jv-ref-text">{text}</p>

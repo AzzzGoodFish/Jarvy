@@ -30,6 +30,8 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
   const [away, setAway] = useState(false), seen = useRef(0);
   // Where the reader is, kept as they scroll, and where to go back to after the next render (a remembered chat).
   const place = useRef<Place>({ bottom: true }), restoreTo = useRef<Place | null>(null), [hold] = useState(() => new Hold());
+  // A message further back than what was loaded, to go to once the window around it is on screen.
+  const goTo = useRef<{ id: string; passage?: string } | null>(null);
 
   useEffect(() => {
     setMessages([]); setHasOlder(false);
@@ -135,6 +137,12 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
   useLayoutEffect(() => {
     const el = scroller.current, last = messages.at(-1);
     if (!el) return;
+    if (goTo.current) {
+      const { id, passage } = goTo.current, target = el.querySelector(`[data-message="${id}"]`);
+      goTo.current = null; restoreTo.current = null; jump.current = false; lastId.current = last?.id;
+      if (target) { settled.current = true; atBottom.current = false; setAway(true); jumpToPassage(target, passage); }
+      return;
+    }
     // The transcript scrolls smoothly by CSS; these two must be instant.
     if (anchor.current !== null) { el.scrollTo({ top: el.scrollHeight - anchor.current, behavior: "instant" }); anchor.current = null; }
     else if (restoreTo.current && messages.length && restorePlace(el, restoreTo.current)) {
@@ -160,21 +168,24 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
     return () => observer.disconnect();
   }, [hasOlder, messages, chatId, loading]);
 
-  /** Loads a window ending at a message, then scrolls to it (a reply's quote). */
-  /** Scrolls to a message (loading its page first if needed); a partial quote's passage is highlighted in it. */
-  /** Scrolls to a message of this chat, loading the page around it first; a message in another chat (a quote in a
-   * channel copy of a thread reply points into the thread) is left to the caller, who gets that chat's id. */
+  /** Scrolls to a message of this chat (a quote's, a message tag's, a search result's); a partial quote's passage is
+   * highlighted in it. One further back than what is loaded loads with a page before it and everything after it, so
+   * the transcript still goes on to the newest below it. A message in another chat (a quote in a channel copy of a
+   * thread reply points into the thread) is left to the caller, who gets that chat's id. */
   async function toMessage(id: string, passage?: string): Promise<string | undefined> {
     hold.release();
     const known = list.current;
     if (known.some(message => message.id === id)) { jumpTo(id, passage); return; }
     const chatId = open.current, target = await api.message(id);
     if (target.chatId !== chatId) return target.chatId;
-    const page = await api.olderMessages(target.chatId, target.sequence + 1, PAGE);
-    if (open.current !== target.chatId) return;
-    // The window ends at this message: what is newer is read again with the next one heard of.
-    jump.current = true; ahead.current = 0; setMessages([...page.messages, target]); setHasOlder(page.hasOlder);
-    requestAnimationFrame(() => jumpTo(id, passage));
+    const r = ++request.current;
+    const [before, from] = await Promise.all([api.olderMessages(target.chatId, target.sequence, PAGE), api.messages(target.chatId, target.sequence - 1)]);
+    if (open.current !== target.chatId || r !== request.current) return;
+    const end = from.messages.at(-1)?.sequence ?? target.sequence;
+    goTo.current = { id, passage }; ahead.current = 0;
+    // Messages heard of meanwhile stay.
+    setMessages(previous => [...before.messages, ...from.messages, ...previous.filter(message => message.chatId === target.chatId && message.sequence > end)]);
+    setHasOlder(before.hasOlder);
   }
   function jumpTo(id: string, passage?: string) {
     hold.release();
