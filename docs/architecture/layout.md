@@ -11,9 +11,10 @@ src/
     errors.ts                failure codes (A45) and their parameters
     mentions.ts              the @ rule, used by the server to decide who is mentioned and by the web to highlight
   web/                       React app: pages, frontend state, HTTP client
-    sidebar/ channel/ thread/ dm/ composer/ transcript/
+    home/ sidebar/ channel/ thread/ dm/ composer/ transcript/
     activity/ usage/ avatar/ files/ question/ bot/ environment/ connection/ secrets/ styles/ theme/ components/ui/
-      avatar/               the Bot figure (face.ts, one shader for every size; pose.ts, motion.ts, acts.ts), its DM layer (npc/) and colours
+      home/                 the rail and the agent Bot's page: its light chat, the marks of what it has for you (A87)
+      avatar/               the Bot figure (face.ts, one shader for every size; pose.ts, motion.ts, acts.ts; stage.ts, one figure on several canvases), its DM layer (npc/) and colours
       action.ts             useAction(): a request in flight and its worded error, for any component that sends one
       question/RequestCard  the panel a secret or SSH machine request shows in (and its masked field)
       secrets/SettingsItem  an expandable settings row with in-place delete (secrets, SSH machines)

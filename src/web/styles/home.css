@@ -1,0 +1,110 @@
+/* The rail and the agent Bot's page (home/, A87). */
+
+/* ── The rail: the agent Bot, the chats; the account at the bottom ─ */
+.jv-rail { position: relative; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 0;
+  padding: 12px 0; background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak); }
+.jv-rail-top { display: grid; justify-items: center; gap: 8px; }
+.jv-rail-item { position: relative; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 10px;
+  background: none; color: var(--ui-text-secondary); cursor: pointer; }
+.jv-rail-item:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-rail-item[aria-current="page"] { background: var(--ui-fill-ghost-selected); color: var(--ui-text-primary); }
+.jv-rail-item:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 1px; }
+.jv-rail-item > svg { width: 19px; height: 19px; }
+/* The cat keeps room under it for a shadow it does not draw here: lowered a little, its middle lines up with the icons. */
+.jv-rail-agent { width: 40px; height: 40px; margin-bottom: 4px; }
+.jv-rail-agent > canvas { display: block; width: 36px; height: 36px; transform: translateY(2px); }
+.jv-rail-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--ui-fill-danger);
+  box-shadow: 0 0 0 2px var(--ui-bg-subtle); }
+.jv-rail-label { display: none; }
+.jv-rail-account .ui-user-avatar { width: 30px; height: 30px; }
+
+/* ── The page: the cat in the middle, its line beside it, the light chat under it ─ */
+.jv-home { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 0; overflow: hidden;
+  padding: clamp(24px, calc(50dvh - 200px), 280px) 24px 24px; background: var(--ui-bg-base); }
+.jv-home-figure { display: flex; flex-direction: column; align-items: center; }
+.jv-home-cat { position: relative; display: block; width: 168px; height: 168px; padding: 0; border: 0; border-radius: 40px; background: none;
+  container-type: size; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.jv-home-cat > canvas { display: block; width: 100%; height: 100%; }
+.jv-home-cat:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
+/* What the agent Bot has for you, over its head like a game NPC's mark (call.tsx): gold 「!」 a reply, 「?」 a
+   question, red 「!」 a failure. It pops in and bobs; on the rail it sits at the cat's top right. */
+.jv-call { position: absolute; left: 50%; bottom: calc(100% - 4px); width: 14%; aspect-ratio: 24 / 36; translate: -50% 0; pointer-events: none;
+  animation: jv-call-in .32s cubic-bezier(.3, 1.6, .5, 1) both, jv-call-bob 1.6s ease-in-out .32s infinite; }
+.jv-call svg { display: block; width: 100%; height: 100%; overflow: visible; fill: none; stroke: #f7b928; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.jv-call .jv-call-edge { stroke: #6b4200; stroke-width: 8.5; }
+.jv-call[data-call="error"] svg { stroke: #ef4444; }
+.jv-call[data-call="error"] .jv-call-edge { stroke: #7f1d1d; }
+.jv-rail-agent .jv-call { left: auto; right: 0; bottom: auto; top: -3px; width: 9px; translate: none; }
+@keyframes jv-call-in { from { opacity: 0; scale: .4; } }
+@keyframes jv-call-bob { 50% { transform: translateY(-12%); } }
+.jv-home-name { margin: -4px 0 0; font-size: 17px; font-weight: 600; line-height: 24px; }
+
+/* ── The light chat: an icon that grows into the box, the last messages rising over it ─ */
+.jv-dock { display: flex; flex-direction: column; align-items: center; width: min(560px, 100%); margin-top: 14px; }
+.jv-dock-wrap { display: grid; grid-template-rows: 0fr; width: 100%; overflow: hidden; transition: grid-template-rows .46s cubic-bezier(.32, .72, 0, 1); }
+.jv-dock[data-state="open"] .jv-dock-wrap { grid-template-rows: 1fr; }
+.jv-dock[data-state="closing"] .jv-dock-wrap { transition-duration: .32s; }
+.jv-dock:not([data-state]) .jv-dock-wrap { visibility: hidden; }
+.jv-dock-list { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 0; max-height: var(--fit, 128px);
+  padding: 0 2px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.jv-dock[data-state] .jv-dock-list { padding: 8px 2px 12px; }
+.jv-dock-said { display: flex; width: 100%; min-width: 0; transform-origin: 0 100%; }
+.jv-dock-said[data-mine] { justify-content: flex-end; transform-origin: 100% 100%; }
+.jv-dock-said > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; max-width: min(82%, 460px); margin: 0; padding: 7px 12px;
+  overflow: hidden; border-radius: 12px; background: var(--ui-fill-bubble-agent); color: var(--ui-text-primary); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
+.jv-dock-said[data-mine] > p { background: var(--ui-fill-bubble-user); color: var(--ui-text-on-color); }
+.jv-dock[data-state="open"] .jv-dock-said[data-rise] { animation: jv-dock-rise .44s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(90ms + var(--i, 0) * 60ms); }
+@keyframes jv-dock-rise { from { opacity: 0; transform: translateY(16px) scale(.94); } }
+.jv-dock[data-state="closing"] .jv-dock-list { animation: jv-dock-sink .2s ease-in forwards; }
+@keyframes jv-dock-sink { to { opacity: 0; transform: translateY(12px); } }
+.jv-dock-bar { position: relative; flex: none; width: 40px; height: 42px; overflow: hidden; border-radius: 21px; background: var(--ui-bg-elevated);
+  box-shadow: 0 0 0 1px var(--ui-border-weak), var(--ui-shadow-sm); transition: width .46s cubic-bezier(.32, .72, 0, 1), box-shadow .3s, opacity .22s, transform .22s, visibility 0s; }
+/* Hidden while a line is up beside the cat, keeping its place (the line stays clear of where it was): the icon fades and
+   shrinks away, and comes back the same way. */
+.jv-dock[data-hidden] .jv-dock-bar { opacity: 0; transform: scale(.7); visibility: hidden;
+  transition: width .46s cubic-bezier(.32, .72, 0, 1), box-shadow .3s, opacity .22s, transform .22s, visibility 0s .22s; }
+.jv-dock[data-state="open"] .jv-dock-bar { width: 100%; box-shadow: 0 0 0 1px var(--ui-border-default), var(--ui-shadow-md); }
+.jv-dock[data-state="closing"] .jv-dock-bar { transition-duration: .32s; }
+.jv-dock-icon { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 40px; height: 42px; padding: 0; border: 0; border-radius: 21px;
+  background: none; color: var(--ui-text-secondary); cursor: pointer; transition: opacity .18s, transform .36s cubic-bezier(.32, .72, 0, 1); }
+.jv-dock-icon:hover { color: var(--ui-text-primary); }
+.jv-dock-icon:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -3px; }
+.jv-dock-icon > svg { width: 19px; height: 19px; }
+.jv-dock[data-state="open"] .jv-dock-icon { opacity: 0; transform: rotate(-40deg) scale(.5); pointer-events: none; }
+.jv-dock-input { position: absolute; inset: 0; display: flex; align-items: center; gap: 4px; padding: 0 7px 0 16px; opacity: 0; transform: translateX(-12px);
+  pointer-events: none; transition: opacity .14s, transform .36s cubic-bezier(.32, .72, 0, 1); }
+.jv-dock[data-state="open"] .jv-dock-input { opacity: 1; transform: none; pointer-events: auto; transition-delay: .14s; transition-duration: .26s, .4s; }
+.jv-dock-input input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: none; color: var(--ui-text-primary); font: inherit; font-size: 14px; }
+.jv-dock-input input::placeholder { color: var(--ui-text-tertiary); }
+.jv-dock-go, .jv-dock-send { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 14px; cursor: pointer; }
+.jv-dock-go { background: none; color: var(--ui-text-tertiary); }
+.jv-dock-go:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-dock-send { background: var(--ui-fill-primary); color: var(--ui-text-on-primary); }
+.jv-dock-send:disabled { opacity: .35; cursor: default; }
+.jv-dock-go > svg, .jv-dock-send > svg { width: 15px; height: 15px; }
+
+/* ── Phones: the rail is a tab bar along the bottom, over the home page and the open chat list ─ */
+@media (max-width: 620px) {
+  .jv-rail { position: absolute; inset: auto 0 0 0; z-index: 11; flex-direction: row; justify-content: space-around; height: calc(58px + env(safe-area-inset-bottom));
+    padding: 0 8px env(safe-area-inset-bottom); background: var(--ui-bg-base); border-right: 0; border-top: 1px solid var(--ui-border-weak); }
+  .ui-app:not([data-view]):not([data-nav]) .jv-rail { display: none; }
+  .jv-rail-top { display: contents; }
+  .jv-rail-item, .jv-rail-agent { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 72px; height: 54px; margin: 0;
+    background: none; color: var(--ui-text-tertiary); }
+  .jv-rail-item[aria-current="page"] { background: none; color: var(--ui-text-primary); }
+  .jv-rail-item > svg { width: 21px; height: 21px; }
+  .jv-rail-agent > canvas { width: 28px; height: 28px; transform: translateY(1px); }
+  .jv-rail-label { display: block; max-width: 100%; overflow: hidden; font-size: 10.5px; line-height: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .jv-rail-item[aria-current="page"] .jv-rail-label { font-weight: 600; }
+  .jv-rail-dot { top: 6px; right: 22px; box-shadow: 0 0 0 2px var(--ui-bg-base); }
+  .jv-rail-agent .jv-call { right: calc(50% - 21px); top: 2px; }
+  /* The line goes above the cat here: the mark moves to the head's top right, out of its way. */
+  .jv-home .jv-call { left: auto; right: 6%; bottom: auto; top: 0; width: 12%; translate: none; }
+  .ui-app[data-view] .jv-home { flex: 1; padding: clamp(16px, calc(42dvh - 200px), 200px) 16px calc(70px + env(safe-area-inset-bottom)); }
+  .ui-app[data-nav] .ui-sidebar { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  .jarvy-account-menu { left: auto; right: 10px; bottom: calc(64px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jv-call, .jv-dock-said[data-rise], .jv-dock-list { animation: none !important; }
+  .jv-dock-wrap, .jv-dock-bar, .jv-dock-icon, .jv-dock-input { transition: none !important; }
+}

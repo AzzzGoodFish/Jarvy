@@ -1,5 +1,16 @@
-/** English: the sidebar, search, channels and DMs, messages, the composer, files, quotes and questions. A part of the reference dictionary (./index.ts). */
+/** English: the rail and the agent Bot's page, the sidebar, search, channels and DMs, messages, the composer, files, quotes and questions. A part of the reference dictionary (./index.ts). */
 export const chat = {
+  // The rail and the agent Bot's page (A87).
+  "rail.label": "Navigation",
+  "rail.chats": "Chats",
+  "home.talk": "Talk to {name}",
+  "home.recent": "Recent messages",
+  "home.openDm": "Open the DM",
+  "home.call.reply": "New reply",
+  "home.call.ask": "Waiting for your answer",
+  "home.call.error": "The last run failed",
+  "home.failed": "That run failed: {reason}",
+  "home.answerInDm": "Answer in the DM",
   "sidebar.label": "Chats",
   "sidebar.create": "Create",
   "sidebar.createMenu": "Create menu",

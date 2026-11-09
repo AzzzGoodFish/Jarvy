@@ -3,12 +3,11 @@ import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { ATTACHMENT_MAX_BYTES, type Member } from "../../contract/chat";
 import { useMentionMenu } from "../channel/MentionMenu";
-import { putBack, useDraft, type DraftStore } from "./drafts";
+import { newKey, putBack, useDraft, type DraftStore } from "./drafts";
 import { QuoteTags } from "../channel/quotes";
 import { t } from "../i18n";
 import { Icon } from "../ui";
 
-const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
 
 /** Message input shared by the main chat and the thread pane: per-chat drafts (text, pending attachments, quote; kept
  * in the account's DraftStore), paste and drag-drop upload (chips above the input with a progress bar; nothing appears

@@ -1,8 +1,18 @@
 import type { Part } from "../keys";
 import type { chat as en } from "../en/chat";
 
-/** 中文：侧栏、搜索、频道和私信、消息、输入框、附件、引用和问题卡片。Covers exactly the keys of en/chat.ts. */
+/** 中文：导航栏和主 Bot 页、侧栏、搜索、频道和私信、消息、输入框、附件、引用和问题卡片。Covers exactly the keys of en/chat.ts. */
 export const chat: Part<typeof en> = {
+  "rail.label": "导航",
+  "rail.chats": "会话",
+  "home.talk": "和 {name} 聊天",
+  "home.recent": "最近的消息",
+  "home.openDm": "在私聊中打开",
+  "home.call.reply": "有新回复",
+  "home.call.ask": "在等你回答",
+  "home.call.error": "上一轮运行出错",
+  "home.failed": "这一轮出错了：{reason}",
+  "home.answerInDm": "去私聊中回答",
   "sidebar.label": "会话列表",
   "sidebar.create": "打开新建菜单",
   "sidebar.createMenu": "新建菜单",

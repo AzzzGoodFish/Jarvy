@@ -43,29 +43,25 @@ button:focus:not(:focus-visible) { outline: none; }
 .ui-round .ui-icon { width: 18px; height: 18px; }
 .ui-small { font-size: 12px; line-height: 18px; color: var(--ui-text-secondary); }
 
-/* ── Layout: sidebar | chat | optional side pane ──────────────── */
+/* ── Layout: rail | sidebar | chat | optional side pane ───────── */
 .ui-app {
-  --ui-sidebar: 280px; --ui-pane: 320px;
-  position: relative; display: grid; grid-template-columns: var(--ui-sidebar) minmax(0, 1fr); height: 100dvh; overflow: hidden;
+  --ui-rail: 56px; --ui-sidebar: 280px; --ui-pane: 320px;
+  position: relative; display: grid; grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr); height: 100dvh; overflow: hidden;
 }
-.ui-app[data-pane] { grid-template-columns: var(--ui-sidebar) minmax(0, 1fr) var(--ui-pane); }
+.ui-app[data-pane] { grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr) var(--ui-pane); }
+/* The agent Bot's page (A87) takes everything beside the rail; the chats stay as they were, out of sight. */
+.ui-app[data-view] { grid-template-columns: var(--ui-rail) minmax(0, 1fr); }
+.ui-app[data-view] > :is(.ui-sidebar, .ui-chat, .ui-pane, .jv-resize) { display: none; }
 .ui-sidebar {
   position: relative; z-index: 3; display: flex; flex-direction: column; min-width: 0; min-height: 0;
   background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak);
 }
 .ui-sidebar-header { display: flex; flex: none; align-items: center; justify-content: flex-end; height: 52px; padding: 0 14px; }
-.ui-sidebar-footer { display: grid; gap: 2px; padding: 2px 12px 12px; }
-.ui-footer-entry {
-  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 40px; padding: 6px 8px;
-  border-radius: var(--ui-radius-lg); text-align: left; font-size: 14px; font-weight: 500;
-}
-.ui-footer-entry:hover { background: var(--ui-fill-ghost-hover); }
 .ui-user-avatar {
   display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
   background: var(--ui-fill-secondary); border: 1px solid var(--ui-border-weak);
   color: var(--ui-text-secondary); font-size: 11px; font-weight: 600;
 }
-.ui-nav-scrim { position: fixed; inset: 0; z-index: 9; background: var(--ui-bg-scrim); }
 .ui-mobile-only { display: none; }
 
 /* ── Chat column ──────────────────────────────────────────────── */
@@ -189,7 +185,7 @@ dialog[open] { animation: ui-rise .16s var(--ui-ease-out); }
 }
 @media (max-width: 820px) {
   .ui-app { --ui-sidebar: 240px; }
-  .ui-app[data-pane] { grid-template-columns: var(--ui-sidebar) minmax(0, 1fr); }
+  .ui-app[data-pane] { grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr); }
   .ui-pane { position: absolute; inset: 0 0 0 auto; z-index: 5; width: min(360px, calc(100% - 80px)); box-shadow: var(--ui-shadow-md); }
   .ui-pane-header strong { padding-left: 8px; text-align: left; }
 }
@@ -197,7 +193,8 @@ dialog[open] { animation: ui-rise .16s var(--ui-ease-out); }
   .ui-app, .ui-app[data-pane] { display: flex; }
   .ui-chat { flex: 1; }
   .ui-sidebar {
-    position: absolute; inset: 0 auto 0 0; z-index: 10; width: min(310px, calc(100% - 48px));
+    /* The chat list fills the screen over the tab bar (home.css), the way the chats tab opens it. */
+    position: absolute; inset: 0 auto 0 0; z-index: 10; width: 100%;
     transform: translateX(-102%); visibility: hidden; transition: transform .2s var(--ui-ease-out);
   }
   .ui-app[data-nav] .ui-sidebar { transform: none; visibility: visible; }
