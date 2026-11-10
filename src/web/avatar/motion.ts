@@ -28,6 +28,8 @@ const POSES: Partial<Record<FigureMotion, Partial<Face>>> = {
   stretch: { kind: 2, mouth: 2, mouthOpen: .8, blush: .8, earL: .06, earR: .06 },
   groom: { kind: 4 },
 };
+/** The sleeping face, for a still avatar that stands in for the live figure (A88). */
+export const ASLEEP: Partial<Face> = POSES.sleep ?? {};
 /** How far the head turns towards the middle of the chat, per motion; it meets you to talk. */
 const TURN = { rest: .2, turn: .02, ask: .08, read: .12 };
 

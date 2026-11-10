@@ -22,6 +22,7 @@ import { Rail, type View } from "./home/Rail";
 import { Home } from "./home/Home";
 import { useAgentFigure } from "./home/figure";
 import { useCall } from "./home/call";
+import { motionOf } from "./avatar/FloatingBot";
 import { Login } from "./Login";
 import { applyTheme } from "./ui";
 import { t } from "./i18n";
@@ -422,7 +423,7 @@ export function App() {
   return <>
     <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full && !home ? "" : undefined} data-view={home ? "home" : undefined}
       style={{ ["--ui-pane" as string]: `${paneWidth}px` }}>
-      <Rail view={home ? "home" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} alerts={chats.reduce((sum, chat) => sum + (chat.id === agentDm?.id ? 0 : chat.alerts), 0)} username={username}
+      <Rail view={home ? "home" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} asleep={motionOf(agentStatus).motion === "sleep"} alerts={chats.reduce((sum, chat) => sum + (chat.id === agentDm?.id ? 0 : chat.alerts), 0)} username={username}
         // On a phone the chats tab opens the chat list over the open chat; the list's own rows then open a chat.
         onView={next => { setView(next); setMobileNav(next === "chats" && window.matchMedia("(max-width: 620px)").matches); setAccountMenu(false); }}
         accountMenu={accountMenu} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}

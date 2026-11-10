@@ -68,9 +68,9 @@ export function Home({ bot, chat, status, figure, call, onSeen, meId, live, onOp
     <div ref={cat} className="jv-home-figure">
       <button type="button" className="jv-home-cat" title={bot.name} onClick={poke}
         aria-label={call ? `${t(`home.call.${call}`)}, ${bot.name}` : t("avatar.openInfo", { name: bot.name })}>
-        {figure.live ? <canvas ref={canvas} aria-hidden="true"/> : <BotAvatar color={bot.color} mood={bot.mood} size={168} crown={bot.agent}/>}
+        {figure.live ? <canvas ref={canvas} aria-hidden="true"/> : <BotAvatar color={bot.color} mood={call === "error" ? "dizzy" : npc.mood} size={168} crown={bot.agent} asleep={npc.motion === "sleep"}/>}
         {/* One mark at a time: what it has for you before what it is doing. */}
-        {call ? <CallMark call={call}/> : figure.live && <FigureMark motion={npc.motion}/>}
+        {call ? <CallMark call={call}/> : <FigureMark motion={npc.motion}/>}
       </button>
       <h1 className="jv-home-name">{bot.name}</h1>
       {/* The figure shows what it is doing; the words are for screen readers only. */}
