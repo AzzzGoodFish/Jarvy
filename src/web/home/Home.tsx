@@ -68,7 +68,7 @@ export function Home({ bot, chat, status, figure, call, onSeen, meId, members, d
   const state = status?.error ? "error" : status?.status === "running" ? "running" : !status || status.status === "stop" ? "stopped" : "idle";
   return <section ref={area} className="jv-home" aria-label={bot.name}>
     <div ref={cat} className="jv-home-figure">
-      <button type="button" className="jv-home-cat" title={bot.name} onClick={poke}
+      <button type="button" className="jv-home-cat" data-still={!figure.live || undefined} title={bot.name} onClick={poke}
         aria-label={call ? `${t(`home.call.${call}`)}, ${bot.name}` : t("avatar.openInfo", { name: bot.name })}>
         {figure.live ? <canvas ref={canvas} aria-hidden="true"/> : <BotAvatar color={bot.color} mood={call === "error" ? "dizzy" : npc.mood} size={168} crown={bot.agent} asleep={npc.motion === "sleep"}/>}
         {/* One mark at a time: what it has for you before what it is doing. */}

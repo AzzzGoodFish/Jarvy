@@ -35,6 +35,9 @@
 .jv-call[data-call="error"] svg { stroke: #ef4444; }
 .jv-call[data-call="error"] .jv-call-edge { stroke: #7f1d1d; }
 .jv-rail-agent .jv-call { left: auto; right: 0; bottom: auto; top: -3px; width: 9px; translate: none; }
+/* Beside a still avatar (no GPU: A88) the mark pops in and then keeps still: drawn without a GPU, a mark moving all the
+   time has the browser put the whole page together again every frame. */
+[data-still] > .jv-call { animation: jv-call-in .32s cubic-bezier(.3, 1.6, .5, 1) both; }
 @keyframes jv-call-in { from { opacity: 0; scale: .4; } }
 @keyframes jv-call-bob { 50% { transform: translateY(-12%); } }
 .jv-home-name { margin: -4px 0 0; font-size: 17px; font-weight: 600; line-height: 24px; }

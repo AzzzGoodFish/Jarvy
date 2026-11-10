@@ -40,7 +40,7 @@ export function Rail({ view, onView, agent, figure, call, asleep, alerts, userna
   return <>
     <nav className="jv-rail" aria-label={t("rail.label")}>
       <div className="jv-rail-top">
-        {agent && <button type="button" className="jv-rail-item jv-rail-agent" aria-current={view === "home" ? "page" : undefined} title={agent.name}
+        {agent && <button type="button" className="jv-rail-item jv-rail-agent" data-still={!figure.live || undefined} aria-current={view === "home" ? "page" : undefined} title={agent.name}
           onPointerEnter={event => {
             if (event.pointerType !== "mouse") return;
             figure.stage.near = true;
