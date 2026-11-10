@@ -32,6 +32,7 @@ export class ChatMemory {
   clear() { this.kept.clear(); }
   /** A change heard of: put in the chats it is about, as the open panes do. */
   heard(heard: Heard) {
+    if (heard.kind === "reconnected") return;
     if (heard.kind === "chat") { const entry = this.kept.get(heard.chat.id); if (entry?.chat) entry.chat = heard.chat; return; }
     const message = heard.message;
     for (const entry of this.kept.values()) if (entry.root?.id === message.id) entry.root = message;

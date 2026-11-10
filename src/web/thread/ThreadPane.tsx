@@ -56,6 +56,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   const newest = useRef(0), ahead = useRef(0);
   // Where the reader is, kept as they scroll, and where to go back to once a remembered thread is laid out (A79).
   const spot = useRef<Place>({ bottom: true }), restoreTo = useRef<Place | null>(null), chatNow = useRef(chat), rootNow = useRef(root), [hold] = useState(() => new Hold());
+  // Being read again after a connection that couldn't be told what was missed: until then it isn't kept as it is.
+  const stale = useRef(false);
   chatNow.current = chat; rootNow.current = root;
   useEffect(() => { setChat(null); setRoot(null); setMessages([]); setHasOlder(false); setDivider(null); settled.current = false; atBottom.current = true; setAway(false); seen.current = 0; newest.current = 0; ahead.current = 0; }, [threadId]);
   /** The replies from a little before this one to the newest, to land on it; another chat's id when the message is
@@ -88,6 +90,15 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     setMessages(previous => addMessage(previous, message));
   };
   useHeard(live, heard => {
+    if (heard.kind === "reconnected") {
+      if (!settled.current) return;
+      stale.current = true;
+      void Promise.all([api.chat(threadId), replies()]).then(async ([loaded, page]) => {
+        setChat(loaded); take(page); stale.current = false;
+        if (loaded.rootMessageId) setRoot(await api.message(loaded.rootMessageId));
+      }).catch(onError);
+      return;
+    }
     if (heard.kind === "chat") {
       // Its row as the server has it; the read position may be behind the one this pane just marked.
       const next = heard.chat;
@@ -117,7 +128,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     const leave = () => {
       alive = false; hold.release();
       const shown = chatNow.current;
-      if (settled.current && shown?.id === threadId) memory.keep(threadId, { messages: list.current.filter(item => item.chatId === threadId), hasOlder: older.current,
+      if (settled.current && !stale.current && shown?.id === threadId) memory.keep(threadId, { messages: list.current.filter(item => item.chatId === threadId), hasOlder: older.current,
         place: spot.current, seen: seen.current, chat: shown, root: rootNow.current });
     };
     // Opened again (not on a given reply): as it was left, where it was left, nothing read.
