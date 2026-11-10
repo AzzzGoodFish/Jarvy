@@ -39,31 +39,23 @@
 @keyframes jv-call-bob { 50% { transform: translateY(-12%); } }
 .jv-home-name { margin: -4px 0 0; font-size: 17px; font-weight: 600; line-height: 24px; }
 
-/* ── The light chat: an icon that grows into the box, the last messages rising over it ─ */
-.jv-dock { display: flex; flex-direction: column; align-items: center; width: min(560px, 100%); margin-top: 14px; }
+/* ── The light chat: an icon that grows into the DM's input, the DM's messages rising over it ─ */
+.jv-dock { display: flex; flex-direction: column; align-items: center; width: min(600px, 100%); margin-top: 14px; }
 .jv-dock-wrap { display: grid; grid-template-rows: 0fr; width: 100%; overflow: hidden; transition: grid-template-rows .46s cubic-bezier(.32, .72, 0, 1); }
 .jv-dock[data-state="open"] .jv-dock-wrap { grid-template-rows: 1fr; }
 .jv-dock[data-state="closing"] .jv-dock-wrap { transition-duration: .32s; }
 .jv-dock:not([data-state]) .jv-dock-wrap { visibility: hidden; }
-.jv-dock-list { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 0; max-height: var(--fit, 128px);
-  padding: 0 2px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
-.jv-dock[data-state] .jv-dock-list { padding: 8px 2px 12px; }
-.jv-dock-said { display: flex; width: 100%; min-width: 0; transform-origin: 0 100%; }
-.jv-dock-said[data-mine] { justify-content: flex-end; transform-origin: 100% 100%; }
-.jv-dock-said > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; max-width: min(82%, 460px); margin: 0; padding: 7px 12px;
-  overflow: hidden; border-radius: 12px; background: var(--ui-fill-bubble-agent); color: var(--ui-text-primary); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
-.jv-dock-said[data-mine] > p { background: var(--ui-fill-bubble-user); color: var(--ui-text-on-color); }
-.jv-dock[data-state="open"] .jv-dock-said[data-rise] { animation: jv-dock-rise .44s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(90ms + var(--i, 0) * 60ms); }
-@keyframes jv-dock-rise { from { opacity: 0; transform: translateY(16px) scale(.94); } }
-.jv-dock[data-state="closing"] .jv-dock-list { animation: jv-dock-sink .2s ease-in forwards; }
+/* The messages as the DM shows them, a little closer together: as high as the last two, up to a part of the screen. */
+.jv-dock-log { position: relative; flex: none; min-height: 0; max-height: min(var(--fit, 160px), 44dvh); padding: 10px 4px 4px; overscroll-behavior: contain; }
+/* Backwards, not both: once risen, a row keeps no transform, which would hold a floating emoji panel inside it. */
+.jv-dock-log .ui-message-row { margin-bottom: 12px; animation: jv-dock-rise .44s cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes jv-dock-rise { from { opacity: 0; transform: translateY(16px) scale(.96); } }
+.jv-dock[data-state="closing"] .jv-dock-log { animation: jv-dock-sink .2s ease-in forwards; }
 @keyframes jv-dock-sink { to { opacity: 0; transform: translateY(12px); } }
 .jv-dock-bar { position: relative; flex: none; width: 40px; height: 42px; overflow: hidden; border-radius: 21px; background: var(--ui-bg-elevated);
-  box-shadow: 0 0 0 1px var(--ui-border-weak), var(--ui-shadow-sm); transition: width .46s cubic-bezier(.32, .72, 0, 1), box-shadow .3s, opacity .22s, transform .22s, visibility 0s; }
-/* Hidden while a line is up beside the cat, keeping its place (the line stays clear of where it was): the icon fades and
-   shrinks away, and comes back the same way. */
-.jv-dock[data-hidden] .jv-dock-bar { opacity: 0; transform: scale(.7); visibility: hidden;
-  transition: width .46s cubic-bezier(.32, .72, 0, 1), box-shadow .3s, opacity .22s, transform .22s, visibility 0s .22s; }
-.jv-dock[data-state="open"] .jv-dock-bar { width: 100%; box-shadow: 0 0 0 1px var(--ui-border-default), var(--ui-shadow-md); }
+  box-shadow: 0 0 0 1px var(--ui-border-weak), var(--ui-shadow-sm); transition: width .46s cubic-bezier(.32, .72, 0, 1), box-shadow .3s; }
+.jv-dock[data-state="open"] .jv-dock-bar { width: 100%; height: auto; min-height: 42px; box-shadow: 0 0 0 1px var(--ui-border-default), var(--ui-shadow-md); }
+.jv-dock[data-state="open"] .jv-dock-bar:focus-within { box-shadow: 0 0 0 1px var(--ui-border-strong), var(--ui-shadow-md); }
 .jv-dock[data-state="closing"] .jv-dock-bar { transition-duration: .32s; }
 .jv-dock-icon { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 40px; height: 42px; padding: 0; border: 0; border-radius: 21px;
   background: none; color: var(--ui-text-secondary); cursor: pointer; transition: opacity .18s, transform .36s cubic-bezier(.32, .72, 0, 1); }
@@ -71,17 +63,17 @@
 .jv-dock-icon:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -3px; }
 .jv-dock-icon > svg { width: 19px; height: 19px; }
 .jv-dock[data-state="open"] .jv-dock-icon { opacity: 0; transform: rotate(-40deg) scale(.5); pointer-events: none; }
-.jv-dock-input { position: absolute; inset: 0; display: flex; align-items: center; gap: 4px; padding: 0 7px 0 16px; opacity: 0; transform: translateX(-12px);
-  pointer-events: none; transition: opacity .14s, transform .36s cubic-bezier(.32, .72, 0, 1); }
-.jv-dock[data-state="open"] .jv-dock-input { opacity: 1; transform: none; pointer-events: auto; transition-delay: .14s; transition-duration: .26s, .4s; }
-.jv-dock-input input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: none; color: var(--ui-text-primary); font: inherit; font-size: 14px; }
-.jv-dock-input input::placeholder { color: var(--ui-text-tertiary); }
-.jv-dock-go, .jv-dock-send { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 14px; cursor: pointer; }
-.jv-dock-go { background: none; color: var(--ui-text-tertiary); }
+/* The DM's own composer; the box is its frame. Out of the way while the box is put away. */
+.jv-dock-input { position: absolute; inset: 0 auto auto 0; width: min(600px, calc(100vw - 32px)); opacity: 0; transform: translateX(-12px); pointer-events: none;
+  transition: opacity .14s, transform .36s cubic-bezier(.32, .72, 0, 1); }
+.jv-dock[data-state="open"] .jv-dock-input { position: relative; width: auto; opacity: 1; transform: none; pointer-events: auto; transition-delay: .14s; transition-duration: .26s, .4s; }
+.jv-dock .jv-dock-input .ui-compose-wrap { padding: 0; }
+.jv-dock .jv-dock-input .ui-composer.jv-composer { min-height: 42px; padding: 5px 6px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.jv-dock .jv-dock-input .jarvy-pending-files, .jv-dock .jv-dock-input .jv-compose-quote { margin: 8px 10px 0; }
+.jv-dock-go { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 15px; cursor: pointer;
+  background: none; color: var(--ui-text-tertiary); }
 .jv-dock-go:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
-.jv-dock-send { background: var(--ui-fill-primary); color: var(--ui-text-on-primary); }
-.jv-dock-send:disabled { opacity: .35; cursor: default; }
-.jv-dock-go > svg, .jv-dock-send > svg { width: 15px; height: 15px; }
+.jv-dock-go > svg { width: 16px; height: 16px; }
 
 /* ── Phones: the rail is a tab bar along the bottom, over the home page and the open chat list ─ */
 @media (max-width: 620px) {
@@ -105,6 +97,6 @@
   .jarvy-account-menu { left: auto; right: 10px; bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .jv-call, .jv-dock-said[data-rise], .jv-dock-list { animation: none !important; }
+  .jv-call, .jv-dock-log, .jv-dock-log .ui-message-row { animation: none !important; }
   .jv-dock-wrap, .jv-dock-bar, .jv-dock-icon, .jv-dock-input { transition: none !important; }
 }
