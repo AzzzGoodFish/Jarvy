@@ -148,8 +148,9 @@ export function App() {
       // again what the page shows, every Bot's status too.
       ready: event => {
         if ((JSON.parse(event.data) as LiveReady).resumed) return;
-        // What was remembered can't be vouched for: chats are read again when opened.
-        memory.clear();
+        // What was remembered can't be vouched for: chats are read again when opened, and the open panes (a thread, a
+        // Bot's DM with another Bot) now.
+        memory.clear(); live.emit({ kind: "reconnected" });
         setChanges(reconnected); void refreshChats().catch(fail); void refreshOpen().catch(fail); reloadSections();
         // 「我关注的线程」, if open, reads its first page again: what changed while the connection was down.
         threadEvents.emit({ kind: "reconnected" });

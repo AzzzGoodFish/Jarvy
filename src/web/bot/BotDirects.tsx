@@ -30,15 +30,18 @@ export function BotDirects({ bot, chats, members, bots, me, live, onClose, onPre
   onClose: () => void; onPreview: (files: Attachment[], index: number) => void; onError: (error: unknown) => void;
 }) {
   const [open, setOpen] = useState<string | null>(null), [messages, setMessages] = useState<ChatMessage[] | null>(null);
+  // Read again after a connection that couldn't be told what was missed.
+  const [reads, setReads] = useState(0);
   useEffect(() => {
-    setMessages(null);
-    if (!open) return;
+    if (!open) { setMessages(null); return; }
     let alive = true;
     void api.messages(open).then(result => { if (alive) setMessages(result.messages); }).catch(error => { if (alive) onError(error); });
     return () => { alive = false; };
-  }, [open]);
+  }, [open, reads]);
+  useEffect(() => setMessages(null), [open]);
   // What the two say meanwhile is put in place (A72).
   useHeard(live, heard => {
+    if (heard.kind === "reconnected") { setReads(count => count + 1); return; }
     if (heard.kind === "chat" || heard.message.chatId !== open) return;
     const message = heard.message;
     setMessages(previous => previous && (heard.kind === "message" ? addMessage(previous, message) : replaceMessage(previous, message)));

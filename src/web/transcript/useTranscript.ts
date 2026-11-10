@@ -32,6 +32,9 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
   const place = useRef<Place>({ bottom: true }), restoreTo = useRef<Place | null>(null), [hold] = useState(() => new Hold());
   // A message further back than what was loaded, to go to once the window around it is on screen.
   const goTo = useRef<{ id: string; passage?: string } | null>(null);
+  // Being read again (a gap before a new message, a connection that couldn't be told what was missed): until then
+  // what is shown isn't kept as it is.
+  const reading = useRef(false);
 
   useEffect(() => {
     setMessages([]); setHasOlder(false);
@@ -42,7 +45,7 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
     // Leaving: what was on screen is remembered, once it was shown.
     const leave = () => {
       alive = false; hold.release();
-      if (settled.current && list.current[0]?.chatId === chatId) memory.keep(chatId, { messages: list.current, hasOlder: older.current, place: place.current, seen: seen.current });
+      if (settled.current && !reading.current && list.current[0]?.chatId === chatId) memory.keep(chatId, { messages: list.current, hasOlder: older.current, place: place.current, seen: seen.current });
     };
     const kept = memory.take(chatId);
     if (kept) {
@@ -71,6 +74,10 @@ export function useTranscript({ chatId, ready, scroller, me, memory, onError }: 
   }
   /** Reloads what is loaded (from its first message on), so replies, answers and new messages show. */
   async function refresh(id: string) {
+    reading.current = true;
+    try { await read(id); } finally { reading.current = false; }
+  }
+  async function read(id: string) {
     const first = list.current[0], r = ++request.current;
     if (!first || first.chatId !== id) {
       // Nothing of it shown yet (this read took over from the opening one): it opens, at the bottom.

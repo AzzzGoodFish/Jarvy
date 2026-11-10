@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import type { Chat, ChatMessage } from "../contract/chat";
 
-/** A change the page heard of (A72): a new message, one changed in place, or a chat as its row shows it. */
-export type Heard = { kind: "message" | "updated"; message: ChatMessage } | { kind: "chat"; chat: Chat };
+/** A change the page heard of (A72): a new message, one changed in place, a chat as its row shows it, or a new
+ * connection the server couldn't tell what was missed: what a pane shows is read again. */
+export type Heard = { kind: "message" | "updated"; message: ChatMessage } | { kind: "chat"; chat: Chat } | { kind: "reconnected" };
 
 /** Hands each change the page hears of to the open panes; each takes what is about what it shows. */
 export class LiveHub {
