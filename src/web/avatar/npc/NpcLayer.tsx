@@ -46,6 +46,14 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
   // While the pointer is on the dialogue or its text is scrolled back, it keeps the step it shows: the
   // step still updates, the next one waits.
   const [hover, setHover] = useState(false), [reading, setReading] = useState(false), [pin, setPin] = useState<string | null>(null);
+  // The box can shrink away from a pointer that stays still (the panel closing), which then gets no leave: the next
+  // move outside it ends the hover.
+  useEffect(() => {
+    if (!hover) return;
+    const move = (event: PointerEvent) => { if (!box.current?.contains(event.target as Node)) setHover(false); };
+    document.addEventListener("pointermove", move);
+    return () => document.removeEventListener("pointermove", move);
+  }, [hover]);
   const holding = hover || reading;
   useEffect(() => { setPin(holding ? view.shown?.id ?? null : null); }, [holding]);
   const shown = (pin && view.steps.find(step => step.id === pin)) || view.shown, look = shown ? shown.look : view.done ? "action" : null;

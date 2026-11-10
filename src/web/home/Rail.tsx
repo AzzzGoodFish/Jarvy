@@ -39,7 +39,11 @@ export function Rail({ view, onView, agent, figure, call, alerts, username, acco
     <nav className="jv-rail" aria-label={t("rail.label")}>
       <div className="jv-rail-top">
         {agent && <button type="button" className="jv-rail-item jv-rail-agent" aria-current={view === "home" ? "page" : undefined} title={agent.name}
-          onPointerEnter={event => { if (event.pointerType === "mouse" && !reduced() && !acts.playing) acts.play("look", performance.now()); }}
+          onPointerEnter={event => {
+            if (event.pointerType !== "mouse") return;
+            figure.stage.near = true;
+            if (!reduced() && !acts.playing) acts.play("look", performance.now());
+          }} onPointerLeave={() => { figure.stage.near = false; }}
           onClick={() => { if (!reduced()) acts.play("hop", performance.now()); onView("home"); }}>
           {figure.live ? <canvas ref={canvas} aria-hidden="true"/> : <BotAvatar color={agent.color} mood={agent.mood} size={30} crown={agent.agent}/>}
           <CallMark call={call}/>{call && <span className="sr-only">{t(`home.call.${call}`)}</span>}
