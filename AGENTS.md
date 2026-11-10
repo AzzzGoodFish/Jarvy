@@ -31,6 +31,12 @@ There are no unit tests. Verify with:
 - UI copy is short and plain (for example 「暂无公告」). The UI shows what the user needs to act; no development notes, sources or future plans.
 - Interface strings go through `t()` from `web/i18n/` (A45): English is the reference dictionary, and `npm run check:architecture` fails on a missing key or on Chinese text left in a migrated component. Call `t()` while rendering, never at module top level (a module-level constant holds the key, the component resolves it), so switching the language re-renders every string.
 
+## Branches, commits and pull requests
+
+- Branches: `feat/<name>`, `fix/<name>`, `docs/<name>`, `release/<version>`; one task each, deleted once merged. `main` changes only through pull requests: no direct pushes, no `--force`.
+- Titles, descriptions and commit messages say what changed and why: no names, chat references or approvals.
+- A pull request opens with one short line, the change in the maintainer's words, in English; the rest goes in a collapsed Details section ([template](.github/pull_request_template.md)).
+
 ## Documentation
 
 - Docs are in English and describe the current state. Process history, verification logs and progress notes do not go into the repository.
