@@ -1,11 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import type { Bot, BotStatus } from "../../contract/bots";
 import { BotAvatar } from "./BotAvatar";
-import { crownAt, makeFigure, type Figure } from "./face";
-import { MARKS, Rig, type FigureInput, type FigureMotion } from "./motion";
-import { Persona } from "./acts";
+import { MARKS, type FigureMotion } from "./motion";
 import { BOT_COLORS } from "./palette";
-import { crownMark } from "./snapshot";
+import { FigureStage } from "./stage";
+import { useActs } from "./useActs";
 import { type BotColor, type BotMood } from "../../contract/models";
 import { NpcLayer } from "./npc/NpcLayer";
 import { NpcToolbar } from "./npc/NpcToolbar";
@@ -29,6 +28,13 @@ const MARK = {
   sparkle: <svg viewBox="0 0 100 100">{([[14, 22, 9], [86, 18, 7], [90, 46, 4.5]] as const).map(([x, y, r]) =>
     <path key={x} d={`M${x} ${y - r}Q${x} ${y} ${x + r} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r} ${y}Q${x} ${y} ${x} ${y - r}Z`}/>)}</svg>,
 };
+
+/** The mark beside a live figure's head for what it is doing (asleep, struggling, asking, pleased), if any; it sits on
+ * the figure's box, which must be a size container (floating-bot.css). */
+export function FigureMark({ motion }: { motion: FigureMotion }) {
+  const mark = MARKS[motion];
+  return mark ? <span className="jv-figure-mark" data-mark={mark} aria-hidden="true">{MARK[mark]}</span> : null;
+}
 
 /** Bot status → body motion (A33). Mood is separate and only changes the face. */
 export function motionOf(status?: BotStatus): { motion: FigureMotion; fast: boolean } {
@@ -61,14 +67,12 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
   const button = useRef<HTMLButtonElement>(null), canvas = useRef<HTMLCanvasElement>(null);
   const spot = useRef<Spot>(savedSpot()), drag = useRef<{ id: number; x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const moved = useRef(false), look = useRef<{ x: number; y: number } | null>(null);
-  const input = useRef<FigureInput>({ motion: "sleep", mood: "normal", lookX: 0, lookY: 0 });
-  const figure = useRef<{ shake(): void } | null>(null), persona = useRef(new Persona()), busy = useRef(false);
+  const [stage] = useState(() => new FigureStage()), input = stage.input, persona = stage.persona;
   const [rendering, setRendering] = useState(false);
   const layout = useRef<(() => void) | null>(null);
   const demo = useNpcDemo(NPC_DEMO, bot.mood as BotMood), turn = useNpcLive(NPC_DEMO ? null : bot.id, chatId, bot.mood as BotMood, motionOf(status));
   const npc = NPC_DEMO ? demo : turn;
-  input.current.motion = npc.motion; input.current.fast = npc.fast; input.current.mood = npc.mood;
-  const mark = MARKS[npc.motion];
+  input.motion = npc.motion; input.fast = npc.fast; input.mood = npc.mood;
 
   function bounds() {
     const box = area.current!.getBoundingClientRect(), size = button.current!.offsetWidth;
@@ -98,7 +102,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
   }, []);
 
   const failure = status?.error ? `${status.runId ?? ""}:${status.error}` : null;
-  useEffect(() => { if (failure || npc.shake) figure.current?.shake(); }, [failure, npc.shake]);
+  useEffect(() => { if (failure || npc.shake) stage.shake(); }, [failure, npc.shake]);
 
   useEffect(() => {
     const point = (event: PointerEvent) => { if (event.pointerType === "mouse" || event.type === "pointerdown") look.current = { x: event.clientX, y: event.clientY }; };
@@ -116,79 +120,31 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
     };
   }, []);
 
-  // The acts (A86): you send a message, it listens; it starts working, it hops; a turn completes, it celebrates;
-  // touched, it is poked; dragged, it is carried. Nothing at all with reduced motion.
-  const heard = useRef<{ chat: string; id?: string } | null>(null);
+  // The acts (A86) that answer what happens; touched, it is poked, and dragged, it is carried (below).
+  useActs(persona, npc, chatId, lastMine);
+  stage.color = (BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex; stage.crown = bot.agent;
   useEffect(() => {
-    const before = heard.current;
-    heard.current = { chat: chatId, id: lastMine };
-    // The first message here, and the chat you just opened, are not something to listen to.
-    if (!before || before.chat !== chatId || !lastMine || lastMine === before.id) return;
-    if (!reduced()) persona.current.play("listen", performance.now());
-  }, [lastMine, chatId]);
-  useEffect(() => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const rest = npc.motion === "idle" || npc.motion === "sleep";
-    if (rest) { busy.current = false; return; }
-    // A turn under way after a rest: the wind-up before it works.
-    if (!busy.current) { busy.current = true; persona.current.play("hop", performance.now(), true); }
-  }, [npc.motion]);
-  const finished = useRef<number | null>(null);
-  useEffect(() => {
-    const done = npc.view.done;
-    if (!done || finished.current === npc.view.startedAt) return;
-    finished.current = npc.view.startedAt;
-    if (done.outcome !== "completed" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const pick = ["joy", "hopSpin", "dance"][Math.floor(Math.random() * 3)] as "joy" | "hopSpin" | "dance";
-    persona.current.play(pick, performance.now());
-  }, [npc.view.done, npc.view.startedAt]);
-  const color = useRef((BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex), crown = useRef(bot.agent);
-  useEffect(() => { color.current = (BOT_COLORS[bot.color as BotColor] ?? BOT_COLORS.gray).hex; }, [bot.color]);
-  useEffect(() => { crown.current = bot.agent; }, [bot.agent]);
-  useEffect(() => {
-    const out = canvas.current, paint = out?.getContext("2d");
-    let drawn: Figure | undefined;
-    try { drawn = makeFigure(); } catch { /* the shader did not build: the still avatar stays */ }
-    if (!out || !paint || !drawn) return; // no WebGL: the still avatar stays
-    const live = drawn, rig = new Rig(), reduced = matchMedia("(prefers-reduced-motion: reduce)"), last = { current: 0 };
-    let frame = 0;
-    figure.current = { shake: () => rig.shake() };
-    const tick = (now: number) => {
+    if (!canvas.current) return;
+    stage.onFrame = () => {
       const el = button.current;
-      if (el?.offsetWidth) {
-        const pixels = Math.round(el.offsetWidth * Math.min(2, devicePixelRatio || 1));
-        const box = el.getBoundingClientRect(), target = look.current;
-        input.current.lookX = target ? Math.max(-1, Math.min(1, (target.x - box.left - box.width / 2) / 320)) : 0;
-        input.current.lookY = target ? Math.max(-1, Math.min(1, (target.y - box.top - box.height / 2) / 320)) : 0;
-        input.current.reduced = reduced.matches;
-        // The figure turns towards the middle of the chat (the dialogue takes that side whenever it is placed). Not
-        // working, it keeps its turn while it is carried, and asleep until it wakes; the first frame always takes it
-        // from where the figure is.
-        const motion = input.current.motion, carried = !!drag.current?.moved && motion === "idle";
-        if (input.current.faceX === undefined || !(carried || motion === "sleep")) input.current.faceX = facing();
-        // A little smaller than a still avatar, so a stretch or a lift never touches the edge.
-        const base = rig.frame(now, input.current), being = persona.current;
-        // An idle act now and then, only while the cat is at rest and the page is being looked at.
-        // Busy is anything but rest: asleep counts as rest, so a sleeping cat still flicks an ear now and then.
-        const busy = input.current.motion !== "idle" && input.current.motion !== "sleep";
-        if (!input.current.reduced) being.idle(now, last.current ? Math.min(50, now - last.current) : 16, busy, input.current.motion === "sleep");
-        last.current = now;
-        const { face, zoom: swell } = being.apply(base, now), zoom = .86 * swell;
-        // What it is doing, for the stylesheet and for tests: the act's name, while one plays.
-        const act = being.playing ?? "";
-        if (el.dataset.act !== act) { if (act) el.dataset.act = act; else delete el.dataset.act; }
-        if (out.width !== pixels) out.width = out.height = pixels; else paint.clearRect(0, 0, pixels, pixels);
-        live.paint(paint, pixels, color.current, face, { zoom });
-        // The crown turns with the head: side on, it is edge-on and unseen.
-        if (crown.current) { paint.globalAlpha = Math.min(1, Math.max(0, Math.cos(face.spin) * 1.6 - .2)); crownMark(paint, pixels, crownAt(face, zoom)); paint.globalAlpha = 1; }
-      }
-      frame = requestAnimationFrame(tick);
+      if (!el) return;
+      const box = el.getBoundingClientRect(), target = look.current;
+      input.lookX = target ? Math.max(-1, Math.min(1, (target.x - box.left - box.width / 2) / 320)) : 0;
+      input.lookY = target ? Math.max(-1, Math.min(1, (target.y - box.top - box.height / 2) / 320)) : 0;
+      // The figure turns towards the middle of the chat (the dialogue takes that side whenever it is placed). Not
+      // working, it keeps its turn while it is carried, and asleep until it wakes; the first frame always takes it
+      // from where the figure is.
+      const carried = !!drag.current?.moved && input.motion === "idle";
+      if (input.faceX === undefined || !(carried || input.motion === "sleep")) input.faceX = facing();
+      // What it is doing, for the stylesheet and for tests: the act's name, while one plays.
+      const act = persona.playing ?? "";
+      if (el.dataset.act !== act) { if (act) el.dataset.act = act; else delete el.dataset.act; }
     };
-    // Rendering pauses while the page is hidden.
-    const visibility = () => { cancelAnimationFrame(frame); if (!document.hidden) frame = requestAnimationFrame(tick); };
-    document.addEventListener("visibilitychange", visibility); visibility(); setRendering(true);
-    return () => { document.removeEventListener("visibilitychange", visibility); cancelAnimationFrame(frame); figure.current = null; live.dispose(); };
-    // The figure lives as long as the component; colour, mood and status flow in through refs.
+    // A little smaller than a still avatar, so a stretch or a lift never touches the edge.
+    const remove = stage.add(canvas.current, .86);
+    setRendering(stage.start());
+    return () => { remove(); stage.stop(); stage.onFrame = null; };
+    // The figure lives as long as the component; colour, mood and status flow in through the stage.
   }, []);
 
   return <><button ref={button} type="button" className="jv-floating-bot" data-live={rendering || undefined} data-motion={npc.motion} title={bot.name} aria-label={t("avatar.openInfo", { name: bot.name })}
@@ -201,7 +157,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
       const d = drag.current; if (!d || d.id !== event.pointerId) return;
       const dx = event.clientX - d.x, dy = event.clientY - d.y;
       if (!d.moved && Math.hypot(dx, dy) < DRAG) return;
-      if (!d.moved && !reduced()) persona.current.carry(true, performance.now());
+      if (!d.moved && !reduced()) persona.carry(true, performance.now());
       d.moved = true;
       const b = bounds(), left = Math.min(b.maxX, Math.max(b.minX, d.left + dx)), top = Math.min(b.maxY, Math.max(b.minY, d.top + dy));
       spot.current = { x: b.maxX > b.minX ? (left - b.minX) / (b.maxX - b.minX) : 0, y: b.maxY > b.minY ? (top - b.minY) / (b.maxY - b.minY) : 0 };
@@ -210,14 +166,14 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
     onPointerUp={event => {
       const d = drag.current; if (!d || d.id !== event.pointerId) return;
       drag.current = null; moved.current = d.moved;
-      if (d.moved) { localStorage.setItem(KEY, JSON.stringify(spot.current)); if (!reduced()) persona.current.carry(false, performance.now()); }
+      if (d.moved) { localStorage.setItem(KEY, JSON.stringify(spot.current)); if (!reduced()) persona.carry(false, performance.now()); }
     }}
-    onPointerCancel={() => { drag.current = null; if (!reduced()) persona.current.carry(false, performance.now()); }}
-    onClick={() => { if (moved.current) { moved.current = false; return; } if (!reduced()) persona.current.play("poke", performance.now()); if (npc.canRecap) npc.showRecap(); else onOpen(); }}
+    onPointerCancel={() => { drag.current = null; if (!reduced()) persona.carry(false, performance.now()); }}
+    onClick={() => { if (moved.current) { moved.current = false; return; } if (!reduced()) persona.play("poke", performance.now()); if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>
     {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88} crown={bot.agent}/>}
-    {rendering && mark && <span className="jv-figure-mark" data-mark={mark} aria-hidden="true">{MARK[mark]}</span>}
+    {rendering && <FigureMark motion={npc.motion}/>}
   </button>
   <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout} facing={facing}
     toolbar={NPC_DEMO ? (bar, closePanel) => <NpcToolbar controls={demo.controls} toolbar={bar} onReplay={() => { closePanel(); demo.controls.replay(); }}/> : undefined}/></>;

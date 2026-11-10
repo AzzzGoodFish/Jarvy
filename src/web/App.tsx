@@ -17,7 +17,11 @@ import { useBotDirects } from "./bot/BotDirects";
 import { useTabBadge } from "./tabBadge";
 import { activityLabel, freeBotName, liveMembers } from "./members";
 import { useTranscript } from "./transcript/useTranscript";
-import { useMarkRead } from "./transcript/useMarkRead";
+import { readUpTo, useMarkRead } from "./transcript/useMarkRead";
+import { Rail, type View } from "./home/Rail";
+import { Home } from "./home/Home";
+import { useAgentFigure } from "./home/figure";
+import { useCall } from "./home/call";
 import { Login } from "./Login";
 import { applyTheme } from "./ui";
 import { t } from "./i18n";
@@ -63,6 +67,9 @@ export function App() {
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
   const [pane, setPane] = useState<Pane | null>(null);
+  /** The agent Bot's page or the chats (A87), remembered in this browser. */
+  const [view, setView] = useState<View>(() => localStorage.getItem("jarvy-view") === "home" ? "home" : "chats");
+  useEffect(() => { localStorage.setItem("jarvy-view", view); }, [view]);
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
   const [paneWidth, setPaneWidth] = useState(420);
@@ -105,6 +112,12 @@ export function App() {
     if (statusVersions.current.get(id) === version) setStatuses(previous => ({ ...previous, [id]: status }));
   }
   useEffect(() => { if (phase === "ready" && statusBotId) void readStatus(statusBotId).catch(handleError); }, [phase, statusBotId]);
+  const agent = bots.find(bot => bot.agent), agentStatus = agent ? statuses[agent.id] : undefined;
+  const agentDm = chats.find(chat => chat.type === "dm" && chat.botId === agent?.id), home = view === "home" && !!agent;
+  const homeRef = useRef(home); homeRef.current = home;
+  const agentCall = useCall(agentStatus, agentDm), agentFigure = useAgentFigure(agent, agentStatus, agentCall.call === "error");
+  // The rail's cat and the home page show what the agent Bot is doing, whatever is open.
+  useEffect(() => { if (phase === "ready" && agent) void readStatus(agent.id).catch(handleError); }, [phase, agent?.id]);
   // A channel's member list shows what each of its Bots is doing.
   const channelBots = chats.find(chat => chat.id === selected && chat.type === "channel")?.memberIds.filter(id => bots.some(bot => bot.id === id)).join(",") ?? "";
   useEffect(() => { if (phase === "ready" && channelBots) for (const id of channelBots.split(",")) void readStatus(id).catch(handleError); }, [phase, channelBots]);
@@ -182,14 +195,16 @@ export function App() {
         const { botId, status, bot } = JSON.parse(event.data) as LiveBot;
         statusVersions.current.set(botId, (statusVersions.current.get(botId) ?? 0) + 1);
         setStatuses(previous => ({ ...previous, [botId]: status }));
-        if (status.error && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
+        // Said for the open DM's Bot; on the home page the agent Bot's own figure says it (A87).
+        if (status.error && !homeRef.current && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
         // Done with a turn, it comes with itself: it may have changed its name, model or computer meanwhile.
         if (bot) setBots(previous => previous.map(item => item.id === bot.id ? bot : item));
       },
     }, () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); });
     return () => { alive = false; stop(); history.cancel(); chatRequest.current++; };
   }, [phase]);
-  useMarkRead({ ready: phase === "ready", selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
+  // Only an open chat that is on screen is read: not while the home page covers it.
+  useMarkRead({ ready: phase === "ready" && !home, selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
   useTabBadge(phase === "ready" ? chats.reduce((sum, chat) => sum + chat.alerts, 0) : 0);
   useEffect(() => {
     if (!notice) return;
@@ -202,7 +217,7 @@ export function App() {
       if (event.defaultPrevented || infoBotId || settingsTab) return;
       if (event.key === "Escape") { setAccountMenu(false); setCreateMenu(false); setMobileNav(false); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
+        event.preventDefault(); setView("chats");
         setMobileNav(window.matchMedia("(max-width: 620px)").matches);
         requestAnimationFrame(() => document.querySelector<HTMLInputElement>("#jarvy-search")?.focus());
       }
@@ -238,7 +253,7 @@ export function App() {
     const thread = hintThread(chat);
     if (thread) setPane({ kind: "thread", id: thread, parentId: chat.id, mode: "pane", summary: chat.hint?.kind === "note" });
     else if (chat.id !== selectedRef.current) setPane(null);
-    setFollowedView(false);
+    setFollowedView(false); setView("chats");
     setDividers(previous => ({ ...previous, [chat.id]: chat.readSequence }));
     setSelected(chat.id); if (chat.botId) setFocusedBotId(chat.botId);
     setMobileNav(false); setAccountMenu(false); setCreateMenu(false);
@@ -405,18 +420,23 @@ export function App() {
   const working = new Set(Object.values(statuses).filter(item => item.status === "running" && item.activity !== "asking").map(item => item.botId));
   const asking = new Set(Object.values(statuses).filter(item => item.activity === "asking").map(item => item.botId));
   return <>
-    <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full ? "" : undefined} style={{ ["--ui-pane" as string]: `${paneWidth}px` }}>
-      <AppSidebar username={username} chats={chats} sections={sections} bots={bots} members={members} followed={followed} followedOpen={followedView && !full}
-        working={working} asking={asking} selected={followedView ? null : selected} filter={filter} creating={creating} createMenu={createMenu} accountMenu={accountMenu}
+    <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full && !home ? "" : undefined} data-view={home ? "home" : undefined}
+      style={{ ["--ui-pane" as string]: `${paneWidth}px` }}>
+      <Rail view={home ? "home" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} alerts={chats.reduce((sum, chat) => sum + (chat.id === agentDm?.id ? 0 : chat.alerts), 0)} username={username}
+        // On a phone the chats tab opens the chat list over the open chat; the list's own rows then open a chat.
+        onView={next => { setView(next); setMobileNav(next === "chats" && window.matchMedia("(max-width: 620px)").matches); setAccountMenu(false); }}
+        accountMenu={accountMenu} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}
+        onSettings={() => { setAccountMenu(false); setSettingsTab("general"); }}
+        onToggleTheme={() => { applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark"); setAccountMenu(false); }}
+        onLogOut={() => void logOut()}/>
+      <AppSidebar chats={chats} sections={sections} bots={bots} members={members} followed={followed} followedOpen={followedView && !full}
+        working={working} asking={asking} selected={followedView ? null : selected} filter={filter} creating={creating} createMenu={createMenu}
         onFilterChange={setFilter}
         onOpenFollowed={() => { setFollowedView(true); setPane(null); setMobileNav(false); }} onOpenChat={openChat} onOpenBot={bot => void openBot(bot.id)}
         onOpenMenu={(target, at) => setEntryMenu({ target, at })} onEditSection={section => setDialog({ kind: "section", section })}
         onCreate={what => { if (what === "bot") return void createBot(); setDialog({ kind: what }); setCreateMenu(false); }}
         onFind={find.openMessage} onOpenFound={openAnywhere} onError={handleError}
-        onToggleCreate={open => { setCreateMenu(open); setAccountMenu(false); }} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}
-        onSettings={() => { setAccountMenu(false); setSettingsTab("general"); }}
-        onToggleTheme={() => { applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark"); setAccountMenu(false); }}
-        onLogOut={() => void logOut()}/>
+        onToggleCreate={open => { setCreateMenu(open); setAccountMenu(false); }}/>
       <ChatMain chat={current} inChannel={inChannel} bots={bots} members={members} meId={meId} drafts={drafts} composeReady={composeReady} botName={botName}
         activeBot={activeBot} status={status} connections={connections} activity={activity} history={history} divider={dividers[current?.id ?? ""] ?? current?.readSequence ?? 0} activeQuestion={activeQuestion}
         pane={pane} onPane={setPane} onToggleInfo={toggleInfo} find={find} onNav={() => setMobileNav(true)} onBot={id => setInfoBotId(id)} hasBotDirects={botDirects.length > 0}
@@ -425,7 +445,7 @@ export function App() {
         onPreview={(files, index) => setPreview({ files, index })} onSend={sendMain} notice={setNotice}
         onSaveNote={async text => { try { chatSaved(await api.setNote(current!.id, text)); } catch (error) { handleError(error); throw error; } }}
         createBot={() => void createBot()} creating={creating} updateBot={updateBot} onManageModels={() => setSettingsTab("models")} error={handleError}
-        chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView}
+        chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView || home}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
       <SidePane pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
         meId={meId} drafts={drafts} changes={changes} live={live} memory={memory} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
@@ -433,8 +453,10 @@ export function App() {
         onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
         onChannelSaved={chatSaved} onThreadChanged={threadChanged} onInvite={invite} onPreview={(files, index) => setPreview({ files, index })}
         onNotice={setNotice} onError={handleError} paneWidth={paneWidth} onResize={startResize}/>
+      {home && <Home bot={agent} chat={agentDm} status={agentStatus} figure={agentFigure} call={agentCall.call} onSeen={agentCall.seen} meId={meId} live={live} onOpenDm={() => void openBot(agent.id)}
+        onBotInfo={() => setInfoBotId(agent.id)} ensureDm={async () => { const chat = await api.createChat(agent.id); chatSaved(chat); return chat; }}
+        onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onError={handleError}/>}
     </div>
-    {mobileNav && <div className="ui-nav-scrim" onClick={() => setMobileNav(false)} role="presentation"/>}
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
       sections={sections} members={members} connections={connections} meId={meId}

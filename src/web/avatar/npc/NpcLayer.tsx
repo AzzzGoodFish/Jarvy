@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode, type RefObject } from "react";
-import { ArchiveIcon, BrainIcon, CheckIcon, ChevronRightIcon, CodeXmlIcon, FileTextIcon, LoaderCircleIcon, MessageCircleQuestionIcon, MessageSquareTextIcon,
+import { ArchiveIcon, ArrowUpRightIcon, BrainIcon, CheckIcon, ChevronRightIcon, CodeXmlIcon, FileTextIcon, LoaderCircleIcon, MessageCircleQuestionIcon, MessageSquareTextIcon,
   MessagesSquareIcon, Minimize2Icon, PencilLineIcon, RefreshCwIcon, SquareTerminalIcon, SpeechIcon, WrenchIcon, XIcon } from "lucide-react";
 import { formatNumber, t } from "../../i18n";
 import { placeBeside } from "./place";
@@ -14,11 +14,12 @@ const DONE = { completed: "npc.done", interrupted: "npc.done.interrupted", faile
 
 /** The NPC layer over a DM: an RPG dialogue beside the cat in four looks — a thought bubble for thinking, a murmur for
  * the model's own text, a named speech box for messages, a pill for tools and the end of a turn — opening into a live
- * panel of every step. `toolbar` is the prototype's (`?npc=demo`); `onPanel` closes the panel from it. */
-export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar }: {
+ * panel of every step. `toolbar` is the prototype's (`?npc=demo`); `onPanel` closes the panel from it. With `onHint`,
+ * where to answer a question is a button that goes there. */
+export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar, onHint }: {
   view: NpcView; name: string; cat: RefObject<HTMLElement | null>; area: RefObject<HTMLElement | null>; avoid: RefObject<HTMLElement | null>;
   layout: MutableRefObject<(() => void) | null>; facing: () => number;
-  toolbar?: (bar: RefObject<HTMLDivElement | null>, closePanel: () => void) => ReactNode;
+  toolbar?: (bar: RefObject<HTMLDivElement | null>, closePanel: () => void) => ReactNode; onHint?: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null), bar = useRef<HTMLDivElement>(null), [open, setOpen] = useState(false), [, tick] = useState(0);
   useLayoutEffect(() => {
@@ -45,6 +46,14 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
   // While the pointer is on the dialogue or its text is scrolled back, it keeps the step it shows: the
   // step still updates, the next one waits.
   const [hover, setHover] = useState(false), [reading, setReading] = useState(false), [pin, setPin] = useState<string | null>(null);
+  // The box can shrink away from a pointer that stays still (the panel closing), which then gets no leave: the next
+  // move outside it ends the hover.
+  useEffect(() => {
+    if (!hover) return;
+    const move = (event: PointerEvent) => { if (!box.current?.contains(event.target as Node)) setHover(false); };
+    document.addEventListener("pointermove", move);
+    return () => document.removeEventListener("pointermove", move);
+  }, [hover]);
   const holding = hover || reading;
   useEffect(() => { setPin(holding ? view.shown?.id ?? null : null); }, [holding]);
   const shown = (pin && view.steps.find(step => step.id === pin)) || view.shown, look = shown ? shown.look : view.done ? "action" : null;
@@ -85,7 +94,9 @@ export function NpcLayer({ view, name, cat, area, avoid, layout, facing, toolbar
         {asking && view.answer && shown.options?.some(option => option.value) && <div className="jv-npc-options">
           {shown.options.map(option => <button key={option.label} type="button" onClick={() => view.answer!(option.value!)}>{option.label}</button>)}
         </div>}
-        {asking && !view.answer && shown.hint && <p className="jv-npc-hint">{shown.hint}</p>}
+        {asking && !view.answer && shown.hint && (onHint
+          ? <button type="button" className="jv-npc-hint" onClick={onHint}>{shown.hint}<ArrowUpRightIcon aria-hidden="true"/></button>
+          : <p className="jv-npc-hint">{shown.hint}</p>)}
       </>}
     </div>
   </>;

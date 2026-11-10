@@ -2,7 +2,6 @@
 .jarvy-loading { height: 100dvh; display: grid; place-items: center; font: 14px/1.5 sans-serif; color: #555; }
 [data-slot="dialog-content"], [data-slot="card"] { border-color: var(--border); }
 [data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; }
-.ui-sidebar-footer .ui-footer-entry > .ui-icon { width: 12px; height: 12px; margin-left: auto; color: var(--ui-text-tertiary); }
 .jarvy-sidebar-create { position: relative; }
 .jarvy-create-menu { position: absolute; top: 36px; left: calc(100% + 6px); right: auto; z-index: 15; background: var(--ui-bg-base); }
 .jarvy-create-menu .ui-menu-item .jv-bot-avatar { margin-right: 2px; }
@@ -42,7 +41,8 @@
 /* Dragging files over the composer: the hint sits inside the input, over its content. */
 .jarvy-drop-hint { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: inherit; background: var(--ui-bg-base);
   font-size: 13px; color: var(--ui-text-secondary); pointer-events: none; }
-.jarvy-account-menu { bottom: 62px; left: 12px; top: auto; z-index: 50; }
+/* Beside the rail's account button (A87); on a phone above the tab bar (home.css). */
+.jarvy-account-menu { bottom: 12px; left: calc(var(--ui-rail) + 8px); right: auto; top: auto; z-index: 50; }
 .jarvy-account-menu .ui-menu-item { gap: 9px; }
 .jarvy-account-menu .ui-menu-note { padding: 8px 9px; }
 .jarvy-model-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }

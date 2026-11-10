@@ -18,10 +18,15 @@ export function useMarkRead({ ready, selected, messages, chats, chatList, setCha
       const open = chatList.current.find(chat => chat.id === id);
       // Reading also counts as having seen the chat's hints (A41): marks on your messages, new notice versions.
       if (document.visibilityState !== "visible" || ((open?.readSequence ?? 0) >= last.sequence && !open?.hint && !open?.alerts)) return;
-      setChats(previous => previous.map(chat => chat.id === id ? { ...chat, readSequence: Math.max(chat.readSequence, last.sequence), unread: 0, mentions: 0, alerts: 0, atMe: false, hint: null } : chat));
-      void api.markRead(id, last.sequence).catch(onError);
+      readUpTo(setChats, id, last.sequence, onError);
     };
     mark(); document.addEventListener("visibilitychange", mark);
     return () => document.removeEventListener("visibilitychange", mark);
   }, [messages, selected, ready, open?.readSequence, open?.alerts, open?.hint]);
+}
+
+/** Moves a chat's read position to `sequence`: its row's counts and hints clear at once, the server is told after. */
+export function readUpTo(setChats: Dispatch<SetStateAction<Chat[]>>, id: string, sequence: number, onError: (error: unknown) => void) {
+  setChats(previous => previous.map(chat => chat.id === id ? { ...chat, readSequence: Math.max(chat.readSequence, sequence), unread: 0, mentions: 0, alerts: 0, atMe: false, hint: null } : chat));
+  void api.markRead(id, sequence).catch(onError);
 }

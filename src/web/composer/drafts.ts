@@ -72,6 +72,8 @@ export class DraftStore {
 }
 
 export const draftKey = (username: string) => `jarvy-drafts:${username}`;
+/** A send key: the server keeps one message for a key, so a send retried with it is not a second message. */
+export const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
 /** Quoting a message puts it in its chat's draft. */
 export function quoteMessage(store: DraftStore, message: ChatMessage, members: Member[]) {
   store.update(message.chatId, { quote: { id: message.id, name: memberName(members.find(member => member.id === message.senderId)), text: quotedText(message).replace(/\s+/g, " ").slice(0, 160) } });
