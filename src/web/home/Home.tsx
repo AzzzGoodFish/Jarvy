@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Bot, BotStatus } from "../../contract/bots";
-import type { Chat, ChatMessage } from "../../contract/chat";
+import type { Attachment, Chat, ChatMessage, Member } from "../../contract/chat";
+import type { DraftStore } from "../composer/drafts";
 import type { BotMood } from "../../contract/models";
 import { BotAvatar } from "../avatar/BotAvatar";
 import { FigureMark, motionOf } from "../avatar/FloatingBot";
@@ -24,10 +25,11 @@ const RIGHT = () => 1;
  * detail —; under it the light chat. What it has for you is marked over its head (`call`), and a click on the cat deals
  * with it: a reply opens the light chat, a question the DM where it is answered, a failure says what failed (dizzy until
  * then). Otherwise a click brings the last turn's line back once it has faded, or opens Bot info. */
-export function Home({ bot, chat, status, figure, call, onSeen, meId, live, onOpenDm, onBotInfo, ensureDm, onRead, onError }: {
+export function Home({ bot, chat, status, figure, call, onSeen, meId, members, drafts, live, onOpenDm, onBotInfo, ensureDm, onRead, onPreview, onNotice, onError }: {
   bot: Bot; chat: Chat | undefined; status: BotStatus | undefined; figure: { stage: FigureStage; live: boolean };
-  call: Call | null; onSeen: () => void; meId: string; live: LiveHub;
-  onOpenDm: () => void; onBotInfo: () => void; ensureDm: () => Promise<Chat>; onRead: (chat: Chat, sequence: number) => void; onError: (error: unknown) => void;
+  call: Call | null; onSeen: () => void; meId: string; members: Member[]; drafts: DraftStore; live: LiveHub;
+  onOpenDm: () => void; onBotInfo: () => void; ensureDm: () => Promise<Chat>; onRead: (chat: Chat, sequence: number) => void;
+  onPreview: (files: Attachment[], index: number) => void; onNotice: (text: string) => void; onError: (error: unknown) => void;
 }) {
   const area = useRef<HTMLElement>(null), cat = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null), dock = useRef<HTMLDivElement>(null);
   const layout = useRef<(() => void) | null>(null), opener = useRef<(() => void) | null>(null), [mine, setMine] = useState<string>();
@@ -77,8 +79,8 @@ export function Home({ bot, chat, status, figure, call, onSeen, meId, live, onOp
       <p className="sr-only" role="status">{state === "idle" ? "" : t(state === "error" ? "activity.error" : state === "running" ? "activity.running" : "activity.stopped")}</p>
     </div>
     <NpcLayer view={view} name={bot.name} cat={cat} area={area} avoid={dock} layout={layout} facing={RIGHT} onHint={onOpenDm}/>
-    <Dock bot={bot} chat={chat} meId={meId} live={live} speaking={state === "running" || !!view.shown || !!view.done} dockRef={dock} opener={opener}
-      onOpenDm={onOpenDm} ensureDm={ensureDm} onRead={onRead} onSent={(message: ChatMessage) => setMine(message.id)} onError={onError}/>
+    <Dock bot={bot} chat={chat} meId={meId} members={members} drafts={drafts} live={live} dockRef={dock} opener={opener}
+      onOpenDm={onOpenDm} ensureDm={ensureDm} onRead={onRead} onSent={(message: ChatMessage) => setMine(message.id)} onPreview={onPreview} onNotice={onNotice} onError={onError}/>
   </section>;
 }
 

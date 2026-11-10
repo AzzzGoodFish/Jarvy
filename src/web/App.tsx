@@ -453,9 +453,9 @@ export function App() {
         onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
         onChannelSaved={chatSaved} onThreadChanged={threadChanged} onInvite={invite} onPreview={(files, index) => setPreview({ files, index })}
         onNotice={setNotice} onError={handleError} paneWidth={paneWidth} onResize={startResize}/>
-      {home && <Home bot={agent} chat={agentDm} status={agentStatus} figure={agentFigure} call={agentCall.call} onSeen={agentCall.seen} meId={meId} live={live} onOpenDm={() => void openBot(agent.id)}
+      {home && <Home bot={agent} chat={agentDm} status={agentStatus} figure={agentFigure} call={agentCall.call} onSeen={agentCall.seen} meId={meId} members={members} drafts={drafts} live={live} onOpenDm={() => void openBot(agent.id)}
         onBotInfo={() => setInfoBotId(agent.id)} ensureDm={async () => { const chat = await api.createChat(agent.id); chatSaved(chat); return chat; }}
-        onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onError={handleError}/>}
+        onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onPreview={(files, index) => setPreview({ files, index })} onNotice={setNotice} onError={handleError}/>}
     </div>
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
