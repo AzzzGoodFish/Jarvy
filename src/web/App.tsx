@@ -9,7 +9,7 @@ import { AppSidebar } from "./AppSidebar";
 import { ChatMain } from "./ChatMain";
 import { SidePane } from "./SidePane";
 import { ThreadEvents } from "./thread/followed";
-import { SettingsDialog, type SettingsOpen } from "./Settings";
+import { SettingsDialog, type SettingsTab } from "./Settings";
 import { hintThread } from "./sidebar/Sidebar";
 import { findMentions } from "../contract/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
@@ -22,6 +22,7 @@ import { Rail, type View } from "./home/Rail";
 import { Home } from "./home/Home";
 import { useAgentFigure } from "./home/figure";
 import { useCall } from "./home/call";
+import { Environments } from "./environment/Environments";
 import { motionOf } from "./avatar/FloatingBot";
 import { Login } from "./Login";
 import { applyTheme } from "./ui";
@@ -61,7 +62,7 @@ export function App() {
   const [focusedBotId, setFocusedBotId] = useState<string | null>(null);
   const [infoBotId, setInfoBotId] = useState<string | null>(null);
   const [connections, setConnections] = useState<ModelConnection[]>([]);
-  const [settingsTab, setSettingsTab] = useState<SettingsOpen | null>(null);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [accountMenu, setAccountMenu] = useState(false);
   const [createMenu, setCreateMenu] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -69,7 +70,9 @@ export function App() {
   const [creating, setCreating] = useState(false);
   const [pane, setPane] = useState<Pane | null>(null);
   /** The agent Bot's page or the chats (A87), remembered in this browser. */
-  const [view, setView] = useState<View>(() => localStorage.getItem("jarvy-view") === "home" ? "home" : "chats");
+  const [view, setView] = useState<View>(() => { const kept = localStorage.getItem("jarvy-view"); return kept === "home" || kept === "envs" ? kept : "chats"; });
+  /** The Environments page's form to add a machine is open (A89). */
+  const [addingMachine, setAddingMachine] = useState(false);
   useEffect(() => { localStorage.setItem("jarvy-view", view); }, [view]);
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
@@ -114,8 +117,9 @@ export function App() {
   }
   useEffect(() => { if (phase === "ready" && statusBotId) void readStatus(statusBotId).catch(handleError); }, [phase, statusBotId]);
   const agent = bots.find(bot => bot.agent), agentStatus = agent ? statuses[agent.id] : undefined;
-  const agentDm = chats.find(chat => chat.type === "dm" && chat.botId === agent?.id), home = view === "home" && !!agent;
-  const homeRef = useRef(home); homeRef.current = home;
+  const agentDm = chats.find(chat => chat.type === "dm" && chat.botId === agent?.id), home = view === "home" && !!agent, envs = view === "envs";
+  // The chats aren't on screen: the agent Bot's page or the environments cover them.
+  const away = home || envs, awayRef = useRef(away); awayRef.current = away;
   const agentCall = useCall(agentStatus, agentDm), agentFigure = useAgentFigure(agent, agentStatus, agentCall.call === "error");
   // The rail's cat and the home page show what the agent Bot is doing, whatever is open.
   useEffect(() => { if (phase === "ready" && agent) void readStatus(agent.id).catch(handleError); }, [phase, agent?.id]);
@@ -196,16 +200,16 @@ export function App() {
         const { botId, status, bot } = JSON.parse(event.data) as LiveBot;
         statusVersions.current.set(botId, (statusVersions.current.get(botId) ?? 0) + 1);
         setStatuses(previous => ({ ...previous, [botId]: status }));
-        // Said for the open DM's Bot; on the home page the agent Bot's own figure says it (A87).
-        if (status.error && !homeRef.current && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
+        // Said for the open DM's Bot when the chats are on screen; on the home page the agent Bot's own figure says it (A87).
+        if (status.error && !awayRef.current && chatListRef.current.find(chat => chat.id === selectedRef.current)?.botId === status.botId) setNotice(statusError(status));
         // Done with a turn, it comes with itself: it may have changed its name, model or computer meanwhile.
         if (bot) setBots(previous => previous.map(item => item.id === bot.id ? bot : item));
       },
     }, () => { void api.me().catch(error => { if (alive && error instanceof ApiError && error.status === 401) setPhase("login"); }); });
     return () => { alive = false; stop(); history.cancel(); chatRequest.current++; };
   }, [phase]);
-  // Only an open chat that is on screen is read: not while the home page covers it.
-  useMarkRead({ ready: phase === "ready" && !home, selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
+  // Only an open chat that is on screen is read: not while the home page or the environments cover it.
+  useMarkRead({ ready: phase === "ready" && !away, selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
   useTabBadge(phase === "ready" ? chats.reduce((sum, chat) => sum + chat.alerts, 0) : 0);
   useEffect(() => {
     if (!notice) return;
@@ -421,9 +425,9 @@ export function App() {
   const working = new Set(Object.values(statuses).filter(item => item.status === "running" && item.activity !== "asking").map(item => item.botId));
   const asking = new Set(Object.values(statuses).filter(item => item.activity === "asking").map(item => item.botId));
   return <>
-    <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full && !home ? "" : undefined} data-view={home ? "home" : undefined}
+    <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full && !away ? "" : undefined} data-view={home ? "home" : envs ? "envs" : undefined}
       style={{ ["--ui-pane" as string]: `${paneWidth}px` }}>
-      <Rail view={home ? "home" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} asleep={motionOf(agentStatus).motion === "sleep"} alerts={chats.reduce((sum, chat) => sum + (chat.id === agentDm?.id ? 0 : chat.alerts), 0)} username={username}
+      <Rail view={home ? "home" : envs ? "envs" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} asleep={motionOf(agentStatus).motion === "sleep"} alerts={chats.reduce((sum, chat) => sum + (chat.id === agentDm?.id ? 0 : chat.alerts), 0)} username={username}
         // On a phone the chats tab opens the chat list over the open chat; the list's own rows then open a chat.
         onView={next => { setView(next); setMobileNav(next === "chats" && window.matchMedia("(max-width: 620px)").matches); setAccountMenu(false); }}
         accountMenu={accountMenu} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}
@@ -446,7 +450,7 @@ export function App() {
         onPreview={(files, index) => setPreview({ files, index })} onSend={sendMain} notice={setNotice}
         onSaveNote={async text => { try { chatSaved(await api.setNote(current!.id, text)); } catch (error) { handleError(error); throw error; } }}
         createBot={() => void createBot()} creating={creating} updateBot={updateBot} onManageModels={() => setSettingsTab("models")} error={handleError}
-        chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView || home}
+        chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView || away}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
       <SidePane pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
         meId={meId} drafts={drafts} changes={changes} live={live} memory={memory} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
@@ -457,11 +461,12 @@ export function App() {
       {home && <Home bot={agent} chat={agentDm} status={agentStatus} figure={agentFigure} call={agentCall.call} onSeen={agentCall.seen} meId={meId} members={members} drafts={drafts} live={live} onOpenDm={() => void openBot(agent.id)}
         onBotInfo={() => setInfoBotId(agent.id)} ensureDm={async () => { const chat = await api.createChat(agent.id); chatSaved(chat); return chat; }}
         onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onPreview={(files, index) => setPreview({ files, index })} onNotice={setNotice} onError={handleError}/>}
+      {envs && <Environments bots={bots} statuses={statuses} adding={addingMachine} onAdding={setAddingMachine} onSaved={updateBot}/>}
     </div>
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
       sections={sections} members={members} connections={connections} meId={meId}
-      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setSettingsTab}
+      onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setSettingsTab} onAddMachine={() => { setView("envs"); setAddingMachine(true); setMobileNav(false); }}
       onChannelInfo={chat => { openChat(chat); setPane({ kind: "info", page: "main" }); }}
       onOpenChatId={id => { setSelected(id); setMobileNav(false); }}
       chatSaved={chatSaved} openChat={openChat}

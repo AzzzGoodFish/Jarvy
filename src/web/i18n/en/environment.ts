@@ -6,6 +6,10 @@ export const environment = {
   "environment.image": "Image",
   "environment.mount": "Workspace mount",
   "environment.external": "External environments",
+  // The Environments page (A89).
+  "envs.sandboxOf": "{name}'s sandbox",
+  "envs.back": "All environments",
+  "envs.workingHere": { one: "{names} is working here", other: "{names} are working here" },
   "environment.state.preparing": "Preparing",
   "environment.state.running": "Running",
   "environment.state.stopped": "Stopped",

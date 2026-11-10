@@ -3,6 +3,7 @@ export const chat = {
   // The rail and the agent Bot's page (A87).
   "rail.label": "Navigation",
   "rail.chats": "Chats",
+  "rail.environments": "Environments",
   "home.talk": "Talk to {name}",
   "home.recent": "Recent messages",
   "home.openDm": "Open the DM",

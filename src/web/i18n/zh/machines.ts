@@ -3,9 +3,7 @@ import type { machines as en } from "../en/machines";
 
 /** 中文：通过 SSH 添加的机器 (A57)。 */
 export const machines: Part<typeof en> = {
-  "settings.machines": "工作环境",
   "machines.add": "添加机器",
-  "machines.empty": "还没有机器",
   "machines.host": "地址",
   "machines.hostPlaceholder": "192.168.1.20 或 dev.example.com",
   "machines.port": "端口",
@@ -55,7 +53,7 @@ export const machines: Part<typeof en> = {
   "machines.forceBody": "Jarvy 的密钥会留在这台机器的 ~/.ssh/authorized_keys 里（以 {comment} 结尾的那一行），之后可以手动移除。仍要删除吗？",
   "machines.forceConfirm": "仍然删除",
   "machineCard.title": "请求添加机器 {name}",
-  "machineCard.existing": "这台机器已在「设置 › 工作环境」中。",
+  "machineCard.existing": "这台机器已在「环境」中。",
   "machineCard.add": "连接并添加",
   "machineCard.allow": "允许",
   "machineCard.decline": "拒绝",

@@ -8,7 +8,7 @@ import { EntryMenu, type MenuTarget } from "./sidebar/EntryMenu";
 import { FileViewer } from "./files/FileViewer";
 import { liveMembers } from "./members";
 import { t } from "./i18n";
-import type { SettingsOpen } from "./Settings";
+import type { SettingsTab } from "./Settings";
 
 export type Dialog = { kind: "channel" } | { kind: "members"; chat: Chat } | { kind: "section"; section?: Section } | null;
 export type Menu = { target: MenuTarget; at: { x: number; y: number } } | null;
@@ -17,7 +17,7 @@ export type Confirm = { kind: "chat"; chat: Chat } | { kind: "bot"; bot: Bot } |
 /** App's dialogs and popovers over everything: new channel, add members, channel groups, the sidebar row's menu, the
  * two delete confirmations, Bot info and the file viewer. App owns which one is open. */
 export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots, statuses, chats, sections, members, connections, meId,
-  onDialog, onEntryMenu, onConfirm, onPreview, onInfoBot, onSettings, onChannelInfo, onOpenChatId, chatSaved, openChat, onSectionSaved, onSectionDeleted,
+  onDialog, onEntryMenu, onConfirm, onPreview, onInfoBot, onSettings, onAddMachine, onChannelInfo, onOpenChatId, chatSaved, openChat, onSectionSaved, onSectionDeleted,
   updateBot, openAnywhere, removeChannel, deleteBot, pinChat, muteChat }: {
   dialog: Dialog; entryMenu: Menu; confirm: Confirm; preview: { files: Attachment[]; index: number } | null;
   infoBot: Bot | undefined; bots: Bot[]; statuses: Record<string, BotStatus>; chats: Chat[]; sections: Section[]; members: Member[];
@@ -28,8 +28,10 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
   onChannelInfo: (chat: Chat) => void;
   /** Bot info's chat list opens a chat in the main area. */
   onOpenChatId: (id: string) => void;
-  /** Bot info opens Settings: 管理模型 the model page, 添加机器 the form to add a machine. */
-  onSettings: (open: SettingsOpen) => void;
+  /** Bot info opens Settings: 管理模型 the model page, 新建密钥 the secrets. */
+  onSettings: (open: SettingsTab) => void;
+  /** Bot info's 添加机器: the Environments page, with its form to add a machine (A89). */
+  onAddMachine: () => void;
   chatSaved: (chat: Chat) => void; openChat: (chat: Chat) => void;
   onSectionSaved: (section: Section) => void; onSectionDeleted: (id: string) => void;
   updateBot: (bot: Bot) => void; openAnywhere: (chat: Chat) => void;
@@ -52,7 +54,7 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
       onClose={() => onConfirm(null)} onConfirm={async deleteFiles => { await deleteBot(confirm.bot, deleteFiles); onConfirm(null); }}/>}
     {infoBot && <BotInfo key={infoBot.id} bot={infoBot} status={statuses[infoBot.id]} connections={connections} chats={chats} onSaved={updateBot}
       onOpenChat={id => { onInfoBot(null); onOpenChatId(id); }} onOpenSubscription={openAnywhere}
-      onManageModels={() => { onInfoBot(null); onSettings("models"); }} onManageSecrets={() => { onInfoBot(null); onSettings("secrets"); }} onAddMachine={() => { onInfoBot(null); onSettings("addMachine"); }} onClose={() => onInfoBot(null)}/>}
+      onManageModels={() => { onInfoBot(null); onSettings("models"); }} onManageSecrets={() => { onInfoBot(null); onSettings("secrets"); }} onAddMachine={() => { onInfoBot(null); onAddMachine(); }} onClose={() => onInfoBot(null)}/>}
     {preview && <FileViewer files={preview.files} initialIndex={preview.index} onClose={() => onPreview(null)}/>}
   </>;
 }

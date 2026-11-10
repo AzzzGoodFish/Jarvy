@@ -1,53 +1,18 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { PlusIcon } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { ApiError, api } from "../api";
-import { type Bot } from "../../contract/bots";
 import { type HostKeys, type SshMachine } from "../../contract/environment";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
-import { errorText } from "../errors";
 import { useAction } from "../action";
 import { SecretInput } from "../secrets/SecretInput";
-import { MachineItem } from "./MachineItem";
 import { MachineKeyLine, usePreparedKey, type MachineLogin } from "./MachineKey";
-import "../styles/secrets.css";
-import "../styles/machines.css";
 
-/** Settings → Environments (A57, A59): machines added over SSH, each granted to the Bots that may switch to it. Adding
- * one takes two steps: where it is, then its fingerprint to check and how Jarvy gets in — the password, which installs
- * Jarvy's key, or Jarvy's public key that the owner adds to the machine themselves. The computer running Jarvy is
- * added the same way when Bots should work there (A68). */
-export function MachineSettings({ adding: startAdding = false }: { adding?: boolean }) {
-  const [machines, setMachines] = useState<SshMachine[] | null>(null);
-  const [bots, setBots] = useState<Bot[]>([]);
-  const [adding, setAdding] = useState(startAdding);
-  const [open, setOpen] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    void api.machines().then(view => setMachines(view.machines)).catch(reason => setError(errorText(reason)));
-    void api.bots().then(result => setBots(result.bots)).catch(() => setBots([]));
-  }, []);
-  const changed = (machine: SshMachine) => setMachines(list => list && list.map(item => item.id === machine.id ? machine : item));
-  return <div className="jv-page">
-    <header className="jv-page-header"><h2>{t("settings.machines")}</h2>
-      {!adding && <Button className="jv-primary" onClick={() => setAdding(true)}><PlusIcon/>{t("machines.add")}</Button>}</header>
-    {adding && <MachineForm onCancel={() => setAdding(false)} onSaved={machine => {
-      setAdding(false); setMachines(list => [...(list ?? []), machine]); setOpen(machine.id);
-    }}/>}
-    {machines && !machines.length && !adding && <div className="jv-empty"><strong>{t("machines.empty")}</strong></div>}
-    {machines && machines.length > 0 && <section className="jv-section" aria-label={t("settings.machines")}><div className="jv-list">
-      {machines.map(machine => <MachineItem key={machine.id} machine={machine} bots={bots} open={open === machine.id}
-        onToggle={() => setOpen(open === machine.id ? null : machine.id)} onChanged={changed}
-        onDeleted={() => { setOpen(null); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>)}
-    </div></section>}
-    {error && <p className="jv-note-error" role="alert">{error}</p>}
-  </div>;
-}
-
-/** A new machine: where it is first; then, once scanned, the fingerprint to check and the password or Jarvy's key. */
-function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (machine: SshMachine) => void }) {
+/** A new machine on the Environments page (A57, A59, A68): where it is first; then, once scanned, the fingerprint to
+ * check and how Jarvy gets in — the password, which installs Jarvy's key, or Jarvy's public key that the owner adds to
+ * the machine themselves. The computer running Jarvy is added the same way when Bots should work there. */
+export function MachineForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (machine: SshMachine) => void }) {
   const [host, setHost] = useState(""), [port, setPort] = useState("22"), [user, setUser] = useState(""), [name, setName] = useState(""), [directory, setDirectory] = useState(""), [description, setDescription] = useState("");
   const [hostKeys, setHostKeys] = useState<HostKeys | null>(null);
   const [password, setPassword] = useState(""), [visible, setVisible] = useState(false), [login, setLogin] = useState<MachineLogin>("password");

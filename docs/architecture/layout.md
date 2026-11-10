@@ -17,7 +17,8 @@ src/
       avatar/               the Bot figure (face.ts, one shader for every size; pose.ts, motion.ts, acts.ts; stage.ts, one figure on several canvases), its DM layer (npc/) and colours
       action.ts             useAction(): a request in flight and its worded error, for any component that sends one
       question/RequestCard  the panel a secret or SSH machine request shows in (and its masked field)
-      secrets/SettingsItem  an expandable settings row with in-place delete (secrets, SSH machines)
+      environment/          Bot info's sandbox section and the Environments page: sandboxes and SSH machines (A89)
+      secrets/SettingsItem  an expandable settings row with in-place delete (secrets)
       secrets/Grants        a grant list kept like a channel's members: the granted ones with remove, Add opening a search (Settings, Bot info › 授权)
   server/
     api/

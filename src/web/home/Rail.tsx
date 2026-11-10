@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, SquareTerminal } from "lucide-react";
 import type { Bot } from "../../contract/bots";
 import { BotAvatar } from "../avatar/BotAvatar";
 import type { FigureStage } from "../avatar/stage";
@@ -8,13 +8,13 @@ import { CallMark, type Call } from "./call";
 import { t } from "../i18n";
 import "../styles/home.css";
 
-/** What the main area shows (A87): the agent Bot's page, or the chats with their list. */
-export type View = "home" | "chats";
+/** What the main area shows (A87): the agent Bot's page, the chats with their list, or the environments (A89). */
+export type View = "home" | "chats" | "envs";
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The rail (A87): the agent Bot's page, its button the Bot's live figure with the mark of what it has for you (`call`);
- * the chats, marked while something else waits for you there; the account at the bottom, with its menu. On a phone it is a tab bar along the bottom, over the home page and the
- * open chat list. */
+ * the chats, marked while something else waits for you there; the environments (A89); the account at the bottom, with
+ * its menu. On a phone it is a tab bar along the bottom, over the home page, the open chat list and the environments. */
 export function Rail({ view, onView, agent, figure, call, asleep, alerts, username, accountMenu, onToggleAccount, onSettings, onToggleTheme, onLogOut }: {
   view: View; onView: (view: View) => void; agent: Bot | undefined; figure: { stage: FigureStage; live: boolean }; call: Call | null;
   /** Stopped: the still avatar, where the figure isn't live, sleeps as the live one would (A88). */
@@ -55,6 +55,10 @@ export function Rail({ view, onView, agent, figure, call, asleep, alerts, userna
           <MessageCircle aria-hidden="true"/>
           {alerts > 0 && <span className="jv-rail-dot" role="status" aria-label={t("sidebar.alerts", { count: alerts })}/>}
           <span className="jv-rail-label">{t("rail.chats")}</span>
+        </button>
+        <button type="button" className="jv-rail-item" aria-current={view === "envs" ? "page" : undefined} title={t("rail.environments")} onClick={() => onView("envs")}>
+          <SquareTerminal aria-hidden="true"/>
+          <span className="jv-rail-label">{t("rail.environments")}</span>
         </button>
       </div>
       <button ref={accountButton} type="button" className="jv-rail-item jv-rail-account" aria-label={t("account.menuFor", { name: username })} title={username}

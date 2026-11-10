@@ -9,7 +9,8 @@ import { SandboxLimits } from "./SandboxLimits";
 import { SandboxType } from "./SandboxType";
 import "../styles/environment.css";
 
-const STATE = {
+/** A sandbox's state, in words. */
+export const STATE = {
   preparing: "environment.state.preparing", running: "environment.state.running", stopped: "environment.state.stopped",
   failed: "environment.state.failed", unavailable: "environment.state.unavailable",
 } as const;
@@ -22,7 +23,10 @@ const unusable = (error: string | undefined): DockerProblemReason =>
  * A85), the container, image and mount it is made of, its resource limits or a VM's size and usage (A75), Start or Stop
  * and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it switched to a machine. The
  * machines it may use are on the 授权 tab (BotAccess). */
-export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot) => void }) {
+export function BotEnvironment({ bot, onSaved, heading = true }: { bot: Bot; onSaved: (bot: Bot) => void;
+  /** Off on the Environments page, whose header already names the sandbox (A89). */
+  heading?: boolean;
+}) {
   const { doing: busy, error, run: perform } = useAction<"start" | "stop" | "reset" | "restart">();
   /** Stopping, restarting and resetting are destructive: each asks in place first. */
   const [confirming, setConfirming] = useState<"stop" | "reset" | "restart" | null>(null);
@@ -31,7 +35,7 @@ export function BotEnvironment({ bot, onSaved }: { bot: Bot; onSaved: (bot: Bot)
   const run = (what: "start" | "stop" | "reset" | "restart") => void act(what, () => api.computer(bot.id, what), "common.failed");
   const state = computer?.state, vm = computer?.type === "vm";
   const label = state ? STATE[state] : null;
-  return <section className="jv-section" aria-label={t("environment.title")}><h3 className="jv-section-title">{t("environment.title")}</h3>
+  return <section className="jv-section" aria-label={t("environment.title")}>{heading && <h3 className="jv-section-title">{t("environment.title")}</h3>}
     {computer && state && label && <div className="jv-list jv-env-sandbox">
       <div className="jv-list-row jv-static-row">
         <span className="jv-row-text"><strong>{t("environment.own")}</strong>
