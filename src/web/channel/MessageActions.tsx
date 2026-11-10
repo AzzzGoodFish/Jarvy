@@ -40,6 +40,7 @@ export function MessageActions({ message, me, onReply, onReact, onError }: {
   onReact: (message: ChatMessage, emoji: string, on: boolean) => void; onError: (error: unknown) => void;
 }) {
   const [open, setOpen] = useState(false), [up, setUp] = useState(false), [toRight, setToRight] = useState(false), box = useRef<HTMLDivElement>(null);
+  const [over, setOver] = useState<{ top: number; left: number } | null>(null);
   useEffect(() => {
     if (!open) return;
     const close = (event: globalThis.PointerEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false); };
@@ -53,13 +54,18 @@ export function MessageActions({ message, me, onReply, onReact, onError }: {
   };
   // The panel opens where the scroll area has room for it: upward when the last messages sit just above the composer,
   // and towards the bubble — rightward on your own messages, which sit on the right — unless that side is too narrow.
+  // An area with room neither way (the home page's light chat, a couple of messages high) would cut it off: there it
+  // floats over the page by the button, above it if the window has room. A phone has its own place for it.
   const show = () => {
     const rect = box.current?.getBoundingClientRect(), area = box.current?.closest(".ui-transcript, .ui-pane-body")?.getBoundingClientRect();
     if (rect) {
       const right = (area?.right ?? window.innerWidth) - rect.left, left = rect.right - (area?.left ?? 0);
       const mine = !!box.current?.closest(".ui-user");
-      setUp((area?.bottom ?? window.innerHeight) - rect.bottom < PANEL_HEIGHT);
-      setToRight(mine ? right >= PANEL_WIDTH || right > left : left < PANEL_WIDTH && right > left);
+      const below = (area?.bottom ?? window.innerHeight) - rect.bottom, above = rect.top - (area?.top ?? 0), rightward = mine ? right >= PANEL_WIDTH || right > left : left < PANEL_WIDTH && right > left;
+      setUp(below < PANEL_HEIGHT); setToRight(rightward);
+      setOver(below < PANEL_HEIGHT && above < PANEL_HEIGHT && !matchMedia("(max-width: 640px)").matches ? {
+        top: rect.top > PANEL_HEIGHT + 8 ? rect.top - PANEL_HEIGHT - 4 : Math.min(rect.bottom + 4, window.innerHeight - PANEL_HEIGHT - 8),
+        left: Math.max(8, Math.min(rightward ? rect.left : rect.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - 8)) } : null);
     }
     setOpen(!open);
   };
@@ -67,6 +73,7 @@ export function MessageActions({ message, me, onReply, onReact, onError }: {
     {onReply && <IconButton icon="arrow-u-up-right" label={t("actions.reply")} onClick={() => onReply(message)}/>}
     <IconButton icon="smiley-plus" label={t("actions.react")} aria-expanded={open} onClick={show}/>
     {open && <div className="jv-emoji-menu" role="dialog" aria-label={t("actions.pickEmoji")} data-up={up || undefined} data-right={toRight || undefined}
+      style={over ? { position: "fixed", top: over.top, left: over.left, right: "auto", bottom: "auto" } : undefined}
       onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
       <EmojiPicker onPick={toggle}/>
     </div>}

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { ATTACHMENT_MAX_BYTES, type Member } from "../../contract/chat";
@@ -9,11 +9,11 @@ import { t } from "../i18n";
 import { Icon } from "../ui";
 
 
-/** Message input shared by the main chat and the thread pane: per-chat drafts (text, pending attachments, quote; kept
- * in the account's DraftStore), paste and drag-drop upload (chips above the input with a progress bar; nothing appears
- * below it, so the layout does not jump), @ completion in channels and threads, retry-safe send keys,
- * and growing with its content. */
-export function Composer({ chatId, id, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, onSend, onError, onNotice }: {
+/** Message input shared by the main chat, the thread pane and the home page's light chat: per-chat drafts (text,
+ * pending attachments, quote; kept in the account's DraftStore), paste and drag-drop upload (chips above the input with
+ * a progress bar; nothing appears below it, so the layout does not jump), @ completion in channels and threads,
+ * retry-safe send keys, and growing with its content. */
+export function Composer({ chatId, id, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, extra, onSend, onError, onNotice }: {
   chatId: string; id: string; drafts: DraftStore; placeholder: string; disabled?: boolean;
   /** Channel / thread: who can be @-mentioned; picking someone outside the channel invites them. */
   mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void; participants?: ReadonlySet<string> };
@@ -22,6 +22,8 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   formRef?: RefObject<HTMLFormElement | null>;
   /** The transcript above: its scroll position is kept while the input resizes. */
   scrollRef?: RefObject<HTMLElement | null>;
+  /** A button of the caller's, before the send button (the home page's light chat opens the whole DM with it). */
+  extra?: ReactNode;
   /** Saves the message (`replyTo`: the quoted message; `quotes`: the passages its [[qN]] markers stand for); throwing
    * puts it back in the input with its send key, for a retry. Resolves once the server has it. */
   onSend: (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes?: { messageId: string; text: string }[]) => Promise<void>;
@@ -148,6 +150,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
         onChange={event => { setDraft(event.target.value); if (mention) menu.track(event.target.value); }}
         onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => { if (mention && menu.onKeyDown(event)) return; if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
         onClick={() => { if (mention) menu.track(); }} onBlur={mention ? menu.leaves : undefined}/>
+      {extra}
       <button type="submit" className="ui-round ui-send" aria-label={t("composer.send")} disabled={sending || uploading || disabled || (!draft.trim() && !files.length && !saved.passages.length)}><Icon name="arrow-up"/></button>
     </div>
   </form>;
