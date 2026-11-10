@@ -10,15 +10,15 @@ const SMALL = 64;
  * machine that draws WebGL without a GPU, where each frame keeps several cores busy for a moment, is spared most of it. A
  * larger figure on screen is drawn every frame. */
 const RESTING = 200, LIVELY = 33, SETTLING = 800;
-/** A WebGL figure, or null where one can't be made (no WebGL, or the shader did not build). */
-function make(): Figure | null { try { return makeFigure() ?? null; } catch { return null; } }
+/** A WebGL figure, or null where one can't be made (no WebGL, WebGL drawn without a GPU, or the shader did not build). */
+function make(): Figure | null { try { return makeFigure({ gpu: true }) ?? null; } catch { return null; } }
 
 /** A live figure (A76) drawn every frame: one `Rig` for its motion and one `Persona` for its acts (A86), painted on every
  * canvas added to it. The rail's small cat and the home page's large one are one stage, so they are the same cat at the
  * same moment rather than two that disagree. Each canvas has a WebGL figure of its own, at its own size: one figure
  * painting both sizes would resize its drawing buffer twice a frame, which without a GPU takes a whole core. Drawing
- * pauses while the page is hidden and while none of its canvases is on screen; where the figure can't be drawn (no
- * WebGL) it never starts, and the caller keeps its still avatar. */
+ * pauses while the page is hidden and while none of its canvases is on screen; where the figure can't be drawn live
+ * (no WebGL, or WebGL without a GPU: A88) it never starts, and the caller keeps its still avatar. */
 export class FigureStage {
   readonly persona = new Persona();
   readonly input: FigureInput = { motion: "sleep", mood: "normal", lookX: 0, lookY: 0 };

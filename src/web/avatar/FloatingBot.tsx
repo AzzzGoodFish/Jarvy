@@ -172,8 +172,9 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
     onClick={() => { if (moved.current) { moved.current = false; return; } if (!reduced()) persona.play("poke", performance.now()); if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
     <canvas ref={canvas} aria-hidden="true"/>
-    {!rendering && <BotAvatar color={bot.color} mood={bot.mood} size={88} crown={bot.agent}/>}
-    {rendering && <FigureMark motion={npc.motion}/>}
+    {/* Still (no WebGL, or none on a GPU: A88), it keeps its mood, its sleep and the mark of what it is doing. */}
+    {!rendering && <BotAvatar color={bot.color} mood={npc.mood} size={88} crown={bot.agent} asleep={npc.motion === "sleep"}/>}
+    <FigureMark motion={npc.motion}/>
   </button>
   <NpcLayer view={npc.view} name={bot.name} cat={button} area={area} avoid={avoid} layout={layout} facing={facing}
     toolbar={NPC_DEMO ? (bar, closePanel) => <NpcToolbar controls={demo.controls} toolbar={bar} onReplay={() => { closePanel(); demo.controls.replay(); }}/> : undefined}/></>;

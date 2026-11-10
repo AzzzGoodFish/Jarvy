@@ -21,6 +21,8 @@
 .jv-figure-mark[data-mark="sweat"] ellipse { fill: #fff; }
 .jv-figure-mark[data-mark="sparkle"] { inset: 0; animation: jv-mark-twinkle 1.2s ease-in-out infinite; }
 .jv-figure-mark[data-mark="sparkle"] path { fill: #f5b312; }
+/* Beside a still avatar (no GPU: A88) they come in and then keep still, as the marks over the head do. */
+.jv-floating-bot:not([data-live]) > .jv-figure-mark, [data-still] > .jv-figure-mark { animation: jv-mark-in .25s ease-out both; }
 @keyframes jv-mark-in { from { opacity: 0; transform: scale(.6); } }
 @keyframes jv-mark-drift { 50% { transform: translate(2px, -3px); } }
 @keyframes jv-mark-drip { 70% { opacity: 1; } to { opacity: 0; transform: translateY(6px); } }

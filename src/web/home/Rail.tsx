@@ -15,8 +15,10 @@ const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** The rail (A87): the agent Bot's page, its button the Bot's live figure with the mark of what it has for you (`call`);
  * the chats, marked while something else waits for you there; the account at the bottom, with its menu. On a phone it is a tab bar along the bottom, over the home page and the
  * open chat list. */
-export function Rail({ view, onView, agent, figure, call, alerts, username, accountMenu, onToggleAccount, onSettings, onToggleTheme, onLogOut }: {
+export function Rail({ view, onView, agent, figure, call, asleep, alerts, username, accountMenu, onToggleAccount, onSettings, onToggleTheme, onLogOut }: {
   view: View; onView: (view: View) => void; agent: Bot | undefined; figure: { stage: FigureStage; live: boolean }; call: Call | null;
+  /** Stopped: the still avatar, where the figure isn't live, sleeps as the live one would (A88). */
+  asleep: boolean;
   /** Unread messages for you across the chats (A41), but for the agent Bot's DM: its figure marks those. */
   alerts: number;
   username: string; accountMenu: boolean; onToggleAccount: (open: boolean) => void; onSettings: () => void; onToggleTheme: () => void; onLogOut: () => void;
@@ -38,14 +40,14 @@ export function Rail({ view, onView, agent, figure, call, alerts, username, acco
   return <>
     <nav className="jv-rail" aria-label={t("rail.label")}>
       <div className="jv-rail-top">
-        {agent && <button type="button" className="jv-rail-item jv-rail-agent" aria-current={view === "home" ? "page" : undefined} title={agent.name}
+        {agent && <button type="button" className="jv-rail-item jv-rail-agent" data-still={!figure.live || undefined} aria-current={view === "home" ? "page" : undefined} title={agent.name}
           onPointerEnter={event => {
             if (event.pointerType !== "mouse") return;
             figure.stage.near = true;
             if (!reduced() && !acts.playing) acts.play("look", performance.now());
           }} onPointerLeave={() => { figure.stage.near = false; }}
           onClick={() => { if (!reduced()) acts.play("hop", performance.now()); onView("home"); }}>
-          {figure.live ? <canvas ref={canvas} aria-hidden="true"/> : <BotAvatar color={agent.color} mood={agent.mood} size={30} crown={agent.agent}/>}
+          {figure.live ? <canvas ref={canvas} aria-hidden="true"/> : <BotAvatar color={agent.color} mood={call === "error" ? "dizzy" : agent.mood} size={30} crown={agent.agent} asleep={asleep}/>}
           <CallMark call={call}/>{call && <span className="sr-only">{t(`home.call.${call}`)}</span>}
           <span className="jv-rail-label">{agent.name}</span>
         </button>}

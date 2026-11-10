@@ -233,12 +233,25 @@ export interface Figure {
   dispose(): void;
 }
 
+/** Renderers that draw WebGL on the CPU: Chrome's own fallback, Mesa's, Windows' basic display driver. */
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+/** The renderer's name. Chrome masks the plain one; Firefox gives it, and warns about the extension. */
+function renderer(gl: WebGLRenderingContext): string {
+  const plain = String(gl.getParameter(gl.RENDERER) ?? "");
+  if (plain !== "WebKit WebGL") return plain;
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL) ?? "") : plain;
+}
+
 /** One WebGL figure on its own canvas, painted at any size: the canvas takes the size of each draw, so one context serves
- * every avatar. Paints are synchronous, so callers can read the target straight after. */
-export function makeFigure(): Figure | undefined {
+ * every avatar. Paints are synchronous, so callers can read the target straight after. With `gpu`, none where the
+ * browser draws WebGL on the CPU (no GPU, hardware acceleration off, a blocked driver, a remote desktop): a figure
+ * drawn there every frame keeps several cores busy, where a still image drawn once costs nothing to speak of (A88). */
+export function makeFigure({ gpu = false }: { gpu?: boolean } = {}): Figure | undefined {
   const canvas = document.createElement("canvas");
-  const gl = canvas.getContext("webgl", { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
+  const gl = canvas.getContext("webgl", { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false, failIfMajorPerformanceCaveat: gpu });
   if (!gl) return undefined;
+  if (gpu && SOFTWARE.test(renderer(gl))) { gl.getExtension("WEBGL_lose_context")?.loseContext(); return undefined; }
   const shader = (type: number, src: string) => { const s = gl.createShader(type)!; gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) ?? "shader"); return s; };
   const prog = gl.createProgram()!;
