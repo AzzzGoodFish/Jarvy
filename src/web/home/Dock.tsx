@@ -33,14 +33,17 @@ export function Dock({ bot, chat, meId, live, speaking, dockRef, opener, onOpenD
   /** Opening: the messages on show rise in. After that only a new one does. */
   const entrance = useRef(false), seen = useRef(new Set<string>());
   const chatId = chat?.id;
+  // Read again after a connection that couldn't be told what was missed (A72); what came meanwhile rises in.
+  const [reads, setReads] = useState(0);
+  useEffect(() => { setMessages([]); seen.current.clear(); }, [chatId]);
   useEffect(() => {
-    setMessages([]); seen.current.clear();
     if (!chatId) return;
     let alive = true;
     void api.latestMessages(chatId, LOADED).then(page => { if (alive) setMessages(page.messages); }).catch(onError);
     return () => { alive = false; };
-  }, [chatId]);
+  }, [chatId, reads]);
   useHeard(live, heard => {
+    if (heard.kind === "reconnected") { setReads(count => count + 1); return; }
     if (heard.kind === "chat" || heard.message.chatId !== chatId) return;
     setMessages(previous => (heard.kind === "message" ? addMessage(previous, heard.message) : replaceMessage(previous, heard.message)).slice(-LOADED));
   });
