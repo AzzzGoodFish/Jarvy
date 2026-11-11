@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { HistoryContent, HistoryDetail as Detail, HistoryLink } from "./history-api";
 import { Button } from "./components/ui/button";
 import { formatDate, t } from "./i18n";
-import { formatMarkup, looksLikeMarkup } from "./markup";
+import { markupLines } from "./markup";
 
 export const historyTime = (timestamp: number) => formatDate(timestamp, { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 function Json({ value }: { value: unknown }) { return <pre className="jv-history-json">{JSON.stringify(value, null, 2)}</pre>; }
@@ -25,10 +25,12 @@ function Blocks({ blocks, links, onSelect }: { blocks: HistoryContent[]; links: 
     }
   })}</>;
 }
-/** A record's text: laid out when it is markup, as given when it is prose (markup.ts). */
+/** A record's text: laid out line by line when it is markup, as given when it is prose (markup.ts). Each line is its
+ * own row, moved in by its depth, so what wraps under it wraps at that indent too. */
 function Text({ text }: { text: string }) {
-  const markup = looksLikeMarkup(text);
-  return <pre className="jv-history-text" data-markup={markup || undefined}>{markup ? formatMarkup(text) : text || t("history.empty")}</pre>;
+  const lines = markupLines(text);
+  if (!lines) return <pre className="jv-history-text">{text || t("history.empty")}</pre>;
+  return <div className="jv-history-text jv-history-markup">{lines.map((line, index) => <div key={index} style={{ paddingLeft: `${line.depth * 2}ch` }}>{line.text || "\u00a0"}</div>)}</div>;
 }
 export function HistoryDetail({ detail, onSelect }: { detail: Detail; onSelect: (id: number) => void }) {
   const [view, setView] = useState<"content" | "json">("content");

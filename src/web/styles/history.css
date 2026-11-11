@@ -9,8 +9,9 @@
 .jv-history-block h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 11px; color: var(--jv-muted); font-weight: 400; }
 .jv-history-block h4 strong { color: var(--jv-text); font-size: 12px; font-weight: 500; }
 .jv-history-text { margin: 0; color: var(--jv-text); font: inherit; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-/* Laid out markup (markup.ts): monospace, so its indents line up, a little smaller than prose. */
-.jv-history-text[data-markup] { font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+/* Laid out markup (markup.ts): monospace, so its indents line up, each line moved in by its depth and wrapping there. */
+.jv-history-markup { font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.jv-history-markup > div { white-space: pre-wrap; overflow-wrap: anywhere; }
 .jv-history-json { margin: 0; padding: 12px; border-radius: 5px; background: var(--jv-field); color: var(--jv-text); font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .jv-history-call { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 11px; color: var(--jv-muted); }
 .jv-history-call code { overflow-wrap: anywhere; }
