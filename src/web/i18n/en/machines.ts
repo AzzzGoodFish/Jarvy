@@ -1,8 +1,6 @@
 /** English: machines the owner adds over SSH (A57) — Settings, a Bot's request card and Bot info. A part of the reference dictionary (./index.ts). */
 export const machines = {
-  "settings.machines": "Environments",
   "machines.add": "Add machine",
-  "machines.empty": "No machines yet",
   "machines.host": "Host",
   "machines.hostPlaceholder": "192.168.1.20 or dev.example.com",
   "machines.port": "Port",
@@ -52,7 +50,7 @@ export const machines = {
   "machines.forceBody": "Jarvy's key stays in ~/.ssh/authorized_keys there, on the line ending in {comment}; you can remove it later. Delete anyway?",
   "machines.forceConfirm": "Delete anyway",
   "machineCard.title": "Request to add {name}",
-  "machineCard.existing": "This machine is already in Settings › Environments.",
+  "machineCard.existing": "This machine is already in Environments.",
   "machineCard.add": "Connect and add",
   "machineCard.allow": "Allow",
   "machineCard.decline": "Decline",

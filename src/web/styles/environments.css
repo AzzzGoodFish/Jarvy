@@ -1,0 +1,50 @@
+/* The Environments page (environment/Environments.tsx, A89): every place Bots work on the left, one row each with the
+   Bots working there, the one picked on the right. */
+.jv-envs { display: grid; grid-template-columns: var(--ui-sidebar) minmax(0, 1fr); min-width: 0; min-height: 0; background: var(--ui-bg-base); }
+.jv-envs-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak); }
+.jv-envs-list-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; height: 52px; padding: 0 10px 0 16px; }
+.jv-envs-list-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.jv-envs-scroll { flex: 1; min-height: 0; padding: 0 8px 16px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
+.jv-envs-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 10px 6px 8px; border: 0; border-radius: 9px;
+  background: none; color: var(--ui-text-primary); text-align: left; cursor: pointer; }
+@media (hover: hover) { .jv-envs-row:hover { background: var(--ui-fill-ghost-hover); } }
+.jv-envs-row[aria-current] { background: var(--ui-fill-ghost-selected); }
+.jv-envs-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
+.jv-envs-text { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 1px; }
+.jv-envs-text strong { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.jv-envs-text span { overflow: hidden; font-size: 12px; color: var(--ui-text-tertiary); text-overflow: ellipsis; white-space: nowrap; }
+.jv-envs-icon { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
+.jv-envs-icon svg { width: 15px; height: 15px; }
+/* A sandbox's state at a glance: running green, on its way amber, stopped grey, failed or without Docker red. */
+.jv-envs-state { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ui-text-disabled); }
+.jv-envs-state:not([data-state]) { visibility: hidden; }
+.jv-envs-state[data-state="running"] { background: var(--ui-fill-success, #22c55e); }
+.jv-envs-state[data-state="preparing"] { background: #f59e0b; }
+.jv-envs-state:is([data-state="failed"], [data-state="unavailable"]) { background: var(--ui-fill-danger); }
+/* Who works there now, overlapping. */
+.jv-envs-faces { display: flex; flex: none; align-items: center; }
+.jv-envs-faces > .jv-bot-avatar + .jv-bot-avatar { margin-left: -5px; }
+.jv-envs-more { margin-left: 4px; font-size: 12px; color: var(--ui-text-tertiary); }
+
+.jv-envs-detail { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.jv-envs-head { display: flex; flex: none; align-items: center; gap: 10px; min-width: 0; height: 52px; padding: 0 20px; border-bottom: 1px solid var(--ui-border-weak); }
+.jv-envs-head h2 { overflow: hidden; margin: 0; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.jv-envs-sub { overflow: hidden; font-size: 12px; color: var(--ui-text-tertiary); text-overflow: ellipsis; white-space: nowrap; }
+.jv-envs-back { display: none; flex: none; place-items: center; width: 32px; height: 32px; margin-left: -8px; padding: 0; border: 0; border-radius: 8px;
+  background: none; color: var(--ui-text-secondary); cursor: pointer; }
+.jv-envs-back:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-envs-back svg { width: 20px; height: 20px; }
+.jv-envs-body { display: flex; flex: 1; flex-direction: column; gap: 24px; min-height: 0; padding: 20px 24px 32px; overflow-y: auto; }
+.jv-envs-body > * { width: 100%; max-width: 720px; }
+.jv-envs-here { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--ui-text-secondary); }
+
+/* Phones: the list fills the screen over the tab bar; a pick opens over it, with a way back and without the tab bar. */
+@media (max-width: 620px) {
+  .jv-envs { flex: 1; grid-template-columns: minmax(0, 1fr); }
+  .jv-envs-list { border-right: 0; padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  .jv-envs[data-open] .jv-envs-list, .jv-envs:not([data-open]) .jv-envs-detail { display: none; }
+  .ui-app:has(.jv-envs[data-open]) .jv-rail { display: none; }
+  .jv-envs-back { display: grid; }
+  .jv-envs-head { padding: 0 12px; }
+  .jv-envs-body { padding: 16px 14px max(24px, env(safe-area-inset-bottom)); }
+}

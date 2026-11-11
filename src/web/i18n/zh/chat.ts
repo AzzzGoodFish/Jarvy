@@ -5,6 +5,7 @@ import type { chat as en } from "../en/chat";
 export const chat: Part<typeof en> = {
   "rail.label": "导航",
   "rail.chats": "会话",
+  "rail.environments": "环境",
   "home.talk": "和 {name} 聊天",
   "home.recent": "最近的消息",
   "home.openDm": "在私聊中打开",

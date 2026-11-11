@@ -7,12 +7,11 @@ import { type Secret } from "../../contract/secrets";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Grants } from "../secrets/Grants";
-
-const address = (machine: SshMachine) => `${machine.user}@${machine.host}${machine.port === 22 ? "" : `:${machine.port}`}`;
+import { machineAddress } from "../environment/MachineDetail";
 
 /** Bot info's 授权 tab: the owner's secrets (A52) and SSH machines (A57) this Bot may use, each removable at once, and
  * Add to pick more. The Bot sees all of them, granted or not, and asks for the rest on a card; this is where the owner
- * sees and changes what it has. The grants are the same ones Settings shows per secret and per machine. */
+ * sees and changes what it has. The grants are the same ones Settings shows per secret and the Environments page per machine. */
 export function BotAccess({ bot, onSaved, onManageSecrets, onAddMachine }: {
   bot: Bot; onSaved: (bot: Bot) => void; onManageSecrets: () => void; onAddMachine: () => void;
 }) {
@@ -39,7 +38,7 @@ export function BotAccess({ bot, onSaved, onManageSecrets, onAddMachine }: {
         setSecrets(list => list && list.map(secret => saved.get(secret.id) ?? secret));
       }}/>
     <Grants rows grantedIds={machines.filter(machine => machine.botIds.includes(bot.id)).map(machine => machine.id)}
-      items={machines.map(machine => ({ id: machine.id, name: machine.name, detail: address(machine), icon: <ServerIcon className="jv-grant-icon" aria-hidden="true"/> }))}
+      items={machines.map(machine => ({ id: machine.id, name: machine.name, detail: machineAddress(machine), icon: <ServerIcon className="jv-grant-icon" aria-hidden="true"/> }))}
       texts={{ heading: t("environment.external"), add: t("common.add"), search: t("access.searchMachines"), none: t("access.noMachines"), noMatch: t("access.noMatch"), all: t("access.allMachines"),
         nothing: <><span>{t("access.noMachinesYet")}</span><Button type="button" variant="outline" size="sm" onClick={onAddMachine}><PlusIcon/>{t("machines.add")}</Button></> }}
       onGrant={async (ids, granted) => {
