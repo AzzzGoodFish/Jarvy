@@ -79,6 +79,25 @@ export class ThreadRepository {
     const old = this.db.prepare("SELECT title,status FROM chats WHERE id=?").get(threadId) as { title: string; status: "open" | "done" };
     this.db.prepare("UPDATE chats SET title=?,status=?,updated_at=? WHERE id=?").run(change.title ?? old.title, change.status ?? old.status, Date.now(), threadId);
   }
+  /** Whether a member takes part in a thread (A90): wrote its root or a reply, or was @-mentioned in one. */
+  participates(threadId: string, memberId: string): boolean {
+    return !!this.db.prepare(`SELECT 1 FROM chats c WHERE c.id=:thread AND (
+        EXISTS(SELECT 1 FROM messages WHERE id=c.root_message_id AND sender_id=:member)
+        OR EXISTS(SELECT 1 FROM message_mentions WHERE message_id=c.root_message_id AND member_id=:member)
+        OR EXISTS(SELECT 1 FROM messages WHERE chat_id=c.id AND sender_id=:member)
+        OR EXISTS(SELECT 1 FROM message_mentions mm JOIN messages m ON m.id=mm.message_id WHERE m.chat_id=c.id AND mm.member_id=:member))`)
+      .get({ thread: threadId, member: memberId });
+  }
+  /** Everyone taking part in a thread, in the order they first did. */
+  participants(threadId: string): string[] {
+    const rows = this.db.prepare(`SELECT id FROM (
+        SELECT m.sender_id AS id, -1 AS sequence FROM chats c JOIN messages m ON m.id=c.root_message_id WHERE c.id=:thread
+        UNION ALL SELECT mm.member_id, -1 FROM chats c JOIN message_mentions mm ON mm.message_id=c.root_message_id WHERE c.id=:thread
+        UNION ALL SELECT sender_id, sequence FROM messages WHERE chat_id=:thread
+        UNION ALL SELECT mm.member_id, m.sequence FROM messages m JOIN message_mentions mm ON mm.message_id=m.id WHERE m.chat_id=:thread)
+      GROUP BY id ORDER BY MIN(sequence), id`).all({ thread: threadId }) as { id: string }[];
+    return rows.map(row => row.id);
+  }
   /** Threads of a channel, most recently active first. A thread opened but never replied to is not listed. */
   list(actorId: string, channelId: string): string[] {
     this.chats.assertAccess(actorId, channelId);

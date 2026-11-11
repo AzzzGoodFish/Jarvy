@@ -61,6 +61,13 @@ export const chat = {
 
   "members.view": "View {name}",
   "members.remove": "Remove {name}",
+  "members.more": "More for {name}",
+  "members.menu": "Member actions",
+  "members.creator": "Creator",
+  "members.admin": "Admin",
+  "members.makeAdmin": "Make admin",
+  "members.removeAdmin": "Remove admin",
+  "members.removeFromChannel": "Remove from channel",
   "members.count": { one: "{count} member", other: "{count} members" },
   "members.people": "People",
   "members.removeTitle": "Remove {name} from #{channel}",

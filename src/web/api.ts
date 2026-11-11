@@ -87,6 +87,7 @@ export const api = {
   updateChannel: (id: string, input: { name?: string; topic?: string; sectionId?: string | null }) => request<Chat>(`/chats/${id}`, { method: "PATCH", body: body(input) }),
   addMember: (id: string, memberId: string) => request<Chat>(`/chats/${id}/members`, { method: "POST", body: body({ memberId }) }),
   removeMember: (id: string, memberId: string) => request<Chat>(`/chats/${id}/members/${memberId}`, { method: "DELETE" }),
+  setAdmin: (id: string, memberId: string, admin: boolean) => request<Chat>(`/chats/${id}/members/${memberId}/admin`, { method: "PUT", body: body({ admin }) }),
   setNote: (id: string, text: string) => request<Chat>(`/chats/${id}/note`, { method: "PUT", body: body({ text }) }),
   markRead: (id: string, sequence: number) => request<{ readSequence: number }>(`/chats/${id}/read`, { method: "POST", body: body({ sequence }) }),
   messages: readChatMessages,

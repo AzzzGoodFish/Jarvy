@@ -1,6 +1,7 @@
 import type { ActivityCursor } from "../../shared/activity.js";
 import { Chat } from "./chat.js";
 import { ChatInfo } from "./info.js";
+import { canEdit } from "./editors.js";
 import { ChatMembers } from "./members.js";
 import { ChatMessages } from "./messages.js";
 import type { DeliveryMessage } from "../../shared/chat.js";
@@ -67,6 +68,8 @@ export class ChatService {
   }
   list(actorId: string) { return this.repository.listChats(actorId); }
   get(actorId: string, chatId: string) { return this.repository.getChat(actorId, chatId); }
+  /** Whether the actor may change the chat's name, topic, group and notice, or a thread's title, status and summary (A90). */
+  canEdit(actorId: string, chat: ChatSnapshot) { return canEdit(this.repository, actorId, chat); }
   sentActivity(actorId: string, senderId: string, before: ActivityCursor | undefined, limit: number) {
     return this.repository.sentActivity(actorId, senderId, before, limit);
   }

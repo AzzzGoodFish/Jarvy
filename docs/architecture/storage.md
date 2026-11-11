@@ -92,6 +92,7 @@ A write that spans several statements goes through `transaction(db, work)` (`inf
 | v28 | Attachment contents move to files under `attachments/` (A66): each row's bytes are written out first (temporary name, flushed, renamed; a file of the right size already there is kept, so a stopped run picks up again), then the transaction checks every row has its file and drops `attachments.data`; `attachment_removals` and its trigger are added. The database is compacted afterwards |
 | v29 | Every Bot's default is its own sandbox (A68): a Bot whose default wasn't gets a `computer` row and is placed there; the owner's computer (`host`) rows are deleted with their grants, and a Bot working there is back on its sandbox. The owner adds that computer as an SSH machine instead |
 | v30 | `published_ports` (A74): the ports Bots published from their sandboxes, each with its name, description and the port of Jarvy's it is served on |
+| v31 | `chats.created_by` (who created a channel; the owner for channels from before) and `chat_members.admin` (A90) |
 
 ## Search
 

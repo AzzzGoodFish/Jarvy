@@ -11,8 +11,8 @@
 - Unread: one read position per member per chat, shared by people and Bots. Messages already delivered to a Bot do not count as its unread; it reads the rest with `messages.read`. A finished thread stays out of a Bot's unread overview — its batch's list, `messages.read unread=true` across chats and `chats.list` — until it is reopened; asked for by name, it still counts (A70).
 - New notice and summary versions are delivered as notes: a Bot is told where and which version — at once while it works, otherwise with its next batch, never woken for it (A77) — and reads the content with `chats.info`.
 - A Bot sends in a channel or thread only once it has read its notice, and in a thread also its channel's (A67). Being told of a version is not reading it; `chats.info` is, and on a thread it returns the channel's notice too. A compaction forgets what the Bot read. Until it reads them, each batch names them in `<notice_unread>` and a send there (`messages.send`, `messages.ask`, the request cards) is refused with what to read. A DM has no notice. People are not checked.
-- People and Bots can edit notices. Threads have a title (default: the root message's first line without leading @ and Markdown, or its first file's name), a status (open / done) and a summary; finishing a thread can post the summary to the channel as a conclusion.
-- Bots can create channels, rename them, set topic and group, add members, and create and edit groups. Removing members and deleting channels or groups is for people only.
+- A channel's name, topic, group and notice are changed by the owner, its creator and its admins; a thread's title, status and summary also by those taking part in it — its root's author and whoever replied or was @-mentioned in it (A90). Only the owner makes a Bot an admin, in the channel's member list. Threads have a title (default: the root message's first line without leading @ and Markdown, or its first file's name), a status (open / done) and a summary; finishing a thread can post the summary to the channel as a conclusion.
+- Bots can create channels (becoming their creator), add members, and create and rename groups. Removing members and deleting channels or groups is for people only (the agent Bot asks the owner first, A48).
 - Between any two members there is one DM.
 
 ## Model
@@ -21,7 +21,7 @@
 Section      channel group (shown like a Discord category): name, position; not a chat, no permissions
 Chat
   ├─ dm
-  ├─ channel   title, topic, section, members (chat_members), notice (ChatNote)
+  ├─ channel   title, topic, section, creator, members (chat_members, each maybe an admin), notice (ChatNote)
   └─ thread    parent channel, root message, title, status open|done, summary (ChatNote)
                access inherited from the parent channel; no member rows of its own
 ChatNote     channel notice or thread summary: text, editor, time, version; current version only
