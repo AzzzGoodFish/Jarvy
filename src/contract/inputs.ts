@@ -11,9 +11,11 @@ export interface ParsedInput {
   /** What the Bot hadn't read when this came: counts per chat, and the notices and summaries it hadn't opened. */
   unread?: { total: number; chats: { id: string; title?: string; count: number }[] };
   unreadNotes?: { id: string; title?: string; type: string; version: number }[];
-  /** Where the Bot's file and command tools ran, and why they may not have. */
-  place?: { name: string; directory: string; problem?: string };
+  /** Where the Bot's file and command tools ran: its sandbox, or a machine by the owner's name for it; and whether
+   * they were unavailable there (such as without Docker). */
+  place?: ParsedPlace;
 }
+export type ParsedPlace = ({ kind: "sandbox" } | { kind: "machine"; name: string }) & { directory: string; unavailable?: true };
 export interface ParsedChat { id: string; type: string; title?: string }
 export interface ParsedPerson { id: string; name: string; kind: string }
 export interface ParsedFile { name: string; type?: string; size?: string }

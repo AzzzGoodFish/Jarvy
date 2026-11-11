@@ -43,7 +43,7 @@ function Item({ item, names }: { item: ParsedItem; names: Names }) {
 }
 
 /** An input record as it reads (A22): what its batch says, then what the Bot was told alongside — what it hadn't read,
- * and where it worked. */
+ * and where it worked, said in the interface's words rather than the Bot's. */
 export function InputContent({ input }: { input: ParsedInput }) {
   const { unread, unreadNotes, place } = input;
   return <div className="jv-input">
@@ -51,8 +51,8 @@ export function InputContent({ input }: { input: ParsedInput }) {
     {(unread || unreadNotes || place) && <footer className="jv-input-tail">
       {unread && <p>{t("inputs.unread", { count: unread.total, list: unread.chats.map(chat => `${chat.title ?? chatName(input, chat.id)} ${chat.count}`).join(" · ") })}</p>}
       {unreadNotes && <p>{t("inputs.unreadNotes", { list: unreadNotes.map(note => t("inputs.version", { title: note.title ?? chatName(input, note.id), version: note.version })).join(" · ") })}</p>}
-      {place && <p>{t("inputs.place", { name: place.name, directory: place.directory })}</p>}
-      {place?.problem && <p className="jv-input-problem">{place.problem}</p>}
+      {place && <p>{t("inputs.place", { name: place.kind === "sandbox" ? t("inputs.sandbox") : place.name, directory: place.directory })}</p>}
+      {place?.unavailable && <p className="jv-input-problem">{t("inputs.unavailable")}</p>}
     </footer>}
   </div>;
 }

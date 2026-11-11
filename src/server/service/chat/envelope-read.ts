@@ -1,4 +1,5 @@
-import type { InputDigest, ParsedInput, ParsedItem } from "../../../contract/inputs.js";
+import type { InputDigest, ParsedInput, ParsedItem, ParsedPlace } from "../../../contract/inputs.js";
+import { OWN_SANDBOX } from "../../shared/environment.js";
 
 /** Reads back what envelope.ts writes for a Bot — a chat batch or a notice batch — for the activity page (A22). It
  * reads only that vocabulary: a part it doesn't know is kept as written (`other`), the notes written for the Bot are
@@ -35,7 +36,7 @@ export function readEnvelope(text: string): ParsedInput | null {
       .map(chat => ({ id: chat.attrs.id ?? "", ...(chat.attrs.title ? { title: chat.attrs.title } : {}), count: count(chat.attrs.count) })) };
     else if (name === "notice_unread") input.unreadNotes = elements(element, "chat")
       .map(chat => ({ id: chat.attrs.id ?? "", ...(chat.attrs.title ? { title: chat.attrs.title } : {}), type: chat.attrs.type ?? "channel", version: count(chat.attrs.version) }));
-    else if (name === "environment" && attrs.name) input.place = { name: attrs.name, directory: attrs.directory ?? "", ...(attrs.problem ? { problem: attrs.problem } : {}) };
+    else if (name === "environment" && attrs.name) input.place = place(attrs);
     else input.items.push({ kind: "other", name, text: element.source });
   };
   elements(root).forEach(walk);
@@ -50,6 +51,13 @@ export function inputDigest(input: ParsedInput): InputDigest {
   const personId = first.kind === "message" ? first.from : "by" in first ? first.by : undefined;
   const chat = input.chats.find(entry => entry.id === chatId), person = input.people.find(entry => entry.id === personId);
   return { first: first.kind === "message" ? { ...first, replyTo: undefined } : first, count: input.items.length, ...(chat ? { chat } : {}), ...(person ? { person } : {}) };
+}
+
+/** Where the Bot worked, said without the Bot's own words: the sandbox by its kind, a machine by its name, and a
+ * problem only as there having been one. */
+function place(attrs: Record<string, string>): ParsedPlace {
+  const where: ParsedPlace = attrs.name === OWN_SANDBOX ? { kind: "sandbox", directory: attrs.directory ?? "" } : { kind: "machine", name: attrs.name!, directory: attrs.directory ?? "" };
+  return attrs.problem ? { ...where, unavailable: true } : where;
 }
 
 function itemOf(self: Element): ParsedItem | null {

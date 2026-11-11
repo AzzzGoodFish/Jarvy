@@ -25,6 +25,8 @@ export const inputs: Part<typeof en> = {
   "inputs.unreadNotes": "还没读的公告和摘要：{list}",
   "inputs.version": "{title}（第 {version} 版）",
   "inputs.place": "工作环境：{name} · {directory}",
+  "inputs.sandbox": "沙箱",
+  "inputs.unavailable": "当时文件和命令工具不可用",
   "inputs.what.name": "名称",
   "inputs.what.description": "描述",
   "inputs.what.persona": "设定",

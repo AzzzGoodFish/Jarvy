@@ -1,5 +1,5 @@
 import { COMPUTER_CWD } from "../../../infra/env/docker.js";
-import type { EnvironmentRecord } from "../../../shared/environment.js";
+import { OWN_SANDBOX, type EnvironmentRecord } from "../../../shared/environment.js";
 import { computerLimits } from "../computers.js";
 import { computerType } from "../computer-vm.js";
 import type { EnvironmentKindEntry } from "./kind.js";
@@ -23,7 +23,7 @@ const CONTAINER = "A Linux container only you use, with Node, Python, git, build
 export const sandbox: EnvironmentKindEntry = {
   kind: "computer", home: true, grantable: false,
   open: (record, botId, _workspacePath, deps) => deps.computers.environment(record.botId ?? botId, record),
-  place: (record, botId) => ({ id: record.id, kind: "sandbox", name: record.botId === botId ? "your sandbox" : "another Bot's sandbox",
+  place: (record, botId) => ({ id: record.id, kind: "sandbox", name: record.botId === botId ? OWN_SANDBOX : "another Bot's sandbox",
     directory: COMPUTER_CWD }),
   ensure: async (record, botId, deps) => { if (deps.computers.available) await deps.computers.ensure(record.botId ?? botId); },
   connects: false,
