@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { AuthPrompt } from "@earendil-works/pi-ai";
 import type { Store } from "../storage/store.js";
 import type { CredentialCoordinator } from "../credentials/coordinator.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { ConnectionCredentials } from "./credentials.js";
+import { createRuntime } from "./providers.js";
 import type { LoginState } from "../../../contract/models.js";
 
 interface LoginFlow {
@@ -33,7 +33,7 @@ export class CredentialLogins {
     flow.task = (async () => {
       try {
         const scoped = new ConnectionCredentials(this.store.credentials, this.credentials, this.store.account.userMemberId(), id, connection.providerName);
-        const runtime = await ModelRuntime.create({ credentials: scoped, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false, signal: flow.controller.signal });
+        const runtime = await createRuntime({ credentials: scoped, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false, signal: flow.controller.signal });
         await runtime.login(connection.providerName, connection.authType, {
           signal: flow.controller.signal,
           notify: event => { flow.state.event = event; },

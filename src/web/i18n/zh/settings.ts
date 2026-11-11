@@ -163,6 +163,7 @@ export const settings: Part<typeof en> = {
   "auth.signOut": "退出登录",
   "auth.statusFailed": "无法获取登录状态",
   "auth.refresh": "刷新状态",
+  "auth.antigravityRisk": "通过第三方应用使用 Antigravity 可能违反 Google 服务条款，账号有被停用的风险。",
 
   "picker.loadFailed": "无法加载 Provider 列表",
 };

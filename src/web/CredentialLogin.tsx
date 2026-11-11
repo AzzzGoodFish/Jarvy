@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { TriangleAlertIcon } from "lucide-react";
 import { api } from "./api";
 import { type ModelConnection, type LoginState } from "../contract/models";
 import { Badge } from "./components/ui/badge";
@@ -78,13 +79,16 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
       {!prompt && <p role="status" className="text-sm text-muted-foreground">{t("auth.waiting")}</p>}
       {event?.type === "info" && <p className="text-sm">{event.message}</p>}
       <Button type="button" variant="ghost" disabled={busy} onClick={() => void act(() => api.authCancel(connectionId!))}>{t("auth.cancel")}</Button>
-    </div> : <div className="flex flex-wrap gap-2">
+    </div> : <>
+    {/* Signing in to Antigravity from another app risks the account (A91): said where it is signed in. */}
+    {providerName === "antigravity" && <p className="jv-auth-risk" role="note"><TriangleAlertIcon aria-hidden="true"/>{t("auth.antigravityRisk")}</p>}
+    <div className="flex flex-wrap gap-2">
       {codex ? <>
         <Button type="button" variant="outline" disabled={busy} onClick={() => start("browser")}>{t("auth.browser")}</Button>
         <Button type="button" variant="outline" disabled={busy} onClick={() => start("device_code")}>{t("auth.deviceCode")}</Button>
       </> : <Button type="button" variant="outline" disabled={busy} onClick={() => start()}>{t(authType === "api_key" ? "auth.configureCredential" : connection?.configured ? "auth.signInAgain" : "auth.signIn")}</Button>}
       {connection?.configured && <Button type="button" variant="outline" disabled={busy} onClick={() => void act(async () => { await api.authLogout(connectionId!); return { phase: "idle" }; })}>{t(authType === "api_key" ? "auth.removeCredential" : "auth.signOut")}</Button>}
-    </div>}
+    </div></>}
     {(error || state.phase === "error") && <p role="alert" className="jarvy-model-feedback">{error || t("error.loginFailed")}</p>}
     {error && <Button type="button" variant="link" disabled={busy} onClick={() => { setError(""); setRefresh(value => value + 1); }}>{t("auth.refresh")}</Button>}
   </section>;

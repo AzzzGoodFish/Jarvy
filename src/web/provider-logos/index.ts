@@ -3,10 +3,10 @@
  * currentColor, so they follow the theme. Each is a trusted local file, inlined as markup. */
 const FILES = import.meta.glob<string>("./*.svg", { query: "?raw", import: "default", eager: true });
 
-/** Built-in provider ID (Pi's catalog) → its brand's logo. An ID not listed — Radius, a custom provider, a provider a
- * later Pi adds — keeps the letter badge. */
+/** Built-in provider ID (Pi's catalog, and Jarvy's own, A91) → its brand's logo. An ID not listed — Radius, a custom
+ * provider, a provider a later Pi adds — keeps the letter badge. */
 const BRANDS: Record<string, string> = {
-  "amazon-bedrock": "bedrock", "ant-ling": "antgroup", anthropic: "anthropic", azure: "azure", baseten: "baseten", cerebras: "cerebras",
+  "amazon-bedrock": "bedrock", "ant-ling": "antgroup", anthropic: "anthropic", antigravity: "antigravity", azure: "azure", baseten: "baseten", cerebras: "cerebras",
   "cloudflare-ai-gateway": "cloudflare", "cloudflare-workers-ai": "cloudflare", deepseek: "deepseek", fireworks: "fireworks",
   "github-copilot": "githubcopilot", google: "google", "google-vertex": "vertexai", groq: "groq", huggingface: "huggingface",
   "kimi-coding": "kimi", meta: "meta", minimax: "minimax", "minimax-cn": "minimax", mistral: "mistral", moonshotai: "moonshot",
