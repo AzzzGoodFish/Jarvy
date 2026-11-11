@@ -2,13 +2,14 @@ import { useState } from "react";
 import type { HistoryContent, HistoryDetail as Detail, HistoryLink } from "./history-api";
 import { Button } from "./components/ui/button";
 import { formatDate, t } from "./i18n";
+import { formatMarkup, looksLikeMarkup } from "./markup";
 
 export const historyTime = (timestamp: number) => formatDate(timestamp, { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 function Json({ value }: { value: unknown }) { return <pre className="jv-history-json">{JSON.stringify(value, null, 2)}</pre>; }
 function Blocks({ blocks, links, onSelect }: { blocks: HistoryContent[]; links: HistoryLink[]; onSelect: (id: number) => void }) {
   return <>{blocks.map((block, index) => {
     if (block.type === "text" || block.type === "reasoning") return <section className="jv-history-block" key={index}>
-      <h4>{t(block.type === "reasoning" ? "history.reasoning" : "history.text")}</h4><pre className="jv-history-text">{block.text || t("history.empty")}</pre>
+      <h4>{t(block.type === "reasoning" ? "history.reasoning" : "history.text")}</h4><Text text={block.text}/>
     </section>;
     if (block.type === "image") return <section className="jv-history-block" key={index}><h4>{t("files.kindImage")} · {block.mime_type}</h4><img className="jv-history-image" src={`data:${block.mime_type};base64,${block.data}`} alt={t("history.image")}/></section>;
     if (block.type === "tool_call" || block.type === "tool_result") {
@@ -23,6 +24,11 @@ function Blocks({ blocks, links, onSelect }: { blocks: HistoryContent[]; links: 
       </section>;
     }
   })}</>;
+}
+/** A record's text: laid out when it is markup, as given when it is prose (markup.ts). */
+function Text({ text }: { text: string }) {
+  const markup = looksLikeMarkup(text);
+  return <pre className="jv-history-text" data-markup={markup || undefined}>{markup ? formatMarkup(text) : text || t("history.empty")}</pre>;
 }
 export function HistoryDetail({ detail, onSelect }: { detail: Detail; onSelect: (id: number) => void }) {
   const [view, setView] = useState<"content" | "json">("content");
