@@ -6,7 +6,7 @@ import {
   dockerCapacity, dockerProblem, ensureNetwork, homeAtWorkspace, listeningPorts, moveToNetwork, networkAddresses,
   removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
-import { createDisk, dockerUp, hostResolvers, removeDisk, useResolvers, vmHostUse, vmUsage } from "../../infra/env/kata.js";
+import { createDisk, dockerUp, hostResolvers, removeDisk, trimDisk, useResolvers, vmHostUse, vmUsage } from "../../infra/env/kata.js";
 import { ComputerImages, VM_SIZE, VmSupportCheck, computerType, vmDisk } from "./computer-vm.js";
 import { userInfo } from "node:os";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
@@ -240,11 +240,15 @@ export class Computers {
     return env;
   }
   /** Sets up a container after it starts: the workspace as its home, this machine's name for one made before
-   * containers got it at creation, and in a VM (A85) Docker on its disk. */
+   * containers got it at creation, and in a VM (A85) Docker on its disk, which gives back what Docker frees. A disk not
+   * trimmed is said in the log and doesn't stop the Bot working. */
   private async prepare(container: string, vm: boolean): Promise<void> {
     await homeAtWorkspace(container);
     if (this.network) await addHost(container, HOST_NAME, this.network.gateway);
-    if (vm) { await useResolvers(container, hostResolvers()); await dockerUp(container); }
+    if (vm) {
+      await useResolvers(container, hostResolvers()); await dockerUp(container);
+      await trimDisk(container).catch(error => this.log(`Docker disk of ${container} not trimmed: ${(error as Error).message}`));
+    }
   }
   /** Makes this Jarvy's network and moves the containers still on Docker's default bridge there, running or not. */
   private async joinNetwork(): Promise<void> {

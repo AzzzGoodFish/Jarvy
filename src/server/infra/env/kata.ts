@@ -49,6 +49,12 @@ export async function removeDisk(path: string): Promise<void> { await rm(path, {
 export async function dockerUp(container: string): Promise<void> {
   await docker(["exec", "-u", "root", container, "/usr/local/bin/jarvy-docker-up"], 90_000);
 }
+/** Gives this machine back the blocks of a VM's Docker disk that Docker no longer uses: from now on as it frees them
+ * (`discard`), and those freed before (`fstrim`). Without it the sparse file only grows, towards 64 GB, whatever is
+ * deleted inside. Done here, not in DOCKER_UP, so it reaches VMs made from an image built before it. */
+export async function trimDisk(container: string): Promise<void> {
+  await docker(["exec", "-u", "root", container, "sh", "-c", "mount -o remount,discard /var/lib/docker && fstrim /var/lib/docker"], 120_000);
+}
 /** The name servers this machine asks, for a VM sandbox to ask them itself: on a network of its own (A74) a container
  * resolves names through Docker's server at 127.0.0.11, which a VM's own loopback doesn't have. As Docker does for its
  * default bridge, systemd-resolved's upstream servers stand in for its local stub, and public ones for none. */
