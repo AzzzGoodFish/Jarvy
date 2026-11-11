@@ -21,6 +21,8 @@
 .jv-activity-card { min-width:0; grid-row:1; border:1px solid var(--jv-line); border-radius:7px; overflow:hidden; }
 .jv-activity-chat { grid-column:1; background:var(--jv-panel); }
 .jv-activity-history { grid-column:3; background:var(--jv-field); }
+/* What reached the Bot, beside what it sent. */
+.jv-activity-history[data-input] { grid-column:1; }
 .jv-activity-card-main { display:block; width:100%; border:0; background:transparent; color:inherit; text-align:left; padding:12px 14px; font:inherit; cursor:pointer; }
 .jv-activity-card-main:hover, .jv-activity-source:hover { background:var(--jv-hover); }
 .jv-activity-card-head { display:flex; align-items:center; gap:7px; margin-bottom:8px; min-width:0; color:var(--jv-muted); font-size:10px; }
