@@ -18,7 +18,7 @@ import { clipMarked, previewQuotes } from "../../shared/quotes.js";
 import { transaction } from "./transaction.js";
 type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; foldedAt: number | null; };
 const MESSAGE_COLUMNS = "id,chat_id AS chatId,sequence,sender_id AS senderId,content,created_at AS createdAt,history_id AS historyId,tool_call_id AS toolCallId,question,echo_of AS echoOf,reply_to AS replyTo,folded_at AS foldedAt";
-const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_at AS createdAt,c.updated_at AS updatedAt,
+const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_by AS createdBy,c.created_at AS createdAt,c.updated_at AS updatedAt,
   c.section_id AS sectionId,c.topic,c.parent_id AS parentId,c.root_message_id AS rootMessageId,c.status,
   (SELECT content FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessage,
   (SELECT id FROM messages WHERE chat_id=c.id ORDER BY sequence DESC LIMIT 1) AS lastMessageId,
@@ -76,14 +76,14 @@ export class ChatRepository {
   }
   getChat(actorId: string, id: string): Chat | null {
     if (!this.canAccess(actorId, id)) return null;
-    const found = this.db.prepare(`SELECT ${CHAT_COLUMNS} FROM chats c WHERE c.id=?`).get(id) as (Omit<Chat, "memberIds" | "note" | "unread" | "mentions" | "readSequence" | "following" | "subscribed" | "pinned" | "alerts" | "hint" | "atMe" | "muted" | "lastMessage"> & { lastMessage: string | null; lastMessageId: string | null }) | undefined;
+    const found = this.db.prepare(`SELECT ${CHAT_COLUMNS} FROM chats c WHERE c.id=?`).get(id) as (Omit<Chat, "memberIds" | "adminIds" | "note" | "unread" | "mentions" | "readSequence" | "following" | "subscribed" | "pinned" | "alerts" | "hint" | "atMe" | "muted" | "lastMessage"> & { lastMessage: string | null; lastMessageId: string | null }) | undefined;
     if (!found) return null;
     // The sidebar words the preview, quotes and attachment-only messages included (A44, A45): content "" is attachments only.
     const { lastMessageId, lastMessage: content, ...rest } = found;
     const row = { ...rest, lastMessage: content !== null && lastMessageId ? { content: clipMarked(content, 300), quotes: this.quotes.of(lastMessageId) } : null };
-    const members = this.db.prepare("SELECT member_id AS id FROM chat_members WHERE chat_id=? ORDER BY member_id").all(row.parentId ?? id) as { id: string }[];
+    const members = this.db.prepare("SELECT member_id AS id,admin FROM chat_members WHERE chat_id=? ORDER BY member_id").all(row.parentId ?? id) as { id: string; admin: number }[];
     const state = this.db.prepare("SELECT following,subscribed,pinned,muted FROM chat_states WHERE chat_id=? AND member_id=?").get(id, actorId) as { following: number; subscribed: number; pinned: number; muted: number } | undefined;
-    return { ...row, memberIds: members.map(item => item.id), note: this.note(id), ...this.unread(actorId, id), ...this.inbox.rowState(actorId, id),
+    return { ...row, memberIds: members.map(item => item.id), adminIds: members.filter(item => item.admin).map(item => item.id), note: this.note(id), ...this.unread(actorId, id), ...this.inbox.rowState(actorId, id),
       following: row.type === "thread" && !!state?.following, subscribed: !!state?.subscribed, pinned: !!state?.pinned, muted: !!state?.muted };
   }
   listChats(actorId: string): Chat[] {

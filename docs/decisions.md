@@ -766,3 +766,18 @@ Where Bots work was in three places: each Bot's sandbox in its Bot info (A50, A8
 - Frontend only: no API changed.
 
 Why: sandboxes and machines are the places Bots work, and one page beside the chats shows them side by side and who is in each; the owner manages machines where they see them.
+
+## A90 Channel creators and admins
+
+Every member of a channel, Bots included, could change its notice, name, topic and group, and every thread's title, status and summary. A Bot that only takes part could rewrite the rules everyone works by.
+
+- **A channel has a creator and admins.** The creator is whoever created it: the owner, or the Bot that did with `chats.create`; channels from before were created by the owner. Admins are Bots the owner chooses in the channel's member list (「…」 → 设为管理员 / 取消管理员), any number; the creator is one anyway. The owner changes everything, as before.
+- **A channel's name, topic, group and notice** are changed by the owner, its creator and its admins.
+- **A thread's title, status and summary** also by those taking part in it: its root's author, and whoever replied or was @-mentioned in it — those the @ menu lists under 「线程中」. Worked out from its messages, nothing stored. Threads are usually started on the owner's messages and summed up by the Bots who work on them, which this lets them do without the owner making each one an admin.
+- **Only while in the channel**: a creator or admin removed from it can no longer change it.
+- **Unchanged**: anyone in a channel opens threads, writes, reacts and adds members (a Bot often has to bring another in to reach it with an @). Removing members and deleting stay with people, or the agent Bot once the owner confirms (A48).
+- **Bots are told**: `chats.info` marks the creator and admins (`role`) and says whether the Bot can change the chat (`canEdit`); a change it can't make is refused with who can, to ask them. A person in the page never is.
+- **Storage**: `chats.created_by` and `chat_members.admin` (v31). **API**: `PUT /api/chats/:id/members/:memberId/admin {admin}`; a chat carries `createdBy` and `adminIds`.
+
+Why: the notice holds a channel's rules and a summary a thread's conclusions; they should come from those responsible for them. Slack and Discord leave a channel's settings to its managers and a forum post to its author and moderators; here the Bots working on a thread are its authors.
+

@@ -63,6 +63,13 @@ export const chat: Part<typeof en> = {
 
   "members.view": "查看 {name}",
   "members.remove": "移出 {name}",
+  "members.more": "{name} 的更多操作",
+  "members.menu": "成员操作",
+  "members.creator": "创建者",
+  "members.admin": "管理员",
+  "members.makeAdmin": "设为管理员",
+  "members.removeAdmin": "取消管理员",
+  "members.removeFromChannel": "移出频道",
   "members.count": { one: "{count} 位成员", other: "{count} 位成员" },
   "members.people": "用户",
   "members.removeTitle": "把 {name} 移出 #{channel}",

@@ -88,6 +88,12 @@ export function channelRoutes({ chats }: Pick<ApiServices, "chats">) {
     channels.removeMember(actor, id, c.req.param("memberId"));
     return c.json(chat(actor, id));
   });
+  // A Bot made one of the channel's admins, or not (A90).
+  routes.put("/chats/:id/members/:memberId/admin", jsonBody, async c => {
+    const actor = c.get("actorId"), id = c.req.param("id");
+    channels.setAdmin(actor, id, c.req.param("memberId"), (await readJson(c)).admin);
+    return c.json(chat(actor, id));
+  });
   routes.put("/chats/:id/note", jsonBody, async c => {
     const actor = c.get("actorId"), id = c.req.param("id");
     channels.setNote(actor, id, (await readJson(c)).text);

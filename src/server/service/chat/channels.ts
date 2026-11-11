@@ -5,6 +5,7 @@ import { mentionedMembers } from "../../../contract/mentions.js";
 import type { Delivery } from "../../shared/delivery.js";
 import { plan } from "../delivery/delivery.js";
 import { noteTargets } from "../delivery/routes.js";
+import { assertCanEdit } from "./editors.js";
 
 const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u;
 function text(value: unknown, label: string, max: number, required = false): string {
@@ -14,15 +15,15 @@ function text(value: unknown, label: string, max: number, required = false): str
 const optional = (value: unknown, label: string, max: number) => value === undefined ? undefined : text(value, label, max);
 const nameOf = (value: unknown, label: string) => { const name = text(value, label, 80, true); if (/[\n\r]/.test(name)) throw new ChatError(400, `Invalid ${label}`); return name; };
 
-/** Sections, channels, members, notes and read positions (A37). People and Bots may create and edit structure —
- * channels, their name / topic / group, adding members, sections; removing members and deleting stay
- * with people. A Bot acts in its owner's space and only on channels it belongs to. */
+/** Sections, channels, members, notes and read positions (A37). People and Bots may create channels and sections and
+ * add members; a channel's name, topic, group and notice are for its creator and admins (A90); removing members,
+ * deleting and choosing admins stay with people. A Bot acts in its owner's space and only on channels it belongs to. */
 export class ChatChannels {
   constructor(private readonly repository: ChatRepository, private readonly saved: (chatId: string) => void, private readonly sectionsChanged: (ownerId: string) => void,
     private readonly delivered: (deliveries: readonly Delivery[]) => void = () => {}) {}
   private get store() { return this.repository.channels; }
   private person(actorId: string): string {
-    if (this.repository.member(actorId)?.kind !== "user") throw new ChatError(403, "Only people remove members or delete");
+    if (this.repository.member(actorId)?.kind !== "user") throw new ChatError(403, "Only people remove members, choose admins or delete");
     return actorId;
   }
   /** The owner whose space the actor works in; a Bot must also be able to write in the channel it changes. */
@@ -61,15 +62,17 @@ export class ChatChannels {
     const owner = this.owner(actorId), members = input.memberIds ?? [];
     if (!Array.isArray(members) || members.length > 100 || !members.every(id => typeof id === "string")) throw new ChatError(400, "Invalid channel members");
     if (input.sectionId !== undefined && input.sectionId !== null && typeof input.sectionId !== "string") throw new ChatError(400, "Invalid section");
-    // A Bot that creates a channel is in it; the channel belongs to its owner like any other.
-    const id = this.store.createChannel(owner, { name: nameOf(input.name, "channel name"), topic: optional(input.topic, "channel topic", 200) ?? "",
+    // A Bot that creates a channel is in it and is its creator; the channel belongs to its owner like any other.
+    const id = this.store.createChannel(owner, actorId, { name: nameOf(input.name, "channel name"), topic: optional(input.topic, "channel topic", 200) ?? "",
       sectionId: (input.sectionId as string | null | undefined) ?? null, memberIds: owner === actorId ? members as string[] : [...members as string[], actorId] });
     this.saved(id);
     return id;
   }
   updateChannel(actorId: string, chatId: string, input: Record<string, unknown>): void {
     if (input.sectionId !== undefined && input.sectionId !== null && typeof input.sectionId !== "string") throw new ChatError(400, "Invalid section");
-    this.store.updateChannel(this.owner(actorId, chatId), chatId, { name: input.name === undefined ? undefined : nameOf(input.name, "channel name"),
+    const owner = this.owner(actorId, chatId);
+    if (owner !== actorId) assertCanEdit(this.repository, actorId, chatId);
+    this.store.updateChannel(owner, chatId, { name: input.name === undefined ? undefined : nameOf(input.name, "channel name"),
       topic: optional(input.topic, "channel topic", 200), sectionId: input.sectionId as string | null | undefined });
     this.saved(chatId);
   }
@@ -82,10 +85,21 @@ export class ChatChannels {
     this.store.removeMember(this.person(actorId), chatId, memberId);
     this.saved(chatId);
   }
+  /** Makes a Bot in the channel one of its admins, or not (A90). People can change everything anyway. */
+  setAdmin(actorId: string, chatId: string, memberId: string, admin: unknown): void {
+    if (typeof admin !== "boolean") throw new ChatError(400, "Invalid admin");
+    const owner = this.person(actorId);
+    const member = this.repository.member(memberId);
+    if (!member) throw new ChatError(404, "Member not found");
+    if (member.kind !== "bot") throw new ChatError(400, "Only Bots are made admins");
+    this.store.setAdmin(owner, chatId, memberId, admin);
+    this.saved(chatId);
+  }
 
-  /** A new version is delivered to whoever it concerns (A41). */
+  /** A new version is delivered to whoever it concerns (A41). Only those who may change the chat set it (A90). */
   setNote(actorId: string, chatId: string, value: unknown): ChatNote {
     const content = text(value, "notice", 20_000, true);
+    assertCanEdit(this.repository, actorId, chatId);
     const deliveries = plan("note", noteTargets({ actorId, ...this.store.noteAudience(chatId) }));
     const note = this.store.setNote(actorId, chatId, content, deliveries);
     this.saved(chatId);

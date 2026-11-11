@@ -25,15 +25,18 @@ export function chatRows(chats: ChatService, botId: string) {
  * counts as having seen this version. A thread's also carries its channel's notice, which a send there needs (A67). */
 export function chatDetail(chats: ChatService, botId: string, chat: Chat) {
   const section = chat.sectionId ? chats.channels.sections(botId).find(item => item.id === chat.sectionId)?.name : undefined;
-  const members = chat.memberIds.map(id => chats.member(id)).filter(member => member !== null).map(member => ({ id: member.id, name: member.name, kind: member.kind }));
   if (chat.note) chats.channels.noteSeen(botId, chat.id, chat.note.version);
   const parent = chat.type === "thread" && chat.parentId ? chats.get(botId, chat.parentId) : null;
+  // The channel's creator and admins (A90), a thread's those of its channel.
+  const creator = chat.type === "channel" ? chat.createdBy : parent?.createdBy;
+  const role = (id: string) => id === creator ? { role: "creator" } : chat.adminIds.includes(id) ? { role: "admin" } : {};
+  const members = chat.memberIds.map(id => chats.member(id)).filter(member => member !== null).map(member => ({ id: member.id, name: member.name, kind: member.kind, ...role(member.id) }));
   if (parent?.note) chats.channels.noteSeen(botId, parent.id, parent.note.version);
   const root = chat.type === "thread" && chat.rootMessageId ? chats.message(botId, chat.rootMessageId) : null;
   return { id: chat.id, type: chat.type, title: chat.title, ...(section ? { section } : {}), ...(chat.topic ? { topic: chat.topic } : {}),
     ...(chat.type === "thread" ? { parent: chat.parentId, status: chat.status, following: chat.following,
       root: root ? { id: root.id, from: root.sender.name, content: expandQuotes(root.content, root.quotes, name(chats)), at: iso(root.createdAt) } : null } : {}),
-    members,
+    members, ...(chat.type !== "dm" ? { canEdit: chats.canEdit(botId, chat) } : {}),
     notice: chat.note ? { text: chat.note.text, version: chat.note.version, by: chat.note.updatedBy.name, at: iso(chat.note.updatedAt) } : null,
     // A send in a thread needs this too, so it comes here rather than in a second call (A67).
     ...(parent?.note ? { parentNotice: { chatId: parent.id, title: parent.title, text: parent.note.text, version: parent.note.version,

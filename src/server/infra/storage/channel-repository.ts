@@ -59,15 +59,16 @@ export class ChannelRepository {
     return Number(this.db.prepare("DELETE FROM sections WHERE id=? AND owner_id=?").run(id, ownerId).changes) > 0;
   }
 
-  createChannel(ownerId: string, input: { name: string; topic: string; sectionId: string | null; memberIds: readonly string[] }): string {
+  /** `creatorId`: the owner, or the Bot that creates it (A90). */
+  createChannel(ownerId: string, creatorId: string, input: { name: string; topic: string; sectionId: string | null; memberIds: readonly string[] }): string {
     if (input.sectionId && !this.section(ownerId, input.sectionId)) throw new ChatError(404, "Section not found");
     const allowed = new Set(this.directory(ownerId).map(member => member.id));
     const members = [...new Set([ownerId, ...input.memberIds])];
     if (members.some(id => !allowed.has(id))) throw new ChatError(400, "Invalid channel members");
     const id = randomUUID(), now = Date.now();
     return transaction(this.db, () => {
-      this.db.prepare("INSERT INTO chats(id,type,title,owner_id,created_at,updated_at,section_id,topic) VALUES(?,'channel',?,?,?,?,?,?)")
-        .run(id, input.name, ownerId, now, now, input.sectionId, input.topic);
+      this.db.prepare("INSERT INTO chats(id,type,title,owner_id,created_by,created_at,updated_at,section_id,topic) VALUES(?,'channel',?,?,?,?,?,?,?)")
+        .run(id, input.name, ownerId, creatorId, now, now, input.sectionId, input.topic);
       for (const memberId of members) {
         this.db.prepare("INSERT INTO chat_members(chat_id,member_id) VALUES(?,?)").run(id, memberId);
         this.db.prepare("INSERT INTO chat_states(chat_id,member_id) VALUES(?,?)").run(id, memberId);
@@ -94,6 +95,11 @@ export class ChannelRepository {
     if (memberId === ownerId) throw new ChatError(400, "The channel owner cannot leave");
     this.chats.removeMember(ownerId, chatId, memberId);
   }
+  /** Makes a Bot in the channel one of its admins, or not (A90). */
+  setAdmin(ownerId: string, chatId: string, memberId: string, admin: boolean): void {
+    this.assertChannelOwner(ownerId, chatId);
+    if (this.db.prepare("UPDATE chat_members SET admin=? WHERE chat_id=? AND member_id=?").run(admin ? 1 : 0, chatId, memberId).changes === 0) throw new ChatError(404, "Member not found");
+  }
   private assertChannelOwner(ownerId: string, chatId: string): void {
     if (!this.db.prepare("SELECT 1 FROM chats WHERE id=? AND owner_id=? AND type='channel'").get(chatId, ownerId)) throw new ChatError(404, "Channel not found");
   }
@@ -108,7 +114,7 @@ export class ChannelRepository {
       : this.db.prepare("SELECT member_id AS id FROM chat_members WHERE chat_id=? AND can_read=1").all(chatId)) as { id: string }[];
     return { type, members: ids.map(row => this.chats.member(row.id)).filter(member => member !== null) };
   }
-  /** Channel notice / thread summary: any member who can write there, people and Bots alike. The routed
+  /** Channel notice / thread summary, from a member who can write there; who may is the service's (A90). The routed
    * deliveries (A41) are written with the new version, which is their payload. */
   setNote(actorId: string, chatId: string, text: string, deliveries: readonly Delivery[] = []): ChatNote {
     this.chats.assertAccess(actorId, chatId, true);

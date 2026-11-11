@@ -16,9 +16,9 @@ export const chatTools = [
     environments ? id => context.scope.places.summary(id) : undefined)),
   tool("chats.list", "List the chats you are in: DMs, channels and the threads you follow. Each has its type, title (DMs also give the other member's name in with), channel group (section), topic, your unread count (none for threads that are done) and whether you subscribe; threads also give their channel and status.",
     None, (_args, context) => chatRows(context.chats, context.bot)),
-  tool("chats.info", "Details of one chat: members, the channel topic, the full notice or thread summary, your unread count and read position, and whether you subscribe; threads also give their title, status, channel and source message. Reading a notice or summary counts as having seen that version.",
+  tool("chats.info", "Details of one chat: members, the channel topic, the full notice or thread summary, your unread count and read position, and whether you subscribe; threads also give their title, status, channel and source message. Members mark the channel's creator and admins (role), and canEdit says whether you can change the chat with chats.update. Reading a notice or summary counts as having seen that version.",
     Type.Object({ chatId: Type.String() }, { additionalProperties: false }), ({ chatId }, context) => chatDetail(context.chats, context.bot, context.chat(chatId))),
-  tool("chats.create", "Create a channel. You become a member, and the result has its chatId. members: names of the members to add (see members.list). section: the name of an existing channel group (see sections.list); leave it out for no group.",
+  tool("chats.create", "Create a channel. You become a member and its creator, so you can change it later with chats.update; the result has its chatId. members: names of the members to add (see members.list). section: the name of an existing channel group (see sections.list); leave it out for no group.",
     Type.Object({ name: Name("Channel name"), topic: Type.Optional(Type.String({ maxLength: 200 })), section: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
       members: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 80 }), { maxItems: 50 })) }, { additionalProperties: false }), (input, context) => {
     const members = context.members(input.members ?? []);
@@ -27,7 +27,7 @@ export const chatTools = [
     const chat = context.chat(id);
     return { chatId: id, name: chat.title, members: chat.memberIds.map(memberId => context.chats.member(memberId)?.name) };
   }),
-  tool("chats.update", "Change a chat you are in. Channels: name, topic, section (a channel group's name; an empty string takes it out of its group) and notice. Threads: title, status (open or done) and notice (the summary). notice is Markdown and replaces the whole text.",
+  tool("chats.update", "Change a chat you are in. Channels: name, topic, section (a channel group's name; an empty string takes it out of its group) and notice. Threads: title, status (open or done) and notice (the summary). notice is Markdown and replaces the whole text. Only the owner and the channel's creator and admins can change a channel; a thread also those taking part in it (its root's author, and whoever replied or was @-mentioned in it). chats.info says whether you can (canEdit); if you can't, ask one of them.",
     Type.Object({ chatId: Type.String(), name: Type.Optional(Name("Channel name")), topic: Type.Optional(Type.String({ maxLength: 200 })), section: Type.Optional(Type.String({ maxLength: 80 })),
       notice: Type.Optional(Type.String({ minLength: 1, maxLength: 20000 })), title: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
       status: Type.Optional(Type.Union([Type.Literal("open"), Type.Literal("done")])) }, { additionalProperties: false }), (input, context) => {

@@ -9,7 +9,7 @@ import type { ThreadItem } from "../../../contract/threads.js";
 export function chatView(chat: Chat, member: (id: string) => Member | null): ChatView {
   return { id: chat.id, botId: chat.type === "dm" ? chat.memberIds.find(id => member(id)?.kind === "bot") ?? null : null,
     title: chat.title, type: chat.type, createdAt: chat.createdAt, updatedAt: chat.updatedAt, lastMessage: chat.lastMessage,
-    memberIds: chat.memberIds, sectionId: chat.sectionId, topic: chat.topic, parentId: chat.parentId, status: chat.status,
+    memberIds: chat.memberIds, createdBy: chat.createdBy, adminIds: chat.adminIds, sectionId: chat.sectionId, topic: chat.topic, parentId: chat.parentId, status: chat.status,
     rootMessageId: chat.rootMessageId, note: chat.note, readSequence: chat.readSequence, unread: chat.unread, mentions: chat.mentions, following: chat.following,
     subscribed: chat.subscribed, pinned: chat.pinned, alerts: chat.alerts, hint: chat.hint, atMe: chat.atMe, muted: chat.muted, lastSender: chat.lastSender };
 }

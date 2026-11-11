@@ -2,6 +2,7 @@ import { ChatError, type Chat } from "../../shared/chat.js";
 import { type ThreadInfo } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 import type { ChatChange } from "./contracts.js";
+import { assertCanEdit } from "./editors.js";
 import type { MessageQuote } from "../../../contract/chat.js";
 import { compareKeys, THREAD_FILTERS, THREAD_PAGE, THREAD_SORTS, threadKey, type FollowedSummary, type ThreadFilter, type ThreadSort } from "../../../contract/threads.js";
 
@@ -10,8 +11,9 @@ export interface OpenThread { id: string; title: string; channel: { id: string; 
 /** A thread with what its list entry needs: replies and the root message it hangs off. */
 export interface ThreadEntry { chat: Chat; info: ThreadInfo; root: { senderId: string; content: string; quotes: MessageQuote[] } | null; }
 
-/** Threads (A37 P2): open from a channel message, title / status, following. Anyone who can write in the
- * channel may do all of these, people and Bots alike; the summary is the thread's note (ChatChannels.setNote). */
+/** Threads (A37 P2): open from a channel message, title / status, following. Anyone who can write in the channel may
+ * open and follow one; its title, status and summary are for the owner, those taking part in it and the channel's
+ * creator and admins (A90). The summary is the thread's note (ChatChannels.setNote). */
 export class ChatThreads {
   constructor(private readonly repository: ChatRepository, private readonly changed: (change: ChatChange) => void) {}
   private get store() { return this.repository.threads; }
@@ -73,6 +75,7 @@ export class ChatThreads {
     const title = input.title;
     if (title !== undefined && (typeof title !== "string" || !title.trim() || title.length > 80 || /[\x00-\x1f\x7f]/u.test(title))) throw new ChatError(400, "Invalid thread title");
     if (input.status !== undefined && input.status !== "open" && input.status !== "done") throw new ChatError(400, "Invalid thread status");
+    if (this.repository.getChat(actorId, threadId)?.type === "thread") assertCanEdit(this.repository, actorId, threadId);
     this.store.update(actorId, threadId, { title: title === undefined ? undefined : (title as string).trim(), status: input.status as "open" | "done" | undefined });
     const chat = this.repository.getChat(actorId, threadId)!;
     // The root shows the thread's title and status too.

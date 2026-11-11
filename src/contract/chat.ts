@@ -56,6 +56,10 @@ export interface Chat {
   lastMessage: { content: string; quotes: MessageQuote[] } | null;
   memberIds: string[]; sectionId: string | null; topic: string; parentId: string | null; rootMessageId: string | null; status: "open" | "done" | null;
   note: ChatNote | null;
+  /** Who created a channel (A90); null for a DM or thread. */
+  createdBy: string | null;
+  /** A channel's admins (A90), a thread's those of its channel. */
+  adminIds: string[];
   /** For the asking member: read position, unread count, and unread messages that @ them (all unread in a DM). */
   readSequence: number; unread: number; mentions: number;
   /** For the asking member (A41): messages delivered to them with an interrupt that they have not read
