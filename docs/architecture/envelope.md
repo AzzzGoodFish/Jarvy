@@ -74,6 +74,10 @@ Queued deliveries steered into a running turn, or forming a turn of their own wh
 <notice_batch bot="bot_2"><chat …/><member …/><tasks>…</tasks><updates>…</updates><notices>…</notices><changes>…</changes><notice_unread>…</notice_unread><environment …/></notice_batch>
 ```
 
+## Read back
+
+The activity page shows an input record as what it says (A22), so `service/chat/envelope-read.ts` reads these batches back: chats and members, messages (with what they reply to and their files), tasks, reactions, new notice and summary versions, changes, the first start, followed threads, changed instructions, and the tail (unread counts, unread notices, the environment). It reads only this vocabulary: an element it doesn't know is kept as written, the `<note>`s written for the Bot are left out, and text that isn't a chat or notice batch, or whose tags don't pair, gives nothing, so the page shows the record's text as it is. A tag added here needs its reading there too, or it shows as written.
+
 ## Rules
 
 - Every `chat` and `from` resolves to a definition in the same batch. Definitions appear in first-use order.

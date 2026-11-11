@@ -4,6 +4,7 @@ import type { ActivityItem, Selection } from "./api";
 import type { HistorySummary } from "../history-api";
 import { historyTime } from "../HistoryDetail";
 import { formatDate, t, type Key } from "../i18n";
+import { digestLine } from "./inputs";
 
 const ROLES: Record<string, Key> = { system: "activity.roleSystem", user: "activity.roleUser", assistant: "activity.roleAssistant", tool: "history.toolResult" };
 /** What reached the Bot (messages, notices, a task due, Jarvy's own notices) sits on the left with what it sent; its
@@ -36,8 +37,9 @@ export function ActivityTimeline({ items, onSelect }: { items: ActivityItem[]; o
             </button>}
           </article> : <article className="jv-activity-card jv-activity-history" data-input={INPUTS.has(item.record.role) || undefined} aria-label={t("activity.historyRecord", { id: item.record.id })}>
             <button type="button" className="jv-activity-card-main" onClick={() => onSelect({ kind: "history", id: item.record.id })} aria-label={t("activity.viewHistory", { id: item.record.id, role: item.record.role })}>
-              <span className="jv-activity-card-head"><strong>{ROLES[item.record.role] ? t(ROLES[item.record.role]!) : item.record.role}</strong><span>#{item.record.id}</span></span>
-              <span className="jv-activity-preview">{historyLine(item.record) || t("activity.emptyMessage")}</span>
+              <span className="jv-activity-card-head"><strong>{ROLES[item.record.role] ? t(ROLES[item.record.role]!) : item.record.role}</strong>
+                {item.record.input && item.record.input.count > 1 && <em className="jv-activity-more">{t("inputs.more", { count: item.record.input.count })}</em>}<span>#{item.record.id}</span></span>
+              <span className="jv-activity-preview">{(item.record.input ? digestLine(item.record.input) : historyLine(item.record)) || t("activity.emptyMessage")}</span>
             </button>
           </article>}
         </li>

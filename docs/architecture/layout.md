@@ -30,7 +30,7 @@ src/
       views/                 HTTP projections
     service/
       bot/                   Bot, its parts, BotService, the live turn (live.ts)
-      chat/                  Chat, its parts, ChatService, mentions, envelope
+      chat/                  Chat, its parts, ChatService, mentions, envelope (and reading it back)
       delivery/              routes, policy table, plan and dispatch (A41)
       models/                model connections, credentials, catalog queries
       account/               login and its rate limit

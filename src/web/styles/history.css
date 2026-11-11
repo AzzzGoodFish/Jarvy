@@ -3,7 +3,8 @@
 .jv-history-detail-head h3 span { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--jv-muted); }
 .jv-history-detail-head p { margin: 5px 0 0; font-size: 11px; color: var(--jv-muted); }
 .jv-history-detail-head [role=tablist] { display: flex; flex: none; gap: 2px; }
-.jv-history-detail-head [aria-selected=true] { background: var(--jv-hover); }
+/* Above the shared button look, which would otherwise clear it. */
+.jv-history-detail-head [role=tab][aria-selected=true] { background: var(--jv-selected); color: var(--jv-text); }
 .jv-history-detail-scroll { overflow: auto; padding: 20px; flex: 1; min-height: 0; }
 .jv-history-block { margin-bottom: 22px; min-width: 0; }
 .jv-history-block h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 11px; color: var(--jv-muted); font-weight: 400; }

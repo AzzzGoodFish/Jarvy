@@ -11,6 +11,7 @@ import { secrets } from "./secrets";
 import { machines } from "./machines";
 import { tasks } from "./tasks";
 import { ports } from "./ports";
+import { inputs } from "./inputs";
 
 /** 中文 (A45): the parts of the English reference, put together the same way. */
-export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...machines, ...tasks, ...ports };
+export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...machines, ...tasks, ...ports, ...inputs };

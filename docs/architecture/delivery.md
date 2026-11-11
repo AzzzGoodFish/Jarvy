@@ -150,4 +150,4 @@ A turn that ends without `messages.send` produces no chat message and no "no rep
 
 ## Adding a kind
 
-A new kind needs its category and payload (`shared/delivery.ts`), a policy row, a route if it is about a chat, and its rendering in the Bot envelope (and in the sidebar, for people). `AgentRuntime`, the inbox table and the SSE channel stay as they are.
+A new kind needs its category and payload (`shared/delivery.ts`), a policy row, a route if it is about a chat, and its rendering in the Bot envelope (read back for the activity page in `envelope-read.ts`, and in the sidebar, for people). `AgentRuntime`, the inbox table and the SSE channel stay as they are.

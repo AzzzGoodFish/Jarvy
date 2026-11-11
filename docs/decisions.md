@@ -52,7 +52,7 @@ No long-term memory store. A Bot searches chats, then reads History by ID with `
 
 ## A22 Activity timeline
 
-Bot info shows a two-sided timeline: chat messages left, time centre, History right. What reached the Bot — History's input records (`user`: messages, notices, a task due, Jarvy's notices; `system`) — sits on the left with the messages it sent, and the right keeps its own work, the model's turns and tool results. BotService merges the two sources within the owner's scope; chat items also need read access. Ordering is by time with a fixed tie-break and a cursor of time, type and ID, so pages neither skip nor repeat. Order is not causality; links come only from saved sources.
+Bot info shows a two-sided timeline: chat messages left, time centre, History right. What reached the Bot — History's input records (`user`: messages, notices, a task due, Jarvy's notices; `system`) — sits on the left with the messages it sent, and the right keeps its own work, the model's turns and tool results. BotService merges the two sources within the owner's scope; chat items also need read access. Ordering is by time with a fixed tie-break and a cursor of time, type and ID, so pages neither skip nor repeat. Order is not causality; links come only from saved sources. An input reads as what it says rather than as tags: the server reads its own batches back (`envelope-read.ts`) and the activity API sends the result as structure beside the record, the first thing it says in the list and all of it in the details; the interface words it, and the record's text and JSON stay a tab over. Only the server's own vocabulary is read, and anything it can't read is shown as written rather than guessed at.
 
 ## A23 No History button on chat messages
 
