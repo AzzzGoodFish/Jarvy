@@ -4,7 +4,7 @@ import { resolveThinking } from "./thinking.js";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
-import { createAgentSession, createCodemodeExtension, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, type AgentSession, type AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, createCodemodeExtension, DefaultResourceLoader, type ModelRuntime, SessionManager, SettingsManager, type AgentSession, type AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { Store } from "../storage/store.js";
 import type { Bot } from "../../shared/models.js";
 import { reportedContext, type ContextEntry } from "./context.js";
@@ -14,6 +14,7 @@ import { RuntimeFault, type BotPhase, type ContextUsage, type ModelSelection, ty
 import { CredentialCoordinator } from "../credentials/coordinator.js";
 import { ConnectionCredentials, CurrentCredentials } from "./credentials.js";
 import { installModel } from "./model.js";
+import { createRuntime } from "./providers.js";
 import type { ModelCatalog } from "./catalog.js";
 import { configureHttp } from "./http.js";
 import { Type, type TSchema } from "typebox";
@@ -125,7 +126,7 @@ export class PiSession implements BotSession {
     const scoped = new ConnectionCredentials(store.credentials, options.credentials, store.account.userMemberId(), connection.id, connection.providerName);
     await scoped.read(connection.providerName);
     const credentials = new CurrentCredentials(scoped);
-    const models = await ModelRuntime.create({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
+    const models = await createRuntime({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
     const configured = connection.models.find(model => model.id === selection.modelId);
     if (!configured) throw new RuntimeFault("model_missing", "Model not found", 404);
     await options.catalog?.ready();

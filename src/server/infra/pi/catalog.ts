@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import { builtinProviders, getBuiltinModelDataGeneratedAt } from "@earendil-works/pi-ai/providers/all";
+import { allProviders, ownProviders } from "./providers.js";
 import type { ProviderOption } from "../../../contract/models.js";
 
 /** pi.dev's model catalog: every provider's chat models, the same entries Pi bundles. */
@@ -15,8 +16,9 @@ const TIMEOUT_MS = 15_000;
 /** pi.dev's body (provider → model ID → entry) and how to check it again. */
 interface Kept { models: Record<string, Record<string, Record<string, unknown>>>; etag?: string; lastModified: number; checkedAt: number; }
 
-/** The protocols this SDK speaks: from its bundled catalog, never from newer catalog entries. */
-export const modelApis = new Set(builtinProviders().flatMap(provider => provider.getModels().map(model => model.api)));
+/** The protocols this SDK speaks, and Jarvy's own providers (A91): from the bundled catalogs, never from newer entries. */
+export const modelApis = new Set(allProviders().flatMap(provider => provider.getModels().map(model => model.api)));
+const own = new Set(ownProviders().map(provider => provider.id));
 
 /** The model catalog behind the provider list, a provider's models and auto-configuration (A49): the one bundled with
  * Pi, overlaid with pi.dev's newer entries. What was fetched is kept in `<data>/pi/models.json`; offline, or with
@@ -42,10 +44,13 @@ export class ModelCatalog {
   /** Waits until the kept catalog has been read (once, at start), never for pi.dev: a Bot's session needs the entries it
    * takes a model's compat and address from (A62). */
   ready(): Promise<void> { return this.load(); }
+  /** Pi's providers and Jarvy's own (A91): what a connection can be. */
   providers(): readonly Provider[] {
     this.refresh();
-    return this.overlaid ?? builtinProviders();
+    return this.overlaid ?? allProviders();
   }
+  /** Pi's providers only: auto-configuration suggests from their catalogs, not from a subscription's own list. */
+  piProviders(): readonly Provider[] { return this.providers().filter(provider => !own.has(provider.id)); }
   /** Newer entries for one provider's models (a connection's catalog comes from Pi with its credentials). Opening a
    * connection also checks pi.dev when that is due (A62). */
   overlay<T extends Model<Api>>(providerId: string, models: readonly T[]): T[] {
@@ -106,11 +111,11 @@ export class ModelCatalog {
       if (!entries.length) return provider;
       const models = merge(provider.getModels(), entries);
       return { ...provider, getModels: () => models };
-    });
+    }).concat(ownProviders());
   }
   private entries(providerId: string): Model<Api>[] {
     const kept = this.kept, generatedAt = getBuiltinModelDataGeneratedAt();
-    if (!kept || (generatedAt !== undefined && kept.lastModified <= generatedAt)) return [];
+    if (!kept || own.has(providerId) || (generatedAt !== undefined && kept.lastModified <= generatedAt)) return [];
     const models = kept.models[providerId];
     if (!models || typeof models !== "object") return [];
     return Object.values(models).filter(model => typeof model?.id === "string" && typeof model.api === "string" && modelApis.has(model.api as Api)

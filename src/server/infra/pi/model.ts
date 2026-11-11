@@ -1,5 +1,6 @@
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Api, Model, OpenAICompletionsCompat, Provider } from "@earendil-works/pi-ai";
+import { createRuntime, ownProvider } from "./providers.js";
 import type { ModelCatalog } from "./catalog.js";
 import type { ConfiguredModel, ModelConnection } from "../../../contract/models.js";
 import { RuntimeFault } from "../../shared/runtime.js";
@@ -23,15 +24,17 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
   if (configured.thinkingFormat && !FORMATS.has(configured.thinkingFormat)) throw new RuntimeFault("thinking_format", "This thinking format isn't supported.", 422);
   // Precedence: builtin provider defaults < saved compat (catalog/autoconfig/user) < thinking format field.
   const compat = { ...builtin?.compat, ...configured.compat, ...(configured.thinkingFormat ? { thinkingFormat: configured.thinkingFormat as OpenAICompletionsCompat["thinkingFormat"] } : {}) } as Model<Api>["compat"];
-  runtime.registerProvider(connection.providerName, {
-    baseUrl, api,
-    // Secrets come from CredentialStore only; apiKey here would invoke Pi's
-    // environment/command config resolver, not our literal-key contract.
-    models: [{ id: configured.id, name: configured.name, api, baseUrl,
-      reasoning: configured.reasoning, input: configured.input, contextWindow, maxTokens,
-      cost: configured.cost ?? builtin?.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      thinkingLevelMap: configured.thinkingLevelMap, compat }],
-  });
+  const entry = { id: configured.id, name: configured.name, api, baseUrl,
+    reasoning: configured.reasoning, input: configured.input, contextWindow, maxTokens,
+    cost: configured.cost ?? builtin?.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    thinkingLevelMap: configured.thinkingLevelMap, compat };
+  // One of Jarvy's own providers (A91) is a Pi provider object, not configuration over a built-in one: registered
+  // again with this model as its list.
+  const own = ownProvider(connection.providerName, [{ ...entry, provider: connection.providerName }]);
+  if (own) runtime.registerNativeProvider(own);
+  // Secrets come from CredentialStore only; apiKey here would invoke Pi's
+  // environment/command config resolver, not our literal-key contract.
+  else runtime.registerProvider(connection.providerName, { baseUrl, api, models: [entry] });
   const model = runtime.getModel(connection.providerName, configured.id);
   if (!model) throw new RuntimeFault("model_missing", "Model not found", 404);
   // Literal request headers, not Pi config expressions (which may resolve shell commands).
@@ -40,9 +43,16 @@ export function installModel(runtime: ModelRuntime, connection: ModelConnection,
 }
 
 /** Public catalog metadata only; no credential or header values leave the adapter. A connection's catalog takes the
- * model catalog's newer entries too (A49). */
+ * model catalog's newer entries too (A49); one of Jarvy's own providers lists the signed-in account's models, or its
+ * built-in ones when they can't be fetched (A91). */
 export async function modelCatalog(credentials: import("@earendil-works/pi-ai").CredentialStore, providerName: string, catalog: ModelCatalog): Promise<ConfiguredModel[]> {
-  const runtime = await ModelRuntime.create({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
+  const runtime = await createRuntime({ credentials, modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
+  // Not signed in yet (a connection is made as its sign-in starts): the built-in list, with nothing to fetch.
+  if (ownProvider(providerName) && (await credentials.list()).length) {
+    const { errors } = await runtime.refresh({ providers: [providerName], allowNetwork: true, force: true });
+    const error = errors.get(providerName);
+    if (error) console.warn("[models] account models not fetched", { provider: providerName, error: error.message });
+  }
   return catalog.overlay(providerName, runtime.getModels(providerName)).map(publicModel);
 }
 export function providerModels(providers: readonly Provider[], providerName: string): ConfiguredModel[] {

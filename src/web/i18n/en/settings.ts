@@ -160,6 +160,7 @@ export const settings = {
   "auth.signOut": "Sign out",
   "auth.statusFailed": "Couldn't get the sign-in status",
   "auth.refresh": "Refresh the state",
+  "auth.antigravityRisk": "Using Antigravity through a third-party app may break Google's terms of service, and the account may be suspended.",
 
   "picker.loadFailed": "Couldn't load the providers",
 } as const;

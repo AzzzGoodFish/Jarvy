@@ -94,7 +94,7 @@ export class ModelService {
       if (!provider || !chosen) throw new RuntimeFault("autoconfig_source", "The setup source isn't valid.", 400);
       choice = { provider, modelId: chosen };
     }
-    return autoconfigure(this.models.providers(), modelId, api, choice);
+    return autoconfigure(this.models.piProviders(), modelId, api, choice);
   }
   options(): BotModelGroup[] {
     return this.list().filter(connection => connection.models.length).map(connection => ({

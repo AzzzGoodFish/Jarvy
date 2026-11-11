@@ -35,13 +35,20 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
   function merge(models: ConfiguredModel[]) {
     setDrafts(current => { const ids = new Set(current.map(item => item.model.id)); return [...current, ...models.filter(model => !ids.has(model.id)).map(model => draftModel(model, false))]; });
   }
+  // Again once signed in: a subscription may list the account's own models (A91), and the ones offered before that
+  // the account doesn't have go, unless picked or saved.
   useEffect(() => {
     if (custom) return;
     let alive = true; setFetching(true);
     const request = connection ? api.modelCatalog(connection.id) : api.providerModels(preset!.id);
-    void request.then(result => { if (alive) merge(result.models); }).catch(reason => { if (alive) setError(errorText(reason, "editor.fetchFailed")); }).finally(() => { if (alive) setFetching(false); });
+    void request.then(result => {
+      if (!alive) return;
+      const ids = new Set(result.models.map(model => model.id));
+      if (connection?.configured) setDrafts(current => current.filter(item => item.selected || item.originalId !== undefined || ids.has(item.model.id)));
+      merge(result.models);
+    }).catch(reason => { if (alive) setError(errorText(reason, "editor.fetchFailed")); }).finally(() => { if (alive) setFetching(false); });
     return () => { alive = false; };
-  }, [connection?.id, preset?.id, custom]);
+  }, [connection?.id, connection?.configured, preset?.id, custom]);
   async function discover() {
     setFetching(true); setError(""); setNotice("");
     try {
