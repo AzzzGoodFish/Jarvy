@@ -18,7 +18,7 @@ src/
       action.ts             useAction(): a request in flight and its worded error, for any component that sends one
       question/RequestCard  the panel a secret or SSH machine request shows in (and its masked field)
       environment/          Bot info's sandbox section and the Environments page: sandboxes and SSH machines (A89)
-      secrets/SettingsItem  an expandable settings row with in-place delete (secrets)
+      secrets/SettingsItem  an expandable settings row with in-place delete (secrets, a Bot's forwarded ports)
       secrets/Grants        a grant list kept like a channel's members: the granted ones with remove, Add opening a search (Settings, Bot info › 授权)
   server/
     api/

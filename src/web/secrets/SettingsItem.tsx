@@ -3,21 +3,25 @@ import { ChevronDownIcon } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { t } from "../i18n";
 
-/** One expandable row of a settings list (secrets, SSH machines): the row with its text, what it says at the right and
- * a chevron; open, the item's own details, then deleting — a button, or the confirmation asked in place — and the
- * last error. Each item keeps its own state and requests; this is only the frame. */
-export function SettingsItem({ id, open, onToggle, text, meta, busy, error, remove, confirming, onAskRemove, onCancel, onConfirm, children }: {
+/** One expandable row of a settings list (secrets, a Bot's forwarded ports): the row with its text, what
+ * it says at the right and a chevron; open, the item's own details, then deleting — a button, or the confirmation
+ * asked in place — and the last error. Each item keeps its own state and requests; this is only the frame. */
+export function SettingsItem({ id, open, onToggle, text, meta, extra, busy, error, remove, confirming, onAskRemove, onCancel, onConfirm, children }: {
   id: string; open: boolean; onToggle: () => void; text: ReactNode; meta: ReactNode; busy: boolean; error: string;
+  /** A control of the row's own, outside its button, before the chevron: a forwarded port's link. */
+  extra?: ReactNode;
   /** The delete button's label; `confirming` replaces it with the question until answered. */
   remove: string; confirming: { title: string; body: string; confirm: string } | null;
   onAskRemove: () => void; onCancel: () => void; onConfirm: () => void; children: ReactNode;
 }) {
+  const row = <button type="button" className="jv-list-row jv-secret-row" aria-expanded={open} aria-controls={id} onClick={onToggle}>
+    <span className="jv-row-text">{text}</span>
+    {meta}
+    {extra && <span className="jv-secret-room" aria-hidden="true"/>}
+    <ChevronDownIcon className="jv-row-chevron" aria-hidden="true"/>
+  </button>;
   return <>
-    <button type="button" className="jv-list-row jv-secret-row" aria-expanded={open} aria-controls={id} onClick={onToggle}>
-      <span className="jv-row-text">{text}</span>
-      {meta}
-      <ChevronDownIcon className="jv-row-chevron" aria-hidden="true"/>
-    </button>
+    {extra ? <div className="jv-secret-head">{row}<span className="jv-secret-extra">{extra}</span></div> : row}
     {open && <div id={id} className="jv-list-row jv-static-row jv-secret-details">
       {children}
       {!confirming ? <div className="jv-secret-actions jv-secret-danger"><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onAskRemove}>{remove}</Button></div>
