@@ -1,25 +1,16 @@
-/* A Bot's published ports in Bot info (A74), like its scheduled tasks: a row opens the port's details, the icon
-   beside it opens its link. */
-.jv-port-row { display: flex; align-items: center; gap: 4px; }
-.jv-port-row + .jv-port-row { border-top: 1px solid var(--jv-line); }
-.jv-list .jv-port-row .jv-port-open { min-width: 0; }
-.jv-list .jv-port-open:hover { background: var(--jv-hover); }
-.jv-port-go { flex: none; margin-right: 10px; }
+/* A Bot's forwarded ports (ports/BotPorts.tsx, A74): rows that open in place like Settings' secrets (SettingsItem),
+   the icon on a row opening its link. */
 .jv-port-line { display: inline-flex; align-items: center; gap: 4px; }
 /* The state: a dot and its word, green when it answers, amber when it can't be reached, grey otherwise. */
 .jv-port-state { display: inline-flex; align-items: center; gap: 5px; }
 .jv-port-state::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--jv-dim); }
-.jv-port-state[data-state="live"]::before { background: var(--ui-fill-success, #2fa66a); }
-.jv-port-state[data-state="local"]::before, .jv-port-state[data-state="idle"]::before { background: var(--ui-fill-warning, #d69e2e); }
-/* The details are rows of their own in the same panel, divided like Bot info's other lists. */
-.jv-list.jv-port-details .jv-list-row { min-height: 52px; }
-.jv-port-details .jv-row-text > span { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
-.jv-port-head { align-items: flex-start; }
-.jv-port-head .jv-row-text > strong { font-size: 14px; white-space: normal; overflow-wrap: anywhere; }
-.jv-list.jv-port-details .jv-port-hint { min-height: 0; font-size: 12px; line-height: 1.5; color: var(--ui-text-warning); }
-.jv-port-value { font-size: 13px; color: var(--jv-text); }
-.jv-list.jv-port-details .jv-port-actions { min-height: 0; justify-content: space-between; padding-top: 6px; padding-bottom: 6px; }
-.jv-port-confirm { flex-wrap: wrap; }
-.jv-port-actions-end { display: flex; gap: 4px; margin-left: auto; }
-.jv-port-actions .jv-port-unpublish { margin-left: -10px; }
-.jv-ui [data-slot="button"][data-variant="ghost"].jv-port-unpublish { color: var(--ui-text-danger); }
+.jv-port-state[data-state="live"]::before { background: var(--ui-fill-success); }
+.jv-port-state[data-state="local"]::before, .jv-port-state[data-state="idle"]::before { background: var(--ui-fill-warning); }
+/* Open: what it is, what to do when it can't be reached, its links, and where it comes from. */
+.jv-port-about { margin: 0; font-size: 12px; line-height: 1.5; color: var(--jv-muted); overflow-wrap: anywhere; }
+.jv-port-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ui-text-warning); }
+.jv-port-links { display: grid; gap: 2px; padding: 4px 4px 4px 12px; border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field); }
+.jv-port-link { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: 34px; }
+.jv-port-link > span { min-width: 56px; font-size: 12px; color: var(--jv-muted); }
+.jv-port-link > code { overflow: hidden; font-size: 12px; color: var(--jv-text); text-overflow: ellipsis; white-space: nowrap; }
+.jv-port-from { margin: 0; font-size: 12px; color: var(--jv-dim); }

@@ -18,8 +18,8 @@
 /* A sandbox's state at a glance: running green, on its way amber, stopped grey, failed or without Docker red. */
 .jv-envs-state { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ui-text-disabled); }
 .jv-envs-state:not([data-state]) { visibility: hidden; }
-.jv-envs-state[data-state="running"] { background: var(--ui-fill-success, #22c55e); }
-.jv-envs-state[data-state="preparing"] { background: #f59e0b; }
+.jv-envs-state[data-state="running"] { background: var(--ui-fill-success); }
+.jv-envs-state[data-state="preparing"] { background: var(--ui-fill-warning); }
 .jv-envs-state:is([data-state="failed"], [data-state="unavailable"]) { background: var(--ui-fill-danger); }
 /* Who works there now, overlapping. */
 .jv-envs-faces { display: flex; flex: none; align-items: center; }
