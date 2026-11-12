@@ -46,6 +46,9 @@ export interface ExecOptions {
   secrets?: Record<string, string>;
 }
 
+/** How a Bot's batches name its own sandbox (A50); the activity page reads it back as the sandbox, not as a machine. */
+export const OWN_SANDBOX = "your sandbox";
+
 export interface EnvironmentRecord {
   id: string; ownerId: string; kind: EnvironmentKind;
   /** The Bot a computer belongs to. */

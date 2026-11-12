@@ -1,3 +1,4 @@
+import type { InputDigest } from "../../contract/inputs.js";
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type HistoryRole = "system" | "user" | "assistant" | "tool";
 export type HistoryContent =
@@ -25,6 +26,8 @@ export interface HistoryRecord extends HistoryDraft { id: number; }
  * steps in order (a call, or a result that may have failed) and how many images it holds. */
 export interface HistorySummary {
   id: number; timestamp: number; role: HistoryRole; model: HistoryDraft["model"]; preview: string; tools: HistoryTool[]; images: number;
+  /** On the activity page, an input record's batch as it reads (A22). */
+  input?: InputDigest;
 }
 export interface HistoryTool { kind: "call" | "result"; name: string; error?: true; }
 export interface HistoryPage { items: HistorySummary[]; nextBefore: number | null; }

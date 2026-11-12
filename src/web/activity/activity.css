@@ -21,12 +21,15 @@
 .jv-activity-card { min-width:0; grid-row:1; border:1px solid var(--jv-line); border-radius:7px; overflow:hidden; }
 .jv-activity-chat { grid-column:1; background:var(--jv-panel); }
 .jv-activity-history { grid-column:3; background:var(--jv-field); }
+/* What reached the Bot, beside what it sent. */
+.jv-activity-history[data-input] { grid-column:1; }
 .jv-activity-card-main { display:block; width:100%; border:0; background:transparent; color:inherit; text-align:left; padding:12px 14px; font:inherit; cursor:pointer; }
 .jv-activity-card-main:hover, .jv-activity-source:hover { background:var(--jv-hover); }
 .jv-activity-card-head { display:flex; align-items:center; gap:7px; margin-bottom:8px; min-width:0; color:var(--jv-muted); font-size:10px; }
 .jv-activity-card-head svg { width:13px; height:13px; flex:none; }
 .jv-activity-card-head strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:500; }
 .jv-activity-card-head > span { margin-left:auto; font:10px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.jv-activity-card-head .jv-activity-more { flex:none; padding:1px 6px; border-radius:9px; background:var(--jv-hover); font-style:normal; }
 .jv-activity-preview { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.65; }
 .jv-activity-history .jv-activity-preview { color:var(--jv-muted); -webkit-line-clamp:2; }
 .jv-activity-source { display:flex; align-items:center; gap:5px; border:0; border-top:1px solid var(--jv-line); background:transparent; color:var(--jv-accent); width:100%; padding:7px 14px; font:inherit; font-size:11px; text-align:left; cursor:pointer; }
@@ -48,6 +51,26 @@
 .jv-activity-message-files a { display:flex; align-items:center; gap:5px; color:var(--jv-accent); }
 .jv-activity-message-files svg { width:14px; height:14px; }
 .jv-activity-message-source { margin-top:20px; }
+/* An input record as it reads (A22): one block per thing its batch says, then what the Bot was told alongside. */
+.jv-input { display:flex; flex-direction:column; gap:12px; font-size:12px; }
+.jv-input-item { min-width:0; padding:12px 14px; border:1px solid var(--jv-line); border-radius:7px; }
+.jv-input-item h4 { display:flex; align-items:baseline; flex-wrap:wrap; gap:3px 10px; margin:0; font-size:11px; font-weight:400; color:var(--jv-muted); }
+.jv-input-item h4 strong { min-width:0; color:var(--jv-text); font-size:12px; font-weight:500; overflow-wrap:anywhere; }
+.jv-input-item h4 time { margin-left:auto; font:10px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.jv-input-body { margin-top:8px; line-height:1.7; overflow-wrap:anywhere; }
+.jv-input-body > :first-child { margin-top:0; }
+.jv-input-body > :last-child { margin-bottom:0; }
+.jv-input-quote { margin:8px 0 0; padding:1px 0 1px 10px; border-left:2px solid var(--jv-line); color:var(--jv-muted); line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
+.jv-input-quote > span { display:block; font-size:10px; }
+.jv-input-text { margin:8px 0 0; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.jv-input-code { margin:8px 0 0; padding:10px; border-radius:5px; background:var(--jv-field); font:11px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.jv-input-files, .jv-input-threads { display:flex; flex-direction:column; gap:4px; margin:8px 0 0; padding:0; list-style:none; font-size:11px; }
+.jv-input-files li, .jv-input-threads li { display:flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
+.jv-input-files svg { width:12px; height:12px; flex:none; color:var(--jv-muted); }
+.jv-input-files small, .jv-input-threads small { color:var(--jv-muted); font-size:10px; }
+.jv-input-tail { display:flex; flex-direction:column; gap:4px; padding:2px 2px 0; font-size:11px; color:var(--jv-muted); }
+.jv-input-tail p { margin:0; overflow-wrap:anywhere; }
+.jv-input-tail .jv-input-problem { color:var(--jv-danger); }
 .jv-activity button:focus-visible { outline:2px solid var(--jv-accent); outline-offset:-2px; }
 @media (max-width:640px) {
   .jv-activity-toolbar { padding:7px 12px; }
@@ -64,4 +87,5 @@
   .jv-activity-source { padding:7px 9px; font-size:10px; }
   .jv-activity-source svg { display:none; }
   .jv-activity-message-head, .jv-activity-message-body { padding:16px; }
+  .jv-input-item { padding:10px 12px; }
 }

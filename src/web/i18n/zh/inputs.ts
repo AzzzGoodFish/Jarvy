@@ -1,0 +1,38 @@
+import type { Part } from "../keys";
+import type { inputs as en } from "../en/inputs";
+
+/** 中文：活动页里解析后的输入 (A22)。 */
+export const inputs: Part<typeof en> = {
+  "inputs.someone": "有人",
+  "inputs.aChat": "某个会话",
+  "inputs.message": "{person} · {chat}：{text}",
+  "inputs.task": "定时任务「{name}」：{text}",
+  "inputs.reaction": "{person} 回应了 {emoji}：{text}",
+  "inputs.notice": "{person} 更新了「{chat}」的公告（第 {version} 版）",
+  "inputs.summary": "{person} 更新了「{chat}」的摘要（第 {version} 版）",
+  "inputs.change": "{person} 修改了它的{what}",
+  "inputs.onboard": "首次启动：{person} 刚给它配好模型",
+  "inputs.followed": { one: "对话已压缩，它关注着 {count} 个线程", other: "对话已压缩，它关注着 {count} 个线程" },
+  "inputs.instructions": "它的设定有变化：{parts}",
+  "inputs.more": { one: "等 {count} 条", other: "等 {count} 条" },
+  "inputs.raw": "原始文本",
+  "inputs.replyTo": "回复 {person}",
+  "inputs.taskTitle": "定时任务「{name}」",
+  "inputs.due": "计划于 {time}",
+  "inputs.reacted": "{person} 回应了 {emoji}",
+  "inputs.unreadThreads": { one: "{count} 条未读", other: "{count} 条未读" },
+  "inputs.unread": { one: "未读 {count} 条：{list}", other: "未读 {count} 条：{list}" },
+  "inputs.unreadNotes": "还没读的公告和摘要：{list}",
+  "inputs.version": "{title}（第 {version} 版）",
+  "inputs.place": "工作环境：{name} · {directory}",
+  "inputs.sandbox": "沙箱",
+  "inputs.unavailable": "当时文件和命令工具不可用",
+  "inputs.what.name": "名称",
+  "inputs.what.description": "描述",
+  "inputs.what.persona": "设定",
+  "inputs.what.model": "模型",
+  "inputs.what.thinking": "思考强度",
+  "inputs.what.run": "运行状态",
+  "inputs.what.environment": "工作环境",
+  "inputs.what.access": "可用环境",
+};
