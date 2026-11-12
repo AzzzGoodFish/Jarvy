@@ -34,6 +34,9 @@
   --ui-fill-bubble-agent: oklch(.955 .005 250);
   --ui-fill-bubble-user: oklch(.27 .02 255);
   --ui-fill-control-checked: oklch(.27 .02 255);
+  /* A switch's knob: white on the dark track it is given, and in the dark theme light grey so it stands out from its
+   * grey track as it does here. */
+  --ui-fill-control-knob: oklch(1 0 0);
   --ui-fill-control-track: oklch(.2 .012 260 / 10%);
   --ui-fill-ghost-hover: oklch(.45 .012 255 / 8%);
   --ui-fill-ghost-selected: oklch(.45 .012 255 / 15%);
@@ -78,6 +81,9 @@
   --ui-fill-bubble-agent: #363b45;
   --ui-fill-bubble-user: #495260;
   --ui-fill-control-checked: #697688;
+  /* The switch's knob in the dark theme: light enough to stand on the tracks below, where the light theme's white is
+   * too bright for this palette. */
+  --ui-fill-control-knob: #e4e9f0;
   --ui-fill-control-track: #d6deeb18;
   --ui-fill-ghost-hover: #d6deeb0c;
   --ui-fill-ghost-selected: #d6deeb18;
