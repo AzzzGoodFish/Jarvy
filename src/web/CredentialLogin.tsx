@@ -73,7 +73,7 @@ export function CredentialLogin({ connection, providerName, authType, ensureConn
         <Label htmlFor={`oauth-input-${connectionId ?? providerName}`}>{prompt.type === "manual_code" ? t(directChatGpt ? "auth.redirectFull" : "auth.redirectOrCode") : prompt.message}</Label>
         {prompt.type === "manual_code" && <p className="jv-auth-note">{t("auth.manualNote")}</p>}
         <Input id={`oauth-input-${connectionId ?? providerName}`} type={prompt.type === "text" ? "text" : "password"} autoComplete="off" value={value} disabled={busy}
-          onChange={event => setValue(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); submit(value); } }}/>
+          onChange={event => setValue(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); submit(value); } }}/>
         <Button type="button" variant="outline" disabled={busy || !value.trim()} onClick={() => submit(value)}>{t("common.continue")}</Button>
       </div>}
       {!prompt && <p role="status" className="text-sm text-muted-foreground">{t("auth.waiting")}</p>}

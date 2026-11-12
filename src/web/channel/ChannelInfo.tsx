@@ -27,7 +27,7 @@ function InfoField({ label, value, empty, maxLength, required = false, onSave }:
     {draft === null ? <p className="jv-info-value" data-empty={!value || undefined}>{value || empty}</p>
       : <div className="jv-inline-edit">
         <input id={id} value={draft} maxLength={maxLength} autoFocus placeholder={empty} onChange={event => setDraft(event.target.value)}
-          onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void save(); } if (event.key === "Escape") { event.stopPropagation(); setDraft(null); } }}/>
+          onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); void save(); } if (event.key === "Escape") { event.stopPropagation(); setDraft(null); } }}/>
         <button type="button" className="ui-button" onClick={() => setDraft(null)}>{t("common.cancel")}</button>
         <button type="button" className="ui-button ui-primary" disabled={busy || (required && !draft.trim())} onClick={() => void save()}>{t("common.save")}</button>
       </div>}

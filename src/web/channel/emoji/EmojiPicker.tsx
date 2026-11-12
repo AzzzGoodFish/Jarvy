@@ -107,7 +107,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
         onKeyDown={event => {
           // Escape clears a search first, and closes the panel when there is none.
           if (event.key === "Escape" && query) { event.stopPropagation(); setQuery(""); }
-          if (event.key === "Enter" && found?.[0]) { event.preventDefault(); pick(found[0][0]); }
+          if (event.key === "Enter" && !event.nativeEvent.isComposing && found?.[0]) { event.preventDefault(); pick(found[0][0]); }
         }}/>
     </label>
     <div className="jv-emoji-groups" role="tablist" data-hidden={!tabs.length || undefined}>

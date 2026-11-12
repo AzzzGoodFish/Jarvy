@@ -18,7 +18,7 @@ function MemberPicker({ candidates, bots, busy, onCancel, onConfirm }: {
   const toggle = (id: string) => setPicked(previous => previous.includes(id) ? previous.filter(item => item !== id) : [...previous, id]);
   return <div className="jv-picker">
     <div className="ui-field"><input type="search" value={query} autoFocus placeholder={t("common.searchMembers")} aria-label={t("common.searchMembers")} onChange={event => setQuery(event.target.value)}
-      onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (shown.length === 1) toggle(shown[0]!.id); } }}/></div>
+      onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); if (shown.length === 1) toggle(shown[0]!.id); } }}/></div>
     <div className="jv-picker-list" role="listbox" aria-multiselectable="true" aria-label={t("dialogs.candidates")}>
       {shown.map(member => <button key={member.id} type="button" role="option" aria-selected={picked.includes(member.id)} className="jv-member-option" onClick={() => toggle(member.id)}>
         <MemberAvatar member={member} bots={bots} size={24}/><span className="jv-member-name">{member.name}</span>
