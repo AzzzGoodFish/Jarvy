@@ -40,7 +40,7 @@ export function Grants({ items, grantedIds, texts, rows, onGrant }: {
     </li>)}</ul> : !picking && <p className="jv-hint">{texts.none}</p>}
     {picking && <div className="jv-secret-picker">
       {items.length > 0 && <label className="jv-search"><SearchIcon aria-hidden="true"/><input type="search" autoFocus value={query} placeholder={texts.search} aria-label={texts.search}
-        onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (shown.length === 1) toggle(shown[0]!.id); } }}/></label>}
+        onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); if (shown.length === 1) toggle(shown[0]!.id); } }}/></label>}
       <div className="jv-secret-options" role="listbox" aria-multiselectable="true" aria-label={texts.add} data-rows={rows || undefined}>
         {shown.map(item => <button key={item.id} type="button" role="option" aria-selected={picked.includes(item.id)} className="jv-secret-option" onClick={() => toggle(item.id)}>
           {item.icon}{label(item)}{picked.includes(item.id) && <CheckIcon aria-hidden="true"/>}
