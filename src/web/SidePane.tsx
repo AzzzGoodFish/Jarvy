@@ -23,7 +23,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
  * App owns the pane state and the data; this only dispatches. */
 export function SidePane({ pane, followedView, threadEvents, followed, chats, sections, members, bots, statuses, meId, drafts, changes, live, memory, paneChannel, activeBot, botDirects, find,
   onPane, onNav, onBackToChannel, onAddMembers, onOpenBot, onPin, onMute, onDeleteChannel, onChannelSaved, onThreadChanged, onInvite, onPreview, onNotice, onError,
-  paneWidth, onResize }: {
+  onBotCard, paneWidth, onResize }: {
   pane: Pane | null; followedView: boolean; threadEvents: ThreadEvents; followed: FollowedSummary | null; chats: Chat[]; sections: Section[]; members: Member[]; bots: Bot[];
   statuses: Record<string, BotStatus>; meId: string; drafts: DraftStore;
   /** Each chat's changes, for the panes that read again what they show (A71), and the changes themselves for the others (A72). */
@@ -42,6 +42,8 @@ export function SidePane({ pane, followedView, threadEvents, followed, chats, se
   onPin: (chat: Chat) => void; onMute: (chat: Chat) => void; onDeleteChannel: (chat: Chat) => void; onChannelSaved: (chat: Chat) => void;
   onThreadChanged: (thread: Chat) => void; onInvite: (channelId: string, member: Member) => void; onPreview: (files: Attachment[], index: number) => void;
   onNotice: (text: string) => void; onError: (error: unknown) => void;
+  /** A Bot's avatar in a thread was pressed: open its card there (A92). */
+  onBotCard?: (bot: Bot, anchor: DOMRect) => void;
   paneWidth: number; onResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   const open = pane?.kind === "thread" ? pane : null, full = open?.mode === "full";
@@ -52,11 +54,11 @@ export function SidePane({ pane, followedView, threadEvents, followed, chats, se
       renderThread={(thread, back) => <ThreadPane key={thread.id} threadId={thread.id} mode="embed" channel={chats.find(chat => chat.id === thread.parentId)} drafts={drafts}
         members={members} bots={bots} me={meId} live={live} memory={memory} onNav={onNav} onChanged={onThreadChanged}
         onClose={back} onToggleMode={() => onBackToChannel({ id: thread.id, parentId: thread.parentId }, true)}
-        onInvite={member => onInvite(thread.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice} onOpenMessage={openElsewhere}/>}/>}
+        onInvite={member => onInvite(thread.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice} onOpenMessage={openElsewhere} onBotCard={onBotCard}/>}/>}
     {open && <ThreadPane key={`${open.id}:${open.focus?.id ?? ""}:${open.focus?.passage ?? ""}`} threadId={open.id} mode={open.mode} showSummary={open.summary} focus={open.focus} onSearch={find.search}
       channel={chats.find(chat => chat.id === open.parentId)} drafts={drafts} members={members} bots={bots} me={meId} live={live} memory={memory} onNav={onNav} onChanged={onThreadChanged}
       onClose={() => full ? onBackToChannel(open, false) : close()} onToggleMode={() => full ? onBackToChannel(open, true) : onPane({ ...open, mode: "full" })}
-      onInvite={member => onInvite(open.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice} onOpenMessage={openElsewhere}/>}
+      onInvite={member => onInvite(open.parentId, member)} onPreview={onPreview} onError={onError} onNotice={onNotice} onOpenMessage={openElsewhere} onBotCard={onBotCard}/>}
     {pane?.kind === "search" && <SearchPane chat={pane.chat} chats={chats} members={members} focusKey={find.focusKey}
       onOpenMessage={find.openMessage} onClose={close} onError={onError}/>}
     {pane?.kind === "threads" && paneChannel && <ThreadList channel={paneChannel} members={members} bots={bots} changes={changes}

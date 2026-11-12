@@ -12,6 +12,7 @@ import "./styles/attachments.css";
 import "./styles/jarvy.css";
 import "./styles/channels.css";
 import "./styles/threads.css";
+import "./styles/bot-card.css";
 
 /** Subscribes to the interface language (A45), so switching it re-renders the whole app in place — open dialogs and panes stay.
  * A page that is not a secure context (plain HTTP from another machine, A51) keeps a warning above everything. */

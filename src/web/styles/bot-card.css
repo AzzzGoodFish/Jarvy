@@ -1,0 +1,22 @@
+/* A Bot's profile card, opened from its avatar in a chat (A92). */
+.jv-avatar-button { display: inline-flex; flex: none; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.jv-avatar-button:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
+@media (hover: hover) { .jv-avatar-button:hover { filter: brightness(1.06); } }
+.jv-bot-card {
+  position: fixed; z-index: 60; padding: 14px; border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg);
+  background: var(--ui-bg-elevated); color: var(--ui-text-primary); box-shadow: var(--ui-shadow-md);
+  animation: ui-rise .12s var(--ui-ease-out); outline: none;
+}
+.jv-bot-card-head { display: flex; align-items: center; gap: 10px; }
+.jv-bot-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.jv-bot-card-role { display: inline-block; margin-top: 2px; padding: 0 5px; border-radius: 4px; background: var(--ui-fill-secondary);
+  color: var(--ui-text-secondary); font-size: 10px; line-height: 16px; }
+.jv-bot-card-about { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin: 10px 0 0;
+  font-size: 12px; line-height: 1.6; color: var(--ui-text-secondary); overflow-wrap: anywhere; }
+.jv-bot-card-facts { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 0; font-size: 12px; }
+.jv-bot-card-facts > div { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+.jv-bot-card-facts dt { flex: none; width: 56px; color: var(--ui-text-secondary); }
+.jv-bot-card-facts dd { min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.jv-bot-card-facts dd[data-tone=busy] { color: var(--ui-text-success); }
+.jv-bot-card-facts dd[data-tone=error] { color: var(--ui-text-danger); }
+.jv-bot-card-actions { display: flex; gap: 8px; margin-top: 14px; }

@@ -767,6 +767,17 @@ Where Bots work was in three places: each Bot's sandbox in its Bot info (A50, A8
 
 Why: sandboxes and machines are the places Bots work, and one page beside the chats shows them side by side and who is in each; the owner manages machines where they see them.
 
+## A92 A Bot's card, from its avatar
+
+A Bot's avatar in a chat was a picture, and the only way to learn who a Bot is — what it is doing, where it works, which model it uses — was to go to the member list or the sidebar's menu for its whole Bot info.
+
+- **Pressing a Bot's avatar** in a channel's messages, a thread, or beside its own DM bubbles opens a card where it is: its avatar, name and description, whether it is running and what it is doing, where its file and command tools run, and its model.
+- **Two ways on**: 发消息 opens its DM (making it if there is none), Bot info opens it as before. The card closes on either, on Esc, on a press anywhere else, on a press on any avatar, and when the chat scrolls under it.
+- **A card, not the page**: Bot info has seven tabs, the run switch and the colour picker, which is not what a press in the middle of reading should open. People's avatars stay marks: a person has no description of their own.
+- Frontend only: no API changed; the Bot's state and model come from what the page already has.
+
+Why: Slack and Discord show a profile card from a name or avatar and leave the full profile a step away. The avatars in the member list, the @ menu and the thread lists already have room to say who someone is, and stay as they are.
+
 ## A90 Channel creators and admins
 
 Every member of a channel, Bots included, could change its notice, name, topic and group, and every thread's title, status and summary. A Bot that only takes part could rewrite the rules everyone works by.

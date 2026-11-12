@@ -5,16 +5,8 @@ import { type Chat, type Member } from "../../contract/chat";
 import { ConfirmDialog } from "../dm/DeleteDialog";
 import { Icon, IconButton } from "../ui";
 import { t } from "../i18n";
-import { activityLabel } from "../members";
+import { botState } from "../members";
 import { MemberAvatar } from "./ChannelView";
-
-/** What a Bot is doing: its activity while running (as in the sidebar), else 空闲 or 未运行. */
-function botState(bot: Bot | undefined, status: BotStatus | undefined): { label: string; tone?: "busy" | "error" } {
-  if (!bot?.connectionId) return { label: t("activity.noModel") };
-  if (status?.error) return { label: t("activity.error"), tone: "error" };
-  if (status?.status === "running") return { label: activityLabel(status.activity), tone: "busy" };
-  return { label: t(status?.status === "idle" ? "activity.idle" : "activity.stopped") };
-}
 
 /** A member's 「…」 menu, its right edge under the button's: making a Bot an admin or not (A90; the creator is one
  * anyway), and removing them. */

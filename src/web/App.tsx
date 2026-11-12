@@ -7,6 +7,7 @@ import { type ModelConnection } from "../contract/models";
 import { AppDialogs, type Confirm, type Dialog, type Menu } from "./AppDialogs";
 import { AppSidebar } from "./AppSidebar";
 import { ChatMain } from "./ChatMain";
+import { BotCard } from "./bot/BotCard";
 import { SidePane } from "./SidePane";
 import { ThreadEvents } from "./thread/followed";
 import { SettingsDialog, type SettingsTab } from "./Settings";
@@ -61,6 +62,11 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [focusedBotId, setFocusedBotId] = useState<string | null>(null);
   const [infoBotId, setInfoBotId] = useState<string | null>(null);
+  // A Bot's profile card, opened from its avatar in a chat (A92), where it opened.
+  const [botCard, setBotCard] = useState<{ id: string; anchor: DOMRect } | null>(null);
+  /** A press on an avatar opens that Bot's card, and a second press on the same one closes it. */
+  const openBotCard = (bot: Bot, anchor: DOMRect) => setBotCard(current => current?.id === bot.id ? null : { id: bot.id, anchor });
+  const closeBotCard = () => setBotCard(null);
   const [connections, setConnections] = useState<ModelConnection[]>([]);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [accountMenu, setAccountMenu] = useState(false);
@@ -422,6 +428,7 @@ export function App() {
   const openThread = pane?.kind === "thread" ? pane : null, full = openThread?.mode === "full";
   const paneChannel = inChannel ? viewing : undefined;
   const infoBot = bots.find(bot => bot.id === infoBotId);
+  const cardBot = bots.find(bot => bot.id === botCard?.id);
   const working = new Set(Object.values(statuses).filter(item => item.status === "running" && item.activity !== "asking").map(item => item.botId));
   const asking = new Set(Object.values(statuses).filter(item => item.activity === "asking").map(item => item.botId));
   return <>
@@ -444,7 +451,7 @@ export function App() {
         onToggleCreate={open => { setCreateMenu(open); setAccountMenu(false); }}/>
       <ChatMain chat={current} inChannel={inChannel} bots={bots} members={members} meId={meId} drafts={drafts} composeReady={composeReady} botName={botName}
         activeBot={activeBot} status={status} connections={connections} activity={activity} history={history} divider={dividers[current?.id ?? ""] ?? current?.readSequence ?? 0} activeQuestion={activeQuestion}
-        pane={pane} onPane={setPane} onToggleInfo={toggleInfo} find={find} onNav={() => setMobileNav(true)} onBot={id => setInfoBotId(id)} hasBotDirects={botDirects.length > 0}
+        pane={pane} onPane={setPane} onToggleInfo={toggleInfo} find={find} onNav={() => setMobileNav(true)} onBot={id => setInfoBotId(id)} hasBotDirects={botDirects.length > 0} onBotCard={openBotCard}
         onInvite={invite} onQuote={setReplyFor} onReply={message => void replyInThread(message)} onReact={(message, emoji, on) => void react(message, emoji, on)} onFold={(message, folded) => void fold(message, folded)}
         onJump={jumpTo} onSettled={updated => setMessages(previous => previous.map(item => item.id === updated.id ? updated : item))}
         onPreview={(files, index) => setPreview({ files, index })} onSend={sendMain} notice={setNotice}
@@ -452,7 +459,7 @@ export function App() {
         createBot={() => void createBot()} creating={creating} updateBot={updateBot} onManageModels={() => setSettingsTab("models")} error={handleError}
         chatArea={chatArea} transcript={transcript} composeWrap={composeWrap} hidden={full || followedView || away}
         onOpenThread={id => setPane({ kind: "thread", id, parentId: current!.id, mode: "pane" })}/>
-      <SidePane pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
+      <SidePane onBotCard={openBotCard} pane={pane} followedView={followedView} threadEvents={threadEvents} followed={followed} chats={chats} sections={sections} members={members} bots={bots} statuses={statuses}
         meId={meId} drafts={drafts} changes={changes} live={live} memory={memory} paneChannel={paneChannel} activeBot={activeBot} botDirects={botDirects} find={find}
         onPane={setPane} onNav={() => setMobileNav(true)} onBackToChannel={toChannel} onAddMembers={chat => setDialog({ kind: "members", chat })} onOpenBot={setInfoBotId}
         onPin={chat => void pinChat(chat, !chat.pinned)} onMute={chat => void muteChat(chat, !chat.muted)} onDeleteChannel={chat => setConfirm({ kind: "chat", chat })}
@@ -463,6 +470,7 @@ export function App() {
         onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onPreview={(files, index) => setPreview({ files, index })} onNotice={setNotice} onError={handleError}/>}
       {envs && <Environments bots={bots} statuses={statuses} adding={addingMachine} onAdding={setAddingMachine} onSaved={updateBot}/>}
     </div>
+    {cardBot && botCard && <BotCard bot={cardBot} status={statuses[cardBot.id]} connections={connections} anchor={botCard.anchor} onClose={closeBotCard} onMessage={() => void openBot(cardBot.id)} onInfo={() => setInfoBotId(cardBot.id)}/>}
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
     <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
       sections={sections} members={members} connections={connections} meId={meId}

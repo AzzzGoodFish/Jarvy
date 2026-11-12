@@ -22,7 +22,7 @@ type Replies = { messages: ChatMessage[]; hasOlder?: boolean; after?: number };
 /** One thread, in the right-hand pane, over the main area (mobile: full screen), or embedded beside the followed-threads
  * list. It loads its own messages and has its own composer; a new thread pre-fills an @ to the root's sender once.
  * Embedded, onClose goes back to the list (phones) and onToggleMode opens the thread beside its channel. */
-export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, memory, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice, onOpenMessage }: {
+export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearch, channel, drafts, members, bots, me, live, memory, onClose, onToggleMode, onNav, onChanged, onInvite, onPreview, onError, onNotice, onOpenMessage, onBotCard }: {
   threadId: string; mode: "pane" | "full" | "embed";
   /** Opened from a 「更新了线程摘要」 hint: the pinned summary starts unfolded. */
   showSummary?: boolean;
@@ -40,6 +40,8 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   onError: (error: unknown) => void; onNotice: (text: string) => void;
   /** A message a reply names or quotes that is in another chat (A82): open it there. */
   onOpenMessage?: (chatId: string, id: string, passage?: string) => void;
+  /** A Bot's avatar in the thread was pressed: open its card there (A92). */
+  onBotCard?: (bot: Bot, anchor: DOMRect) => void;
 }) {
   const [chat, setChat] = useState<Chat | null>(null), [root, setRoot] = useState<ChatMessage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]), [divider, setDivider] = useState<number | null>(null);
@@ -261,7 +263,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
       take(page); requestAnimationFrame(() => { const loaded = find(); if (loaded) jumpToPassage(loaded, passage); });
     });
   };
-  const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onFold: fold, onJump: jump, onError };
+  const actions = { onQuote: (message: ChatMessage) => quoteMessage(drafts, message, members), onReact: react, onFold: fold, onJump: jump, onError, ...(onBotCard ? { onBotCard } : {}) };
   /** Replies stay in the thread; only the conclusion is also posted to the channel. */
   const send = async (content: string, attachmentIds: string[], key: string, replyTo?: string, quotes: { messageId: string; text: string }[] = [], alsoToChannel = false) => {
     const sent = await api.send(threadId, content, attachmentIds, key, alsoToChannel, replyTo, quotes);
