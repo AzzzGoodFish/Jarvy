@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import type { Attachment, ChatMessage, Member } from "../../contract/chat";
 import type { Bot } from "../../contract/bots";
 import { BotAvatar } from "../avatar/BotAvatar";
+import { MemberAvatar } from "../channel/ChannelView";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";
 import { MessageText } from "../channel/quotes";
@@ -13,7 +14,7 @@ import { t } from "../i18n";
 
 /** DM messages keep the bubble layout (A37) and gain replies and emoji marks like channels. As in channels, each day opens
  * with a divider and each group (one sender, within 5 minutes) shows its time once, above its first bubble. */
-export function DmMessages({ messages, members, me, activeQuestion, onSettled, onPreview, onQuote, onReact, onFold, onJump, onError, bot }: {
+export function DmMessages({ messages, members, me, activeQuestion, onSettled, onPreview, onQuote, onReact, onFold, onJump, onError, bot, onBotCard }: {
   messages: ChatMessage[]; members: Member[];
   me: string; activeQuestion?: string; bot: Bot | undefined;
   onSettled: (message: ChatMessage) => void; onPreview: (files: Attachment[], index: number) => void;
@@ -21,17 +22,21 @@ export function DmMessages({ messages, members, me, activeQuestion, onSettled, o
   /** Fold a message to one line, or unfold it (A60). */
   onFold: (message: ChatMessage, folded: boolean) => void;
   onJump: (id: string | null, passage?: string) => void; onError: (error: unknown) => void;
+  /** The Bot's avatar was pressed: open its card there (A92). */
+  onBotCard?: (bot: Bot, anchor: DOMRect) => void;
 }) {
   // tabIndex lets a tap focus the row, which is what shows its actions on touch screens. A Bot's question stays close
   // under the Bot's message before it, the avatar beside the question only.
   const unfolded = useUnfolded();
+  // The Bot's own member row may not be in the list; its avatar needs only the Bot.
+  const avatar = bot && <MemberAvatar member={members.find(item => item.id === bot.id) ?? { id: bot.id, kind: "bot", name: bot.name }} bots={[bot]} size={22} onBot={onBotCard}/>;
   return <>{messages.map((message, index) => {
     const previous = messages[index - 1], next = messages[index + 1], asks = message.role === "assistant" && !!next?.question && next.senderId === message.senderId;
     const shut = message.folded;
     return <Fragment key={message.id}>
     {startsDay(message.createdAt, previous?.createdAt) && <DayDivider time={message.createdAt}/>}
     <div className={`ui-message-row ${message.role === "user" ? "ui-user" : ""}`} data-message={message.id} data-asks={asks || undefined} data-shut={shut || undefined} tabIndex={-1}>
-    {message.role === "assistant" && <span className="jarvy-bubble-avatar"><BotAvatar color={bot?.color ?? "gray"} mood={bot?.mood} size={22} crown={bot?.agent}/></span>}
+    {message.role === "assistant" && <span className="jarvy-bubble-avatar">{avatar ?? <BotAvatar color="gray" size={22}/>}</span>}
     <div className="jv-dm-stack">
       {startsGroup(message, previous) && <Clock time={message.createdAt} className="jv-dm-time"/>}
       {shut ? <div className="ui-bubble jv-folded-bubble"><FoldedLine message={message}/></div> : <>

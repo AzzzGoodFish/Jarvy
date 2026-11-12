@@ -15,9 +15,15 @@ import { Clock, DayDivider, shortTime, startsDay, startsGroup } from "./days";
 const NOTICE_KEY = "jarvy-notice-closed";
 const closedNotices = (): string[] => { try { return JSON.parse(localStorage.getItem(NOTICE_KEY) ?? "[]") as string[]; } catch { return []; } };
 
-export function MemberAvatar({ member, bots, size, working = false }: { member: Member | undefined; bots: Bot[]; size: number; working?: boolean }) {
+/** A member's avatar. A Bot's opens its card (A92) where the list gives `onBot`; a person's stays a mark. */
+export function MemberAvatar({ member, bots, size, working = false, onBot }: {
+  member: Member | undefined; bots: Bot[]; size: number; working?: boolean; onBot?: (bot: Bot, anchor: DOMRect) => void;
+}) {
   const bot = member?.kind === "bot" ? bots.find(item => item.id === member.id) : undefined;
-  if (bot) return <BotAvatar color={bot.color} mood={bot.mood} size={size} badge={working ? "working" : undefined} crown={bot.agent}/>;
+  const picture = bot ? <BotAvatar color={bot.color} mood={bot.mood} size={size} badge={working ? "working" : undefined} crown={bot.agent}/> : null;
+  if (bot && onBot) return <button type="button" className="jv-avatar-button" aria-label={t("botCard.open", { name: bot.name })} aria-haspopup="dialog"
+    onClick={event => onBot(bot, event.currentTarget.getBoundingClientRect())}>{picture}</button>;
+  if (picture) return picture;
   return <span className="ui-user-avatar jv-user-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}>{(member?.name ?? "?").slice(0, 2).toUpperCase()}</span>;
 }
 
@@ -79,7 +85,7 @@ export function NoticeBar({ chat, onSave }: { chat: Chat; onSave: (text: string)
 /** Flat, Slack-style rows for channels; consecutive lines from one sender within 5 minutes fold together, and each day
  * opens with a divider. Only the @s that notified someone (stored with the message) are highlighted. `before` is the
  * time of the message shown just above the list (a thread's root), so its day doesn't repeat. */
-export function ChannelMessages({ messages, members, bots, me, divider, before, activeQuestion, onSettled, onPreview, onReply, onOpenThread, onQuote, onReact, onFold, onJump, onError }: {
+export function ChannelMessages({ messages, members, bots, me, divider, before, activeQuestion, onSettled, onPreview, onReply, onOpenThread, onQuote, onReact, onFold, onJump, onBotCard, onError }: {
   messages: ChatMessage[]; members: Member[]; bots: Bot[]; me: string; divider: number; before?: number; activeQuestion?: string;
   onSettled: (message: ChatMessage) => void; onPreview: (files: Attachment[], index: number) => void;
   /** Channels: reply in the message's thread (opened on first use). Not given inside a thread. */
@@ -93,6 +99,8 @@ export function ChannelMessages({ messages, members, bots, me, divider, before, 
   onFold?: (message: ChatMessage, folded: boolean) => void;
   /** Jump to the message a reply quotes, or to a partial quote's source (null: gone) and its passage. */
   onJump?: (id: string | null, passage?: string) => void;
+  /** A Bot's avatar was pressed: open its card there (A92). */
+  onBotCard?: (bot: Bot, anchor: DOMRect) => void;
   onError?: (error: unknown) => void;
 }) {
   const firstNew = messages.find(message => message.sequence > divider && message.senderId !== me)?.id, unfolded = useUnfolded();
@@ -106,7 +114,7 @@ export function ChannelMessages({ messages, members, bots, me, divider, before, 
       {startsDay(message.createdAt, earlier) && <DayDivider time={message.createdAt}/>}
       {message.id === firstNew && <div className="jv-divider" role="separator"><span>{t("chat.newBelow")}</span></div>}
       <div className="jv-row" tabIndex={-1} data-message={message.id} data-folded={folded || undefined} data-mention={message.mentions.includes(me) || undefined} data-shut={shut || undefined}>
-        <div className="jv-row-gutter">{folded ? <Clock time={message.createdAt} className="jv-row-time"/> : <MemberAvatar member={member} bots={bots} size={32}/>}</div>
+        <div className="jv-row-gutter">{folded ? <Clock time={message.createdAt} className="jv-row-time"/> : <MemberAvatar member={member} bots={bots} size={32} onBot={onBotCard}/>}</div>
         <div className="jv-row-body">
           {!folded && <div className="jv-row-head"><strong>{memberName(member)}</strong>{member?.kind === "bot" && <span className="jv-role">Bot</span>}<Clock time={message.createdAt}/></div>}
           {shut ? <FoldedLine message={message}/> : <>

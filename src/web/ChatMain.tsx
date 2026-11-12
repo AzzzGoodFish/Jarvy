@@ -20,7 +20,7 @@ import type { RefObject } from "react";
  * page and the panes are App's. Nothing here holds state of its own. */
 export function ChatMain({ chat, inChannel, bots, members, meId, drafts, composeReady, botName, activeBot, status, connections, activity, history, divider,
   activeQuestion, pane, onPane, onToggleInfo, find, onNav, onBot, hasBotDirects, onInvite, onQuote, onReply, onReact, onFold, onJump, onSettled, onSend, onPreview, onSaveNote,
-  notice, createBot, creating, updateBot, onManageModels, error, chatArea, transcript, composeWrap, hidden, onOpenThread }: {
+  notice, createBot, creating, updateBot, onManageModels, error, chatArea, transcript, composeWrap, hidden, onOpenThread, onBotCard }: {
   chat: Chat | undefined; inChannel: boolean; bots: Bot[]; members: Member[]; meId: string; drafts: DraftStore;
   /** A channel takes messages whether or not its Bots have models; a DM needs its Bot's model first. */
   composeReady: boolean; botName: string; activeBot: Bot | undefined; status: BotStatus | undefined; connections: ModelConnection[]; activity: string;
@@ -43,6 +43,8 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
   chatArea: RefObject<HTMLElement | null>; transcript: RefObject<HTMLDivElement | null>; composeWrap: RefObject<HTMLFormElement | null>; hidden: boolean;
   /** Open (or create) the thread of a channel message. */
   onOpenThread: (id: string) => void;
+  /** A Bot's avatar in the transcript was pressed: open its card there (A92). */
+  onBotCard: (bot: Bot, anchor: DOMRect) => void;
 }) {
   const { messages, loading, hasOlder, loadingOlder, top, away, unseen, toLatest } = history;
   // Your newest message here, so the cat turns to listen when you speak (A86).
@@ -69,9 +71,9 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
             {hasOlder && <div ref={top} className="jv-history-more" aria-live="polite">{loadingOlder ? t("chat.loadingOlder") : ""}</div>}
             {inChannel ? <ChannelMessages messages={messages} members={members} bots={bots} me={meId} divider={divider} activeQuestion={activeQuestion}
               onSettled={onSettled} onPreview={onPreview} onReply={onReply} onOpenThread={onOpenThread}
-              onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>
+              onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onBotCard={onBotCard} onError={error}/>
             : <DmMessages messages={messages} members={members} me={meId} activeQuestion={activeQuestion} bot={activeBot}
-              onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onError={error}/>}
+              onSettled={onSettled} onPreview={onPreview} onQuote={onQuote} onReact={onReact} onFold={onFold} onJump={onJump} onBotCard={onBotCard} onError={error}/>}
           </>}
         </div>
         {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={toLatest} aria-label={t("chat.toLatest")}>
