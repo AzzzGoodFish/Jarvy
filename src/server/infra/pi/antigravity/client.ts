@@ -8,7 +8,7 @@ export const ENDPOINTS = [
   "https://daily-cloudcode-pa.sandbox.googleapis.com",
   "https://cloudcode-pa.googleapis.com",
 ] as const;
-export const USER_AGENT = "antigravity/cli/1.4.0 (aidev_client; os_type=linux; arch=amd64; cl=982146307; auth_method=consumer)";
+export const USER_AGENT = "antigravity/cli/1.5.5 (aidev_client; os_type=linux; arch=amd64; cl=982146307; auth_method=consumer)";
 /** Looking up the project or the models is quick; an endpoint that stalls gives way to the next one. */
 const LOOKUP_TIMEOUT_MS = 8_000;
 
@@ -76,18 +76,20 @@ export function uuidFrom(seed: string): string {
 
 export interface RawModels { models: Record<string, Json>; sorts?: unknown }
 
-/** `fetchAvailableModels` from every endpoint at once, merged: some models are only on the daily or sandbox one. */
+/** `fetchAvailableModels` from every endpoint at once, merged: some models are only on the daily or sandbox one. Their
+ * recommendation lists are merged too, since a new model is recommended there before production lists it. */
 export async function fetchModels(token: string, project: string, signal?: AbortSignal): Promise<RawModels> {
   const results = await Promise.allSettled(ENDPOINTS.map(endpoint => call(endpoint, "fetchAvailableModels", token, { project }, signal)));
   const models: Record<string, Json> = {};
-  let sorts: unknown, failure: unknown;
+  const sorts: unknown[] = [];
+  let failure: unknown;
   for (const result of results) {
     if (result.status === "rejected") { failure ??= result.reason; continue; }
     const data = result.value;
-    if (!isRecord(data) || !isRecord(data.models)) continue;
+    if (!isRecord(data) || !isRecord(data.models) || !Object.keys(data.models).length) continue;
     for (const [id, info] of Object.entries(data.models)) if (isRecord(info)) models[id] = info;
-    if (Array.isArray(data.agentModelSorts)) sorts = data.agentModelSorts;
+    if (Array.isArray(data.agentModelSorts)) sorts.push(...data.agentModelSorts);
   }
   if (!Object.keys(models).length) throw failure instanceof Error ? failure : new Error("fetchAvailableModels returned no models");
-  return { models, sorts };
+  return { models, ...(sorts.length ? { sorts } : {}) };
 }
