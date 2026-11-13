@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import { builtinProviders, getBuiltinModelDataGeneratedAt } from "@earendil-works/pi-ai/providers/all";
-import { allProviders, ownProviders } from "./providers.js";
+import { allProviders, ownProviders, priceOwn } from "./providers.js";
 import type { ProviderOption } from "../../../contract/models.js";
 
 /** pi.dev's model catalog: every provider's chat models, the same entries Pi bundles. */
@@ -51,10 +51,12 @@ export class ModelCatalog {
   }
   /** Pi's providers only: auto-configuration suggests from their catalogs, not from a subscription's own list. */
   piProviders(): readonly Provider[] { return this.providers().filter(provider => !own.has(provider.id)); }
-  /** Newer entries for one provider's models (a connection's catalog comes from Pi with its credentials). Opening a
-   * connection also checks pi.dev when that is due (A62). */
+  /** Newer entries for one provider's models (a connection's catalog comes from Pi with its credentials); one of
+   * Jarvy's own providers' models takes its price from Pi's providers here (A91). Opening a connection also checks
+   * pi.dev when that is due (A62). */
   overlay<T extends Model<Api>>(providerId: string, models: readonly T[]): T[] {
     this.refresh();
+    if (own.has(providerId)) return models.map(model => priceOwn(providerId, model, this.listed));
     return merge(models, this.entries(providerId) as T[]);
   }
   /** Checks pi.dev now, whenever it was last checked, and waits for it (resetting a connection to the catalog, A62).
@@ -106,13 +108,17 @@ export class ModelCatalog {
     }
   }
   private apply(): void {
-    this.overlaid = builtinProviders().map(provider => {
+    const builtin = builtinProviders().map(provider => {
       const entries = this.entries(provider.id);
       if (!entries.length) return provider;
       const models = merge(provider.getModels(), entries);
       return { ...provider, getModels: () => models };
-    }).concat(ownProviders());
+    });
+    this.overlaid = builtin.concat(ownProviders().map(provider => ({ ...provider, getModels: () => provider.getModels().map(model => priceOwn(provider.id, model, this.listed)) })));
   }
+  /** A built-in provider's price for one of its models, newer entries included. */
+  private readonly listed = (providerId: string, modelId: string): Model<Api>["cost"] | undefined =>
+    (this.overlaid ?? builtinProviders()).find(provider => provider.id === providerId && !own.has(provider.id))?.getModels().find(model => model.id === modelId)?.cost;
   private entries(providerId: string): Model<Api>[] {
     const kept = this.kept, generatedAt = getBuiltinModelDataGeneratedAt();
     if (!kept || own.has(providerId) || (generatedAt !== undefined && kept.lastModified <= generatedAt)) return [];
