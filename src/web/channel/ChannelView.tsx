@@ -24,7 +24,7 @@ export function MemberAvatar({ member, bots, size, working = false, onBot }: {
   if (bot && onBot) return <button type="button" className="jv-avatar-button" aria-label={t("botCard.open", { name: bot.name })} aria-haspopup="dialog"
     onClick={event => onBot(bot, event.currentTarget.getBoundingClientRect())}>{picture}</button>;
   if (picture) return picture;
-  return <span className="ui-user-avatar jv-user-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}>{(member?.name ?? "?").slice(0, 2).toUpperCase()}</span>;
+  return <span className="ui-user-avatar jv-user-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}><span>{(member?.name ?? "?").slice(0, 2).toUpperCase()}</span></span>;
 }
 
 /** Channel header: the name opens channel info, the members button (avatars and count) its member page. */

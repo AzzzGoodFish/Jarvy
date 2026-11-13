@@ -7,6 +7,9 @@ import { type BotColor, type BotMood } from "../../contract/models";
 /** From this size (CSS pixels) an avatar is large — Bot info, the DM figure — and gets a ground shadow and the agent's
  * crown; below it both would only smudge the silhouette. */
 const LARGE = 40;
+/** A small avatar has no shadow under it, so the figure, framed with room for one, sits high in its box: this much
+ * lower (a share of the box) centres the ears-to-feet height, so it lines up with a person's round avatar beside it. */
+const LOWER = .05;
 const cache = new Map<string, Promise<string>>();
 let still: { figure: Figure; out: HTMLCanvasElement } | null | undefined;
 
@@ -31,6 +34,7 @@ function render(color: BotColor, mood: BotMood, pixels: number, large: boolean, 
   const face = asleep ? { ...faceOf(mood), ...ASLEEP } : faceOf(mood), zoom = large ? .92 : .9;
   out.width = out.height = pixels;
   const g = out.getContext("2d"); if (!g) return "";
+  if (!large) g.translate(0, LOWER * pixels);
   figure.paint(g, pixels, BOT_COLORS[color]?.hex ?? BOT_COLORS.gray.hex, face, { shadow: large, zoom });
   if (crown) crownMark(g, pixels, crownAt(face, zoom));
   return out.toDataURL("image/png");

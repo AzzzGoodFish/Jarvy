@@ -28,6 +28,10 @@
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) hr { border: 0; border-top: .5px solid color-mix(in srgb, currentColor 30%, transparent); margin: 14px 0; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) > :first-child { margin-top: 0; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) > :last-child { margin-bottom: 0; }
+/* Also inside the box that cuts a long message (fold.tsx), or a bubble is taller under its text than over it. A flat
+ * row's margin falls outside it, where it is the space to the next row. */
+.ui-message-row .ui-bubble:not(.jv-flat) > .jv-long > :first-child { margin-top: 0; }
+.ui-message-row .ui-bubble:not(.jv-flat) > .jv-long > :last-child { margin-bottom: 0; }
 /* Code blocks: .ui-code-figure (copy button slot) with a tint from the bubble's own text
    colour, so user (dark) and Bot (light) bubbles both keep readable code. */
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure { margin: 0 0 12px; border: 0; border-radius: 8px; background: color-mix(in srgb, currentColor 7%, transparent); color: inherit; }

@@ -62,6 +62,8 @@ button:focus:not(:focus-visible) { outline: none; }
   background: var(--ui-fill-secondary); border: 1px solid var(--ui-border-weak);
   color: var(--ui-text-secondary); font-size: 11px; font-weight: 600;
 }
+/* The initials' box trimmed to their capitals, so it is the letters, not the font's line, that sit in the middle. */
+.ui-user-avatar > span { display: block; line-height: 1; text-box: trim-both cap alphabetic; }
 .ui-mobile-only { display: none; }
 
 /* ── Chat column ──────────────────────────────────────────────── */
