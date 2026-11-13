@@ -14,7 +14,7 @@ function onDensity(change: () => void) {
   return () => query?.removeEventListener("change", fire);
 }
 
-/** Still figure of a Bot in its colour and current mood, crowned for the agent Bot when large (A48, A76), asleep where it
+/** Still figure of a Bot in its colour and current mood, crowned for the agent Bot from 30 px (A48, A76), asleep where it
  * stands in for a sleeping live figure (A88). Until the image is ready (or if WebGL is unavailable) a rounded tile in the
  * Bot's colour holds its place. */
 export function BotAvatar({ color, mood = "normal", size = 36, badge, crown = false, asleep = false }: { color: string; mood?: string; size?: number; badge?: "working" | "asking"; crown?: boolean; asleep?: boolean }) {

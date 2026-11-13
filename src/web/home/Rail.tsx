@@ -63,7 +63,7 @@ export function Rail({ view, onView, agent, figure, call, asleep, alerts, userna
       </div>
       <button ref={accountButton} type="button" className="jv-rail-item jv-rail-account" aria-label={t("account.menuFor", { name: username })} title={username}
         aria-expanded={accountMenu} onClick={() => onToggleAccount(!accountMenu)}>
-        <span className="ui-user-avatar">{username.slice(0, 2).toUpperCase()}</span>
+        <span className="ui-user-avatar"><span>{username.slice(0, 2).toUpperCase()}</span></span>
       </button>
     </nav>
     {accountMenu && <div ref={accountRef} className="ui-popover jarvy-account-menu" role="menu" aria-label={t("account.menu")}>
