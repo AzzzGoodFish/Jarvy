@@ -16,11 +16,11 @@ export interface Catalog {
   limits: Record<string, number>; enums: Record<string, string>;
 }
 
-/** The subscription's quota is used, not paid per token. */
-const FREE = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+/** No price of its own: the model catalog gives each listed model its maker's API price (prices.ts). */
+const UNPRICED = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 function model(id: string, name: string, levels: readonly Level[], contextWindow: number, maxTokens: number, image = true): Model<string> {
   return { id, name, api: API, provider: PROVIDER, baseUrl: ENDPOINTS[0], reasoning: levels.length > 0, input: image ? ["text", "image"] : ["text"],
-    cost: FREE, contextWindow, maxTokens, ...(levels.length ? { thinkingLevelMap: levelMap(levels) } : {}) };
+    cost: UNPRICED, contextWindow, maxTokens, ...(levels.length ? { thinkingLevelMap: levelMap(levels) } : {}) };
 }
 function levelMap(levels: readonly Level[]): ThinkingLevelMap {
   return Object.fromEntries((["off", ...LEVELS, "max"] as const).map(level => [level, (levels as readonly string[]).includes(level) ? level : null])) as ThinkingLevelMap;
@@ -73,11 +73,14 @@ export function thinkingConfig(runtime: string, level: string | undefined): { in
 }
 
 interface Group { id: string; variants: Partial<Record<Level, string>>; plain?: string; names: string[]; thinking?: boolean; images?: boolean; context?: number; output?: number }
-const SUFFIXES: [string, Level][] = [["extra-low", "low"], ["extra-high", "xhigh"], ["thinking", "high"], ["minimal", "minimal"], ["medium", "medium"], ["high", "high"], ["low", "low"]];
-const NAMED: [RegExp, Level][] = SUFFIXES.map(([suffix, level]) => [new RegExp(`\\(\\s*${suffix.replace("-", "\\s*")}\\s*\\)`, "i"), level]);
+const SUFFIXES: [string, Level][] = [["extra-low", "low"], ["extra-high", "xhigh"], ["xhigh", "xhigh"], ["thinking", "high"], ["minimal", "minimal"], ["medium", "medium"],
+  ["high", "high"], ["low", "low"]];
+/** A level as a display name says it: `(Extra High)`, and `(X-High)` or `(XHigh)` for `-xhigh`. */
+const spoken = (suffix: string) => suffix === "xhigh" ? "x-?\\s*high" : suffix.replace("-", "\\s*");
+const NAMED: [RegExp, Level][] = SUFFIXES.map(([suffix, level]) => [new RegExp(`\\(\\s*${spoken(suffix)}\\s*\\)`, "i"), level]);
 const nameOf = (info: Record<string, unknown> | undefined) =>
   [info?.displayName, info?.label, info?.modelName].find((value): value is string => typeof value === "string" && value.length > 0);
-const family = (name: string | undefined) => name?.replace(/\s*\((?:extra\s*low|extra\s*high|low|medium|high|minimal|thinking)\)\s*$/i, "").trim().toLowerCase() || undefined;
+const family = (name: string | undefined) => name?.replace(/\s*\((?:extra\s*low|extra\s*high|x-?\s*high|low|medium|high|minimal|thinking)\)\s*$/i, "").trim().toLowerCase() || undefined;
 const levelNamed = (name: string | undefined) => name ? NAMED.find(([pattern]) => pattern.test(name))?.[1] : undefined;
 const limit = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 /** Chat models only: no placeholder enums, internal chats or image models. */
