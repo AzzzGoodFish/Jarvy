@@ -2,6 +2,14 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.14.1 — 2026-11-13
+
+No database change: the schema stays v31, and upgrading from 0.14.0 needs nothing else.
+
+### Fixed
+
+- Antigravity lists the newest models an account has, such as Gemini 4 Hydrogen and Gemini 4 Carbon. A new model is recommended on Antigravity's daily endpoint before production lists it, and only production's recommendation list was kept, so these models were left out. The lists of all three endpoints are now merged, and Jarvy reports the same client version as Antigravity's current CLI (1.5.5), on which Google decides which models an account sees. Open the connection again, or reset its models, to see them. A model the model catalog doesn't price yet, such as Gemini 4 Carbon, shows no price.
+
 ## 0.14.0 — 2026-11-13
 
 The database upgrades to v31 on first start: every existing channel gets the owner as its creator and no admins. Going back to 0.13.0 needs the database from before the upgrade. Nothing else to do: no new dependency, and every sandbox stays as it was.
