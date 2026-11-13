@@ -14,6 +14,10 @@ import { t } from "../i18n";
 import "../styles/floating-bot.css";
 
 const KEY = "jarvy-floating-bot", MARGIN = 10, DRAG = 4;
+/** How far the canvas reaches past the cat's box on each side, as a share of the box: a hop or a lift raises the head
+ * past the box's top, and the drawing must not be cut there. The figure is drawn smaller by as much, so at rest it is
+ * the same size in the same place. */
+const ROOM = .3, ZOOM = .86;
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** With `?npc=demo` in the address the scripted demo turn drives the cat instead of the Bot's live turn (A47), with the
  * prototype toolbar. */
@@ -140,8 +144,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
       const act = persona.playing ?? "";
       if (el.dataset.act !== act) { if (act) el.dataset.act = act; else delete el.dataset.act; }
     };
-    // A little smaller than a still avatar, so a stretch or a lift never touches the edge.
-    const remove = stage.add(canvas.current, .86);
+    const remove = stage.add(canvas.current, ZOOM / (1 + 2 * ROOM));
     setRendering(stage.start());
     return () => { remove(); stage.stop(); stage.onFrame = null; };
     // The figure lives as long as the component; colour, mood and status flow in through the stage.
@@ -171,7 +174,7 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
     onPointerCancel={() => { drag.current = null; if (!reduced()) persona.carry(false, performance.now()); }}
     onClick={() => { if (moved.current) { moved.current = false; return; } if (!reduced()) persona.play("poke", performance.now()); if (npc.canRecap) npc.showRecap(); else onOpen(); }}
     style={{ "--jv-avatar-size": "100%" } as CSSProperties}>
-    <canvas ref={canvas} aria-hidden="true"/>
+    <canvas ref={canvas} aria-hidden="true" style={{ inset: `${-ROOM * 100}%`, width: `${(1 + 2 * ROOM) * 100}%`, height: `${(1 + 2 * ROOM) * 100}%` }}/>
     {/* Still (no WebGL, or none on a GPU: A88), it keeps its mood, its sleep and the mark of what it is doing. */}
     {!rendering && <BotAvatar color={bot.color} mood={npc.mood} size={88} crown={bot.agent} asleep={npc.motion === "sleep"}/>}
     <FigureMark motion={npc.motion}/>
