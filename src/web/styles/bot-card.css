@@ -6,6 +6,8 @@
   position: fixed; z-index: 60; padding: 14px; border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg);
   background: var(--ui-bg-elevated); color: var(--ui-text-primary); box-shadow: var(--ui-shadow-md);
   animation: ui-rise .12s var(--ui-ease-out); outline: none;
+  /* Taller than the window, it scrolls inside itself; its place is worked out in BotCard.tsx (placeCard). */
+  max-height: calc(100vh - 24px); overflow: auto;
 }
 .jv-bot-card-head { display: flex; align-items: center; gap: 10px; }
 .jv-bot-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }

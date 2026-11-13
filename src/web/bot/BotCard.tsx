@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Bot, BotStatus } from "../../contract/bots";
 import type { ModelConnection } from "../../contract/models";
@@ -10,6 +10,18 @@ import { t } from "../i18n";
 /** Where a card opens from: the avatar's box on screen. */
 export interface CardAnchor { left: number; right: number; top: number; bottom: number }
 const GAP = 10, WIDTH = 288, PAD = 12, PHONE = 620;
+
+/** Where the card stands, given the avatar, the window and the card's own height. Beside the avatar it lines up with
+ * the avatar's top; on a phone (the app's own breakpoint) it is a sheet under the avatar, since a column beside it would
+ * leave a message too narrow to read, and over the avatar when there is no room under it. Either way it is kept inside
+ * the window; a card taller than the window scrolls inside itself (bot-card.css). */
+export function placeCard(anchor: CardAnchor, view: { width: number; height: number }, height: number): { left: number; top: number; width: number } {
+  const lowest = Math.max(PAD, view.height - height - PAD), inside = (top: number) => Math.min(Math.max(PAD, top), lowest);
+  if (view.width > PHONE) return { left: Math.min(Math.max(PAD, anchor.right + GAP), view.width - WIDTH - PAD), top: inside(anchor.top - 8), width: WIDTH };
+  const under = anchor.bottom + 6, over = anchor.top - 6 - height;
+  const top = under + height + PAD <= view.height ? under : over >= PAD ? over : inside(under);
+  return { left: PAD, top, width: view.width - PAD * 2 };
+}
 
 /** What clicking a Bot's avatar shows (A92): who it is, what it is doing, where it works and which model it uses, with
  * the way to its DM and to its Bot info. A card, not a page, so reading a chat carries on. */
@@ -36,15 +48,13 @@ export function BotCard({ bot, status, connections, anchor, onClose, onMessage, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { box.current?.focus({ preventScroll: true }); }, [bot.id]);
+  // Its height is known once it is laid out; measured before the first paint, so it never shows in the wrong place.
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => { if (box.current) setHeight(box.current.offsetHeight); }, [bot.id, anchor]);
   const state = botState(bot, status);
   const model = connections.find(connection => connection.id === bot.connectionId)?.models.find(entry => entry.id === bot.modelId);
-  // Beside the avatar, kept inside the window; on a phone (the app's own breakpoint) under the whole transcript, as a
-  // sheet, since a column beside an avatar would leave a message too narrow to read.
-  const wide = window.innerWidth > PHONE;
-  const left = wide ? Math.min(Math.max(PAD, anchor.right + GAP), window.innerWidth - WIDTH - PAD) : PAD;
-  const width = wide ? WIDTH : window.innerWidth - PAD * 2;
-  const top = wide ? Math.min(Math.max(PAD, anchor.top - 8), window.innerHeight - 60) : anchor.bottom + 6;
-  return createPortal(<div ref={box} className="jv-bot-card" role="dialog" aria-label={bot.name} tabIndex={-1} style={{ left, top, width }}>
+  const place = placeCard(anchor, { width: window.innerWidth, height: window.innerHeight }, height);
+  return createPortal(<div ref={box} className="jv-bot-card" role="dialog" aria-label={bot.name} tabIndex={-1} style={place}>
     <header className="jv-bot-card-head">
       <BotAvatar color={bot.color} mood={bot.mood} size={44} crown={bot.agent} asleep={status?.status === "stop"}/>
       <div><h2>{bot.name}</h2><span className="jv-bot-card-role">{bot.agent ? t("botCard.agent") : "Bot"}</span></div>
