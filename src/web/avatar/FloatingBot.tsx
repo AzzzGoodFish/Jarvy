@@ -81,8 +81,10 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
   function bounds() {
     const box = area.current!.getBoundingClientRect(), size = button.current!.offsetWidth;
     const bottom = avoid.current ? avoid.current.getBoundingClientRect().top - box.top : box.height;
-    const maxX = Math.max(MARGIN, box.width - size - MARGIN), maxY = Math.max(MARGIN, bottom - size - MARGIN);
-    return { minX: MARGIN, minY: MARGIN, maxX, maxY };
+    // Above the box is the room a lift or a hop rises into; the chat area cuts off what reaches past its top.
+    const minY = Math.max(MARGIN, Math.round(ROOM * size));
+    const maxX = Math.max(MARGIN, box.width - size - MARGIN), maxY = Math.max(minY, bottom - size - MARGIN);
+    return { minX: MARGIN, minY, maxX, maxY };
   }
   /** Which way the cat turns, and so the side the dialogue comes out of: +1 to the right when it sits at the left of the
    * chat area, −1 to the left at the right, 0 straight at you in the middle. */
