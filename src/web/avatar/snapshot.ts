@@ -4,9 +4,12 @@ import { crownAt, makeFigure, type Figure } from "./face";
 import { ASLEEP } from "./motion";
 import { type BotColor, type BotMood } from "../../contract/models";
 
-/** From this size (CSS pixels) an avatar is large — Bot info, the DM figure — and gets a ground shadow and the agent's
- * crown; below it both would only smudge the silhouette. */
+/** From this size (CSS pixels) an avatar is large — Bot info, the DM figure — and gets a ground shadow; below it the
+ * shadow would only smudge the silhouette. */
 const LARGE = 40;
+/** From this size the agent Bot's avatar wears its crown: the DM list, messages, the rail. Smaller (the header, tags)
+ * it would be a speck. */
+const CROWN = 30;
 /** A small avatar has no shadow under it, so the figure, framed with room for one, sits high in its box: this much
  * lower (a share of the box) centres the ears-to-feet height, so it lines up with a person's round avatar beside it. */
 const LOWER = .05;
@@ -40,11 +43,11 @@ function render(color: BotColor, mood: BotMood, pixels: number, large: boolean, 
   return out.toDataURL("image/png");
 }
 
-/** PNG data URL of the figure, crowned for the agent Bot when large, asleep when it stands in for a sleeping live figure;
+/** PNG data URL of the figure, crowned for the agent Bot from 30 px, asleep when it stands in for a sleeping live figure;
  * size is CSS pixels, rendered at the device pixel ratio. */
 export function snapshot(color: BotColor, mood: BotMood, size: number, density: number, crown = false, asleep = false): Promise<string> {
   const pixels = Math.round(size * Math.min(3, Math.max(1, density)));
-  const large = size >= LARGE, crowned = crown && large;
+  const large = size >= LARGE, crowned = crown && size >= CROWN;
   const key = `${color}:${mood}:${pixels}:${crowned}:${asleep}`;
   let image = cache.get(key);
   if (!image) {
