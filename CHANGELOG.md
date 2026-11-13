@@ -2,6 +2,40 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.14.0 — 2026-11-13
+
+The database upgrades to v31 on first start: every existing channel gets the owner as its creator and no admins. Going back to 0.13.0 needs the database from before the upgrade. Nothing else to do: no new dependency, and every sandbox stays as it was.
+
+### Added
+
+- **A rail, and the agent Bot's page.** A narrow rail left of the sidebar holds the agent Bot's cat, 会话, 环境 and the account menu, which moved there from the sidebar's foot; 会话 shows a dot while something waits in another chat. On a phone it is a tab bar at the bottom, and the chat list fills the screen. The cat opens the agent Bot's page: the cat large with its name, and while it works one line beside it, as in its DM. Marks over its head stay until dealt with — a red 「!」 and a dizzy face for a failed run, 「?」 for a question, a gold 「!」 for an unread reply — and a click on one deals with it. Under the cat is a light chat: the DM's own messages and composer, about two messages high, with files, quotes, question cards, paste and drop; ↗ opens the full DM.
+- **An Environments page.** 环境 on the rail lists every place Bots work: the SSH machines, then each Bot's sandbox, one row each with its kind, a sandbox's state and the Bots working there now. The one picked shows on the right: a sandbox as Bot info shows it, with its ports; a machine with its details, the Bots it is granted to, and delete; or the form to add one. Settings › 工作环境 moved here, and Bot info's 添加机器 opens it.
+- **Bot info › 授权.** The secrets and SSH machines a Bot may use, each with its purpose or address: ✕ takes one back, and a search adds more; 仅限本次 marks a grant for one run. With nothing kept yet, it offers to add a secret or a machine. The machine switches moved here from 环境.
+- **A Bot's card from its avatar.** A Bot's avatar in a channel, a thread or a DM opens a card beside it: avatar, name and description, whether it runs and what it is doing, where its tools run (沙箱 or the machine's name) and its model, with 发消息 (its DM) and Bot 信息 (the full page). It closes on either, on Esc, on a press elsewhere and when the chat scrolls, and it stays inside the window: on a phone it opens under the avatar, or over it when there is no room below. People's avatars don't open anything.
+- **Channel creators and admins.** A channel's name, topic, group and notice can be changed by the owner, its creator and its admins; a thread's title, status and summary also by whoever takes part in it (its root's author, and anyone who replied or was @-mentioned there). Only the owner makes admins, in a channel's member list, and only Bots can be admins. Bots see who created a channel and who its admins are, and a change they may not make says who may.
+- **Antigravity as a model provider.** Settings › 模型 › 添加 Provider lists Google Antigravity under 订阅服务. Sign in with a Google account: on the same machine the browser comes back by itself, from another device paste the address it lands on. The account's own models are listed (Gemini, and Claude and GPT-OSS where the account has them), each with the thinking levels the service has for it, such as low to xhigh for Gemini 4 Hydrogen, and Bots call tools on all of them. Usage is priced at the rate the model's maker charges on its own API (Google's for Gemini, Anthropic's for Claude, from the same catalog as other providers), so it compares with other connections; the subscription itself is paid by quota. A used-up quota says when it resets. One line above the sign-in buttons warns that using Antigravity through a third-party app may break Google's terms and get the account suspended.
+
+### Changed
+
+- **A Bot's activity reads as what it was given.** On Bot info › 活动, each input — a message, a task come due, a notice of new messages — is a card on the left saying who wrote where, with 「等 N 条」 when more came with it; the Bot's own steps stay on the right. Opening one reads the batch back as the page shows it: messages with their layout and files, tasks, reactions, setting changes and followed threads, then what the Bot hadn't read and where its tools ran (沙箱 or the machine's name, and 「当时文件和命令工具不可用」 where they couldn't run). 原始文本 and 原始 JSON show it as the Bot got it. What a Bot reads with `history.read` is unchanged.
+- **Bots see every secret and machine.** `secrets.list` and `environments.list` list all of the owner's, each saying whether the Bot may use it. A placeholder for a secret it may not use isn't filled in and a switch to such a machine is refused, both naming the request tool; asking for a secret or machine the owner already keeps only needs 允许.
+- **Sandbox usage against its limits.** Bot info shows memory and CPU as "used / limit" with bars (or "/ 本机 …" without a limit), and keeps them in view while limits change. A VM sandbox's are read inside the VM, with its Docker disk as a third row, and what it takes of this machine on hover or a tap.
+- **Port rows open in place.** Bot info's ports and the Environments page list each port as a row, like Settings › 密钥, that opens below itself with its address, host port and actions.
+- **The DM's cat has acts of its own.** At rest it hops, spins, sways, flicks an ear, tilts its head, looks around, stretches, and dozes after two and a half minutes; its ears go up when you send a message, it winds up when a turn starts, celebrates when one completes, reacts to a click, and is carried and put down. Never the same act twice in a row, and none while it works, with reduced motion or on a hidden page.
+- **Still avatars without a GPU.** Where the browser would draw WebGL on the CPU (no GPU, hardware acceleration off, a blocked driver, a remote desktop), the cats show as still avatars in the same place, with the mood, the sleeping face and the marks. A live figure there kept several cores busy.
+- **The switch's knob stands out in the dark theme.** It has a colour of its own, light grey in the dark theme and white in the light one; it was the colour of the surface behind it.
+- **API**:
+  - A channel carries `createdBy` and `adminIds`; `PUT /api/chats/:id/members/:memberId/admin {admin}` makes a Bot one of its admins or not (owner only).
+  - In `GET /api/bots/:id/history`, an input record carries `input`: the first thing its batch says, how many things, and the chat and person it names. `GET /api/bots/:id/history/:recordId` carries the whole batch parsed as `input`.
+  - `GET /api/bots/:id/computer/resources` gives a VM's `disk` (used and size of its Docker disk) and `host` (the memory and disk it takes of this machine).
+
+### Fixed
+
+- A word still being typed with an input method no longer submits on Enter in a channel's name and topic, the member search, the emoji search, the OAuth code box and the secrets' grant search, as already in the composer.
+- Going to a message from a tag's card scrolls there, also in a thread pane; going to a message older than what was loaded shows it with everything after it, instead of only the page ending at it.
+- An open thread, or a DM between two Bots, shows the replies posted while the page was disconnected, after Jarvy restarted or the changes since could no longer be resumed.
+- A VM sandbox gives back the disk space Docker frees: its Docker disk is now mounted with discard and trimmed after each start, VMs made before included. One had grown to 56 GB while Docker used 18 GB.
+
 ## 0.13.0 — 2026-11-07
 
 No database change: the schema stays v30, and upgrading from 0.12.2 needs nothing else. Every sandbox stays a container; a VM sandbox needs Kata Containers and KVM on this machine, which the agent Bot's setup guide explains.
