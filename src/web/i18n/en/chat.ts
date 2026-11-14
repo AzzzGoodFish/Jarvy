@@ -216,4 +216,5 @@ export const chat = {
   "files.kindAudio": "Audio",
   "files.cantPlay": "This browser can't play it",
   "files.cantPlayHint": "Download it and open it in a player.",
+  "reactions.more": "+{count}",
 } as const;

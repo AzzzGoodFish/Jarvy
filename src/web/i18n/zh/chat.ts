@@ -218,4 +218,5 @@ export const chat: Part<typeof en> = {
   "files.kindAudio": "音频",
   "files.cantPlay": "当前浏览器无法播放",
   "files.cantPlayHint": "下载后用播放器打开。",
+  "reactions.more": "+{count}",
 };

@@ -19,17 +19,23 @@ export function ReplyQuote({ message, members, onJump }: { message: ChatMessage;
   </button>;
 }
 
-/** Marks under a message: emoji, count, who (on hover); clicking toggles your own mark. */
+/** How many names a mark shows; the rest are a count, and all of them are in its tooltip. */
+const NAMES = 3;
+
+/** Marks under a message: the emoji and who marked it, the same emoji once with everyone's names; clicking toggles your
+ * own mark. */
 export function ReactionPills({ message, me, members, onReact, onError }: {
   message: ChatMessage; me: string; members: Member[]; onReact: (message: ChatMessage, emoji: string, on: boolean) => void; onError: (error: unknown) => void;
 }) {
   if (!message.reactions.length) return null;
   return <div className="jv-reactions">{message.reactions.map(group => {
-    const mine = group.memberIds.includes(me);
-    return <button key={group.emoji} type="button" className="jv-reaction" data-mine={mine || undefined}
-      title={group.memberIds.map(id => memberName(members.find(member => member.id === id))).join(t("common.listSeparator"))}
+    const mine = group.memberIds.includes(me), separator = t("common.listSeparator");
+    const names = group.memberIds.map(id => memberName(members.find(member => member.id === id))), rest = names.length - NAMES;
+    return <button key={group.emoji} type="button" className="jv-reaction" data-mine={mine || undefined} title={names.join(separator)}
       onClick={() => { try { onReact(message, group.emoji, !mine); } catch (error) { onError(error); } }}>
-      <span className="jv-reaction-emoji">{group.emoji}</span><span className="jv-reaction-count">{group.memberIds.length}</span>
+      <span className="jv-reaction-emoji">{group.emoji}</span>
+      <span className="jv-reaction-names">{names.slice(0, NAMES).join(separator)}</span>
+      {rest > 0 && <span className="jv-reaction-more">{t("reactions.more", { count: rest })}</span>}
     </button>;
   })}</div>;
 }
