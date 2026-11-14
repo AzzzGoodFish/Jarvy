@@ -1,0 +1,20 @@
+/* Subscription usage (A94): the row's few words in Settings › Models, and the connection page's limits. Tokens: model-workbench.css. */
+.jv-quota-brief { white-space: nowrap; }
+.jv-quota-brief[data-low] { color: var(--jv-warning); }
+/* On a narrow screen the limits go on to another line rather than being cut. */
+.jv-row-text > span:has(> .jv-quota-brief) { white-space: normal; }
+.jv-quota { gap: 14px; }
+.jv-quota > .jv-hint { margin: 0; }
+.jv-quota-when { font-size: 12px; color: var(--jv-dim); white-space: nowrap; }
+.jv-quota-row { display: flex; flex-direction: column; gap: 6px; }
+.jv-quota-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; }
+.jv-quota-line strong { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-quota-line span { flex: none; color: var(--jv-muted); font-variant-numeric: tabular-nums; }
+.jv-quota-row[data-low] .jv-quota-line span { color: var(--jv-warning); }
+.jv-quota-bar { height: 6px; border-radius: 999px; background: var(--jv-field); overflow: hidden; }
+.jv-quota-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--jv-accent); transition: width .3s ease; }
+.jv-quota-row[data-low] .jv-quota-bar > span { background: var(--ui-fill-warning); }
+.jv-quota-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--jv-dim); font-variant-numeric: tabular-nums; }
+.jv-quota-none { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.jv-quota-none .jv-hint { margin: 0; }
+.jv-quota-error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--jv-danger); overflow-wrap: anywhere; }
