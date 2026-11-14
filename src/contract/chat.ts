@@ -1,5 +1,6 @@
 /** Chats, messages and members as the interface sees them (A37, A41, A44, A60). */
 import type { HostKeys } from "./environment.js";
+import type { ConnectorAuthKind, ConnectorProvider } from "./connectors.js";
 
 /** A person or a Bot. `deleted`: a deleted Bot, still shown as the author of its old messages (v15). */
 export interface Member { id: string; kind: "user" | "bot"; name: string; deleted?: boolean; }
@@ -33,10 +34,23 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   /** A request for an SSH machine (environments.request, A57): the card takes the password through its own endpoint. */
   machine?: MachineAsk;
   /** A request by the agent Bot to enter another Bot's sandbox or an ungranted SSH machine (environments.enter, A93). */
-  enter?: EnterAsk; }
+  enter?: EnterAsk;
+  /** A request to grant or authorize a connector (connectors.request, A94). */
+  connectorAuth?: ConnectorAuthAsk;
+  /** A confirmation card before running a write tool on a connector (A94). */
+  connectorWrite?: ConnectorWriteAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */
 export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
+export interface ConnectorAuthAsk {
+  connectorId: string; slug: string; name: string; provider: ConnectorProvider;
+  purpose: string; authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
+}
+export interface ConnectorWriteField { key: string; label: string; value: string; multiline?: boolean; }
+export interface ConnectorWriteAsk {
+  connectorId: string; slug: string; name: string; provider: ConnectorProvider;
+  account?: string | null; toolName: string; actionLabel: string; fields: ConnectorWriteField[];
+}
 /** The machine a Bot asks for, with the host keys scanned when it asked; `existing` when the owner already added a
  * machine at this address, so the card only grants it. */
 export interface MachineAsk { name: string; host: string; port: number; user: string; directory: string | null; purpose: string;

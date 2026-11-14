@@ -5,6 +5,7 @@ import type { PortRange, PublishedPort } from "../contract/ports";
 import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
+import type { Connector, ConnectorAuthKind, ConnectorOAuthState, ConnectorPreset, ConnectorProvider, ConnectorSafety, ConnectorUse } from "../contract/connectors";
 import type { Task, TaskInput } from "../contract/tasks";
 import type { FollowedSummary, ThreadFilter, ThreadItem, ThreadPage, ThreadSort } from "../contract/threads";
 import { t } from "./i18n";
@@ -163,6 +164,28 @@ export const api = {
   /** Answers a request card: the value goes here, never into a message. */
   fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once" }) =>
     request<ChatMessage>(`/secrets/requests/${chatId}/${messageId}`, { method: "POST", body: body(input) }),
+  connectors: () => request<{ connectors: Connector[]; presets: ConnectorPreset[] }>("/connectors"),
+  createConnector: (input: {
+    slug?: string; name?: string; provider?: ConnectorProvider; url: string; authKind: ConnectorAuthKind;
+    headers?: Record<string, string>; clientId?: string; clientSecret?: string; safety: ConnectorSafety;
+  }) => request<Connector>("/connectors", { method: "POST", body: body(input) }),
+  updateConnector: (id: string, input: {
+    name?: string; url?: string; authKind?: ConnectorAuthKind; headers?: Record<string, string>;
+    clientId?: string; clientSecret?: string; safety?: ConnectorSafety; enabled?: boolean;
+  }) => request<Connector>(`/connectors/${id}`, { method: "PUT", body: body(input) }),
+  deleteConnector: (id: string) => request<{ ok: boolean }>(`/connectors/${id}`, { method: "DELETE" }),
+  probeConnector: (id: string) => request<Connector>(`/connectors/${id}/probe`, { method: "POST" }),
+  disconnectConnector: (id: string) => request<Connector>(`/connectors/${id}/disconnect`, { method: "POST" }),
+  startConnectorOAuth: (id: string, redirectUri: string) =>
+    request<ConnectorOAuthState>(`/connectors/${id}/oauth/start`, { method: "POST", body: body({ redirectUri }) }),
+  completeConnectorOAuth: (id: string, input: { callbackUrl?: string; code?: string }) =>
+    request<ConnectorOAuthState>(`/connectors/${id}/oauth/complete`, { method: "POST", body: body(input) }),
+  connectorOAuthStatus: (id: string) => request<{ oauth: ConnectorOAuthState; connector: Connector }>(`/connectors/${id}/oauth/status`),
+  grantConnector: (id: string, botId: string, granted: boolean) =>
+    request<Connector>(`/connectors/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
+  connectorUses: (id: string) => request<{ uses: ConnectorUse[] }>(`/connectors/${id}/uses`),
+  fulfilConnectorAuth: (chatId: string, messageId: string) =>
+    request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, { method: "POST" }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),

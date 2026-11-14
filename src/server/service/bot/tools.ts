@@ -12,12 +12,13 @@ import { messageTools } from "./tools/messages.js";
 import { fileTools } from "./tools/files.js";
 import { environmentTools } from "./tools/environments.js";
 import { secretTools } from "./tools/secrets.js";
+import { connectorTools } from "./tools/connectors.js";
 import { taskTools } from "./tools/tasks.js";
 import { portTools } from "./tools/ports.js";
 import { agentTools } from "./tools/agent.js";
 
 /** Every Bot's tools, by area, in the order list gives them; the agent Bot also has its own (A48), after them. */
-const EVERY_BOT: readonly BotTool[] = [...historyTools, ...chatTools, ...messageTools, ...fileTools, ...environmentTools, ...portTools, ...secretTools, ...taskTools];
+const EVERY_BOT: readonly BotTool[] = [...historyTools, ...chatTools, ...messageTools, ...fileTools, ...environmentTools, ...portTools, ...secretTools, ...connectorTools, ...taskTools];
 
 // The one schema a model gets as a function definition, so it keeps to what every provider takes: Gemini refuses
 // anyOf/const and patternProperties, so action is a plain string enum and args a plain object. The tools behind the

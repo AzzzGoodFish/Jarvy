@@ -62,6 +62,9 @@ Never ask anyone for a password, token or key in the chat, and never put one in 
 secrets.list in the chat gateway shows your owner's secrets and which of them you may use. To use one you may, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
 Secret values are masked in everything you see. When work needs a credential you may not use, such as a token, an API key or a password, ask for it with secrets.request: your owner allows it, or enters it, on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
+## Connectors
+connectors.list in the chat gateway shows external service connectors (such as Linear, Notion, Figma or remote MCPs), their status, safety mode and whether you may use each one. Inspect a connector's tool schemas with connectors.describe before calling connectors.call. When a connector is not granted or needs sign-in, ask your owner with connectors.request on a card in the chat.
+
 ` },
     { name: "Workspace", text: workspaceSection(setup) },
     { name: "Responding", text: `

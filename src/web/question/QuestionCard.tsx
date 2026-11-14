@@ -8,6 +8,8 @@ import { useAction } from "../action";
 import { SecretRequestCard } from "../secrets/SecretRequestCard";
 import { MachineRequestCard } from "../environment/MachineRequestCard";
 import { EnterEnvironmentCard } from "../environment/EnterEnvironmentCard";
+import { ConnectorAuthCard } from "../connectors/ConnectorAuthCard";
+import { ConnectorWriteCard } from "../connectors/ConnectorWriteCard";
 
 const letter = (index: number) => String.fromCharCode(65 + index);
 const editable = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
@@ -19,11 +21,13 @@ const editable = (target: EventTarget | null) => target instanceof HTMLInputElem
  * (「已选：…」 or 「已忽略」, then the question). A–F pick options when this is the latest pending question and focus
  * is not in a field. */
 export function QuestionCard(props: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
-  const { message } = props, { secret, machine, enter } = message.question;
-  // Typed request cards (secrets.request A52, environments.request A57, environments.enter A93) render fixed controls.
+  const { message } = props, { secret, machine, enter, connectorAuth, connectorWrite } = message.question;
+  // Typed request cards (secrets.request A52, environments.request A57, environments.enter A93, connectors A94) render fixed controls.
   if (secret) return <SecretRequestCard message={{ ...message, question: { ...message.question, secret } }} onSettled={props.onSettled}/>;
   if (machine) return <MachineRequestCard message={{ ...message, question: { ...message.question, machine } }} onSettled={props.onSettled}/>;
   if (enter) return <EnterEnvironmentCard message={{ ...message, question: { ...message.question, enter } }} onSettled={props.onSettled}/>;
+  if (connectorAuth) return <ConnectorAuthCard message={{ ...message, question: { ...message.question, connectorAuth } }} onSettled={props.onSettled}/>;
+  if (connectorWrite) return <ConnectorWriteCard message={{ ...message, question: { ...message.question, connectorWrite } }} onSettled={props.onSettled}/>;
   return <OptionsQuestion {...props}/>;
 }
 function OptionsQuestion({ message, keyboard, onSettled }: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
