@@ -34,7 +34,8 @@ export function ReactionPills({ message, me, members, onReact, onError }: {
     return <button key={group.emoji} type="button" className="jv-reaction" data-mine={mine || undefined} title={names.join(separator)}
       onClick={() => { try { onReact(message, group.emoji, !mine); } catch (error) { onError(error); } }}>
       <span className="jv-reaction-emoji">{group.emoji}</span>
-      <span className="jv-reaction-names">{names.slice(0, NAMES).join(separator)}{rest > 0 && <span className="jv-reaction-more">{t("reactions.more", { count: rest })}</span>}</span>
+      <span className="jv-reaction-names">{names.slice(0, NAMES).join(separator)}</span>
+      {rest > 0 && <span className="jv-reaction-more">{t("reactions.more", { count: rest })}</span>}
     </button>;
   })}</div>;
 }

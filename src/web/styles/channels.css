@@ -215,7 +215,8 @@
 .jv-reaction[data-mine] { box-shadow: inset 0 0 0 1px var(--ui-border-focus); background: color-mix(in srgb, var(--ui-border-focus) 12%, transparent); }
 .jv-reaction-names { min-width: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ui-text-secondary); }
 .jv-reaction[data-mine] .jv-reaction-names { color: var(--ui-text-primary); }
-.jv-reaction-more { margin-left: 4px; color: var(--ui-text-tertiary); }
+/* Outside the names, so a long name is cut and the count of the rest still shows. */
+.jv-reaction-more { flex: none; margin-left: 1px; font-size: 12px; color: var(--ui-text-tertiary); }
 .jv-emoji-menu { position: absolute; top: 32px; right: 0; z-index: 20; width: 302px; padding: 8px; border-radius: 12px;
   background: var(--ui-bg-elevated, var(--ui-bg-base)); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 8px 24px rgb(0 0 0 / .14); }
 /* The panel: the answers people send most, a search box, the nine groups, and the grid. */
