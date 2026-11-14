@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { AGENT_BOT_ID } from "../../shared/models.js";
 import { BOT_COLORS } from "../../../contract/models.js";
+import type { AgentAction, AgentActionPage } from "../../../contract/bots.js";
 import { transaction } from "./transaction.js";
 
 /** The agent Bot's storage (v19, A48): the setup Bot kept in place and the onboarding mark. */
@@ -26,6 +27,17 @@ export class AgentRepository {
       }
       this.db.prepare("DELETE FROM settings WHERE key='agent_onboarded'").run();
     });
+  }
+  /** Logs one use of the agent's oversight (A93). */
+  log(action: Omit<AgentAction, "id" | "at">): void {
+    this.db.prepare("INSERT INTO agent_actions(bot_id,at,tool,target,detail,outcome) VALUES(?,?,?,?,?,?)")
+      .run(AGENT_BOT_ID, Date.now(), action.tool, action.target.slice(0, 300), action.detail.slice(0, 1000), action.outcome);
+  }
+  /** The log, newest first, a page at a time. */
+  actions(before: number | undefined, limit: number): AgentActionPage {
+    const rows = this.db.prepare(`SELECT id,at,tool,target,detail,outcome FROM agent_actions WHERE bot_id=? AND id<? ORDER BY id DESC LIMIT ?`)
+      .all(AGENT_BOT_ID, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as unknown as AgentAction[];
+    return { items: rows.slice(0, limit), nextBefore: rows.length > limit ? rows[limit - 1]!.id : null };
   }
   /** Records that the owner is being welcomed; false when that already happened, so only one caller asks. */
   markOnboarded(): boolean {

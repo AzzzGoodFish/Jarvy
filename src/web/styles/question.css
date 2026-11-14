@@ -2,7 +2,7 @@
    one panel under the Bot's message, lined up with its bubble — a header with an icon and the question, a body with
    the options or fields, a footer with the actions — so it reads as one thing to answer, not as more of the Bot's
    text. A settled one folds to one line. */
-.jv-question { width: min(520px, 100%); display: flex; flex-direction: column; color: var(--ui-text-primary); border: 1px solid var(--ui-border-default);
+.jv-question { container-type: inline-size; width: min(520px, 100%); display: flex; flex-direction: column; color: var(--ui-text-primary); border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-xl); background: var(--ui-bg-elevated); box-shadow: var(--ui-shadow-sm); overflow: hidden; }
 .jv-row-body > .jv-question { margin-top: 4px; }
 .jv-question-head { display: flex; align-items: flex-start; gap: 10px; padding: 12px 12px 12px 14px; border-bottom: 1px solid var(--ui-border-weak); background: var(--ui-bg-subtle); }
@@ -17,7 +17,17 @@
 .jv-question-dismiss svg { width: 15px; height: 15px; }
 .jv-question-body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; }
 .jv-question-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--ui-border-weak); background: var(--ui-bg-subtle); }
+/* Three actions (拒绝 · 仅限本次 · 始终允许) stack full width when the card is narrow, the main one on top. */
+@container (max-width: 360px) { .jv-question-foot:has(> :nth-child(3)) { flex-direction: column-reverse; align-items: stretch; } }
 .jv-question-error { margin: 0; font-size: 12px; color: var(--ui-text-danger); }
+/* A settled request keeps its card: icon and target as on the pending one, the outcome on the right (RequestCard.tsx). */
+.jv-question-settled .jv-question-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+.jv-question-settled .jv-question-heading { padding-top: 0; }
+.jv-question-outcome { flex: none; display: inline-flex; align-items: center; gap: 4px; max-width: 240px; font-size: 12px; line-height: 17px;
+  text-align: right; color: var(--ui-text-secondary); }
+.jv-question-outcome svg { flex: none; width: 13px; height: 13px; }
+.jv-question-settled[data-state="answered"] .jv-question-outcome { color: var(--ui-text-primary); }
+.jv-question-settled[data-state="answered"] .jv-question-outcome svg { color: var(--ui-text-success, var(--ui-text-primary)); }
 /* Options: rows in the body; a letter picks one, a tick marks it in a multiple choice. */
 .jv-question-options { display: flex; flex-direction: column; gap: 6px; }
 .jv-question-option { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg);
@@ -48,7 +58,15 @@
 .jv-question-answer strong { font-weight: 600; color: var(--ui-text-primary); }
 .jv-question-asked { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ui-text-tertiary); }
 .jv-question-asked::before { content: "·"; margin-right: 6px; }
-@media (max-width: 620px) { .jv-question-custom { font-size: 16px; } }
+@media (max-width: 620px) {
+  .jv-question-custom { font-size: 16px; }
+  /* A card takes the room of the row: the avatar column it no longer needs and the actions, which move to the corner. */
+  .ui-message-row:has(.jv-question) .jv-row-actions { position: absolute; top: 0; right: 0; }
+  .ui-message-row:has(.jv-question) > .jv-dm-stack { width: 100%; max-width: none; }
+  .ui-message-row > .jv-dm-stack > .jv-question, .jv-row-body > .jv-question { width: auto; align-self: stretch; margin-left: -30px; }
+  .jv-question-settled .jv-question-head { grid-template-columns: auto minmax(0, 1fr); row-gap: 4px; }
+  .jv-question-outcome { grid-column: 2; max-width: none; text-align: left; }
+}
 /* DMs: the Bot's message right before its question keeps close and leaves the avatar to the question. */
 .ui-message-row[data-asks] { margin-bottom: 8px; }
 .ui-message-row[data-asks] .jarvy-bubble-avatar { visibility: hidden; }

@@ -8,6 +8,8 @@ import { transaction } from "./transaction.js";
 interface Row { id: string; ownerId: string; kind: EnvironmentKind; botId: string | null; name: string; directory: string | null; description: string; connection: string }
 const FIELDS = (table: string) => ["id", "owner_id AS ownerId", "kind", "bot_id AS botId", "name", "directory", "description", "connection"].map(column => `${table}${column}`).join(", ");
 const COLUMNS = FIELDS("");
+/** A grant for one run lasts while that run does (A93). */
+const LIVE = "(g.run_id IS NULL OR EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=g.run_id AND r.ended_at IS NULL))";
 const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.ownerId, kind: row.kind, botId: row.botId, name: row.name, directory: row.directory, description: row.description,
   spec: JSON.parse(row.connection) as Record<string, string> });
 /** What a new SSH machine is saved with (A57); `password` only for one that refuses Jarvy's key (A59). */
@@ -87,12 +89,23 @@ export class EnvironmentRepository {
   /** The environments the owner granted the Bot, oldest grant first. */
   grants(botId: string): EnvironmentRecord[] {
     return (this.db.prepare(`SELECT ${FIELDS("e.")} FROM environment_grants g JOIN environments e ON e.id=g.environment_id
-      WHERE g.bot_id=? AND e.deleted_at IS NULL ORDER BY g.granted_at, e.id`).all(botId) as unknown as Row[]).map(record);
+      WHERE g.bot_id=? AND e.deleted_at IS NULL AND ${LIVE} ORDER BY g.granted_at, e.id`).all(botId) as unknown as Row[]).map(record);
   }
-  /** A grant lasts until it is revoked (A50); false when nothing changed. */
-  grant(environmentId: string, botId: string, by: string): boolean {
-    return Number(this.db.prepare("INSERT OR IGNORE INTO environment_grants(environment_id,bot_id,granted_by,granted_at) VALUES(?,?,?,?)")
-      .run(environmentId, botId, by, Date.now()).changes) > 0;
+  /** Drops grants whose run has ended; returns whether any went (A93). */
+  pruneOnce(botId: string): boolean {
+    return Number(this.db.prepare("DELETE FROM environment_grants WHERE bot_id=? AND run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=environment_grants.run_id AND r.ended_at IS NULL)").run(botId).changes) > 0;
+  }
+  /** The grants that last only for a run (A93), by environment. */
+  onceGrants(botId: string): Set<string> {
+    return new Set((this.db.prepare(`SELECT environment_id AS id FROM environment_grants g WHERE bot_id=? AND run_id IS NOT NULL AND ${LIVE}`).all(botId) as { id: string }[]).map(row => row.id));
+  }
+  /** A grant lasts until it is revoked (A50), or with `runId` until that run ends (A93); false when nothing changed.
+   * Allowing it for good replaces a grant for one run. */
+  grant(environmentId: string, botId: string, by: string, runId?: string): boolean {
+    this.db.prepare("DELETE FROM environment_grants WHERE run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=environment_grants.run_id AND r.ended_at IS NULL)").run();
+    const upgraded = !runId ? Number(this.db.prepare("UPDATE environment_grants SET run_id=NULL WHERE environment_id=? AND bot_id=? AND run_id IS NOT NULL").run(environmentId, botId).changes) : 0;
+    return upgraded + Number(this.db.prepare("INSERT OR IGNORE INTO environment_grants(environment_id,bot_id,granted_by,granted_at,run_id) VALUES(?,?,?,?,?)")
+      .run(environmentId, botId, by, Date.now(), runId ?? null).changes) > 0;
   }
   revoke(environmentId: string, botId: string): boolean {
     return Number(this.db.prepare("DELETE FROM environment_grants WHERE environment_id=? AND bot_id=?").run(environmentId, botId).changes) > 0;

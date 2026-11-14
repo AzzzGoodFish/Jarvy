@@ -1,4 +1,4 @@
-import type { Bot, BotStatus } from "../contract/bots";
+import type { AgentActionPage, Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
 import type { PortRange, PublishedPort } from "../contract/ports";
@@ -122,6 +122,9 @@ export const api = {
   botSubscriptions: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/subscriptions`),
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
   grantBotMachine: (id: string, machineId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ machineId, granted }) }),
+  /** The agent Bot into another Bot's sandbox (A93). */
+  grantBotSandbox: (id: string, sandboxId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ sandboxId, granted }) }),
+  agentActions: (id: string, before?: number) => request<AgentActionPage>(`/bots/${id}/actions${before ? `?before=${before}` : ""}`),
   /** The owner's SSH machines (A57, A59); private keys and kept passwords never come back. */
   machines: () => request<{ machines: SshMachine[] }>("/environments"),
   scanMachine: (input: { host: string; port: number; user: string }) => request<HostKeys>("/environments/scan", { method: "POST", body: body(input) }),

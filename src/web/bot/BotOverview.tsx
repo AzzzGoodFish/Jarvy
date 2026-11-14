@@ -24,7 +24,7 @@ export function BotOverview({ bot, status, connections, chats, onSaved, onManage
     {bot.agent && <section className="jv-section" aria-label={t("agent.title")}><h3 className="jv-section-title">{t("agent.title")}</h3>
       <div className="jv-panel jv-agent-about">
         <p>{t("agent.intro", { name: bot.name })}</p>
-        <ul>{(["agent.create", "agent.model", "agent.run", "agent.delete"] as const).map(key => <li key={key}>{t(key)}</li>)}</ul>
+        <ul>{(["agent.create", "agent.model", "agent.run", "agent.delete", "agent.oversee"] as const).map(key => <li key={key}>{t(key)}</li>)}</ul>
       </div>
     </section>}
 

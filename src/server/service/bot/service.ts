@@ -10,6 +10,7 @@ import type { Bot as BotView } from "../../../contract/bots.js";
 import type { BotStatus } from "./contracts.js";
 import { RuntimeFault, publicFault } from "../../shared/runtime.js";
 import { ValidationError } from "../../shared/errors.js";
+import { ChatError } from "../../shared/chat.js";
 import type { ChatService } from "../chat/service.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
@@ -115,11 +116,16 @@ export class BotService {
       tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster(),
         places: { list: () => this.environments.list(id, record.workspacePath), switch: environmentId => this.environments.switch(id, environmentId, record.workspacePath),
           summary: botId => this.environments.summary(botId), request: input => this.machines.prepareRequest(id, input), found: input => this.machines.find(id, input),
-          address: environmentId => this.machines.located(environmentId) },
+          address: environmentId => this.machines.located(environmentId),
+          ...(id === AGENT_BOT_ID ? { waiting: (environmentId: string) => this.environments.enterTarget(id, environmentId),
+            allow: (environmentId: string, once: boolean) => { this.environments.allow(id, environmentId, store.account.userMemberId(), once ? runtime.activeRunId ?? "no-run" : undefined); this.listChanged(); } } : {}) },
         secrets: { list: () => this.deps.secrets.listFor(id), prepare: (name, purpose) => this.deps.secrets.prepareRequest(id, name, purpose) },
         tasks: this.deps.tasks, ports: this.ports,
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
-      state: new BotState(() => this.deps.changed(id)),
+      state: new BotState(() => {
+        if (id === AGENT_BOT_ID && bot?.status().status !== "running" && this.environments.expireOnce(id)) this.listChanged();
+        this.deps.changed(id);
+      }),
     }, { deliver: async message => {
       const outgoing = await workspace.readOutgoing(message.attachments ?? [], chats.attachments, message.signal);
       try {
@@ -163,6 +169,17 @@ export class BotService {
   /** The owner lets a Bot use an SSH machine (A57), or takes it back; taking it back while the Bot is there sends it
    * home. */
   grantMachine(id: string, machineId: string, granted: boolean) { this.machines.get(machineId); return this.grant(id, machineId, granted); }
+  /** The owner lets the agent Bot into another Bot's sandbox, or takes it back (A93). */
+  grantSandbox(id: string, sandboxId: string, granted: boolean) {
+    const record = this.deps.store.environments.get(sandboxId);
+    if (id !== AGENT_BOT_ID || record?.kind !== "computer" || record.botId === id || !this.deps.store.bots.get(record.botId ?? "")) throw new ChatError(404, "No such sandbox");
+    return this.grant(id, sandboxId, granted);
+  }
+  /** The agent Bot's log (A93); other Bots have none. */
+  agentActions(id: string, before: number | undefined, limit: number) {
+    if (id !== AGENT_BOT_ID) throw new ChatError(404, "Only the agent Bot keeps a log");
+    return this.deps.store.agent.actions(before, limit);
+  }
   /** The owner deletes an SSH machine: Bots working there are back in their default, and told. */
   async removeMachine(machineId: string, force: boolean): Promise<void> {
     const name = this.machines.get(machineId).name, granted = this.machines.get(machineId).botIds;
@@ -316,6 +333,7 @@ export class BotService {
     this.bots.delete(id);
     this.lives.get(id)?.close(); this.lives.delete(id);
     await this.environments.release(id);
+    await this.environments.releaseComputer(id);
     if (!this.deps.store.bots.delete(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     this.ports.changed();
     // Its DMs went with it, and the files of their messages go now (A66).

@@ -97,6 +97,23 @@ export class AgentOps {
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
     return { since: new Date(since).toISOString(), models: this.bots.memory(bot.id).usage(since) };
   }
+  /** Logs one use of its owner's powers (A93), for the owner to look through on its Bot info. */
+  log(action: { tool: string; target: string; detail?: string; outcome?: string }) {
+    this.store.agent.log({ tool: action.tool, target: action.target, detail: action.detail ?? "", outcome: action.outcome ?? "done" });
+  }
+  /** Every channel and DM of the owner's (A93), the most recently active first, whether or not the agent is in it. */
+  everyChat() { return this.chats.everyChat(AGENT_BOT_ID); }
+  /** Joins a channel it isn't in (A93), as the owner adds a member. */
+  join(chatId: string) { this.chats.channels.addMember(this.owner, chatId, AGENT_BOT_ID); }
+  /** Another Bot's History, as the owner reads it on its activity page (A93): a page of summaries, or records whole. */
+  activity(bot: BotRecord, input: { ids?: number[]; before?: number; limit?: number }) {
+    const memory = this.bots.memory(bot.id);
+    if (input.ids?.length) return memory.readMany(input.ids, "detail");
+    const page = memory.list(input.before, input.limit ?? 30);
+    return { items: page.items.map(item => ({ id: item.id, at: new Date(item.timestamp).toISOString(), role: item.role, preview: item.preview,
+      ...(item.tools.length ? { tools: item.tools.map(step => `${step.kind === "call" ? "→" : "←"} ${step.name}${step.error ? " (failed)" : ""}`) } : {}) })),
+      ...(page.nextBefore ? { nextBefore: page.nextBefore } : {}) };
+  }
   /** Deletions run as the owner, who has just confirmed them on a card. */
   async deleteBot(bot: BotRecord) {
     if (bot.id === AGENT_BOT_ID) throw new ChatError(400, "You can't delete yourself");

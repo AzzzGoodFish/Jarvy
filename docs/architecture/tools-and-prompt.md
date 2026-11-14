@@ -74,6 +74,9 @@ Only the agent Bot (A48) lists these; for any other Bot they are unknown tools. 
 | `bots.start` / `bots.stop` | a Bot's runtime; never stops itself |
 | `bots.usage` | a Bot's token use and cost over the last days, per model |
 | `bots.delete` / `chats.delete` / `chats.removeMembers` / `sections.delete` | first a card in `askIn` with the agent's question and button labels; runs as the owner only if they confirm. Never deletes itself; channels only where it is a member |
+| `chats.browse` / `chats.join` | list every channel and DM of the owner's; join a channel after reading its notice and post a first message (A93) |
+| `environments.enter` | ask the owner on a fixed request card (`always`, `once` for this run, `decline`; only `purpose` is free-form) to move into another Bot's sandbox or an ungranted SSH machine (A93) |
+| `bots.activity` | read another Bot's History, summaries or full records by ID (A93) |
 
 A Bot the agent changes is told with its next batch (`<changes>`, [Bot input](envelope.md)).
 

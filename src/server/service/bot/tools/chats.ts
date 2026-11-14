@@ -17,7 +17,11 @@ export const chatTools = [
   tool("chats.list", "List the chats you are in: DMs, channels and the threads you follow. Each has its type, title (DMs also give the other member's name in with), channel group (section), topic, your unread count (none for threads that are done) and whether you subscribe; threads also give their channel and status.",
     None, (_args, context) => chatRows(context.chats, context.bot)),
   tool("chats.info", "Details of one chat: members, the channel topic, the full notice or thread summary, your unread count and read position, and whether you subscribe; threads also give their title, status, channel and source message. Members mark the channel's creator and admins (role), and canEdit says whether you can change the chat with chats.update. Reading a notice or summary counts as having seen that version.",
-    Type.Object({ chatId: Type.String() }, { additionalProperties: false }), ({ chatId }, context) => chatDetail(context.chats, context.bot, context.chat(chatId))),
+    Type.Object({ chatId: Type.String() }, { additionalProperties: false }), ({ chatId }, context) => {
+    const chat = context.chat(chatId);
+    context.oversee(chat, "chats.info");
+    return { ...chatDetail(context.chats, context.bot, chat), ...(context.isMember(chat) ? {} : { member: false }) };
+  }),
   tool("chats.create", "Create a channel. You become a member and its creator, so you can change it later with chats.update; the result has its chatId. members: names of the members to add (see members.list). section: the name of an existing channel group (see sections.list); leave it out for no group.",
     Type.Object({ name: Name("Channel name"), topic: Type.Optional(Type.String({ maxLength: 200 })), section: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
       members: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 80 }), { maxItems: 50 })) }, { additionalProperties: false }), (input, context) => {
@@ -60,18 +64,23 @@ export const chatTools = [
   }),
   tool("chats.subscribe", "Subscribe to a channel or thread, or stop. Normally you only get new messages in channels and threads when you are @-mentioned. While you subscribe, every new message there (with or without an @, whoever it mentions, from a person or a Bot) is sent to you at once and interrupts what you are doing. Subscribe only while you need to follow something live, and stop when you are done; you don't have to reply to every message you get this way. Subscribing to a channel doesn't include its threads; subscribing to a thread also follows it.",
     Type.Object({ chatId: Type.String(), subscribed: Type.Boolean() }, { additionalProperties: false }), (input, context) => {
-    const chat = context.chats.subscribe(context.bot, context.chat(input.chatId).id, input.subscribed);
+    const target = context.chat(input.chatId);
+    if (!context.isMember(target)) throw new ChatError(403, "You can read this chat but you aren't in it; join a channel with chats.join first");
+    const chat = context.chats.subscribe(context.bot, target.id, input.subscribed);
     return { chatId: chat.id, type: chat.type, subscribed: chat.subscribed, ...(chat.type === "thread" ? { following: chat.following } : {}) };
   }),
   tool("threads.list", "List a channel's threads: title, status, reply count, time of the last reply, source message, and whether you follow or subscribe. status is open by default; done and all also work.",
     Type.Object({ chatId: Type.String({ description: "Channel ID" }), status: Type.Optional(Type.Union([Type.Literal("open"), Type.Literal("done"), Type.Literal("all")])) }, { additionalProperties: false }), (input, context) => {
     const status = input.status ?? "open";
-    if (context.chat(input.chatId).type !== "channel") throw new ChatError(400, "Threads belong to channels");
+    const channel = context.chat(input.chatId);
+    if (channel.type !== "channel") throw new ChatError(400, "Threads belong to channels");
+    context.oversee(channel, "threads.list");
     return context.chats.threads.list(context.bot, input.chatId).filter(entry => status === "all" || entry.chat.status === status)
       .map(entry => threadRow(context.chats, entry));
   }),
   tool("threads.follow", "Follow or unfollow a thread. Followed threads appear in chats.list, and their new replies count as unread for you without interrupting you (use chats.subscribe to get them live). Posting in a thread or being @-mentioned in it follows it for you. Unfollow one that no longer concerns you while it is still open; a thread that is done drops out of your unread by itself.",
     Type.Object({ chatId: Type.String({ description: "Thread ID" }), following: Type.Boolean() }, { additionalProperties: false }), (input, context) => {
+    if (!context.isMember(context.chat(input.chatId))) throw new ChatError(403, "You can read this thread but you aren't in its channel; join it with chats.join first");
     const chat = context.chats.threads.setFollowing(context.bot, input.chatId, input.following);
     return { chatId: chat.id, following: chat.following };
   }),

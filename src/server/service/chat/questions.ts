@@ -1,5 +1,5 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
-import { type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../../contract/chat.js";
+import { type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -23,7 +23,8 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
   if (new Set(parsed.map(option => option.label)).size !== parsed.length) throw new ChatError(400, "Question options must have distinct labels");
   return { question: (input.question as string).trim(), ...(input.detail === undefined ? {} : { detail: (input.detail as string).trim() }),
     options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true, ...(input.secret === undefined ? {} : { secret: secretAsk(input.secret) }),
-    ...(input.machine === undefined ? {} : { machine: machineAsk(input.machine) }) };
+    ...(input.machine === undefined ? {} : { machine: machineAsk(input.machine) }),
+    ...(input.enter === undefined ? {} : { enter: enterAsk(input.enter) }) };
 }
 /** A secret request (secrets.request, A52), as built by the secrets service. */
 function secretAsk(value: unknown): SecretAsk {
@@ -42,6 +43,14 @@ function machineAsk(value: unknown): MachineAsk {
   return { name: ask.name as string, host: ask.host as string, port: ask.port as number, user: ask.user as string, directory: ask.directory as string | null,
     purpose: (ask.purpose as string).trim(), hostKeys: { keys: keys.keys as string[], fingerprints: keys.fingerprints as string[] },
     existing: existing && typeof existing.id === "string" && typeof existing.name === "string" ? { id: existing.id, name: existing.name } : null };
+}
+/** An environment entry request (environments.enter, A93), as built by the agent tool. */
+function enterAsk(value: unknown): EnterAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || (ask.kind !== "sandbox" && ask.kind !== "machine") || !text(ask.name, 80)
+    || (ask.address !== undefined && !text(ask.address, 340)) || !text(ask.purpose, 300)) throw new ChatError(400, "Invalid environment entry request");
+  return { kind: ask.kind, name: (ask.name as string).trim(),
+    ...(ask.address === undefined ? {} : { address: (ask.address as string).trim() }), purpose: (ask.purpose as string).trim() };
 }
 function answerOf(question: Question, input: Record<string, unknown>): QuestionAnswer {
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;

@@ -10,18 +10,22 @@ import { BotOverview } from "./bot/BotOverview";
 import { BotProfile } from "./bot/BotProfile";
 import { BotEnvironment } from "./environment/BotEnvironment";
 import { BotAccess } from "./bot/BotAccess";
+import { AgentLog } from "./bot/AgentLog";
 import { BotTasks } from "./tasks/BotTasks";
 import { BotPorts } from "./ports/BotPorts";
 import { t } from "./i18n";
 import type { Key } from "./i18n/keys";
 import { Dialog, DialogContent } from "./components/ui/dialog";
 
-type Tab = "overview" | "profile" | "environment" | "access" | "tasks" | "activity" | "usage";
+type Tab = "overview" | "profile" | "environment" | "access" | "tasks" | "activity" | "usage" | "log";
 const TABS: readonly (readonly [Tab, Key])[] = [["overview", "bot.tab.overview"], ["profile", "bot.tab.profile"], ["environment", "bot.tab.environment"], ["access", "bot.tab.access"],
   ["tasks", "bot.tab.tasks"], ["activity", "bot.tab.activity"], ["usage", "usage.title"]];
+/** The agent Bot also has its log (A93). */
+const AGENT_TABS: readonly (readonly [Tab, Key])[] = [...TABS, ["log", "bot.tab.log"]];
 
-/** Bot info (A83): a fixed top with who the Bot is and whether it runs, then seven tabs. It always opens on 概览; a tab
- * is loaded the first time it is opened and kept, with its scroll and edits, until the dialog closes. */
+/** Bot info (A83): a fixed top with who the Bot is and whether it runs, then seven tabs, eight for the agent Bot. It
+ * always opens on 概览; a tab is loaded the first time it is opened and kept, with its scroll and edits, until the
+ * dialog closes. */
 export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onManageSecrets, onAddMachine, onClose, onOpenChat, onOpenSubscription }: {
   onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onManageSecrets: () => void; onAddMachine: () => void; onClose: () => void;
 }) {
@@ -32,12 +36,13 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
   useEffect(() => { current.current?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [tab]);
   const open = (next: Tab) => { setTab(next); setOpened(seen => seen.has(next) ? seen : new Set(seen).add(next)); };
   // Arrow keys move between the tabs, Home and End to the ends.
+  const tabs = bot.agent ? AGENT_TABS : TABS;
   const walk = (event: KeyboardEvent) => {
-    const at = TABS.findIndex(([id]) => id === tab);
-    const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: TABS.length - 1 }[event.key];
+    const at = tabs.findIndex(([id]) => id === tab);
+    const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[event.key];
     if (next === undefined) return;
     event.preventDefault();
-    open(TABS[(next + TABS.length) % TABS.length]![0]);
+    open(tabs[(next + tabs.length) % tabs.length]![0]);
     requestAnimationFrame(() => current.current?.focus());
   };
   const runs = `${status?.status ?? "stop"}:${status?.runId ?? ""}`;
@@ -47,7 +52,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
     <DialogContent className="jv-bot-info jv-ui" aria-describedby={undefined}>
       <BotHeader bot={bot} status={status} onSaved={onSaved}/>
       <div className="jv-bot-tabs" role="tablist" aria-label={t("entry.botInfo")} onKeyDown={walk}>
-        {TABS.map(([id, label]) => <button key={id} id={`jv-bot-tab-${id}`} ref={tab === id ? current : undefined} type="button" role="tab"
+        {tabs.map(([id, label]) => <button key={id} id={`jv-bot-tab-${id}`} ref={tab === id ? current : undefined} type="button" role="tab"
           aria-selected={tab === id} aria-controls={`jv-bot-panel-${id}`} tabIndex={tab === id ? 0 : -1} onClick={() => open(id)}>{t(label)}</button>)}
       </div>
       {panel("overview", <BotOverview bot={bot} status={status} connections={connections} chats={chats} onSaved={onSaved} onManageModels={onManageModels} onOpenSubscription={onOpenSubscription}/>)}
@@ -57,6 +62,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
       {panel("tasks", <BotTasks bot={bot} runs={runs}/>)}
       {panel("activity", <BotActivity botId={bot.id} onOpenChat={onOpenChat}/>, true)}
       {panel("usage", <BotUsage botId={bot.id}/>, true)}
+      {bot.agent && panel("log", <AgentLog bot={bot} runs={runs}/>)}
     </DialogContent>
   </Dialog>;
 }

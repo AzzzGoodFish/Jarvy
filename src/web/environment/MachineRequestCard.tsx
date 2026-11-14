@@ -20,8 +20,9 @@ export function MachineRequestCard({ message, onSettled }: { message: ChatMessag
   const prepared = usePreparedKey(question.state === "pending" && !ask.existing && login === "key");
   const address = `${ask.user}@${ask.host}${ask.port === 22 ? "" : `:${ask.port}`}`;
   if (question.state !== "pending") {
-    const text = t(question.state === "answered" ? (ask.existing ? "machineCard.granted" : "machineCard.added") : question.state === "dismissed" ? "machineCard.declined" : "machineCard.ignored", { name: ask.name });
-    return <SettledRequest state={question.state} text={text} purpose={ask.purpose}/>;
+    const text = question.state !== "answered" ? t(question.state === "dismissed" ? "request.outcome.declined" : "request.outcome.ignored")
+      : t(ask.existing ? "request.outcome.allowed" : "request.outcome.added");
+    return <SettledRequest icon={<ServerIcon aria-hidden="true"/>} title={ask.name} state={question.state} text={text} purpose={ask.purpose}/>;
   }
   const run = (action: () => Promise<ChatMessage>) => {
     if (!busy) void perform("answer", async () => {

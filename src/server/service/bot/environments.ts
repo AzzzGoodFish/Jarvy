@@ -5,6 +5,7 @@ import type { BotPlacement } from "../../../contract/environment.js";
 import type { Computers } from "./computers.js";
 import type { SshMachines } from "./machines.js";
 import { KINDS } from "./kinds/index.js";
+import { AGENT_BOT_ID } from "../../shared/models.js";
 import type { KindDeps } from "./kinds/kind.js";
 
 /** An environment as a Bot is told of it (A50): what to call it and the directory its tools start in there. A
@@ -28,7 +29,7 @@ export class BotEnvironments {
   }
 
   current(botId: string, workspacePath: string): WorkEnvironment {
-    const target = this.store.environments.placement(botId).current, signature = this.signature(target);
+    const target = this.settled(botId), signature = this.signature(target);
     const open = this.open.get(botId);
     if (open?.id === signature) return open.view;
     if (open) this.retire(open);
@@ -37,11 +38,65 @@ export class BotEnvironments {
     return opened.view;
   }
   placement(botId: string): BotPlacement {
-    const environments = this.store.environments, { current } = environments.placement(botId);
-    const granted = new Set(environments.grants(botId).map(grant => grant.id));
+    const environments = this.store.environments, current = this.settled(botId);
+    const granted = new Set(environments.grants(botId).map(grant => grant.id)), once = environments.onceGrants(botId);
+    const mark = (id: string) => ({ granted: granted.has(id), ...(once.has(id) ? { once: true as const } : {}) });
     return { current: current.kind, ...(current.kind === "ssh" ? { currentName: current.name } : {}),
       computer: this.computers.info(botId), docker: this.computers.available,
-      machines: environments.sshMachines().map(machine => ({ id: machine.id, name: machine.name, granted: granted.has(machine.id) })) };
+      machines: environments.sshMachines().map(machine => ({ id: machine.id, name: machine.name, ...mark(machine.id) })),
+      // The agent Bot may be let into other Bots' sandboxes (A93).
+      ...(botId === AGENT_BOT_ID ? { sandboxes: this.othersSandboxes(botId).map(record => ({ id: record.id, name: this.botName(record), ...mark(record.id) })) } : {}) };
+  }
+  /** Drops expired single-run grants and brings the Bot home if needed; true when anything changed (A93). */
+  expireOnce(botId: string): boolean {
+    const dropped = this.store.environments.pruneOnce(botId), before = this.store.environments.placement(botId).current.id;
+    return this.settled(botId).id !== before || dropped;
+  }
+  /** Where the Bot is, unless that was a grant for a run that has ended (A93): then it is back home. */
+  private settled(botId: string): EnvironmentRecord {
+    const { home, current } = this.store.environments.placement(botId);
+    if (current.id === home.id || (current.kind === "computer" && current.botId === botId) || this.usable(botId).some(record => record.id === current.id)) return current;
+    this.store.environments.setCurrent(botId, home.id);
+    return home;
+  }
+  /** Other Bots' sandboxes, for the agent Bot (A93). */
+  private othersSandboxes(botId: string): EnvironmentRecord[] {
+    return this.store.environments.computers().filter(record => record.botId !== botId && this.store.bots.get(record.botId ?? ""));
+  }
+  private botName(record: EnvironmentRecord): string { return this.store.bots.get(record.botId ?? "")?.name ?? "another Bot"; }
+  /** What the owner may give a Bot: an SSH machine (A57), and to the agent Bot another Bot's sandbox (A93). */
+  private grantableTo(botId: string, record: EnvironmentRecord): boolean {
+    return KINDS[record.kind].grantable || (botId === AGENT_BOT_ID && record.kind === "computer" && record.botId !== botId);
+  }
+  /** An environment the agent Bot may go to once its owner allows it on a card (A93): another Bot's sandbox, or an SSH
+   * machine not granted to it; null when it may already go there, or for any other Bot. */
+  waiting(botId: string, environmentId: string): EnvironmentRecord | null {
+    if (botId !== AGENT_BOT_ID || this.usable(botId).some(record => record.id === environmentId)) return null;
+    const record = this.store.environments.get(environmentId);
+    return record && this.grantableTo(botId, record) ? record : null;
+  }
+  /** The owner allowed it on the agent's card: until revoked, or for the run it is in (A93). */
+  allow(botId: string, environmentId: string, by: string, runId?: string): void {
+    const record = this.waiting(botId, environmentId);
+    if (record) this.store.environments.grant(record.id, botId, by, runId);
+  }
+  /** What the agent's card and log call an environment. */
+  label(botId: string, record: EnvironmentRecord): string { return record.kind === "computer" && record.botId !== botId ? `${this.botName(record)}'s sandbox` : record.name; }
+  /** Structured target for the agent's entry card (A93), or null if it already has access. */
+  enterTarget(botId: string, environmentId: string): { label: string; enter: { kind: "sandbox" | "machine"; name: string; address?: string } } | null {
+    const record = this.waiting(botId, environmentId);
+    if (!record) return null;
+    return record.kind === "computer"
+      ? { label: this.label(botId, record), enter: { kind: "sandbox", name: this.botName(record) } }
+      : { label: record.name, enter: { kind: "machine", name: record.name, address: `${record.spec.user}@${record.spec.host}${record.spec.port === "22" ? "" : `:${record.spec.port}`}` } };
+  }
+  /** When a Bot goes, anyone (the agent) working in its sandbox goes back home. */
+  async releaseComputer(deletedBotId: string): Promise<void> {
+    const computer = this.store.environments.computerOf(deletedBotId);
+    if (!computer) return;
+    for (const [botId, open] of this.open) if (open.id === this.signature(computer)) await this.release(botId);
+    const { home, current } = this.store.environments.placement(AGENT_BOT_ID);
+    if (current.id === computer.id) this.store.environments.setCurrent(AGENT_BOT_ID, home.id);
   }
   /** The environments the Bot may be in: its sandbox, its default, and the ones its owner granted it. */
   usable(botId: string): EnvironmentRecord[] {
@@ -63,12 +118,15 @@ export class BotEnvironments {
   /** environments.list: where the Bot is, where else it may go, and the owner's machines it may not use yet, so it
    * knows what to ask for. */
   list(botId: string, workspacePath: string) {
-    const { home, current } = this.store.environments.placement(botId), usable = this.usable(botId), mine = new Set(usable.map(record => record.id));
-    const others = this.store.environments.sshMachines().filter(record => !mine.has(record.id));
+    const { home } = this.store.environments.placement(botId), current = this.settled(botId), usable = this.usable(botId), mine = new Set(usable.map(record => record.id));
+    const agent = botId === AGENT_BOT_ID;
+    const others = [...this.store.environments.sshMachines(), ...(agent ? this.othersSandboxes(botId) : [])].filter(record => !mine.has(record.id));
     const entry = (record: EnvironmentRecord, granted: boolean) => ({ ...this.place(botId, record, workspacePath), ...(record.id === home.id ? { default: true } : {}),
-      ...(KINDS[record.kind].grantable ? { granted } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) });
+      ...(record.kind === "computer" && record.botId !== botId ? { bot: this.botName(record) } : {}),
+      ...(this.grantableTo(botId, record) ? { granted } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) });
     return { current: current.id, environments: [...usable.map(record => entry(record, true)), ...others.map(record => entry(record, false))],
-      ...(others.length ? { note: "granted=false: your owner's, but you may not use it. Ask for it with environments.request and its id; your owner only has to allow it." } : {}) };
+      ...(others.length ? { note: agent ? "granted=false: use environments.enter with its id to ask your owner on a card (another Bot's sandbox is that Bot's workspace: work there only as far as the task needs)."
+        : "granted=false: your owner's, but you may not use it. Ask for it with environments.request and its id; your owner only has to allow it." } : {}) };
   }
   /** environments.switch: the Bot moves itself, like cd, until it switches back. A sandbox is started first, an SSH
    * machine connected first; if that fails, the Bot stays where it was. */
@@ -76,7 +134,8 @@ export class BotEnvironments {
     const target = this.usable(botId).find(record => record.id === environmentId);
     if (!target) {
       const owners = this.store.environments.get(environmentId);
-      if (owners && KINDS[owners.kind].grantable) throw new ChatError(403, `You may not use ${owners.name} yet: ask your owner for it with environments.request and id ${owners.id}`);
+      if (owners && this.grantableTo(botId, owners)) throw new ChatError(403, botId === AGENT_BOT_ID ? `Your owner hasn't allowed ${this.label(botId, owners)} yet: ask them with environments.enter and id ${owners.id}`
+        : `You may not use ${owners.name} yet: ask your owner for it with environments.request and id ${owners.id}`);
       throw new ChatError(404, "No work environment with this id; see environments.list");
     }
     const previous = this.store.environments.placement(botId).current, already = previous.id === target.id, entry = KINDS[target.kind];
@@ -98,8 +157,8 @@ export class BotEnvironments {
   /** The owner grants or takes back an SSH machine (A57); taking it back while the Bot works there sends it home. */
   grant(botId: string, environmentId: string, granted: boolean, by: string, workspacePath: string): { changed: boolean; moved: Moved | null; name: string } {
     const environments = this.store.environments, target = environments.get(environmentId);
-    if (!target || !KINDS[target.kind].grantable) throw new ChatError(404, "No such environment");
-    const name = this.place(botId, target, workspacePath).name;
+    if (!target || !this.grantableTo(botId, target)) throw new ChatError(404, "No such environment");
+    const name = this.label(botId, target);
     if (granted) return { changed: environments.grant(target.id, botId, by), moved: null, name };
     const changed = environments.revoke(target.id, botId), { home, current } = environments.placement(botId);
     if (current.id !== target.id || home.id === target.id) return { changed, moved: null, name };

@@ -45,7 +45,10 @@ export class BotRepository {
     if (!this.get(id)) return false;
     transaction(this.db, () => {
       // A deleted Bot uses no connection, so the owner can delete the one it had.
-      this.db.prepare("UPDATE bots SET deleted_at=?, connection_id=NULL WHERE id=?").run(Date.now(), id);
+      const deletedAt = Date.now();
+      this.db.prepare("UPDATE bots SET deleted_at=?, connection_id=NULL WHERE id=?").run(deletedAt, id);
+      this.db.prepare("DELETE FROM environment_grants WHERE environment_id IN (SELECT id FROM environments WHERE bot_id=?)").run(id);
+      this.db.prepare("UPDATE environments SET deleted_at=? WHERE bot_id=? AND deleted_at IS NULL").run(deletedAt, id);
       this.db.prepare("DELETE FROM chats WHERE type='dm' AND id IN (SELECT chat_id FROM chat_members WHERE member_id=?)").run(id);
       for (const table of ["chat_members", "chat_states"]) this.db.prepare(`DELETE FROM ${table} WHERE member_id=?`).run(id);
       this.inbox.forget(id);
