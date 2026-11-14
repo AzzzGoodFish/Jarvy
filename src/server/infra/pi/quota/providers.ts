@@ -28,9 +28,27 @@ function family(id: string): string | undefined {
   return undefined;
 }
 
-/** Kimi Code: the weekly limit, and the shorter ones in `limits`, as Kimi CLI reads them. */
+/** Kimi Code: the 5-hour, weekly and monthly limits in `usages`, as the Kimi Code CLI reads them; then any window only
+ * the older fields have (`limits`, and the weekly `usage`), as Kimi CLI reads those. */
 export const kimi: QuotaCheck = async (credential, signal) => {
   const data = record(await getJson("https://api.kimi.com/coding/v1/usages", { Authorization: `Bearer ${credential.access}` }, signal)) ?? {};
+  const windows = kimiUsages(record(data.usages));
+  for (const window of kimiOlder(data)) if (!windows.some(kept => kept.kind === window.kind && kept.hours === window.hours)) windows.push(window);
+  return { windows: windows.sort((a, b) => SPANS.indexOf(a.kind) - SPANS.indexOf(b.kind)) };
+};
+const SPANS: readonly QuotaWindow["kind"][] = ["hours", "day", "week", "month"];
+/** The plan's limits as used shares (`used_ratio`, 0 to 1) with their resets. The monthly code limit is a part of the
+ * monthly total, so the total stands for the month. */
+function kimiUsages(usages: Json | undefined): QuotaWindow[] {
+  if (!usages) return [];
+  return ([["limit_5h", { kind: "hours", hours: 5 }], ["limit_7d", { kind: "week" }], ["limit_month_total", { kind: "month" }]] as const).flatMap(([key, length]) => {
+    const entry = record(usages[key]), used = entry && num(entry.used_ratio);
+    if (!entry || used === undefined) return [];
+    const resetsAt = time(entry.reset_time);
+    return [{ ...length, remaining: clamp(1 - used), ...(resetsAt ? { resetsAt } : {}) }];
+  });
+}
+function kimiOlder(data: Json): QuotaWindow[] {
   const windows: QuotaWindow[] = [];
   const limits = Array.isArray(data.limits) ? data.limits : [];
   for (const item of limits.map(record)) {
@@ -42,8 +60,8 @@ export const kimi: QuotaCheck = async (credential, signal) => {
   }
   const weekly = record(data.usage) && kimiLimit(record(data.usage)!);
   if (weekly) windows.push({ kind: "week", ...weekly });
-  return { windows };
-};
+  return windows;
+}
 function kimiLimit(data: Json): Pick<QuotaWindow, "remaining" | "resetsAt"> | undefined {
   const limit = num(data.limit);
   if (!limit) return undefined;
