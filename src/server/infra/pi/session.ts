@@ -43,6 +43,8 @@ export interface SessionOptions {
   secrets?: SecretAccess;
   /** The model catalog (A49): a saved model takes what it leaves out, such as compat, from its entry (A62). */
   catalog?: ModelCatalog;
+  /** A model reply's headers, with the connection it came through: some carry the subscription's limits (A94). */
+  onReply?: (connectionId: string, provider: string, headers: Record<string, string>) => void;
 }
 /** The longest we wait for one provider request (Pi's default is five minutes). */
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
@@ -156,6 +158,10 @@ export class PiSession implements BotSession {
               ...output.images.map(image => ({ type: "image" as const, data: image.data, mimeType: image.mimeType }))], details: {} };
             return { content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output) }], details: {} };
           },
+        });
+        // The connection in use now: a model change mid-run moves the run to another one.
+        if (options.onReply) api.on("after_provider_response", event => {
+          options.onReply!(credentials.current.connectionId, credentials.current.providerName, event.headers);
         });
         // The prompt the session has, not the live one: a change is told in the batch, so the cache stays (A56).
         api.on("before_agent_start", () => ({ systemPrompt: adapter.prompts.current }));

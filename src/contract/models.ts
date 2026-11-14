@@ -32,3 +32,32 @@ export interface LoginState {
   event?: { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; intervalSeconds?: number; expiresInSeconds?: number }
     | { type: "info"; message: string; links?: readonly { url: string; label?: string }[] } | { type: "progress"; message: string };
 }
+/** One limit of a subscription as its provider reports it (A94): a rolling window of some hours, a day, a week or a
+ * month, a credit balance, or the shared pool of a family of models. `remaining` is the part still left, 0 to 1. */
+export interface QuotaWindow {
+  kind: "hours" | "day" | "week" | "month" | "credits" | "pool";
+  /** The window's length, for `hours`. */
+  hours?: number;
+  /** The provider's name for the limit or the pool, such as "Claude" or "Premium requests"; not translated. */
+  name?: string;
+  remaining: number;
+  /** Counted limits: what is left of how much, in requests or US dollars. */
+  amount?: { left: number; total: number; unit: "requests" | "usd" };
+  resetsAt?: number;
+}
+/** A connection's usage limits (A94). `none`: the provider has no way to tell them (or it isn't signed in), `link`
+ * its own page if any; `unchecked`: a check that runs only when asked hasn't run yet. A failed check keeps the last
+ * result with `error` beside it. */
+export interface ConnectionQuota {
+  state: "ok" | "unchecked" | "none" | "failed";
+  windows: QuotaWindow[];
+  plan?: string;
+  /** When the limits were read; `response` when they came with a Bot's model reply rather than a check. */
+  checkedAt?: number;
+  source?: "check" | "response";
+  error?: string;
+  link?: string;
+}
+/** The subscription providers a connection's page shows usage for (A94): the ones Jarvy checks, and `openai`, whose
+ * replies may carry it and which otherwise links its own page. */
+export const QUOTA_PROVIDERS: readonly string[] = ["antigravity", "kimi-coding", "openai-codex", "github-copilot", "openrouter", "anthropic", "openai"];

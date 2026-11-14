@@ -3,7 +3,7 @@ import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, Thre
 import type { ConnectionInfo } from "../contract/connection";
 import type { PortRange, PublishedPort } from "../contract/ports";
 import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport } from "../contract/environment";
-import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
+import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, ConnectionQuota, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
 import type { Task, TaskInput } from "../contract/tasks";
 import type { FollowedSummary, ThreadFilter, ThreadItem, ThreadPage, ThreadSort } from "../contract/threads";
@@ -172,6 +172,7 @@ export const api = {
   authInput: (id: string, promptId: string, value: string) => request<LoginState>(`/model-connections/${id}/auth/input`, { method: "POST", body: body({ promptId, value }) }),
   authLogout: (id: string) => request<{ ok: boolean }>(`/model-connections/${id}/auth/logout`, { method: "POST" }),
   modelCatalog: (id: string) => request<{ models: ConfiguredModel[] }>(`/model-connections/${id}/catalog`),
+  connectionQuota: (id: string, refresh = false) => request<ConnectionQuota>(`/model-connections/${id}/quota${refresh ? "?refresh=1" : ""}`),
   modelResetPlan: (id: string) => request<ModelResetPlan>(`/model-connections/${id}/reset`),
   resetModelConnection: (id: string) => request<ModelConnection>(`/model-connections/${id}/reset`, { method: "POST" }),
   providerModels: (name: string) => request<{ models: ConfiguredModel[] }>(`/model-providers/${encodeURIComponent(name)}/models`),

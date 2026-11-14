@@ -9,11 +9,16 @@ import { ConnectionCredentials } from "../../infra/pi/credentials.js";
 import { thinkingOptions } from "../../infra/pi/thinking.js";
 import { autoconfigure } from "../../infra/pi/autoconfig.js";
 import { discoverModels } from "../../infra/models/discovery.js";
+import { ConnectionQuotas } from "./quota.js";
 
 /** Model settings and credential operations; HTTP never constructs SDK credentials. */
 export class ModelService {
+  /** Subscription connections' usage limits (A94). */
+  private readonly quotas: ConnectionQuotas;
   constructor(private readonly store: Store, private readonly credentials: CredentialCoordinator,
-    private readonly logins: CredentialLogins, private readonly changed: (connectionId: string) => void, private readonly models: ModelCatalog) {}
+    private readonly logins: CredentialLogins, private readonly changed: (connectionId: string) => void, private readonly models: ModelCatalog) {
+    this.quotas = new ConnectionQuotas(store, credentials);
+  }
   private required(value: ModelConnection | null): ModelConnection {
     if (!value) throw new RuntimeFault("connection_missing", "Connection not found", 404);
     return value;
@@ -27,6 +32,7 @@ export class ModelService {
   async delete(id: string) {
     await this.logins.cancel(id);
     if (!this.store.connections.delete(id)) throw new RuntimeFault("connection_missing", "Connection not found", 404);
+    this.quotas.forget(id);
   }
   saveCredential(id: string, input: Record<string, unknown>) {
     const saved = this.required(this.store.connections.saveCredential(id, input));
@@ -103,8 +109,12 @@ export class ModelService {
     }));
   }
   loginStatus(id: string) { return this.logins.status(id); }
-  startLogin(id: string) { return this.logins.start(id); }
+  startLogin(id: string) { this.quotas.forget(id); return this.logins.start(id); }
   cancelLogin(id: string) { return this.logins.cancel(id); }
   loginInput(id: string, input: Record<string, unknown>) { return this.logins.input(id, input); }
-  logout(id: string) { return this.logins.logout(id); }
+  async logout(id: string) { await this.logins.logout(id); this.quotas.forget(id); }
+  /** A connection's usage limits (A94); `refresh` checks now. */
+  quota(id: string, refresh = false) { return this.quotas.get(id, refresh); }
+  /** A Bot's model reply came with these headers (A94). */
+  observeReply(connectionId: string, provider: string, headers: Record<string, string>) { this.quotas.observe(connectionId, provider, headers); }
 }

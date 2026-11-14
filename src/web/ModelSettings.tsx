@@ -6,12 +6,14 @@ import { ProviderEditor } from "./ProviderEditor";
 import { Button } from "./components/ui/button";
 import { ProviderMark, connectionStatus } from "./ProviderMark";
 import { t } from "./i18n";
+import { QuotaSummary, useQuotas } from "./ConnectionQuota";
 
 export function ModelSettings({ connections, onChanged }: { connections: ModelConnection[]; onChanged: () => Promise<void> }) {
   const [page, setPage] = useState<"list" | "choose" | "editor">("list");
   const [preset, setPreset] = useState<ProviderPreset>();
   const [id, setId] = useState<string>();
   const [revision, setRevision] = useState(0);
+  const quotas = useQuotas(page === "list" ? connections : []);
   const back = () => { setPage("list"); setId(undefined); setPreset(undefined); setRevision(0); };
   const group = (connection: ModelConnection) => groupOf({ authType: connection.authType, custom: connection.kind === "custom" });
   let defaultName = preset?.name ?? "";
@@ -29,7 +31,7 @@ export function ModelSettings({ connections, onChanged }: { connections: ModelCo
         const status = connectionStatus(connection);
         return <button type="button" key={connection.id} className="jv-list-row" onClick={() => { setId(connection.id); setPreset(undefined); setPage("editor"); }}>
           <ProviderMark name={connection.displayName} provider={connection.kind === "builtin" ? connection.providerName : undefined}/>
-          <span className="jv-row-text"><strong>{connection.displayName}</strong><span>{connection.models.length ? t("models.count", { count: connection.models.length }) : t("models.none")}</span></span>
+          <span className="jv-row-text"><strong>{connection.displayName}</strong><span>{connection.models.length ? t("models.count", { count: connection.models.length }) : t("models.none")}<QuotaSummary quota={quotas[connection.id]}/></span></span>
           <span className="jv-status" data-ok={status.ok || undefined}>{status.label}</span><ChevronRightIcon className="jv-row-chevron"/>
         </button>;
       })}</div>

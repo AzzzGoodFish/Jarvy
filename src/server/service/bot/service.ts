@@ -58,6 +58,8 @@ export interface BotDependencies {
   listChanged?: () => void;
   /** Where Jarvy listens, for the links of published ports (A74); null until it does. */
   listening?: () => Listening | null;
+  /** A model reply's headers, for the subscription limits some carry (A94). */
+  onReply?: (connectionId: string, provider: string, headers: Record<string, string>) => void;
 }
 /** Service-level lifetime/lookup entry. Each Bot remains the complete business object. */
 export class BotService {
@@ -100,7 +102,7 @@ export class BotService {
     const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here), (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
-        environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog,
+        environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog, onReply: this.deps.onReply,
         onCompacted: () => {
           chats.channels.clearNotesSeen(id);
           // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).

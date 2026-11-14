@@ -4,6 +4,7 @@ import { api } from "./api";
 import { type ConfiguredModel, type ModelConnection, type ModelResetPlan } from "../contract/models";
 import type { ProviderPreset } from "./ProviderPicker";
 import { CredentialLogin } from "./CredentialLogin";
+import { QuotaSection, hasQuota } from "./ConnectionQuota";
 import { ModelCard, ProtocolSelect, emptyModel, type ModelDraft } from "./ModelCard";
 import { applyAutoconfig, requestAutoconfig } from "./ModelAutoconfig";
 import { ProviderMark, connectionStatus } from "./ProviderMark";
@@ -150,6 +151,7 @@ export function ProviderEditor({ connection, preset, defaultName, saved = false,
           </>}
         </div>
       </section>
+      {connection && hasQuota(connection) && <QuotaSection connection={connection}/>}
       <section className="jv-section" aria-label={t("editor.models")}>
         <div className="jv-section-head"><h3 className="jv-section-title">{t("settings.models")} <span>{t("editor.selected", { selected, total: drafts.length })}</span></h3>
           <div className="jv-section-actions">

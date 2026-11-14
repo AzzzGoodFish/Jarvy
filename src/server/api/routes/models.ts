@@ -34,6 +34,7 @@ export function modelRoutes(models: ApiServices["models"]) {
     const input = await readJson(c);
     return c.json(models.deleteModel(c.req.param("id"), String(input.modelId ?? "")));
   });
+  connections.get("/:id/quota", async c => c.json(await models.quota(c.req.param("id"), c.req.query("refresh") === "1")));
   connections.get("/:id/auth", c => c.json(models.loginStatus(c.req.param("id"))));
   connections.post("/:id/auth", c => c.json(models.startLogin(c.req.param("id")), 202));
   connections.delete("/:id/auth", async c => c.json(await models.cancelLogin(c.req.param("id"))));
