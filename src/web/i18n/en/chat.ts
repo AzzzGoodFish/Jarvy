@@ -192,6 +192,11 @@ export const chat = {
 
   "question.failed": "Couldn't send the answer",
   "question.dismissed": "Dismissed",
+  "request.outcome.allowed": "Allowed",
+  "request.outcome.added": "Added",
+  "request.outcome.once": "Allowed for this run",
+  "request.outcome.declined": "Declined",
+  "request.outcome.ignored": "Ignored",
   "question.chose": "Chose: {answer}",
   "question.dismissLabel": "Close the question without answering",
   "question.dismiss": "Skip",

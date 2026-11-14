@@ -84,6 +84,15 @@
 .jv-agent-about > p { margin: 0; }
 .jv-agent-about > ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; list-style: disc; }
 .jv-agent-about > ul > li::marker { color: var(--jv-dim); }
+/* Agent action log (A93). */
+.jv-agent-log-row { align-items: flex-start; gap: 12px; }
+.jv-agent-log-row .jv-row-text > strong { white-space: normal; overflow-wrap: anywhere; }
+.jv-agent-log-target { font-weight: 400; color: var(--jv-muted); }
+.jv-agent-log-outcome { flex: none; font-size: 12px; color: var(--jv-dim); padding-top: 2px; white-space: nowrap; }
+.jv-agent-log-row[data-outcome="failed"] .jv-agent-log-outcome { color: var(--ui-text-danger); }
+.jv-agent-log-row[data-outcome="declined"] .jv-agent-log-outcome,
+.jv-agent-log-row[data-outcome="dismissed"] .jv-agent-log-outcome { color: var(--ui-text-warning); }
+.jv-agent-log-more { align-self: flex-start; }
 @media (max-width: 560px) {
   .jv-bot-model-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .jv-bot-info { width: calc(100vw - 16px); height: calc(100dvh - 24px); }

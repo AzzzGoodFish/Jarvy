@@ -1,5 +1,5 @@
 import { ChatError, type Chat } from "../../../shared/chat.js";
-import type { Member, QuestionSpec } from "../../../../contract/chat.js";
+import type { EnterAsk, Member, QuestionSpec } from "../../../../contract/chat.js";
 import type { EnvironmentRecord } from "../../../shared/environment.js";
 import type { ChatService } from "../../chat/service.js";
 import type { ChatFiles } from "../../chat/files.js";
@@ -14,6 +14,8 @@ import type { ToolCall } from "./registry.js";
  * environments.request asks the owner for an SSH machine (A57) on a card, by its address or, for one of the owner's,
  * its id, and finds it once added. */
 export interface Places { list(): unknown; switch(id: string): Promise<unknown>; summary(botId: string): unknown;
+  /** The agent Bot's (A93): an environment its owner has to allow first, by what to call it; and their answer. */
+  waiting?(id: string): { label: string; enter: Omit<EnterAsk, "purpose"> } | null; allow?(id: string, once: boolean): void;
   request(input: MachineRequest): Promise<{ granted: EnvironmentRecord } | { question: QuestionSpec }>; found(input: MachineRequest): EnvironmentRecord | null;
   address(id: string): { host: string; user: string; port: number } | null }
 export type MachineRequest = { host: string; user: string; port?: number; directory?: string; name?: string; purpose: string };
@@ -29,6 +31,11 @@ export interface ToolScope {
   asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps;
 }
 type Send = (chatId: string, message: OutgoingMessage) => Promise<SentMessage>;
+/** A chat as the agent's log names it: a channel or thread by title, a DM by who is in it. */
+export function chatLabel(chats: ChatService, chat: Chat): string {
+  if (chat.type !== "dm") return `${chat.type === "thread" ? "thread" : "#"}${chat.type === "thread" ? ` 「${chat.title}」` : chat.title}`;
+  return `DM ${chat.memberIds.map(id => chats.member(id)?.name ?? id).join(" · ")}`;
+}
 const same = (a: string, b: string) => a.trim().replace(/^@/, "").toLocaleLowerCase() === b.toLocaleLowerCase();
 
 /** What every tool may use: the Bot's scope, and what several tools share — finding a chat, member or channel group by
@@ -42,6 +49,13 @@ export class ToolContext {
     const chat = this.chats.get(this.bot, chatId);
     if (!chat) throw new ChatError(404, "Chat not found");
     return chat;
+  }
+  /** Whether the Bot is in the chat (a thread's channel for a thread). The agent Bot can read every chat of its
+   * owner's without being in it (A93), so a tool that writes asks this first. */
+  isMember(chat: Chat): boolean { return chat.memberIds.includes(this.bot); }
+  /** The agent Bot looking into a chat it isn't in is logged for its owner (A93); nothing for any other read. */
+  oversee(chat: Chat, tool: string, detail = ""): void {
+    if (this.scope.agent && !this.isMember(chat)) this.scope.agent.log({ tool, target: chatLabel(this.chats, chat), detail, outcome: "done" });
   }
   /** Members by name (case-insensitive, a leading @ allowed); unknown names are an error that lists them. */
   members(names: readonly string[]): Member[] {
@@ -70,7 +84,10 @@ export class ToolContext {
    * channel's notice. Being told of a new version is not reading it. A DM has no notice. */
   unreadNote(chatId: string): void {
     const chat = this.chats.get(this.bot, chatId);
-    if (!chat || chat.type === "dm") return;
+    if (!chat) return;
+    if (!this.isMember(chat)) throw new ChatError(403, chat.type === "dm" ? "You can read this DM but not write in it: it is between others."
+      : `You can read this ${chat.type} but you aren't in ${chat.type === "thread" ? "its channel" : "it"}. Join the channel with chats.join first, if this is yours to take part in; the channel's notice still says who should.`);
+    if (chat.type === "dm") return;
     const missing = this.chats.channels.unreadNotes(this.bot, [chatId]);
     if (!missing.length) return;
     const name = (note: { title: string; type: string; version: number }) => note.type === "thread"

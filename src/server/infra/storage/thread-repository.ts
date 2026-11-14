@@ -100,7 +100,7 @@ export class ThreadRepository {
   }
   /** Threads of a channel, most recently active first. A thread opened but never replied to is not listed. */
   list(actorId: string, channelId: string): string[] {
-    this.chats.assertAccess(actorId, channelId);
+    this.chats.assertReadable(actorId, channelId);
     return (this.db.prepare(`SELECT id FROM chats c WHERE parent_id=? AND type='thread' AND EXISTS(SELECT 1 FROM messages WHERE chat_id=c.id)
       ORDER BY updated_at DESC,id`).all(channelId) as { id: string }[]).map(row => row.id);
   }

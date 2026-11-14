@@ -23,6 +23,7 @@ import { migrateAttachmentFiles } from "./attachment-file-schema.js";
 import { migrateOwnComputers } from "./own-computer-schema.js";
 import { migratePublishedPorts } from "./published-port-schema.js";
 import { migrateChannelAdmins } from "./channel-admin-schema.js";
+import { migrateOversight } from "./oversight-schema.js";
 import type { Cipher } from "../../vault/cipher.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
@@ -31,9 +32,9 @@ import { migrateRuntime } from "./runtime-schema.js";
 
 export function migrateDatabase(db: DatabaseSync, cipher: Cipher, dataDir: string): void {
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
-  if (version > 31) throw new Error(`Unsupported database version: ${version}`);
+  if (version > 32) throw new Error(`Unsupported database version: ${version}`);
   migratePrototype(db);
-  if (version >= 5) { migrateRuntime(db); migrateComposition(db); migrateInstallation(db); migrateMessageIds(db); migrateAppearance(db); migrateQuestions(db); migrateChannels(db); migrateThreads(db); migrateSubscriptions(db); migrateInteractions(db); migrateInbox(db); migrateQuotes(db); migrateTitles(db); migrateAgent(db); migrateEnvironments(db); migrateSecrets(db, cipher); migrateSsh(db); migrateTasks(db); migrateSshLogin(db); migrateFolds(db); migrateDeliveries(db); migrateMachineDescriptions(db); migrateAttachmentFiles(db, dataDir); migrateOwnComputers(db, dataDir); migratePublishedPorts(db); migrateChannelAdmins(db); return; }
+  if (version >= 5) { migrateRuntime(db); migrateComposition(db); migrateInstallation(db); migrateMessageIds(db); migrateAppearance(db); migrateQuestions(db); migrateChannels(db); migrateThreads(db); migrateSubscriptions(db); migrateInteractions(db); migrateInbox(db); migrateQuotes(db); migrateTitles(db); migrateAgent(db); migrateEnvironments(db); migrateSecrets(db, cipher); migrateSsh(db); migrateTasks(db); migrateSshLogin(db); migrateFolds(db); migrateDeliveries(db); migrateMachineDescriptions(db); migrateAttachmentFiles(db, dataDir); migrateOwnComputers(db, dataDir); migratePublishedPorts(db); migrateChannelAdmins(db); migrateOversight(db); return; }
   // Rebuild the old chat tables rather than dual-writing role/bot_id alongside
   // sender identity and membership. Old messages are history, never re-enqueued.
   db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
@@ -102,5 +103,5 @@ export function migrateDatabase(db: DatabaseSync, cipher: Cipher, dataDir: strin
   migrateInteractions(db);
   migrateInbox(db);
   migrateQuotes(db);
-  migrateTitles(db); migrateAgent(db); migrateEnvironments(db); migrateSecrets(db, cipher); migrateSsh(db); migrateTasks(db); migrateSshLogin(db); migrateFolds(db); migrateDeliveries(db); migrateMachineDescriptions(db); migrateAttachmentFiles(db, dataDir); migrateOwnComputers(db, dataDir); migratePublishedPorts(db); migrateChannelAdmins(db);
+  migrateTitles(db); migrateAgent(db); migrateEnvironments(db); migrateSecrets(db, cipher); migrateSsh(db); migrateTasks(db); migrateSshLogin(db); migrateFolds(db); migrateDeliveries(db); migrateMachineDescriptions(db); migrateAttachmentFiles(db, dataDir); migrateOwnComputers(db, dataDir); migratePublishedPorts(db); migrateChannelAdmins(db); migrateOversight(db);
 }

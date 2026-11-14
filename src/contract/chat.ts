@@ -31,7 +31,9 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   /** A request for a secret (secrets.request, A52): the card takes the value through its own endpoint, never into the chat. */
   secret?: SecretAsk;
   /** A request for an SSH machine (environments.request, A57): the card takes the password through its own endpoint. */
-  machine?: MachineAsk; }
+  machine?: MachineAsk;
+  /** A request by the agent Bot to enter another Bot's sandbox or an ungranted SSH machine (environments.enter, A93). */
+  enter?: EnterAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */
 export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
@@ -39,6 +41,8 @@ export interface SecretAsk { name: string; purpose: string; exists: boolean; nee
  * machine at this address, so the card only grants it. */
 export interface MachineAsk { name: string; host: string; port: number; user: string; directory: string | null; purpose: string;
   hostKeys: HostKeys; existing: { id: string; name: string } | null }
+/** The environment the agent Bot asks to enter, with a system-fixed target name and free-form purpose (A93). */
+export interface EnterAsk { kind: "sandbox" | "machine"; name: string; address?: string; purpose: string; }
 /** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
 export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";
 export interface QuestionAnswer { selected: number[]; custom: string | null; }

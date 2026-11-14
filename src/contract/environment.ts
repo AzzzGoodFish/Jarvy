@@ -54,5 +54,9 @@ export interface ComputerCapacity { cpus: number; memory: number }
 export interface ComputerResources { usage: ComputerUsage | null; capacity: ComputerCapacity | null }
 /** Where a Bot works, for the interface: whether it is in its own sandbox or on an SSH machine (and that machine's
  * name), its sandbox, and the machines its owner lets it use. */
+/** `once`: allowed only for the run it was asked in (A93). */
+export interface Grantable { id: string; name: string; granted: boolean; once?: true }
 export interface BotPlacement { current: EnvironmentKind; currentName?: string; computer: ComputerInfo | null; docker: boolean;
-  machines: { id: string; name: string; granted: boolean }[] }
+  machines: Grantable[];
+  /** The agent Bot's: other Bots' sandboxes, which its owner may let it into (A93). */
+  sandboxes?: Grantable[] }

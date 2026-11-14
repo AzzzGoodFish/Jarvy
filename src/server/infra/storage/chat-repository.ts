@@ -16,6 +16,7 @@ import { InboxRepository } from "./inbox-repository.js";
 import { mentionsIn, unreadIn } from "./unread.js";
 import { clipMarked, previewQuotes } from "../../shared/quotes.js";
 import { transaction } from "./transaction.js";
+import { AGENT_BOT_ID } from "../../shared/models.js";
 type MessageRow = { id: string; chatId: string; sequence: number; senderId: string; content: string; createdAt: number; historyId: number | null; toolCallId: string | null; question: string | null; echoOf: string | null; replyTo: string | null; foldedAt: number | null; };
 const MESSAGE_COLUMNS = "id,chat_id AS chatId,sequence,sender_id AS senderId,content,created_at AS createdAt,history_id AS historyId,tool_call_id AS toolCallId,question,echo_of AS echoOf,reply_to AS replyTo,folded_at AS foldedAt";
 const CHAT_COLUMNS = `c.id,c.type,c.title,c.owner_id AS ownerId,c.created_by AS createdBy,c.created_at AS createdAt,c.updated_at AS updatedAt,
@@ -51,6 +52,15 @@ export class ChatRepository {
       WHERE c.id=:chat AND cm.member_id=:actor AND cm.can_read=1 AND (:write=0 OR cm.can_write=1)
       UNION ALL SELECT 1 FROM chats c WHERE c.id=:chat AND c.type='dm' AND c.owner_id=:actor AND :write=0`).get({ chat: chatId, actor: actorId, write: write ? 1 : 0 });
   }
+  /** What a member may read: its own chats, an owner the DMs of their space; and the agent Bot every chat of its
+   * owner's (A93), where it still writes, reacts and follows only once it is a member. */
+  canRead(actorId: string, chatId: string): boolean {
+    return this.canAccess(actorId, chatId) || (actorId === AGENT_BOT_ID
+      && !!this.db.prepare("SELECT 1 FROM chats c JOIN bots b ON b.id=? AND b.owner_id=c.owner_id WHERE c.id=?").get(actorId, chatId));
+  }
+  assertReadable(actorId: string, chatId: string): void {
+    if (!this.canRead(actorId, chatId)) throw new ChatError(404, "Chat not found");
+  }
   /** Unread count, unread @-mentions of the member (every unread message in a DM) and read position.
    * A thread counts only for its followers. */
   unread(memberId: string, chatId: string): { unread: number; mentions: number; readSequence: number } {
@@ -75,7 +85,7 @@ export class ChatRepository {
     if (!this.canAccess(actorId, chatId, write)) throw new ChatError(404, "Chat not found");
   }
   getChat(actorId: string, id: string): Chat | null {
-    if (!this.canAccess(actorId, id)) return null;
+    if (!this.canRead(actorId, id)) return null;
     const found = this.db.prepare(`SELECT ${CHAT_COLUMNS} FROM chats c WHERE c.id=?`).get(id) as (Omit<Chat, "memberIds" | "adminIds" | "note" | "unread" | "mentions" | "readSequence" | "following" | "subscribed" | "pinned" | "alerts" | "hint" | "atMe" | "muted" | "lastMessage"> & { lastMessage: string | null; lastMessageId: string | null }) | undefined;
     if (!found) return null;
     // The sidebar words the preview, quotes and attachment-only messages included (A44, A45): content "" is attachments only.
@@ -83,12 +93,21 @@ export class ChatRepository {
     const row = { ...rest, lastMessage: content !== null && lastMessageId ? { content: clipMarked(content, 300), quotes: this.quotes.of(lastMessageId) } : null };
     const members = this.db.prepare("SELECT member_id AS id,admin FROM chat_members WHERE chat_id=? ORDER BY member_id").all(row.parentId ?? id) as { id: string; admin: number }[];
     const state = this.db.prepare("SELECT following,subscribed,pinned,muted FROM chat_states WHERE chat_id=? AND member_id=?").get(id, actorId) as { following: number; subscribed: number; pinned: number; muted: number } | undefined;
-    return { ...row, memberIds: members.map(item => item.id), adminIds: members.filter(item => item.admin).map(item => item.id), note: this.note(id), ...this.unread(actorId, id), ...this.inbox.rowState(actorId, id),
+    // Looking into a chat it isn't in (A93), the agent has nothing unread there.
+    const counts = this.canAccess(actorId, id) ? this.unread(actorId, id) : { unread: 0, mentions: 0, readSequence: 0 };
+    return { ...row, memberIds: members.map(item => item.id), adminIds: members.filter(item => item.admin).map(item => item.id), note: this.note(id), ...counts, ...this.inbox.rowState(actorId, id),
       following: row.type === "thread" && !!state?.following, subscribed: !!state?.subscribed, pinned: !!state?.pinned, muted: !!state?.muted };
   }
   listChats(actorId: string): Chat[] {
     const ids = this.db.prepare(`SELECT c.id FROM chats c JOIN chat_members cm ON cm.chat_id=c.id
       WHERE cm.member_id=? AND cm.can_read=1 ORDER BY c.updated_at DESC,c.id DESC`).all(actorId) as { id: string }[];
+    return ids.map(({ id }) => this.getChat(actorId, id)!);
+  }
+  /** Every channel and DM the agent Bot may read (A93), the most recently active first. */
+  everyChat(actorId: string): Chat[] {
+    if (actorId !== AGENT_BOT_ID) return [];
+    const ids = this.db.prepare(`SELECT c.id FROM chats c JOIN bots b ON b.id=? AND b.owner_id=c.owner_id WHERE c.type IN ('channel','dm')
+      ORDER BY c.updated_at DESC,c.id DESC`).all(actorId) as { id: string }[];
     return ids.map(({ id }) => this.getChat(actorId, id)!);
   }
   /** One DM per pair: returns the existing DM with this Bot, or creates it. */
@@ -118,7 +137,7 @@ export class ChatRepository {
     return this.getChat(actorId, id)!;
   }
   memberships(actorId: string, chatId: string) {
-    this.assertAccess(actorId, chatId);
+    this.assertReadable(actorId, chatId);
     return (this.db.prepare(`SELECT member_id AS id,can_read AS canRead,can_write AS canWrite FROM chat_members
       WHERE chat_id=COALESCE((SELECT parent_id FROM chats WHERE id=?),?) ORDER BY member_id`).all(chatId, chatId) as { id: string; canRead: number; canWrite: number }[])
       .map(row => ({ member: this.member(row.id)!, canRead: !!row.canRead, canWrite: !!row.canWrite }));
@@ -150,7 +169,7 @@ export class ChatRepository {
   }
   /** Up to `limit` messages before a sequence, oldest first. */
   messagesBefore(actorId: string, chatId: string, before: number, limit: number): ChatMessage[] {
-    this.assertAccess(actorId, chatId);
+    this.assertReadable(actorId, chatId);
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND sequence<? ORDER BY sequence DESC LIMIT ?`).all(chatId, before, limit) as MessageRow[];
     const reader = this.reader(actorId);
     return rows.reverse().map(row => this.messageFromRow(row, reader));
@@ -164,14 +183,17 @@ export class ChatRepository {
     const reader = this.reader(memberId);
     return rows.map(row => this.messageFromRow(row, reader));
   }
-  /** Search every chat the member can read: its DMs and channels and their threads (newest first). `within` keeps
-   * one chat, a channel with its threads; `sender` keeps one member's messages. */
+  /** Search every chat the member can read: its DMs and channels and their threads (newest first); the agent Bot's,
+   * every chat of its owner's (A93). `within` keeps one chat, a channel with its threads; `sender` keeps one member's
+   * messages. */
   searchAll(actorId: string, query: string, limit: number, within?: string, sender?: string): ChatMessage[] {
-    const scope = (within ? "AND (c.id=? OR c.parent_id=?) " : "") + (sender ? "AND m.sender_id=?" : "");
+    const scope = (within ? "AND (c.id=:within OR c.parent_id=:within) " : "") + (sender ? "AND m.sender_id=:sender" : "");
+    const readable = actorId === AGENT_BOT_ID ? "c.owner_id=(SELECT owner_id FROM bots WHERE id=:actor)"
+      : "EXISTS(SELECT 1 FROM chat_members cm WHERE cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=:actor AND cm.can_read=1)";
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS.split(",").map(column => `m.${column}`).join(",")} FROM messages m JOIN chats c ON c.id=m.chat_id
-      JOIN chat_members cm ON cm.chat_id=COALESCE(c.parent_id,c.id) AND cm.member_id=? AND cm.can_read=1
-      WHERE instr(lower(m.content),lower(?))>0 ${scope} ORDER BY m.position DESC LIMIT ?`)
-      .all(actorId, query, ...(within ? [within, within] : []), ...(sender ? [sender] : []), limit) as MessageRow[];
+      WHERE ${readable} AND instr(lower(m.content),lower(:query))>0 ${scope}
+      ORDER BY m.position DESC LIMIT :limit`)
+      .all({ actor: actorId, query, limit, ...(within ? { within } : {}), ...(sender ? { sender } : {}) }) as MessageRow[];
     const reader = this.reader(actorId);
     return rows.map(row => this.messageFromRow(row, reader));
   }
@@ -183,17 +205,17 @@ export class ChatRepository {
       ORDER BY c.updated_at DESC LIMIT ?`).all(actorId, query, query, query, limit) as { id: string }[]).map(row => row.id);
   }
   messages(actorId: string, chatId: string, after = 0, limit = 1000): ChatMessage[] {
-    this.assertAccess(actorId, chatId);
+    this.assertReadable(actorId, chatId);
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND sequence>? ORDER BY sequence LIMIT ?`).all(chatId, after, limit) as MessageRow[];
     const reader = this.reader(actorId);
     return rows.map(row => this.messageFromRow(row, reader));
   }
   message(actorId: string, id: string): ChatMessage | null {
     const row = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE id=?`).get(id) as MessageRow | undefined;
-    return row && this.canAccess(actorId, row.chatId) ? this.messageFromRow(row, this.reader(actorId)) : null;
+    return row && this.canRead(actorId, row.chatId) ? this.messageFromRow(row, this.reader(actorId)) : null;
   }
   search(actorId: string, chatId: string, query: string, limit: number, sender?: string): ChatMessage[] {
-    this.assertAccess(actorId, chatId);
+    this.assertReadable(actorId, chatId);
     const rows = this.db.prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_id=? AND instr(lower(content),lower(?))>0 ${sender ? "AND sender_id=?" : ""}
       ORDER BY sequence DESC LIMIT ?`).all(chatId, query, ...(sender ? [sender] : []), limit) as MessageRow[];
     const reader = this.reader(actorId);
@@ -323,7 +345,7 @@ export class ChatRepository {
   attachment(actorId: string, id: string): Attachment | null {
     const row = this.db.prepare(`SELECT id,chat_id AS chatId,name,mime_type AS mimeType,size FROM attachments WHERE id=? AND message_id IS NOT NULL`)
       .get(id) as (Attachment & { chatId: string }) | undefined;
-    return row && this.canAccess(actorId, row.chatId) ? { id: row.id, name: row.name, mimeType: row.mimeType, size: row.size } : null;
+    return row && this.canRead(actorId, row.chatId) ? { id: row.id, name: row.name, mimeType: row.mimeType, size: row.size } : null;
   }
   hasAttachment(id: string): boolean { return Boolean(this.db.prepare("SELECT 1 FROM attachments WHERE id=?").get(id)); }
   /** Ids of attachments deleted since the last call, cascades included (the trigger of v28), whose files can go. */

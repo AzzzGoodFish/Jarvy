@@ -67,6 +67,8 @@ export class ChatService {
     }, deliveries => this.deliveries.dispatch(deliveries));
   }
   list(actorId: string) { return this.repository.listChats(actorId); }
+  /** Every channel and DM of the agent Bot's owner (A93), the most recently active first. */
+  everyChat(actorId: string) { return this.repository.everyChat(actorId); }
   get(actorId: string, chatId: string) { return this.repository.getChat(actorId, chatId); }
   /** Whether the actor may change the chat's name, topic, group and notice, or a thread's title, status and summary (A90). */
   canEdit(actorId: string, chat: ChatSnapshot) { return canEdit(this.repository, actorId, chat); }
@@ -158,7 +160,7 @@ export class ChatService {
   /** `sender`: only that member's messages (a Bot looking for what it sent itself). */
   searchAll(actorId: string, query: string, limit = 30, within?: string, sender?: string) {
     if (!query.trim() || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ChatError(400, "Invalid search query or limit");
-    if (within) this.repository.assertAccess(actorId, within);
+    if (within) this.repository.assertReadable(actorId, within);
     return this.repository.searchAll(actorId, query.trim(), limit, within, sender);
   }
   /** The search box: channels and threads by title, topic or notice / summary, and messages by text, with the chat

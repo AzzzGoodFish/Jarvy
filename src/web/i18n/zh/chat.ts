@@ -194,6 +194,11 @@ export const chat: Part<typeof en> = {
 
   "question.failed": "提交失败",
   "question.dismissed": "已忽略",
+  "request.outcome.allowed": "已允许",
+  "request.outcome.added": "已添加",
+  "request.outcome.once": "已允许本次",
+  "request.outcome.declined": "已拒绝",
+  "request.outcome.ignored": "已忽略",
   "question.chose": "已选：{answer}",
   "question.dismissLabel": "关闭问题，不回答",
   "question.dismiss": "跳过",

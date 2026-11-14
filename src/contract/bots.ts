@@ -15,3 +15,8 @@ export interface Bot { id: string; name: string; description: string; systemProm
 export interface BotStatus { botId: string; status: "stop" | "idle" | "running"; activity: "reasoning" | "texting" | "tool_calling" | "asking" | null;
   phase: string; runId: string | null; error: string | null; errorCode: ErrorCode | null; errorParams?: ErrorParams;
   context?: { tokens: number | null; contextWindow: number; percent: number | null; stale: boolean }; }
+/** One thing the agent Bot did with its owner's powers (A93): `tool` is the tool it used, `target` what it acted on
+ * (a chat, a Bot, an environment), `detail` the rest in a line, `outcome` done, failed, or the owner's answer on a card
+ * (allowed, allowed once, declined, dismissed). */
+export interface AgentAction { id: number; at: number; tool: string; target: string; detail: string; outcome: string }
+export interface AgentActionPage { items: AgentAction[]; nextBefore: number | null }

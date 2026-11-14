@@ -14,12 +14,21 @@ export function botRoutes(bots: ApiServices["bots"]) {
     // Names are unique (A37); a taken one is name_taken. Every Bot gets its own computer (A68).
     return c.json(bots.create(textField(input, "name")), 201);
   });
-  // Whether the Bot may use an SSH machine (`machineId` with `granted`, A57). A Bot's default is its own computer and
-  // the owner's computer is an SSH machine like any other (A68), so there is nothing else to choose.
+  // Whether the Bot may use an SSH machine (`machineId` with `granted`, A57), or the agent Bot another Bot's sandbox
+  // (`sandboxId`, A93). A Bot's default is its own computer and the owner's computer is an SSH machine like any other
+  // (A68), so there is nothing else to choose.
   routes.put("/:id/environment", jsonBody, async c => {
     const input = await readJson(c), id = c.req.param("id");
-    if (typeof input.machineId !== "string" || typeof input.granted !== "boolean") throw new HTTPException(400, { message: "machineId and granted (true or false) are needed" });
+    if (typeof input.granted !== "boolean") throw new HTTPException(400, { message: "granted (true or false) is needed" });
+    if (typeof input.sandboxId === "string") return c.json(bots.grantSandbox(id, input.sandboxId, input.granted));
+    if (typeof input.machineId !== "string") throw new HTTPException(400, { message: "machineId or sandboxId is needed" });
     return c.json(bots.grantMachine(id, input.machineId, input.granted));
+  });
+  // What the agent Bot did with its owner's powers (A93), newest first.
+  routes.get("/:id/actions", c => {
+    const before = c.req.query("before"), limit = Number(c.req.query("limit") ?? "50");
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || (before !== undefined && !/^[1-9]\d*$/.test(before))) throw new HTTPException(400, { message: "Invalid page" });
+    return c.json(bots.agentActions(c.req.param("id"), before === undefined ? undefined : Number(before), limit));
   });
   // What the sandbox may use at most (A75): memory in bytes and CPUs in cores, null for no limit.
   routes.put("/:id/computer/limits", jsonBody, async c => {

@@ -20,7 +20,9 @@ async function rows(context: ToolContext, messages: readonly ChatMessage[], sign
 /** One page of a sequential read; the read position moves to its last message. */
 async function page(context: ToolContext, chatId: string, messages: ChatMessage[], limit: number, signal?: AbortSignal) {
   const shown = messages.slice(0, limit);
-  if (shown.length) context.chats.channels.markRead(context.bot, chatId, shown.at(-1)!.sequence);
+  // The agent Bot reading a chat it isn't in (A93) has no read position there.
+  const chat = context.chats.get(context.bot, chatId);
+  if (shown.length && (!chat || context.isMember(chat))) context.chats.channels.markRead(context.bot, chatId, shown.at(-1)!.sequence);
   return { messages: await rows(context, shown, signal), ...(messages.length > limit ? { hasMore: true } : {}) };
 }
 
@@ -35,6 +37,7 @@ export const messageTools = [
     if (input.around !== undefined) {
       const messages = chats.around(bot, input.around, input.context ?? 5);
       if (input.chatId !== undefined && messages[0]?.chatId !== input.chatId) throw new ChatError(404, "Message not found in this chat");
+      context.oversee(context.chat(messages[0]!.chatId), "messages.read", input.around);
       return { chatId: messages[0]!.chatId, messages: await rows(context, messages, signal) };
     }
     if (input.unread && input.chatId === undefined) {
@@ -52,7 +55,8 @@ export const messageTools = [
     }
     if (input.chatId === undefined) throw new ChatError(400, "chatId is required unless unread=true");
     const chat = context.chat(input.chatId);
-    const messages = input.unread ? chats.unreadMessages(bot, chat.id, limit + 1) : chats.read(bot, chat.id, input.after ?? 0, limit + 1);
+    if (!input.unread) context.oversee(chat, "messages.read");
+    const messages = input.unread ? (context.isMember(chat) ? chats.unreadMessages(bot, chat.id, limit + 1) : []) : chats.read(bot, chat.id, input.after ?? 0, limit + 1);
     return { chatId: chat.id, ...await page(context, chat.id, messages, limit, signal) };
   }),
   // `mine`: only what this Bot sent; those messages carry the History ID of the turn that sent them (A21).
@@ -60,10 +64,13 @@ export const messageTools = [
     Type.Object({ chatId: Type.Optional(Type.String()), query: Type.String({ minLength: 1, maxLength: 500 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
       mine: Type.Optional(Type.Boolean({ description: "Only messages you sent" })) }, { additionalProperties: false }), (input, context) => {
     const chats = context.chats, bot = context.bot, sender = input.mine ? bot : undefined;
-    const found = input.chatId === undefined ? chats.searchAll(bot, input.query, input.limit ?? 30, undefined, sender)
-      : chats.search(bot, context.chat(input.chatId).id, input.query, input.limit ?? 30, sender);
+    const within = input.chatId === undefined ? null : context.chat(input.chatId);
+    const found = within ? chats.search(bot, within.id, input.query, input.limit ?? 30, sender) : chats.searchAll(bot, input.query, input.limit ?? 30, undefined, sender);
     const places = new Map<string, Chat | null>();
     const chatOf = (id: string) => { if (!places.has(id)) places.set(id, chats.get(bot, id)); return places.get(id); };
+    // The agent Bot finding messages in chats it isn't in (A93) is logged once for each such chat.
+    const seen = new Set<string>();
+    for (const message of found) { const chat = chatOf(message.chatId); if (chat && !seen.has(chat.id)) { seen.add(chat.id); context.oversee(chat, "messages.search", `「${input.query.slice(0, 80)}」`); } }
     return found.map(message => messageRow(chats, bot, message, listing(message), input.chatId === undefined ? chatOf(message.chatId) : null));
   }),
   tool("messages.send", "Send a message, with files from your environment if you like (path there, absolute or relative to your directory, and the name people see). Give chatId or to, not both: to is a member's name and sends them a DM (a person or a Bot; the first time creates the DM). Only messages sent successfully are visible in the chat. In channels and threads, only the members whose @name is in the text and the members subscribed there receive it; DMs need no @. The result lists who was @-mentioned (notified), who got it through a subscription (subscribers), and the names that aren't in the channel and weren't told. If the chat had messages you hadn't read, it also gives their count (unread) and a note on where to read them: sending marks them read, so read from the after it names. thread: the ID of a message in the channel, to reply in that message's thread (created if it has none; chatId is the channel). replyTo: the ID of a message in the same chat, to reply to it as a quote; this tells its author, like an @. When replying in a thread, alsoToChannel=true also posts a copy to the channel.",
@@ -106,6 +113,8 @@ export const messageTools = [
   }),
   tool("messages.react", "Add or remove an emoji reaction on a message (people and Bots can both react). on=false removes it. Giving an emoji the message already has from you removes it instead (and the other way round); marked or unmarked and note in the result say which happened. Use this toggle to signal states such as \"got it\", \"on it\" and \"done\". Only the message's author is told: if they are running, it joins their current turn without interrupting; if they are idle, it starts a turn.",
     Type.Object({ messageId: MessageId, emoji: Type.String({ minLength: 1, maxLength: 32, description: "A single emoji, such as 👍" }), on: Type.Optional(Type.Boolean()) }, { additionalProperties: false }), (input, context) => {
+    const target = context.chats.message(context.bot, input.messageId), where = target ? context.chats.get(context.bot, target.chatId) : null;
+    if (where && !context.isMember(where)) throw new ChatError(403, "You can read this message but you aren't in its chat, so you can't react there");
     const wanted = input.on !== false, had = context.chats.reactionOn(context.bot, input.messageId, input.emoji);
     const message = context.chats.react(context.bot, input.messageId, input.emoji, wanted);
     const applied = wanted === had ? !wanted : wanted;
