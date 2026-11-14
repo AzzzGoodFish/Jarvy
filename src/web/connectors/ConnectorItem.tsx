@@ -25,7 +25,7 @@ export function safetyKey(safety: ConnectorSafety) {
   return "connectors.safetyConfirm" as const;
 }
 
-/** One expandable connector row in Settings → Connectors (A94). */
+/** One expandable connector row in Settings → Connectors (A95). */
 export function ConnectorItem({ connector, bots, open, autoOAuth, onToggle, onChanged, onDeleted }: {
   connector: Connector; bots: Bot[]; open: boolean; autoOAuth?: boolean; onToggle: () => void;
   onChanged: (connector: Connector) => void; onDeleted: () => void;

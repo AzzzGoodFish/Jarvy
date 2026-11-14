@@ -36,7 +36,7 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 | [Storage](architecture/storage.md) | Data directory, SQLite schema versions, recovery, attachments |
 | [Connection](architecture/connection.md) | HTTP on this machine, HTTPS with Jarvy's own certificate beyond it (A51) |
 | [Secrets](architecture/secrets.md) | The master key, what is sealed under it, secrets and their grants and uses (A52) |
-| [Connectors](architecture/connectors.md) | Remote MCP and service connectors, OAuth, per-Bot grants and write confirmation (A94) |
+| [Connectors](architecture/connectors.md) | Remote MCP and service connectors, OAuth, per-Bot grants and write confirmation (A95) |
 | [Decisions (ADR)](decisions.md) | Why things are the way they are, and what each decision replaced |
 
 ## Not built yet

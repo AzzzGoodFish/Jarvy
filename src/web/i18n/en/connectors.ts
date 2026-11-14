@@ -1,4 +1,4 @@
-/** English: Settings → Connectors and in-chat connector cards (A94). A part of the reference dictionary (./index.ts). */
+/** English: Settings → Connectors and in-chat connector cards (A95). A part of the reference dictionary (./index.ts). */
 export const connectors = {
   "connectors.empty": "No connectors yet",
   "connectors.back": "Back",

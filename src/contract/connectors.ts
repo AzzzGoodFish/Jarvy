@@ -1,4 +1,4 @@
-/** External service connectors (A94): remote MCP servers and built-in adapters exposed uniformly to Bots. */
+/** External service connectors (A95): remote MCP servers and built-in adapters exposed uniformly to Bots. */
 
 export type ConnectorKind = "remote_mcp" | "builtin";
 export type ConnectorProvider = "custom_mcp" | "linear" | "notion" | "figma" | "github" | "gmail" | "slack";

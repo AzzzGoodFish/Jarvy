@@ -17,7 +17,7 @@ import type { SecretService } from "./secrets.js";
 import type { Listening } from "./connection.js";
 import type { QuestionResult } from "./chat/questions.js";
 import { ConnectorOAuthCoordinator } from "./connectors-oauth.js";
-import { buildWriteFields, cleanHeaders, cleanName, cleanSlug, cleanUrl, humanizeKey } from "./connectors-format.js";
+import { applyEdits, buildWriteFields, cleanHeaders, cleanName, cleanSlug, cleanUrl, humanizeKey } from "./connectors-format.js";
 
 const MAX_TOOL_TEXT = 32_000;
 const AUTH_KINDS = new Set<ConnectorAuthKind>(["none", "headers", "oauth"]);
@@ -25,7 +25,7 @@ const SAFETIES = new Set<ConnectorSafety>(["read_only", "confirm_writes", "auto"
 const PROVIDERS = new Set<ConnectorProvider>(["custom_mcp", "linear", "notion", "figma", "github", "gmail", "slack"]);
 const DUAL_AUTH_PROVIDERS = new Set<ConnectorProvider>(["custom_mcp", "github", "slack"]);
 
-/** Connectors (A94): remote MCP servers (and future built-in adapters), sealed credentials, per-Bot grants and usage. */
+/** Connectors (A95): remote MCP servers (and future built-in adapters), sealed credentials, per-Bot grants and usage. */
 export class ConnectorService {
   private readonly locks = new Map<string, Promise<unknown>>();
   readonly oauth: ConnectorOAuthCoordinator;
@@ -44,6 +44,7 @@ export class ConnectorService {
       (id, work) => this.withLock(id, work),
       id => this.probeLocked(id).then(() => {}),
       () => this.secrets.refreshMask(),
+      text => this.secrets.masker().mask(text),
     );
   }
 
@@ -216,9 +217,9 @@ export class ConnectorService {
       return this.store.connectors.update(id, { status: "connected", statusDetail: result.accountLabel?.slice(0, 120) ?? "", tools: result.tools })!;
     }
     if (result.outcome === "needs_auth") {
-      return this.store.connectors.update(id, { status: "needs_auth", statusDetail: result.message.slice(0, 300) })!;
+      return this.store.connectors.update(id, { status: "needs_auth", statusDetail: this.secrets.masker().mask(result.message).slice(0, 300) })!;
     }
-    return this.store.connectors.update(id, { status: "error", statusDetail: result.message.slice(0, 300) })!;
+    return this.store.connectors.update(id, { status: "error", statusDetail: this.secrets.masker().mask(result.message).slice(0, 300) })!;
   }
 
   /** connectors.list: every enabled connector, whether the Bot may use it, its status and tool names. */
@@ -318,24 +319,7 @@ export class ConnectorService {
         this.store.connectors.recordUse({ connectorId: connector.id, slug: connector.slug, botId, toolName, outcome: "denied", detail: "declined" });
         return { status: "declined", note: "Your owner declined this write action." };
       }
-      if (result.custom) {
-        try {
-          const edited = JSON.parse(result.custom) as Record<string, unknown>;
-          if (edited && typeof edited === "object" && !Array.isArray(edited)) {
-            const nextArgs: Record<string, unknown> = { ...args };
-            for (const [origKey, origVal] of Object.entries(args)) {
-              const lower = origKey.trim().toLowerCase();
-              if (typeof edited[lower] === "string" && (typeof origVal === "string" || typeof origVal === "number")) {
-                nextArgs[origKey] = typeof origVal === "number" ? Number(edited[lower]) : edited[lower];
-              }
-            }
-            if (typeof edited.cc === "string" && edited.cc.trim() && nextArgs.cc === undefined) {
-              nextArgs.cc = edited.cc.trim();
-            }
-            effectiveArgs = nextArgs;
-          }
-        } catch { /* ignore malformed custom payload */ }
-      }
+      if (result.custom) effectiveArgs = applyEdits(args, result.custom, tool.inputSchema);
     }
 
     const res = await this.withLock(connector.id, async () => {
@@ -363,13 +347,13 @@ export class ConnectorService {
     });
 
     if (res.outcome === "needs_auth") {
-      this.store.connectors.update(connector.id, { status: "needs_auth", statusDetail: res.message.slice(0, 300) });
+      this.store.connectors.update(connector.id, { status: "needs_auth", statusDetail: this.secrets.masker().mask(res.message).slice(0, 300) });
       this.store.connectors.recordUse({ connectorId: connector.id, slug: connector.slug, botId, toolName, outcome: "error", detail: "needs_auth" });
       throw new ChatError(409, `Connector "${slug}" authorization expired or missing. Call connectors.request.`, "connector_auth_required");
     }
     if (res.outcome === "error") {
-      this.store.connectors.recordUse({ connectorId: connector.id, slug: connector.slug, botId, toolName, outcome: "error", detail: res.message });
-      throw new RuntimeFault("connector_unreachable", res.message, 502);
+      this.store.connectors.recordUse({ connectorId: connector.id, slug: connector.slug, botId, toolName, outcome: "error", detail: this.secrets.masker().mask(res.message) });
+      throw new RuntimeFault("connector_unreachable", this.secrets.masker().mask(res.message), 502);
     }
 
     this.store.connectors.recordUse({

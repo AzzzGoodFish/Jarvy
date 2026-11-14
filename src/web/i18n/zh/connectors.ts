@@ -1,7 +1,7 @@
 import type { Part } from "../keys";
 import type { connectors as en } from "../en/connectors";
 
-/** 中文：设置 › 连接器 与聊天内连接器卡片 (A94)。 */
+/** 中文：设置 › 连接器 与聊天内连接器卡片 (A95)。 */
 export const connectors: Part<typeof en> = {
   "connectors.empty": "还没有连接器",
   "connectors.back": "返回",

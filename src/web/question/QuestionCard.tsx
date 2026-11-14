@@ -22,7 +22,7 @@ const editable = (target: EventTarget | null) => target instanceof HTMLInputElem
  * is not in a field. */
 export function QuestionCard(props: { message: ChatMessage & { question: Question }; keyboard: boolean; onSettled: (message: ChatMessage) => void }) {
   const { message } = props, { secret, machine, enter, connectorAuth, connectorWrite } = message.question;
-  // Typed request cards (secrets.request A52, environments.request A57, environments.enter A93, connectors A94) render fixed controls.
+  // Typed request cards (secrets.request A52, environments.request A57, environments.enter A93, connectors A95) render fixed controls.
   if (secret) return <SecretRequestCard message={{ ...message, question: { ...message.question, secret } }} onSettled={props.onSettled}/>;
   if (machine) return <MachineRequestCard message={{ ...message, question: { ...message.question, machine } }} onSettled={props.onSettled}/>;
   if (enter) return <EnterEnvironmentCard message={{ ...message, question: { ...message.question, enter } }} onSettled={props.onSettled}/>;

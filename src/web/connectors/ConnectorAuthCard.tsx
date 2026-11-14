@@ -7,7 +7,7 @@ import { RequestCard, SettledRequest } from "../question/RequestCard";
 import { ConnectorMark } from "./ConnectorMark";
 import "../styles/connectors.css";
 
-/** In-chat request card for connectors.request (A94): opens browser OAuth when needed, settles automatically once connected. */
+/** In-chat request card for connectors.request (A95): opens browser OAuth when needed, settles automatically once connected. */
 export function ConnectorAuthCard({ message, onSettled }: {
   message: ChatMessage & { question: Question & { connectorAuth: ConnectorAuthAsk } };
   onSettled: (message: ChatMessage) => void;

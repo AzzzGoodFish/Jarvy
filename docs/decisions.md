@@ -820,7 +820,7 @@ The agent Bot (A48) could manage Bots and delete things on the owner's behalf, y
 
 Why: the owner asks the agent Bot to check what happened in another channel, look at why another Bot is stuck or inspect another Bot's workspace, without having to add it to every chat or keep permanent grants open. Separating read from membership, gating environment entry with a card and keeping an action log let the owner see and bound everything it did with their powers.
 
-## A94 Connectors through the chat gateway
+## A95 Connectors through the chat gateway
 
 External SaaS integrations (GitHub, Gmail, Slack, Linear, Notion, Figma, and custom remote MCPs) share one Connector abstraction managed in Settings → Connectors and granted per Bot in Bot info → Access.
 

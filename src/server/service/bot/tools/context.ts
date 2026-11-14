@@ -27,7 +27,7 @@ export interface ToolScope {
   secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
   /** Scheduled tasks (A58): the Bot manages its own. */
   tasks: TaskService;
-  /** External connectors (A94): list, describe, call and request access. */
+  /** External connectors (A95): list, describe, call and request access. */
   connectors: {
     list(): unknown;
     describe(slug: string, tool?: string): unknown;

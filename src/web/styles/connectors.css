@@ -1,4 +1,4 @@
-/* Settings → Connectors and in-chat connector cards (A94). Shares model-workbench.css, secrets.css and question.css. */
+/* Settings → Connectors and in-chat connector cards (A95). Shares model-workbench.css, secrets.css and question.css. */
 .jv-status[data-error]::before { background: var(--jv-danger); }
 
 .jv-list .jv-list-row.jv-connector-details {

@@ -14,7 +14,7 @@ interface PendingFlow {
 
 const FLOW_TTL_MS = 10 * 60_000;
 
-/** Coordinates browser OAuth flows for connectors (A94): start, callback, manual paste fallback and status polling. */
+/** Coordinates browser OAuth flows for connectors (A95): start, callback, manual paste fallback and status polling. */
 export class ConnectorOAuthCoordinator {
   private readonly pending = new Map<string, PendingFlow>();
   private readonly states = new Map<string, ConnectorOAuthState>();
@@ -26,6 +26,7 @@ export class ConnectorOAuthCoordinator {
     private readonly withLock: <T>(id: string, work: () => Promise<T>) => Promise<T>,
     private readonly afterAuth: (id: string) => Promise<void>,
     private readonly maskChanged: () => void,
+    private readonly mask: (text: string) => string,
   ) {}
 
   defaultRedirectUri(): string {
@@ -93,7 +94,7 @@ export class ConnectorOAuthCoordinator {
         this.pending.set(result.state, { connectorId: id, redirectUri: resolvedRedirect, expiresAt: Date.now() + FLOW_TTL_MS, state });
         return state;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = this.mask(error instanceof Error ? error.message : String(error));
         const failed: ConnectorOAuthState = { phase: "error", error: message };
         this.states.set(id, failed);
         this.store.connectors.update(id, { status: "error", statusDetail: message.slice(0, 300) });
@@ -113,7 +114,7 @@ export class ConnectorOAuthCoordinator {
     if (!connector) return { ok: false, message: "Connector no longer exists." };
 
     if (query.error) {
-      const msg = query.error_description || query.error;
+      const msg = this.mask(query.error_description || query.error);
       this.states.set(connector.id, { phase: "error", error: msg });
       this.store.connectors.update(connector.id, { status: "needs_auth", statusDetail: msg.slice(0, 300) });
       return { ok: false, name: connector.name, message: msg };
@@ -128,7 +129,7 @@ export class ConnectorOAuthCoordinator {
       await this.finishCode(connector.id, connector.url, flow.redirectUri, query.code, query.iss);
       return { ok: true, name: connector.name, message: "Connected. You can close this window and return to Jarvy." };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = this.mask(error instanceof Error ? error.message : String(error));
       return { ok: false, name: connector.name, message: msg };
     }
   }
@@ -183,7 +184,7 @@ export class ConnectorOAuthCoordinator {
         await this.afterAuth(id);
         this.states.set(id, { phase: "completed" });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = this.mask(error instanceof Error ? error.message : String(error));
         this.states.set(id, { phase: "error", error: msg });
         this.store.connectors.update(id, { status: "error", statusDetail: msg.slice(0, 300) });
         throw new RuntimeFault("connector_oauth_failed", msg, 400);

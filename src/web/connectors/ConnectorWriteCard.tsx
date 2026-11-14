@@ -70,7 +70,7 @@ function resolvedFields(ask: ConnectorWriteAsk, customJson: string | null | unde
   return fields;
 }
 
-/** Interactive draft & confirmation card for write tools on confirm_writes connectors (A94). */
+/** Interactive draft & confirmation card for write tools on confirm_writes connectors (A95). */
 export function ConnectorWriteCard({ message, onSettled }: {
   message: ChatMessage & { question: Question & { connectorWrite: ConnectorWriteAsk } };
   onSettled: (message: ChatMessage) => void;

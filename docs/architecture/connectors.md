@@ -2,7 +2,7 @@
 
 [Index](../index.md) · [Secrets](secrets.md) · [Tools and prompt](tools-and-prompt.md)
 
-External service integrations exposed uniformly to Bots through the `chat` gateway (A94). A connector hides whether the underlying driver is a remote MCP server (`remote_mcp`) or a built-in service adapter (`builtin`).
+External service integrations exposed uniformly to Bots through the `chat` gateway (A95). A connector hides whether the underlying driver is a remote MCP server (`remote_mcp`) or a built-in service adapter (`builtin`).
 
 ## Storage and security (v33)
 
@@ -30,6 +30,6 @@ External service integrations exposed uniformly to Bots through the `chat` gatew
 - `connectors.describe`: returns full input schemas for a granted connector.
 - `connectors.call`: invokes a tool on a granted connector:
   - `read_only`: rejects write tools (`connector_read_only`).
-  - `confirm_writes` (default): posts an in-chat confirmation card (`connectorWrite`) showing the connector, tool and masked arguments before executing; requires a person in the chat.
+  - `confirm_writes` (default): posts an in-chat confirmation card (`connectorWrite`) showing the connector, tool and masked arguments before executing; requires a person in the chat. The owner may edit string and number fields on the card; each edit is checked against the tool's input schema (type, enum, length) and an invalid one is reported back to the Bot instead of being sent. Provider error text kept in `status_detail` goes through the `Masker`.
   - `auto`: executes directly.
 - `connectors.request`: posts an in-chat `connectorAuth` card when a connector is not granted or needs authorization; OAuth completion settles the card automatically and grants access to the Bot.

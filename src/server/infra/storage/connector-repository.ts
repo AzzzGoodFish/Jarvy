@@ -24,7 +24,7 @@ const COLUMNS = `c.id, c.slug, c.name, c.kind, c.provider, c.config_json AS conf
   (SELECT max(at) FROM connector_uses u WHERE u.connector_id=c.id) AS lastUsedAt,
   cred.auth_type AS authType, cred.credential_json AS credentialJson`;
 
-/** Connectors, sealed credentials, Bot grants and use logs (v32, A94). */
+/** Connectors, sealed credentials, Bot grants and use logs (v32, A95). */
 export class ConnectorRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
 

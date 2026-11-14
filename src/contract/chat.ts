@@ -35,9 +35,9 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   machine?: MachineAsk;
   /** A request by the agent Bot to enter another Bot's sandbox or an ungranted SSH machine (environments.enter, A93). */
   enter?: EnterAsk;
-  /** A request to grant or authorize a connector (connectors.request, A94). */
+  /** A request to grant or authorize a connector (connectors.request, A95). */
   connectorAuth?: ConnectorAuthAsk;
-  /** A confirmation card before running a write tool on a connector (A94). */
+  /** A confirmation card before running a write tool on a connector (A95). */
   connectorWrite?: ConnectorWriteAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */

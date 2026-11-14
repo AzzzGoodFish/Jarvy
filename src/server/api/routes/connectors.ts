@@ -44,7 +44,7 @@ export function connectorCallbackRoute(connectors: ApiServices["connectors"]) {
   return routes;
 }
 
-/** Settings → Connectors and Bot access grants (A94). */
+/** Settings → Connectors and Bot access grants (A95). */
 export function connectorRoutes(connectors: ApiServices["connectors"]) {
   const routes = new Hono<ApiEnv>();
   routes.get("/", c => c.json({ connectors: connectors.list(), presets: connectors.presets() }));

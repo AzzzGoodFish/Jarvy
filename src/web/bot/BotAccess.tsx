@@ -12,7 +12,7 @@ import { machineAddress } from "../environment/MachineDetail";
 import { ConnectorMark } from "../connectors/ConnectorMark";
 import { safetyKey } from "../connectors/ConnectorItem";
 
-/** Bot info's 授权 tab: the owner's secrets (A52), connectors (A94) and SSH machines (A57) this Bot may use, and for the
+/** Bot info's 授权 tab: the owner's secrets (A52), connectors (A95) and SSH machines (A57) this Bot may use, and for the
  * agent Bot other Bots' sandboxes (A93), each removable at once, and Add to pick more. The Bot sees all of them, granted
  * or not, and asks for the rest on a card; this is where the owner sees and changes what it has. The grants are the same
  * ones Settings shows per secret and the Environments page per machine. */

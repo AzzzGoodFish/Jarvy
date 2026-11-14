@@ -94,7 +94,7 @@ A write that spans several statements goes through `transaction(db, work)` (`inf
 | v30 | `published_ports` (A74): the ports Bots published from their sandboxes, each with its name, description and the port of Jarvy's it is served on |
 | v31 | `chats.created_by` (who created a channel; the owner for channels from before) and `chat_members.admin` (A90) |
 | v32 | `agent_actions` (the agent Bot's oversight log) and `environment_grants.run_id` (grants for a single run) (A93) |
-| v33 | `connectors`, `connector_credentials`, `connector_grants` and `connector_uses` (A94) |
+| v33 | `connectors`, `connector_credentials`, `connector_grants` and `connector_uses` (A95) |
 
 ## Search
 

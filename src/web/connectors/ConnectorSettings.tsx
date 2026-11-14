@@ -15,7 +15,7 @@ import "../styles/connectors.css";
 
 const byName = (a: Connector, b: Connector) => a.name.localeCompare(b.name);
 
-/** Settings → Connectors (A94): unified directory of built-in apps (Linear, Notion, Figma) and custom HTTP MCPs. */
+/** Settings → Connectors (A95): unified directory of built-in apps (Linear, Notion, Figma) and custom HTTP MCPs. */
 export function ConnectorSettings() {
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
   const [presets, setPresets] = useState<ConnectorPreset[]>([]);
