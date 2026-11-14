@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChartColumnIcon, DatabaseIcon, GlobeIcon, InfoIcon, KeyRoundIcon, SlidersHorizontalIcon } from "lucide-react";
+import { ChartColumnIcon, DatabaseIcon, GlobeIcon, InfoIcon, KeyRoundIcon, PlugIcon, SlidersHorizontalIcon } from "lucide-react";
 import type { Bot } from "../contract/bots";
 import type { ModelConnection } from "../contract/models";
 import { About } from "./About";
@@ -7,15 +7,17 @@ import { General } from "./General";
 import { ModelSettings } from "./ModelSettings";
 import { NetworkSettings } from "./connection/NetworkSettings";
 import { SecretSettings } from "./secrets/SecretSettings";
+import { ConnectorSettings } from "./connectors/ConnectorSettings";
 import { AllUsage } from "./usage/AllUsage";
 import { Dialog, DialogContent, DialogTitle } from "./components/ui/dialog";
 import { t } from "./i18n";
 import "./styles/model-workbench.css";
 
 /** Settings' pages. The machines added over SSH have the Environments page (A89). */
-export type SettingsTab = "general" | "models" | "usage" | "secrets" | "network" | "about";
+export type SettingsTab = "general" | "models" | "usage" | "secrets" | "connectors" | "network" | "about";
 const TABS = [{ id: "general", label: "settings.general", icon: SlidersHorizontalIcon }, { id: "models", label: "settings.models", icon: DatabaseIcon },
-  { id: "usage", label: "settings.usage", icon: ChartColumnIcon }, { id: "secrets", label: "settings.secrets", icon: KeyRoundIcon }, { id: "network", label: "settings.network", icon: GlobeIcon }, { id: "about", label: "settings.about", icon: InfoIcon }] as const;
+  { id: "usage", label: "settings.usage", icon: ChartColumnIcon }, { id: "secrets", label: "settings.secrets", icon: KeyRoundIcon },
+  { id: "connectors", label: "settings.connectors", icon: PlugIcon }, { id: "network", label: "settings.network", icon: GlobeIcon }, { id: "about", label: "settings.about", icon: InfoIcon }] as const;
 export function SettingsDialog({ connections, bots, onChanged, onClose, initialTab = "general" }: {
   connections: ModelConnection[]; bots: Bot[]; onChanged: () => Promise<void>; onClose: () => void; initialTab?: SettingsTab;
 }) {
@@ -29,6 +31,6 @@ export function SettingsDialog({ connections, bots, onChanged, onClose, initialT
       <div className="jv-settings-tabs">{TABS.map(item => <button type="button" key={item.id} ref={tab === item.id ? current : undefined} className="jv-nav-item"
         aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}><item.icon/>{t(item.label)}</button>)}</div>
     </nav>
-    <main className="jv-settings-content">{tab === "general" ? <General/> : tab === "models" ? <ModelSettings connections={connections} onChanged={onChanged}/> : tab === "usage" ? <AllUsage bots={bots}/> : tab === "secrets" ? <SecretSettings/> : tab === "network" ? <NetworkSettings/> : <About/>}</main>
+    <main className="jv-settings-content">{tab === "general" ? <General/> : tab === "models" ? <ModelSettings connections={connections} onChanged={onChanged}/> : tab === "usage" ? <AllUsage bots={bots}/> : tab === "secrets" ? <SecretSettings/> : tab === "connectors" ? <ConnectorSettings/> : tab === "network" ? <NetworkSettings/> : <About/>}</main>
   </DialogContent></Dialog>;
 }

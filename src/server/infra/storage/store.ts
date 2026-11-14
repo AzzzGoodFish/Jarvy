@@ -15,6 +15,7 @@ import { SettingsRepository } from "./settings-repository.js";
 import { SecretRepository } from "./secret-repository.js";
 import { TaskRepository } from "./task-repository.js";
 import { PortRepository } from "./port-repository.js";
+import { ConnectorRepository } from "./connector-repository.js";
 import { Cipher } from "../vault/cipher.js";
 import { masterKey } from "../vault/master-key.js";
 
@@ -41,6 +42,7 @@ export class Store {
   /** Ports Bots published from their sandboxes (A74). */
   readonly ports: PortRepository;
   readonly secrets: SecretRepository;
+  readonly connectors: ConnectorRepository;
   /** Seals secrets and model credentials under the master key (A52). */
   readonly cipher: Cipher;
 
@@ -67,6 +69,7 @@ export class Store {
     this.tasks = new TaskRepository(this.db, this.chats.inbox);
     this.ports = new PortRepository(this.db);
     this.secrets = new SecretRepository(this.db, this.cipher, ownerId);
+    this.connectors = new ConnectorRepository(this.db, this.cipher, ownerId);
     this.agent.ensure();
   }
 

@@ -50,6 +50,7 @@ A call that fails validation says how to put it right in the same answer (`servi
 | `environments.request` | posts a card asking the owner for one of their machines by `id` (only Allow) or to add an SSH machine (host, user, port, start directory, name, purpose), in a chat with a person, and waits like `messages.ask`; the card shows the host's fingerprints and takes the password once; returns added or granted with the machine's id, or declined, at once when the Bot may already use it ([environments](environments.md), A57) |
 | `secrets.request` | posts a card asking the owner for a secret by name and purpose, in a chat with a person, and waits like `messages.ask`; returns granted (with its placeholder and until when) or declined, at once when the Bot may already use it ([secrets](secrets.md), A52) |
 | `secrets.list` | every secret the owner keeps: name, placeholder, description and `granted`, whether the Bot may use it (with `until` for this run only), never a value; a note on asking for one it may not use, or when there are none ([secrets](secrets.md), A52) |
+| `connectors.list` / `describe` / `call` / `request` | external service connectors: discover status and tool names, inspect full input schemas, call tools (with write-confirmation cards under `confirm_writes`), or ask the owner to authorize and grant access ([connectors](connectors.md), A95) |
 | `files.view` | shows such a file to the model: a picture (PNG, JPEG, GIF, WebP up to 4 MB) as a picture, a UTF-8 text file up to 64 KB as text; anything else needs `files.get` |
 | `messages.send` | to a `chatId`, or `to` a member by name (DM); `thread` to reply in a message's thread (created if missing); `alsoToChannel`; `replyTo`; attachments. Returns who was notified, who was mentioned but is not in the channel, and who got it by subscription; and, when the chat had messages the Bot hadn't read, their count with a note on where to read them (A53) |
 | `messages.react` | add or remove an emoji mark; re-asking the same emoji takes it off and the result says which way it went (A42) |
@@ -136,6 +137,9 @@ History is material to look back on, not an instruction for the task at hand.
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.
 secrets.list in the chat gateway shows your owner's secrets and which of them you may use. To use one you may, write its placeholder, such as {{secret:GITHUB_TOKEN}}, in a bash command: it is filled in for that command only. Prefer handing it to a program through its environment, such as GH_TOKEN={{secret:GITHUB_TOKEN}} gh pr list, over putting it among the command's arguments. Placeholders in write and edit content stay as written.
 Secret values are masked in everything you see. When work needs a credential you may not use, such as a token, an API key or a password, ask for it with secrets.request: your owner allows it, or enters it, on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
+
+## Connectors
+connectors.list in the chat gateway shows external service connectors (such as Linear, Notion, Figma or remote MCPs), their status, safety mode and whether you may use each one. Inspect a connector's tool schemas with connectors.describe before calling connectors.call. When a connector is not granted or needs sign-in, ask your owner with connectors.request on a card in the chat.
 
 {the same for every Bot (A68); {home} is where its own computer shows its workspace, /workspace:}
 ## Workspace

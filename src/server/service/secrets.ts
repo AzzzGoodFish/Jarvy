@@ -34,7 +34,8 @@ export class SecretService {
     return this.store.secrets.get(id)!;
   }
   uses(id: string): SecretUse[] { if (!this.store.secrets.get(id)) this.missing(); return this.store.secrets.uses(id); }
-  masker(): Masker { return this.cached ??= new Masker(this.store.secrets.values()); }
+  refreshMask(): void { this.cached = null; }
+  masker(): Masker { return this.cached ??= new Masker([...this.store.secrets.values(), ...this.store.connectors.secretValues()]); }
   /** secrets.list: every secret the owner keeps and whether the Bot may use it, never a value. One it may not use is
    * named too, so it knows what to ask for. */
   listFor(botId: string) {

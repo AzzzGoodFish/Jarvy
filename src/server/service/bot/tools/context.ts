@@ -5,6 +5,7 @@ import type { ChatService } from "../../chat/service.js";
 import type { ChatFiles } from "../../chat/files.js";
 import type { TaskService } from "../../tasks.js";
 import type { PublishedPorts } from "../ports.js";
+import type { QuestionResult } from "../../chat/questions.js";
 import type { OutgoingMessage, SentMessage, Memory, Workspace } from "../contracts.js";
 import type { RosterEntry } from "../roster.js";
 import type { AgentOps } from "../agent.js";
@@ -26,6 +27,14 @@ export interface ToolScope {
   secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
   /** Scheduled tasks (A58): the Bot manages its own. */
   tasks: TaskService;
+  /** External connectors (A95): list, describe, call and request access. */
+  connectors: {
+    list(): unknown;
+    describe(slug: string, tool?: string): unknown;
+    call(chatId: string, slug: string, tool: string, args: Record<string, unknown>,
+      askWriteConfirm: (question: QuestionSpec) => Promise<QuestionResult>, hasPerson: () => boolean, signal?: AbortSignal): Promise<unknown>;
+    prepare(slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }>;
+  };
   /** Ports published from sandboxes (A74): the Bot publishes its own. */
   ports: PublishedPorts;
   asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps;
@@ -74,6 +83,10 @@ export class ToolContext {
     return matches[0]!.id;
   }
   /** Only people answer cards; in a chat of Bots alone a card would wait forever. */
+  hasPerson(chatId: string): boolean {
+    const chat = this.chat(chatId);
+    return chat.memberIds.some(id => this.chats.member(id)?.kind === "user");
+  }
   withPerson(chatId: string, otherwise: string): Chat {
     const chat = this.chat(chatId);
     if (!chat.memberIds.some(id => this.chats.member(id)?.kind === "user")) throw new ChatError(400, `No person in this chat to answer; ${otherwise}`);

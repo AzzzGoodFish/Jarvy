@@ -1,5 +1,5 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
-import { type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../../contract/chat.js";
+import { type ConnectorAuthAsk, type ConnectorWriteAsk, type ConnectorWriteField, type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -24,7 +24,9 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
   return { question: (input.question as string).trim(), ...(input.detail === undefined ? {} : { detail: (input.detail as string).trim() }),
     options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true, ...(input.secret === undefined ? {} : { secret: secretAsk(input.secret) }),
     ...(input.machine === undefined ? {} : { machine: machineAsk(input.machine) }),
-    ...(input.enter === undefined ? {} : { enter: enterAsk(input.enter) }) };
+    ...(input.enter === undefined ? {} : { enter: enterAsk(input.enter) }),
+    ...(input.connectorAuth === undefined ? {} : { connectorAuth: connectorAuthAsk(input.connectorAuth) }),
+    ...(input.connectorWrite === undefined ? {} : { connectorWrite: connectorWriteAsk(input.connectorWrite) }) };
 }
 /** A secret request (secrets.request, A52), as built by the secrets service. */
 function secretAsk(value: unknown): SecretAsk {
@@ -51,6 +53,34 @@ function enterAsk(value: unknown): EnterAsk {
     || (ask.address !== undefined && !text(ask.address, 340)) || !text(ask.purpose, 300)) throw new ChatError(400, "Invalid environment entry request");
   return { kind: ask.kind, name: (ask.name as string).trim(),
     ...(ask.address === undefined ? {} : { address: (ask.address as string).trim() }), purpose: (ask.purpose as string).trim() };
+}
+function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
+    || !text(ask.provider, 40) || !text(ask.purpose, 300) || !text(ask.authKind, 20)
+    || typeof ask.needsGrant !== "boolean" || typeof ask.needsAuth !== "boolean")
+    throw new ChatError(400, "Invalid connector auth request");
+  return { connectorId: ask.connectorId as string, slug: ask.slug as string, name: ask.name as string,
+    provider: ask.provider as ConnectorAuthAsk["provider"], purpose: (ask.purpose as string).trim(),
+    authKind: ask.authKind as ConnectorAuthAsk["authKind"], needsGrant: ask.needsGrant, needsAuth: ask.needsAuth };
+}
+function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
+    || !text(ask.provider, 40) || !text(ask.toolName, 120) || !text(ask.actionLabel, 120) || !Array.isArray(ask.fields))
+    throw new ChatError(400, "Invalid connector write confirmation");
+  const fields: ConnectorWriteField[] = [];
+  for (const entry of ask.fields.slice(0, 20)) {
+    const item = entry as Record<string, unknown> | null;
+    if (!item || typeof item !== "object" || !text(item.label, 80) || typeof item.value !== "string" || item.value.length > 2000)
+      throw new ChatError(400, "Invalid connector write field");
+    const key = typeof item.key === "string" ? item.key.trim().slice(0, 80) : "";
+    fields.push({ key, label: (item.label as string).trim(), value: item.value, ...(item.multiline === true ? { multiline: true } : {}) });
+  }
+  const account = typeof ask.account === "string" && ask.account.trim() ? ask.account.trim().slice(0, 120) : null;
+  return { connectorId: ask.connectorId as string, slug: ask.slug as string, name: ask.name as string,
+    provider: ask.provider as ConnectorWriteAsk["provider"], ...(account ? { account } : {}), toolName: ask.toolName as string,
+    actionLabel: (ask.actionLabel as string).trim(), fields };
 }
 function answerOf(question: Question, input: Record<string, unknown>): QuestionAnswer {
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;

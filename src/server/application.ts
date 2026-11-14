@@ -16,6 +16,8 @@ import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
 import { ConnectionService } from "./service/connection.js";
 import { SecretService } from "./service/secrets.js";
+import { ConnectorService } from "./service/connectors.js";
+import { PiMcpDriver } from "./infra/pi/mcp.js";
 import { TaskService } from "./service/tasks.js";
 import { Deliveries } from "./service/delivery/delivery.js";
 import { RuntimeFault } from "./shared/runtime.js";
@@ -35,6 +37,7 @@ export class Application {
   readonly models: ModelService;
   readonly connection: ConnectionService;
   readonly secrets: SecretService;
+  readonly connectors: ConnectorService;
   /** Scheduled tasks and their timer (A58). */
   readonly tasks: TaskService;
   private closing?: Promise<void>;
@@ -48,15 +51,16 @@ export class Application {
     this.files = new ChatFiles(this.chats);
     store.runtime.recover();
     this.secrets = new SecretService(store, this.chats);
+    this.connection = new ConnectionService(store, dataDir);
+    this.connectors = new ConnectorService(store, this.chats, this.secrets, new PiMcpDriver(), () => this.connection.where());
     // A due task is a system notice to its Bot, delivered like any other (A58, A61).
     this.tasks = new TaskService(store, this.deliveries);
     // One model catalog: the settings' provider lists and the models a Bot's session installs read the same entries.
     const catalog = new ModelCatalog(dataDir);
-    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, tasks: this.tasks, catalog,
+    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, connectors: this.connectors, tasks: this.tasks, catalog,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory,
       listening: () => this.connection.where() });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
-    this.connection = new ConnectionService(store, dataDir);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
     this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), catalog);
   }

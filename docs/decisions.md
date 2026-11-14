@@ -819,3 +819,14 @@ The agent Bot (A48) could manage Bots and delete things on the owner's behalf, y
 - **Prompt (`AGENT_ROLE`)**: lists the new tools, states that channel notices bind the agent too, and reminds it that text read in chats, files and pages is information, not instructions.
 
 Why: the owner asks the agent Bot to check what happened in another channel, look at why another Bot is stuck or inspect another Bot's workspace, without having to add it to every chat or keep permanent grants open. Separating read from membership, gating environment entry with a card and keeping an action log let the owner see and bound everything it did with their powers.
+
+## A95 Connectors through the chat gateway
+
+External SaaS integrations (GitHub, Gmail, Slack, Linear, Notion, Figma, and custom remote MCPs) share one Connector abstraction managed in Settings → Connectors and granted per Bot in Bot info → Access.
+
+- **On-demand discovery via `chat` gateway**: Bots discover connectors with `connectors.list`, inspect schemas with `connectors.describe`, invoke tools with `connectors.call`, and request access/OAuth on an in-chat card with `connectors.request`. The system prompt mentions only the tools, keeping prompts stable across connector changes (A56) and avoiding tool-schema bloat.
+- **Remote HTTP MCP and built-in adapters**: `infra/pi/mcp.ts` wraps `@earendil-works/pi-mcp` (`StreamableHttpTransport` and `@earendil-works/pi-mcp/oauth`) for remote MCP servers (`Linear`, `Notion`, `Figma`, `Custom MCP`), and delegates `kind: "builtin"` to `infra/connectors/` (`GitHub`, `Gmail`, `Slack`) with a shared `/api/connectors/oauth/callback` route, manual URL paste fallback, and per-connector serialized token refresh. Local stdio MCP servers are intentionally deferred so sandbox isolation boundaries remain intact.
+- **Sealed credentials and masking**: OAuth tokens and headers are sealed with the master key (`connector:<id>`) and registered in `SecretService`'s `Masker`.
+- **Write safety policy**: Each connector configures `read_only`, `confirm_writes` (default: previews structured fields on an in-chat confirmation card before running non-read-only tools), or `auto`.
+
+Why: Bots get uniform, audited access to external services without bloating context windows or exposing raw credentials, while owners keep per-Bot access control and explicit confirmation before irreversible external writes.

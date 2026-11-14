@@ -1,0 +1,122 @@
+/* Settings → Connectors and in-chat connector cards (A95). Shares model-workbench.css, secrets.css and question.css. */
+.jv-status[data-error]::before { background: var(--jv-danger); }
+
+.jv-list .jv-list-row.jv-connector-details {
+  gap: 12px; padding-top: 6px; padding-bottom: 14px;
+}
+.jv-connector-setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.jv-connector-setting-row > .jv-secret-heading { margin: 0; }
+.jv-connector-form { display: grid; gap: 12px; padding-top: 10px; border-top: 1px solid var(--jv-line); }
+.jv-connector-oauth {
+  display: grid; gap: 8px; padding: 10px 12px;
+  border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field);
+}
+.jv-connector-oauth-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--jv-muted);
+}
+.jv-connector-manual { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.jv-connector-manual input { flex: 1; min-width: 0; }
+.jv-connector-headers { display: grid; gap: 6px; }
+
+.jv-connector-tools {
+  display: grid; gap: 2px; max-height: 180px; overflow-y: auto;
+  padding: 6px 10px; border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field);
+}
+.jv-connector-tool { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 0; min-width: 0; }
+.jv-connector-tool + .jv-connector-tool { border-top: 1px solid var(--jv-line); }
+.jv-connector-tool code { font-size: 12px; font-weight: 500; color: var(--jv-text); white-space: nowrap; }
+.jv-connector-tool .jv-chip { background: var(--jv-panel); border: 1px solid var(--jv-line); }
+.jv-connector-tool .jv-chip[data-write] { color: var(--jv-warning); border-color: color-mix(in srgb, var(--jv-warning) 35%, var(--jv-line)); }
+.jv-connector-tool span:last-child { color: var(--jv-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* In-chat connector auth & write confirmation composer cards (built on .jv-question in question.css) */
+.jv-connector-chat-oauth { display: grid; gap: 6px; }
+.jv-connector-callback-details summary {
+  font-size: 12px; color: var(--ui-text-tertiary); cursor: pointer; user-select: none;
+}
+
+.jv-connector-composer-head { align-items: center; }
+.jv-connector-draft-badge {
+  flex: none; font-size: 12px; color: var(--ui-text-tertiary); white-space: nowrap; padding-right: 2px;
+}
+.jv-connector-composer-body { gap: 0; padding: 12px 16px 12px; }
+.jv-connector-composer-subject {
+  width: 100%; border: 0; margin: 0 0 4px; padding: 2px 0; background: transparent;
+  color: var(--ui-text-primary); font: inherit; font-size: 15px; font-weight: 600; line-height: 1.4;
+}
+.jv-connector-composer-subject:focus { outline: none; }
+
+.jv-connector-composer-meta { display: flex; flex-direction: column; }
+.jv-connector-composer-row {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--ui-border-weak);
+  font-size: 13px; line-height: 20px;
+}
+.jv-connector-composer-row > span:first-child {
+  color: var(--ui-text-tertiary); font-size: 12px; font-weight: 500; user-select: none;
+}
+.jv-connector-composer-static {
+  color: var(--ui-text-secondary); min-width: 0; overflow-wrap: anywhere;
+}
+.jv-connector-composer-input {
+  width: 100%; min-width: 0; border: 0; padding: 0; background: transparent;
+  color: var(--ui-text-primary); font: inherit; font-size: 13px; line-height: 20px;
+}
+.jv-connector-composer-input::placeholder { color: var(--ui-text-tertiary); }
+.jv-connector-composer-input:focus { outline: none; }
+
+.jv-connector-composer-text {
+  display: flex; flex-direction: column; padding: 10px 0 2px; gap: 4px;
+}
+.jv-connector-composer-textarea {
+  width: 100%; border: 0; padding: 0; background: transparent; resize: none;
+  color: var(--ui-text-primary); font: inherit; font-size: 13.5px; line-height: 1.6;
+}
+.jv-connector-composer-textarea:focus { outline: none; }
+.jv-connector-composer-more {
+  align-self: flex-start; border: 0; padding: 2px 0; background: transparent;
+  font: inherit; font-size: 12px; color: var(--ui-text-secondary); cursor: pointer;
+}
+.jv-connector-composer-more:hover { color: var(--ui-text-primary); }
+
+/* Settled collapsible card (uses the same --ui-bg-subtle surface as .jv-question-head) */
+.jv-dm-stack:has(> .jv-connector-settled) { width: 100%; }
+.jv-connector-settled {
+  width: min(520px, 100%); display: flex; flex-direction: column;
+  border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-xl);
+  background: var(--ui-bg-subtle); box-shadow: var(--ui-shadow-sm); overflow: hidden;
+}
+.jv-row-body > .jv-connector-settled { margin-top: 4px; }
+.jv-connector-settled-bar {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+  padding: 8px 12px; border: 0; background: transparent; color: var(--ui-text-primary);
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.jv-connector-settled-bar:hover { background: var(--ui-fill-ghost-hover); }
+.jv-connector-settled-icon { width: 24px; height: 24px; border-radius: 7px; }
+.jv-connector-settled-icon svg { width: 14px; height: 14px; }
+.jv-connector-settled-title { flex: none; font-size: 13px; font-weight: 600; color: var(--ui-text-primary); }
+.jv-connector-settled-meta {
+  flex: 1; min-width: 0; font-size: 13px; color: var(--ui-text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.jv-connector-settled-chevron { flex: none; width: 15px; height: 15px; color: var(--ui-text-tertiary); }
+.jv-connector-settled-body {
+  display: grid; gap: 0; margin: 0; border-top: 1px solid var(--ui-border-weak); background: var(--ui-bg-elevated);
+}
+
+.jv-connector-field {
+  display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: baseline;
+  padding: 7px 14px; font-size: 13px; line-height: 1.5;
+}
+.jv-connector-field + .jv-connector-field { border-top: 1px solid var(--ui-border-weak); }
+.jv-connector-field dt { font-size: 12px; color: var(--ui-text-secondary); font-weight: 500; overflow-wrap: anywhere; }
+.jv-connector-field dd { margin: 0; color: var(--ui-text-primary); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+@media (max-width: 600px) {
+  .jv-connector-manual { flex-direction: column; align-items: stretch; }
+  .jv-connector-field { grid-template-columns: 1fr; gap: 2px; }
+}
