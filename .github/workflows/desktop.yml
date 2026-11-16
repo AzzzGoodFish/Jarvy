@@ -1,0 +1,51 @@
+# The desktop client (A96): builds the Windows installer and the Linux AppImage on every change to desktop/ or the
+# connector, keeps them as the run's artifacts, and attaches them to a GitHub Release for a desktop-v* tag.
+name: Desktop client
+
+on:
+  push:
+    branches: [main]
+    tags: ["desktop-v*"]
+    paths: ["desktop/**", "src/connect/**", "src/contract/device.ts", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["desktop/**", "src/connect/**", "src/contract/device.ts", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jarvy-desktop-${{ matrix.os }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.AppImage
+          if-no-files-found: error
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Jarvy desktop ${GITHUB_REF_NAME#desktop-v}" --notes "The Jarvy desktop client ${GITHUB_REF_NAME#desktop-v}." --prerelease
+          gh release upload "$GITHUB_REF_NAME" release/*.exe release/*.AppImage --clobber 2>/dev/null || gh release upload "$GITHUB_REF_NAME" $(ls release/*.exe release/*.AppImage 2>/dev/null) --clobber

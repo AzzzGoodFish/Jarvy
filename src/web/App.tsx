@@ -16,6 +16,7 @@ import { findMentions } from "../contract/mentions";
 import { DraftStore, draftKey, quoteMessage } from "./composer/drafts";
 import { useBotDirects } from "./bot/BotDirects";
 import { useTabBadge } from "./tabBadge";
+import { desktop, notifyDesktop } from "./desktop";
 import { activityLabel, freeBotName, liveMembers } from "./members";
 import { useTranscript } from "./transcript/useTranscript";
 import { readUpTo, useMarkRead } from "./transcript/useMarkRead";
@@ -110,6 +111,7 @@ export function App() {
   useEffect(() => { const save = () => drafts.save(); window.addEventListener("pagehide", save); return () => window.removeEventListener("pagehide", save); }, [drafts]);
   const meId = members.find(member => member.kind === "user" && member.name === username)?.id ?? "";
   const meRef = useRef(meId); meRef.current = meId;
+  const membersRef = useRef(members); membersRef.current = members;
   // Newest page first, older pages as you scroll up.
   const history = useTranscript({ chatId: selected, ready: phase === "ready", scroller: transcript, me: meId, memory, onError: handleError });
   const { messages, setMessages } = history;
@@ -164,7 +166,7 @@ export function App() {
       if (chat.type === "thread") threadEvents.emit({ kind: "changed", id: chat.id });
       // A channel's thread list and a Bot's DMs with other Bots still read again what changed (A71).
       setChanges(changes => chatChanged(changes, chat.id, chat.type === "dm" && !mine(chat)));
-      if (message && kind) { history.heard(message, kind === "message"); live.emit({ kind, message }); }
+      if (message && kind) { history.heard(message, kind === "message"); live.emit({ kind, message }); if (kind === "message") notifyDesktop(message, chat, meRef.current, membersRef.current); }
       else live.emit({ kind: "chat", chat });
     };
     const stop = liveEvents("/api/events", {
@@ -357,6 +359,9 @@ export function App() {
     if (channel) openChat(channel);
     if (chat.type === "thread") setPane({ kind: "thread", id: chat.id, parentId: chat.parentId!, mode: "pane" });
   }
+  // The desktop client (A96): a chosen notification opens its chat.
+  const openAnywhereRef = useRef(openAnywhere); openAnywhereRef.current = openAnywhere;
+  useEffect(() => desktop()?.onOpenChat(id => void api.chat(id).then(chat => openAnywhereRef.current(chat)).catch(() => {})), []);
   /** Adds or removes an emoji mark; the server answers with the message's current marks. */
   async function react(message: ChatMessage, emoji: string, on: boolean) {
     try {

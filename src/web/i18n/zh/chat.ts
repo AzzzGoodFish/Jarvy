@@ -219,4 +219,6 @@ export const chat: Part<typeof en> = {
   "files.cantPlay": "当前浏览器无法播放",
   "files.cantPlayHint": "下载后用播放器打开。",
   "reactions.more": "+{count}",
+  "desktop.someone": "有人",
+  "desktop.attachment": "发送了附件",
 };

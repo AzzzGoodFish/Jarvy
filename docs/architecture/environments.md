@@ -118,3 +118,13 @@ Computers the owner's desktop client connects (A96), 「电脑」 in the interfa
 - **Offline and paused**: every tool call checks that the computer is connected and not paused in the client, and otherwise answers which of the two it is; pausing in the client also stops its running daemons.
 - **In the page**: computers come first in the list (system and an online / paused / offline dot), searchable by name and system; the details hold name, start directory, description, system, state, shell, client, the Bots that may use it and 解除配对.
 
+## The desktop client
+
+`desktop/` (A96) is an Electron app, released apart from the npm package (`desktop-v*` tags; `.github/workflows/desktop.yml` builds the Windows NSIS installer and the Linux AppImage on GitHub Actions, unsigned).
+
+- **The page is the web app's**: the window loads Jarvy's own address; nothing of the interface is in the client. `contextIsolation` on, `nodeIntegration` off, `sandbox` on. The preload gives `window.jarvyDesktop` (`src/contract/desktop.ts`: `notify`, `setBadge`, `onOpenChat`, `version`) only to that origin; the page gets no Node. Links elsewhere open in the browser.
+- **Trust**: the first run asks for the address and, over HTTPS, shows the root certificate's SHA-256 to compare with Settings › 网络. The window then accepts, for that host, only certificates issued by that root (`setCertificateVerifyProc`), whatever the system trusts.
+- **The computer**: once the person signs in on the page, the main process registers the computer with that session (`POST /api/environments/devices`, named after the host) and keeps the token sealed with `safeStorage` (DPAPI on Windows). A computer the command-line connector registered already goes on with its token. The connection is `src/connect/connector.ts`, the same code as `connector.mjs`, in the main process.
+- **Tray**: the connection's state and the Bots working here, pause, start at login (off by default), changing the address, quit. Closing the window hides it (said once) and keeps the computer connected; only quitting disconnects it. Unpaired in Jarvy, the tray offers to connect it again rather than doing so by itself.
+- **Notifications and count**: the page sends a system notification for a DM or an @ of you from someone else while the window isn't in front (`src/web/desktop.ts`); choosing it opens that chat. The taskbar shows the tab's count (an overlay drawn by the client on Windows).
+

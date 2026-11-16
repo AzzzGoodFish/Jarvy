@@ -217,4 +217,6 @@ export const chat = {
   "files.cantPlay": "This browser can't play it",
   "files.cantPlayHint": "Download it and open it in a player.",
   "reactions.more": "+{count}",
+  "desktop.someone": "Someone",
+  "desktop.attachment": "Sent an attachment",
 } as const;
