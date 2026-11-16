@@ -85,7 +85,11 @@ export class Devices {
     const exec = async (command: string | readonly string[], options: ExecOptions) => {
       ready();
       const cwd = outward(options.cwd);
-      if (typeof command !== "string" || shell() !== "powershell") return env.exec(command, { ...options, cwd });
+      if (typeof command !== "string") return env.exec(command, { ...options, cwd });
+      // Bash by the path the client found: on Windows the daemon's own lookup (`which bash`) finds WSL's bash.exe in
+      // System32 before Git Bash.
+      const bash = this.need(record.id).spec.shellBash;
+      if (shell() !== "powershell") return windows && bash ? env.exec([bash, "-c", command], { ...options, cwd }) : env.exec(command, { ...options, cwd });
       const program = this.need(record.id).spec.shellPowershell ?? "powershell.exe";
       const script = `${outward(temp)}/command-${randomBytes(6).toString("hex")}.ps1`;
       await env.writeFile(script, `\uFEFF${powershellScript(command, Object.keys(options.secrets ?? {}))}`);
