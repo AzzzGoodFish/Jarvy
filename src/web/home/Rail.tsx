@@ -53,7 +53,7 @@ export function Rail({ view, onView, agent, figure, call, asleep, alerts, userna
         </button>}
         <button type="button" className="jv-rail-item" aria-current={view === "chats" ? "page" : undefined} title={t("rail.chats")} onClick={() => onView("chats")}>
           <MessageCircle aria-hidden="true"/>
-          {alerts > 0 && <span className="jv-rail-dot" role="status" aria-label={t("sidebar.alerts", { count: alerts })}/>}
+          {alerts > 0 && <span className="jv-rail-badge" role="status" aria-label={t("sidebar.alerts", { count: alerts })}>{alerts > 99 ? "99+" : alerts}</span>}
           <span className="jv-rail-label">{t("rail.chats")}</span>
         </button>
         <button type="button" className="jv-rail-item" aria-current={view === "envs" ? "page" : undefined} title={t("rail.environments")} onClick={() => onView("envs")}>

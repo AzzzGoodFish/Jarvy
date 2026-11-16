@@ -122,7 +122,7 @@ A delivery to a person always comes with the live event for its message, mark or
 - **Hint line**: the newest queued delivery, or a new notice or summary version (a digest) — 「Jarvy 对你的消息表达了 👍」, 「Mochi 更新了公告」 (`Chat.hint`). For a channel, its threads count too: the hint names the thread (「Jarvy 更新了线程「…」的摘要」) and opening the row opens that thread beside the channel.
 - **Grey count**: other unread messages, including muted ones.
 - Reading a message marks its row told; opening a chat marks its other rows told.
-- The tab shows the red total as a favicon badge and a 「(N)」 title prefix (`web/tabBadge.ts`).
+- The tab shows the red total, followed threads' unread @s included, as a favicon badge and a 「(N)」 title prefix (`web/tabBadge.ts`).
 
 ## Idempotency and recovery
 
