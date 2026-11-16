@@ -11,6 +11,8 @@ export const environment: Part<typeof en> = {
   "environment.external": "外部环境",
   "envs.sandboxOf": "{name} 的沙箱",
   "enterCard.title": "请求进入 {name}",
+  "envs.search": "搜索环境",
+  "envs.noMatch": "无匹配的环境",
   "envs.back": "全部环境",
   "envs.workingHere": { one: "{names} 正在这里工作", other: "{names} 正在这里工作" },
   "environment.state.preparing": "准备中",

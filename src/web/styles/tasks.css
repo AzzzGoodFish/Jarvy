@@ -15,14 +15,14 @@
 .jv-task-switch[aria-checked="true"] .jv-env-switch { background: var(--ui-fill-control-checked); box-shadow: none; }
 .jv-task-switch[aria-checked="true"] .jv-env-switch::after { transform: translateX(14px); }
 .jv-task-editor { display: flex; flex-direction: column; gap: 12px; }
-.jv-task-editor-title { font-size: 13px; color: var(--jv-text); }
+.jv-task-editor-title { font-size: 14px; color: var(--jv-text); }
 .jv-task-kinds { align-self: flex-start; margin-bottom: 8px; }
 .jv-task-when { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .jv-task-when > input { width: auto; min-width: 0; }
 .jv-task-when[data-kind="once"] > input { flex: 1 1 220px; }
 .jv-task-when input[type="number"] { width: 84px; }
 .jv-task-when [data-slot="select-trigger"] { width: auto; min-width: 110px; }
-.jv-task-label { font-size: 13px; color: var(--jv-dim); }
+.jv-task-label { font-size: 14px; color: var(--jv-dim); }
 .jv-task-editor-actions { display: flex; gap: 8px; }
 /* Deleting belongs to the details, apart from Cancel and Save. */
 .jv-ui [data-slot="button"][data-variant="ghost"].jv-task-delete { color: var(--ui-text-danger); }
