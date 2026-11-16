@@ -11,6 +11,7 @@ import { DmMessages } from "../dm/DmMessages";
 import { useHeard, type LiveHub } from "../live";
 import { useTranscript } from "../transcript/useTranscript";
 import { t } from "../i18n";
+import { inFront, onFront } from "../attention";
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** A press here doesn't put the box away: the box, the cat and its line, and what opens from the box's messages. */
@@ -53,9 +54,8 @@ export function Dock({ bot, chat, meId, members, drafts, live, dockRef, opener, 
   const last = messages.at(-1);
   useEffect(() => {
     if (!shown || !chat || !last || (chat.readSequence >= last.sequence && !chat.alerts)) return;
-    const mark = () => { if (document.visibilityState === "visible") onRead(chat, last.sequence); };
-    mark(); document.addEventListener("visibilitychange", mark);
-    return () => document.removeEventListener("visibilitychange", mark);
+    const mark = () => { if (inFront()) onRead(chat, last.sequence); };
+    mark(); return onFront(mark);
   }, [shown, last?.sequence, chat?.readSequence, chat?.alerts]);
   function open() {
     clearTimeout(timer.current); memory.clear(); setState("open");

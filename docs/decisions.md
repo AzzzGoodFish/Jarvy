@@ -122,6 +122,7 @@ A blocking question card: 1–6 options, multiple choice, free text, dismiss. Th
 - Unchanged: one session per Bot (A03), transactional deliveries (A04), new deliveries interrupt (A05), Pi untouched.
 - People and Bots are equal participants. In channels and threads only @-mentioned members get a message; @ comes from the text; names are unique.
 - One read position per member per chat, shared by people and Bots; a Bot's delivered messages are not its unread.
+- For a person, what the open chat shows counts as read only while Jarvy is in front: its tab shown and its window focused (fish m3216). A window left behind others or on another screen keeps messages unread, so the count, the sidebar dot and the desktop client's taskbar number stay until the person comes back.
 - Threads are chats tied to a channel and a root message, with access inherited from the channel; following affects only unread.
 - One DM per pair of members. Channel messages are flat rows; DMs keep bubbles and the floating cat.
 - Supersedes A01's DM-only scope.

@@ -14,6 +14,7 @@ import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
 import { addMessage, joinPage, missingBefore, replaceMessage, useHeard, type LiveHub } from "../live";
 import { Hold, placeOf, restorePlace, type ChatMemory, type Place } from "../chat-memory";
+import { inFront, onFront } from "../attention";
 
 /** Replies loaded at a time (A71), as in the main transcript. */
 const PAGE = 50;
@@ -222,14 +223,13 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
     const last = messages.at(-1);
     if (!chat || !last || last.chatId !== chat.id) return;
     const mark = () => {
-      if (document.visibilityState !== "visible" || chat.readSequence >= last.sequence) return;
+      if (!inFront() || chat.readSequence >= last.sequence) return;
       const next = { ...chat, readSequence: last.sequence, unread: 0, mentions: 0, alerts: 0, atMe: false, hint: null };
       // Tell the parent only after the server has it, or a list refresh can bring the old count back.
       setChat(next);
       void api.markRead(chat.id, last.sequence).then(() => onChanged(next)).catch(onError);
     };
-    mark(); document.addEventListener("visibilitychange", mark);
-    return () => document.removeEventListener("visibilitychange", mark);
+    mark(); return onFront(mark);
   }, [messages, chat]);
 
   const save = async (work: () => Promise<Chat>) => {
