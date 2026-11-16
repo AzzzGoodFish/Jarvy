@@ -216,7 +216,9 @@ export function App() {
   }, [phase]);
   // Only an open chat that is on screen is read: not while the home page or the environments cover it.
   useMarkRead({ ready: phase === "ready" && !away, selected, messages, chats, chatList: chatListRef, setChats, onError: handleError });
-  useTabBadge(phase === "ready" ? chats.reduce((sum, chat) => sum + chat.alerts, 0) : 0);
+  // What calls for you, as the sidebar's red counts add up: channels' and DMs' (A41), and the @s in followed threads (A69).
+  const alerts = (skip?: string) => chats.reduce((sum, chat) => sum + (chat.type === "thread" || chat.id === skip ? 0 : chat.alerts), 0) + (followed?.mentions ?? 0);
+  useTabBadge(phase === "ready" ? alerts() : 0);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 4800);
@@ -434,7 +436,7 @@ export function App() {
   return <>
     <div className="ui-app" data-nav={mobileNav ? "" : undefined} data-pane={pane && !full && !away ? "" : undefined} data-view={home ? "home" : envs ? "envs" : undefined}
       style={{ ["--ui-pane" as string]: `${paneWidth}px` }}>
-      <Rail view={home ? "home" : envs ? "envs" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} asleep={motionOf(agentStatus).motion === "sleep"} alerts={chats.reduce((sum, chat) => sum + (chat.id === agentDm?.id ? 0 : chat.alerts), 0)} username={username}
+      <Rail view={home ? "home" : envs ? "envs" : "chats"} agent={agent} figure={agentFigure} call={agentCall.call} asleep={motionOf(agentStatus).motion === "sleep"} alerts={alerts(agentDm?.id)} username={username}
         // On a phone the chats tab opens the chat list over the open chat; the list's own rows then open a chat.
         onView={next => { setView(next); setMobileNav(next === "chats" && window.matchMedia("(max-width: 620px)").matches); setAccountMenu(false); }}
         accountMenu={accountMenu} onToggleAccount={open => { setAccountMenu(open); setCreateMenu(false); }}
