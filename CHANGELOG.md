@@ -2,6 +2,27 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.15.0 — 2026-11-16
+
+The database upgrades to v32 on first start: it adds the agent Bot's action log, and an environment grant that lasts for one run. Going back to 0.14.x needs the database from before the upgrade. Nothing else to do: no new dependency, and every sandbox stays as it was.
+
+### Added
+
+- **The agent Bot oversees everything for its owner.** It can list and read every channel and DM, also those it isn't in, and join a channel to take part there; read any Bot's History; and go into another Bot's sandbox, or one of the owner's machines it hasn't been granted, once the owner allows it on a card, for good or only for that run. Deleting a Bot, a channel, a channel group or members still waits for the owner to confirm. What it does with these powers — what it read beyond its own chats, where it worked, what it changed and what the owner answered — is kept in a log on its Bot info.
+- **Usage limits of subscription connections.** Settings › 模型 shows on each subscription connection how much of its limits is left, and the connection's page has a 用量 section: each limit with its bar, when it resets, the plan and a refresh. Under 20 % left, a bar takes the warning colour. For Google Antigravity (per model family), Kimi Code (5-hour, weekly and monthly), OpenAI Codex, GitHub Copilot, OpenRouter (credits) and Anthropic (read when refreshed, and from the model's replies in between); an OpenAI connection, which can't be checked, links to OpenAI's usage page. A reading is kept for five minutes.
+
+### Changed
+
+- **Request cards answer in one click.** Cards that ask for a secret, a machine or entering an environment have three buttons side by side: 拒绝, 仅限本次 and 始终允许. An answered card stays a card, with what was decided.
+- **Reactions show who reacted.** Beside each emoji are the names of who reacted, several together; past three, the rest as "+N".
+
+### Fixed
+
+- The floating cat in a DM keeps its ears and crown in view when it is lifted, hops or stretches: its picture has room around it, and at the top of the chat area it sits a little lower.
+- Small avatars line up: a Bot's small cat sits in the middle of its box beside a person's round avatar, and a person's initials are centred in their circle.
+- The agent Bot's crown shows from 30 px: in the DM list, in messages and on the rail.
+- Grant tags have as much room on either side, and a long message in a DM bubble has even space above and below.
+
 ## 0.14.1 — 2026-11-13
 
 No database change: the schema stays v31, and upgrading from 0.14.0 needs nothing else.
