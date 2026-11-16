@@ -3,7 +3,7 @@
 export type ErrorCode =
   | "agent_undeletable" | "autoconfig_model" | "autoconfig_source" | "bot_missing" | "chat_access_changed"
   | "computer_failed" | "computer_missing" | "connection_in_use" | "connection_missing" | "credential_changed"
-  | "credential_scope" | "credential_unreadable" | "credentials_missing" | "data_locked" | "discovery_format"
+  | "credential_scope" | "credential_unreadable" | "credentials_missing" | "data_locked" | "device_missing" | "discovery_format"
   | "discovery_http" | "discovery_key" | "discovery_protocol" | "discovery_unreachable" | "discovery_url"
   | "discovery_url_missing" | "docker_unavailable" | "file_too_large" | "history_missing" | "invalid_credential" | "invalid_run" | "limits_invalid"
   | "login_input" | "login_option" | "login_step" | "machine_missing" | "machine_name_taken" | "message_missing"

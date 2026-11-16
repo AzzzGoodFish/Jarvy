@@ -18,7 +18,7 @@ export function botState(bot: Bot | undefined, status: BotStatus | undefined): {
   return { label: t(status?.status === "idle" ? "activity.idle" : "activity.stopped") };
 }
 /** Where a Bot's file and command tools run, in the interface's words: its sandbox, or the machine it is on. */
-export const environmentName = (bot: Bot) => bot.environment.current === "ssh"
+export const environmentName = (bot: Bot) => bot.environment.current !== "computer"
   ? t("botCard.onMachine", { name: bot.environment.currentName ?? "" }) : t("botCard.sandbox");
 /** Members that can still be picked, invited or @-ed. */
 export const liveMembers = (members: readonly Member[]) => members.filter(member => !member.deleted);

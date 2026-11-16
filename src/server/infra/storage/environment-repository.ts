@@ -16,7 +16,8 @@ const record = (row: Row): EnvironmentRecord => ({ id: row.id, ownerId: row.owne
 export interface NewSshMachine { name: string; host: string; port: number; user: string; home: string; platform: string; directory: string; description: string; hostKeys: HostKeys; privateKey: string; password?: string }
 
 /** Work environments and where each Bot works (v20, A50): every Bot's default is its own computer (A68), and SSH
- * machines (v22, A57), which keep their key sealed under the master key, are granted to it. */
+ * machines (v22, A57), which keep their key sealed under the master key, and computers the desktop client connected (v33,
+ * A96) are granted to it. */
 export class EnvironmentRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
 
@@ -150,13 +151,43 @@ export class EnvironmentRepository {
     return (this.db.prepare("SELECT g.bot_id AS botId FROM environment_grants g JOIN bots b ON b.id=g.bot_id WHERE g.environment_id=? AND b.deleted_at IS NULL ORDER BY g.granted_at")
       .all(environmentId) as { botId: string }[]).map(row => row.botId);
   }
+  /** The computers the desktop client connected (A96), oldest first. */
+  devices(): EnvironmentRecord[] {
+    return (this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE kind='device' AND deleted_at IS NULL ORDER BY created_at, id`).all() as unknown as Row[]).map(record);
+  }
+  /** A new computer, signing in with the token whose SHA-256 is `tokenHash`; `spec` is what its client reported. */
+  addDevice(input: { name: string; directory: string; tokenHash: string; spec: Record<string, string> }, id: string = randomUUID()): EnvironmentRecord {
+    this.db.prepare("INSERT INTO environments(id,owner_id,kind,name,connection,directory,token_hash,created_at) VALUES(?,?,'device',?,?,?,?,?)")
+      .run(id, this.ownerId(), input.name, JSON.stringify(input.spec), input.directory, input.tokenHash, Date.now());
+    return this.get(id)!;
+  }
+  deviceByToken(tokenHash: string): EnvironmentRecord | null {
+    const row = this.db.prepare(`SELECT ${COLUMNS} FROM environments WHERE kind='device' AND token_hash=? AND deleted_at IS NULL`).get(tokenHash) as Row | undefined;
+    return row ? record(row) : null;
+  }
+  /** `spec` is merged into what is kept; a field set to null goes. */
+  updateDevice(id: string, input: { name?: string; directory?: string; description?: string; spec?: Record<string, string | null> }): void {
+    const device = this.get(id);
+    if (device?.kind !== "device") return;
+    if (input.name !== undefined) this.db.prepare("UPDATE environments SET name=? WHERE id=?").run(input.name, id);
+    if (input.directory !== undefined) this.db.prepare("UPDATE environments SET directory=? WHERE id=?").run(input.directory, id);
+    if (input.description !== undefined) this.db.prepare("UPDATE environments SET description=? WHERE id=?").run(input.description, id);
+    if (input.spec) {
+      const spec: Record<string, string> = { ...device.spec };
+      for (const [key, value] of Object.entries(input.spec)) { if (value === null) delete spec[key]; else spec[key] = value; }
+      this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify(spec), id);
+    }
+  }
+  /** Unpairs a computer: its token stops working, and Bots working there are back in their default. Returns those Bots. */
+  dropDevice(id: string): string[] { return this.drop(id, "device"); }
   /** Deletes an SSH machine with its key: Bots working there are back in their default. Returns those Bots. */
-  dropSsh(id: string): string[] {
+  dropSsh(id: string): string[] { return this.drop(id, "ssh"); }
+  private drop(id: string, kind: "ssh" | "device"): string[] {
     return transaction(this.db, () => {
       const moved = (this.db.prepare("SELECT id FROM bots WHERE current_environment_id=?").all(id) as { id: string }[]).map(row => row.id);
       this.db.prepare("UPDATE bots SET current_environment_id=home_environment_id WHERE current_environment_id=?").run(id);
       this.db.prepare("DELETE FROM environment_grants WHERE environment_id=?").run(id);
-      this.db.prepare("UPDATE environments SET deleted_at=?, key=NULL, password=NULL WHERE id=? AND kind='ssh'").run(Date.now(), id);
+      this.db.prepare("UPDATE environments SET deleted_at=?, key=NULL, password=NULL, token_hash=NULL WHERE id=? AND kind=?").run(Date.now(), id, kind);
       return moved;
     });
   }

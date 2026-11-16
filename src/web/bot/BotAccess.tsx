@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BoxIcon, KeyRoundIcon, PlusIcon, ServerIcon } from "lucide-react";
+import { BoxIcon, KeyRoundIcon, LaptopIcon, PlusIcon, ServerIcon } from "lucide-react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { type SshMachine } from "../../contract/environment";
@@ -9,7 +9,7 @@ import { Button } from "../components/ui/button";
 import { Grants } from "../secrets/Grants";
 import { machineAddress } from "../environment/MachineDetail";
 
-/** Bot info's 授权 tab: the owner's secrets (A52) and SSH machines (A57) this Bot may use, and for the agent Bot other
+/** Bot info's 授权 tab: the owner's secrets (A52), computers (A96) and SSH machines (A57) this Bot may use, and for the agent Bot other
  * Bots' sandboxes (A93), each removable at once, and
  * Add to pick more. The Bot sees all of them, granted or not, and asks for the rest on a card; this is where the owner
  * sees and changes what it has. The grants are the same ones Settings shows per secret and the Environments page per machine. */
@@ -38,9 +38,10 @@ export function BotAccess({ bot, onSaved, onManageSecrets, onAddMachine }: {
         for (const id of ids) saved.set(id, await api.grantSecret(id, bot.id, granted));
         setSecrets(list => list && list.map(secret => saved.get(secret.id) ?? secret));
       }}/>
-    <Grants rows grantedIds={machines.filter(machine => machine.botIds.includes(bot.id)).map(machine => machine.id)}
-      items={machines.map(machine => ({ id: machine.id, name: machine.name, detail: machineAddress(machine),
-        once: bot.environment.machines.find(item => item.id === machine.id)?.once === true, icon: <ServerIcon className="jv-grant-icon" aria-hidden="true"/> }))}
+    <Grants rows grantedIds={[...bot.environment.devices.filter(item => item.granted).map(item => item.id), ...machines.filter(machine => machine.botIds.includes(bot.id)).map(machine => machine.id)]}
+      items={[...bot.environment.devices.map(item => ({ id: item.id, name: item.name, detail: t("devices.kindDevice"), once: item.once === true, icon: <LaptopIcon className="jv-grant-icon" aria-hidden="true"/> })),
+        ...machines.map(machine => ({ id: machine.id, name: machine.name, detail: machineAddress(machine),
+        once: bot.environment.machines.find(item => item.id === machine.id)?.once === true, icon: <ServerIcon className="jv-grant-icon" aria-hidden="true"/> }))]}
       texts={{ heading: t("environment.external"), add: t("common.add"), search: t("access.searchMachines"), none: t("access.noMachines"), noMatch: t("access.noMatch"), all: t("access.allMachines"),
         nothing: <><span>{t("access.noMachinesYet")}</span><Button type="button" variant="outline" size="sm" onClick={onAddMachine}><PlusIcon/>{t("machines.add")}</Button></> }}
       onGrant={async (ids, granted) => {

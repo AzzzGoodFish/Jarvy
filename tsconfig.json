@@ -19,6 +19,7 @@
   },
   "include": [
     "src/server/**/*.ts",
+    "src/connect/**/*.ts",
     "src/contract/**/*.ts"
   ],
   "exclude": [

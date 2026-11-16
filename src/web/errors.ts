@@ -13,7 +13,7 @@ const ERROR_KEYS: Record<ErrorCode, Key> = {
   credentials_missing: "error.credentialsMissing", data_locked: "error.dataLocked",
   discovery_format: "error.discoveryFormat", discovery_http: "error.discoveryHttp", discovery_key: "error.discoveryKey",
   discovery_protocol: "error.discoveryProtocol", discovery_url: "error.discoveryUrl", discovery_url_missing: "error.discoveryUrlMissing", discovery_unreachable: "error.discoveryUnreachable",
-  machine_missing: "error.machineMissing", machine_name_taken: "error.machineNameTaken",
+  machine_missing: "error.machineMissing", device_missing: "error.deviceMissing", machine_name_taken: "error.machineNameTaken",
   ssh_auth_failed: "error.sshAuthFailed", ssh_bad_directory: "error.sshBadDirectory", ssh_bad_host: "error.sshBadHost", ssh_bad_port: "error.sshBadPort",
   ssh_bad_user: "error.sshBadUser", ssh_failed: "error.sshFailed", ssh_host_key_changed: "error.sshHostKeyChanged", ssh_key_unreadable: "error.sshKeyUnreadable",
   ssh_password_missing: "error.sshPasswordMissing", ssh_unreachable: "error.sshUnreachable", ssh_unsupported: "error.sshUnsupported",

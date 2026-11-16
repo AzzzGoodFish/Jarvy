@@ -13,7 +13,7 @@ import { channelRoutes } from "./routes/channels.js";
 import { liveRoutes } from "./routes/live.js";
 import { connectionRoutes, rootCertificateRoute } from "./routes/connection.js";
 import { secretRoutes } from "./routes/secrets.js";
-import { environmentRoutes } from "./routes/environments.js";
+import { deviceDaemonRoute, environmentRoutes } from "./routes/environments.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { portRoutes } from "./routes/ports.js";
 import { usageRoutes } from "./routes/usage.js";
@@ -26,6 +26,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   const api = new Hono<ApiEnv>();
   api.use("*", apiSecurity);
   api.route("/", rootCertificateRoute(services.connection));
+  api.route("/", deviceDaemonRoute(services.bots));
   installAuthentication(api, services.account);
   api.route("/", taskRoutes(services));
   api.route("/", portRoutes(services));

@@ -1,7 +1,30 @@
-/** Work environments as the interface sees them (A50, A57, A68). `computer` is a Bot's sandbox, a Docker container
- * only it uses and its only default; `ssh` a machine the owner added, reached over SSH (A57), granted to a Bot and
- * switched to. The owner's computer is one of those when the owner adds it. */
-export type EnvironmentKind = "computer" | "ssh";
+/** Work environments as the interface sees them (A50, A57, A68, A96). `computer` is a Bot's sandbox, a Docker
+ * container only it uses and its only default; `ssh` a machine the owner added, reached over SSH (A57), granted to a
+ * Bot and switched to. The owner's computer is one of those when the owner adds it. `device` is a computer that
+ * connected itself to Jarvy through the desktop client (A96), granted like a machine. */
+export type EnvironmentKind = "computer" | "ssh" | "device";
+/** A shell a computer can run a Bot's commands in (A96): Git Bash (or the system's bash elsewhere), or PowerShell. */
+export type DeviceShell = "bash" | "powershell";
+/** A computer the desktop client connected (A96), as the Environments page shows it: never its token. */
+export interface Device {
+  id: string; name: string; description: string;
+  /** Node's names, as the client reported them: `win32`, `darwin`, `linux`; `x64`, `arm64`. */
+  platform: string; arch: string;
+  /** The user's home there, and where tools start (its home unless the owner chose another). */
+  home: string; directory: string;
+  /** Connected now, and paused by its person in the client (no new work until resumed); `seenAt` the last time it
+   * was connected (ms). */
+  online: boolean; paused: boolean; seenAt: number | null;
+  /** The shells it has, each with the program found there. */
+  shells: Partial<Record<DeviceShell, string>>;
+  /** The owner's choice, and the shell commands run in now (null when it has none of them). */
+  shell: DeviceShell | "auto"; activeShell: DeviceShell | null;
+  /** What else it can do, as the client says: reserved for desktop control (A96). */
+  capabilities: string[];
+  /** The client's version. */
+  client: string;
+  botIds: string[];
+}
 /** An SSH machine (A57) as Settings shows it: never its key. */
 export interface SshMachine {
   id: string; name: string; host: string; port: number; user: string;
@@ -58,5 +81,7 @@ export interface ComputerResources { usage: ComputerUsage | null; capacity: Comp
 export interface Grantable { id: string; name: string; granted: boolean; once?: true }
 export interface BotPlacement { current: EnvironmentKind; currentName?: string; computer: ComputerInfo | null; docker: boolean;
   machines: Grantable[];
+  /** Computers the desktop client connected (A96). */
+  devices: Grantable[];
   /** The agent Bot's: other Bots' sandboxes, which its owner may let it into (A93). */
   sandboxes?: Grantable[] }

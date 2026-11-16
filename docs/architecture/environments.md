@@ -7,7 +7,7 @@ A work environment is where a Bot's `bash`, `read`, `write` and `edit` run. The 
 Two words, kept apart:
 
 - **Workspace**: the Bot's own folder, `bots/<id>/`, which every Bot has and never shares; it tells people where the Bot's private, lasting files are. Its tools see `workspace/` inside it; its sessions and History sit beside that and never enter an environment.
-- **Work environment**: where its file and command tools run. Every Bot's default is its own **sandbox**, which Jarvy makes and manages for it alone (a Docker container; later a VM; the code calls it a `computer`), where the workspace is mounted as `/workspace` (A68). **External environments** are places a Bot is granted and switches to, never a default: the **SSH machines** the owner adds (A57). The computer running Jarvy is one of them when the owner adds it; Jarvy never runs a Bot's commands itself. Without Docker a Bot still has its sandbox as its default; its file and command tools fail until Docker can be used, and its chat tools work as usual (A84).
+- **Work environment**: where its file and command tools run. Every Bot's default is its own **sandbox**, which Jarvy makes and manages for it alone (a Docker container; later a VM; the code calls it a `computer`), where the workspace is mounted as `/workspace` (A68). **External environments** are places a Bot is granted and switches to, never a default: the **SSH machines** the owner adds (A57) and the **computers** that connect themselves with the desktop client (A96). The computer running Jarvy is one of them when the owner adds it; Jarvy never runs a Bot's commands itself. Without Docker a Bot still has its sandbox as its default; its file and command tools fail until Docker can be used, and its chat tools work as usual (A84).
 
 People read Docker 沙箱 / "Docker sandbox"; a Bot reads "your own computer" and, in `environments.list`, "your sandbox". An SSH machine goes by the name the owner gave it.
 
@@ -16,10 +16,10 @@ People read Docker 沙箱 / "Docker sandbox"; a Bot reads "your own computer" an
 | Layer | Code | Knows |
 | --- | --- | --- |
 | Interface | `shared/environment.ts` (`WorkEnvironment`) | run a command with streamed output, read a file or its first bytes, write, make a directory, check a path, close |
-| Execution | `infra/env/` | Pi Durable's `NodeExecutionEnv`, pi-env, the docker command line for Bots' sandboxes, and `ssh`/`ssh-keygen` for SSH machines (`ssh.ts`); nothing else imports pi-env or Pi Durable (`check-boundaries`) |
+| Execution | `infra/env/` | Pi Durable's `NodeExecutionEnv`, pi-env, the docker command line for Bots' sandboxes, `ssh`/`ssh-keygen` for SSH machines (`ssh.ts`), and the WebSocket relay to computers (`device-link.ts`, `device-daemon.ts`); nothing else imports pi-env or Pi Durable (`check-boundaries`) |
 | Tools | `infra/pi/environment-tools.ts` | Pi's tool definitions with operations on the interface |
-| Rules | `service/bot/environments.ts` (`BotEnvironments`), `service/bot/computers.ts` (`Computers`), `service/bot/machines.ts` (`SshMachines`) | which environment a Bot is in; the life of Bots' sandboxes; adding, checking and removing SSH machines |
-| Kinds | `service/bot/kinds/` (`sandbox.ts`, `ssh.ts`, A65) | what differs by kind and nothing else: how to reach it, what the Bot calls it, what a switch does first, which fields `environments.list` adds, what the Bot is told about it, and what an open environment is keyed by |
+| Rules | `service/bot/environments.ts` (`BotEnvironments`), `service/bot/computers.ts` (`Computers`), `service/bot/machines.ts` (`SshMachines`), `service/bot/devices.ts` (`Devices`) | which environment a Bot is in; the life of Bots' sandboxes; adding, checking and removing SSH machines; pairing computers, their shells and paths |
+| Kinds | `service/bot/kinds/` (`sandbox.ts`, `ssh.ts`, `device.ts`, A65) | what differs by kind and nothing else: how to reach it, what the Bot calls it, what a switch does first, which fields `environments.list` adds, what the Bot is told about it, and what an open environment is keyed by |
 
 `infra/env/durable.ts` adapts any Pi Durable execution environment to the interface: results become values or thrown errors, an abort or a timeout becomes the `aborted` / `timeout:<s>` error Pi's bash tool words, and `close()` releases what it holds.
 
@@ -106,3 +106,15 @@ Machines the owner adds over SSH (A57), listed on the Environments page (below) 
 - **Deleting**: removes Jarvy's line from `authorized_keys` first, logging in the way the machine is reached; when the machine can't be reached the owner may delete it anyway and remove the line by hand. Bots working there go back to their default and are told; the sealed key and password are dropped.
 - **Systems**: Linux and macOS.
 - **Limit**: Pi's `write` and `edit` look a path up on the machine running Jarvy before writing (to queue changes to one file). A path that exists there but can't be read by Jarvy's user, such as `/root/...` when Jarvy runs as someone else, makes them fail; `bash` still works there.
+
+## Computers
+
+Computers the owner's desktop client connects (A96), 「电脑」 in the interface and `device` in code. The client — the Electron app later, the command-line connector (`src/connect/`, built to `dist/server/connector.mjs` and served at `/api/devices/connector.mjs`) now — runs on the computer as the person signed in there.
+
+- **Pairing**: the first run checks Jarvy's root certificate by its fingerprint (HTTPS), signs in as the owner and registers the computer (`POST /api/environments/devices {name}` → the device and its token, once). The token (256-bit) is kept by the client (`device.json`, owner-only; `safeStorage` in the desktop client); Jarvy keeps its SHA-256 in `environments.token_hash`. The Environments page's + offers 电脑 beside SSH 机器 with the commands for Windows and for macOS and Linux.
+- **Connection** (`infra/env/device-link.ts`): the client opens `wss://…/api/devices/connect` with `Authorization: Device <token>` and says `hello` (protocol, platform, arch, home, shells, client, capabilities, paused); Jarvy answers `welcome`. One connection per computer: a newer one replaces it (close 4000); an unknown token is refused with 401 or closed 4003; another protocol gets an `error` and 4001. Pings every 30 s; a client reconnects after 1 s, doubling to 30 s.
+- **Running tools**: pi-env's `Connection` runs a tiny relay (`node -e`) that joins a local Unix socket; Jarvy sends `open {ch, args, bot}` to the client, which starts the daemon (from `/api/devices/daemon?platform&arch`, checked by SHA-256, kept under its hash) and joins its standard input and output to the channel. `exit` or `close` ends it. Files and long outputs go in `~/.cache/jarvy/<bot>` (`%LOCALAPPDATA%\Jarvy\bots\<bot>` on Windows).
+- **Shells and paths** (`service/bot/devices.ts`): automatic is bash (Git Bash on Windows) when there is one, else PowerShell (pwsh first); the owner can pick one in the computer's details, and the Bot is told which. A PowerShell command runs as a temporary `.ps1`. On Windows, `C:\x` and `/c/x` are translated both ways for the file tools.
+- **Offline and paused**: every tool call checks that the computer is connected and not paused in the client, and otherwise answers which of the two it is; pausing in the client also stops its running daemons.
+- **In the page**: computers come first in the list (system and an online / paused / offline dot), searchable by name and system; the details hold name, start directory, description, system, state, shell, client, the Bots that may use it and 解除配对.
+
