@@ -81,7 +81,9 @@ function prompter() {
   write._writeToOutput = text => { if (!muted || text.includes("\n")) original(muted ? "\n" : text); };
   return {
     line: (question: string) => new Promise<string>(resolve => rl.question(question, resolve)),
-    hidden: (question: string) => new Promise<string>(resolve => { process.stdout.write(question); muted = true; rl.question("", answer => { muted = false; resolve(answer); }); }),
+    // The prompt is written first, then what is typed is hidden: readline redraws the line as it is typed, which would
+    // otherwise show it, or wipe a prompt written before the question.
+    hidden: (question: string) => new Promise<string>(resolve => { rl.question(question, answer => { muted = false; resolve(answer); }); muted = true; }),
     close: () => rl.close(),
   };
 }

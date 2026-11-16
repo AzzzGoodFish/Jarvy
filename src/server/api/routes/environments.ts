@@ -92,9 +92,11 @@ export function deviceDaemonRoute(bots: ApiServices["bots"]) {
   const routes = new Hono<ApiEnv>();
   routes.get("/devices/daemon", c => {
     const token = /^Device\s+(\S+)$/.exec(c.req.header("authorization") ?? "")?.[1];
-    const { stream, sha256, size } = bots.devices.daemon(token, c.req.query("platform") ?? "", c.req.query("arch") ?? "");
-    return new Response(Readable.toWeb(Readable.from(stream)) as ReadableStream, { headers: { "Content-Type": "application/octet-stream",
-      "Content-Length": String(size), "X-Daemon-Sha256": sha256, "Cache-Control": "no-store" } });
+    const { open, sha256, size } = bots.devices.daemon(token, c.req.query("platform") ?? "", c.req.query("arch") ?? "");
+    // A client that has this one already (it reconnects often) gets no body.
+    if (c.req.header("if-none-match") === `"${sha256}"`) return new Response(null, { status: 304, headers: { "X-Daemon-Sha256": sha256, ETag: `"${sha256}"` } });
+    return new Response(Readable.toWeb(Readable.from(open())) as ReadableStream, { headers: { "Content-Type": "application/octet-stream",
+      "Content-Length": String(size), "X-Daemon-Sha256": sha256, ETag: `"${sha256}"`, "Cache-Control": "no-store" } });
   });
   /** The command-line client, for a computer to connect itself with `node connector.mjs <address>`. */
   routes.get("/devices/connector.mjs", c => {

@@ -60,11 +60,11 @@ export class Devices {
   /** An upgrade on Jarvy's port that is a computer connecting; false for any other. */
   upgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean { return this.links.upgrade(request, socket, head); }
   /** The pi-env daemon for a computer's system, for its client to run: only to a computer with a valid token. */
-  daemon(token: string | undefined, platform: string, arch: string): { stream: NodeJS.ReadableStream; sha256: string; size: number } {
+  daemon(token: string | undefined, platform: string, arch: string): { open: () => NodeJS.ReadableStream; sha256: string; size: number } {
     if (!token || !this.store.environments.deviceByToken(tokenHash(token))) throw new ChatError(403, "Not a registered computer");
     const daemon = daemonFor(platform, arch);
     if (!daemon || !existsSync(daemon.path)) throw new ChatError(404, `No pi-env daemon for ${platform} ${arch}`);
-    return { stream: createReadStream(daemon.path), sha256: daemon.sha256, size: daemon.size };
+    return { open: () => createReadStream(daemon.path), sha256: daemon.sha256, size: daemon.size };
   }
   online(id: string): boolean { return this.links.online(id) && !this.links.paused(id); }
   /** The command-line client (A96), built beside Jarvy's own server bundle; null when running from the sources. */
@@ -189,7 +189,9 @@ export function powershellScript(command: string, secrets: string[]): string {
   return ["$ProgressPreference = 'SilentlyContinue'",
     "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8",
     ...secrets.map(name => `\${${name}} = $env:${name}`),
-    command,
+    // One pipeline into Out-Default, ended before `exit`: Windows PowerShell holds a table back while it sizes its
+    // columns, and an `exit` with output still held drops it (and the strings queued behind it).
+    `& {\n${command}\n} | Out-Default`,
     "if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }", ""].join("\n");
 }
 
