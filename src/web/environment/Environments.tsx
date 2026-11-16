@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeftIcon, ContainerIcon, MonitorIcon, ServerIcon } from "lucide-react";
+import { ChevronLeftIcon, ContainerIcon, MonitorIcon, Search, ServerIcon } from "lucide-react";
 import { api } from "../api";
 import type { Bot, BotStatus } from "../../contract/bots";
 import type { SshMachine } from "../../contract/environment";
@@ -7,6 +7,7 @@ import { BotAvatar } from "../avatar/BotAvatar";
 import { errorText } from "../errors";
 import { BotPorts } from "../ports/BotPorts";
 import { IconButton } from "../ui";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { t } from "../i18n";
 import { BotEnvironment, STATE } from "./BotEnvironment";
 import { MachineDetail, machineAddress } from "./MachineDetail";
@@ -32,7 +33,7 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
   bots: Bot[]; statuses: Record<string, BotStatus>; adding: boolean; onAdding: (adding: boolean) => void; onSaved: (bot: Bot) => void;
 }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null), [error, setError] = useState<string | null>(null);
-  const [picked, setPicked] = useState<Picked | null>(kept), [open, setOpen] = useState(adding);
+  const [picked, setPicked] = useState<Picked | null>(kept), [open, setOpen] = useState(adding), [filter, setFilter] = useState("");
   useEffect(() => { void api.machines().then(view => setMachines(view.machines)).catch(reason => setError(errorText(reason))); }, []);
   useEffect(() => { if (adding) setOpen(true); }, [adding]);
   const sandboxes = bots.filter(bot => bot.environment.computer);
@@ -49,17 +50,28 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
   const here = machine ? on(machine) : bot ? home(bot) : [];
   const status = bot && statuses[bot.id];
   const faces = (list: Bot[]) => <Faces bots={list} statuses={statuses}/>;
+  // The search box, as the chat list's: a machine by its name or address, a sandbox by its Bot's name.
+  const query = filter.trim().toLocaleLowerCase(), found = (text: string) => text.toLocaleLowerCase().includes(query);
+  const shownMachines = machines?.filter(item => found(`${item.name} ${machineAddress(item)}`));
+  const shownSandboxes = sandboxes.filter(item => found(`${item.name} ${t("envs.sandboxOf", { name: item.name })}`));
   return <section className="jv-envs" data-open={open || undefined} aria-label={t("rail.environments")}>
     <aside className="jv-envs-list">
-      <header className="jv-envs-list-head"><h2>{t("rail.environments")}</h2>
+      <header className="ui-sidebar-header">
         <IconButton icon="add" label={t("machines.add")} aria-pressed={adding} onClick={() => { onAdding(true); setOpen(true); }}/></header>
+      <div className="mx-3 mt-1 mb-2 shrink-0" role="search">
+        <InputGroup className="h-9 bg-background">
+          <InputGroupInput type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder={t("envs.search")} aria-label={t("envs.search")}
+            onKeyDown={event => { if (event.key === "Escape" && filter) { event.preventDefault(); setFilter(""); } }} className="text-sm"/>
+          <InputGroupAddon align="inline-start"><Search aria-hidden="true"/></InputGroupAddon>
+        </InputGroup>
+      </div>
       <div className="jv-envs-scroll">
-        {machines?.map(item => <button key={item.id} type="button" className="jv-envs-row" aria-current={machine?.id === item.id || undefined} onClick={() => pick({ kind: "machine", id: item.id })}>
+        {shownMachines?.map(item => <button key={item.id} type="button" className="jv-envs-row" aria-current={machine?.id === item.id || undefined} onClick={() => pick({ kind: "machine", id: item.id })}>
           <Kind type="ssh"/>
           <span className="jv-envs-text"><strong>{item.name}</strong><span className="jv-mono">{machineAddress(item)}</span></span>
           {faces(on(item))}<span className="jv-envs-state"/>
         </button>)}
-        {sandboxes.map(item => {
+        {shownSandboxes.map(item => {
           const computer = item.environment.computer!;
           return <button key={item.id} type="button" className="jv-envs-row" aria-current={bot?.id === item.id || undefined} onClick={() => pick({ kind: "sandbox", id: item.id })}>
             <Kind type={computer.type}/>
@@ -69,6 +81,7 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
             <span className="jv-envs-state" data-state={computer.state} role="img" aria-label={t(STATE[computer.state])} title={t(STATE[computer.state])}/>
           </button>;
         })}
+        {query && machines && !shownMachines?.length && !shownSandboxes.length && <p className="jv-envs-none">{t("envs.noMatch")}</p>}
         {error && <p className="jv-note-error" role="alert">{error}</p>}
       </div>
     </aside>

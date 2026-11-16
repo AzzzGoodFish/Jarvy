@@ -9,6 +9,8 @@ export const environment = {
   // The Environments page (A89).
   "envs.sandboxOf": "{name}'s sandbox",
   "enterCard.title": "Request to enter {name}",
+  "envs.search": "Search environments",
+  "envs.noMatch": "No matching environments",
   "envs.back": "All environments",
   "envs.workingHere": { one: "{names} is working here", other: "{names} are working here" },
   "environment.state.preparing": "Preparing",
