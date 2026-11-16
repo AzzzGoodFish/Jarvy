@@ -60,6 +60,9 @@ export function findShells(): { bash?: string; powershell?: string } {
   if (windows) {
     const roots = [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "Programs")].filter((dir): dir is string => !!dir);
     bash = roots.map(root => join(root, "Git", "bin", "bash.exe")).find(existsSync);
+    // Git installed elsewhere: its bash.exe is beside git.exe's folder (<Git>\cmd\git.exe → <Git>\bin\bash.exe).
+    // A bash.exe on PATH is usually WSL's (System32), which isn't Git Bash.
+    if (!bash) { const git = onPath(["git.exe"]); const beside = git && join(git, "..", "..", "bin", "bash.exe"); if (beside && existsSync(beside)) bash = beside; }
     if (!bash) { const found = onPath(["bash.exe"]); if (found && /git/i.test(found)) bash = found; }
     powershell = onPath(["pwsh.exe"]) ?? [process.env.ProgramFiles && join(process.env.ProgramFiles, "PowerShell", "7", "pwsh.exe")].find((path): path is string => !!path && existsSync(path))
       ?? onPath(["powershell.exe"]) ?? [process.env.SystemRoot && join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")].find((path): path is string => !!path && existsSync(path));

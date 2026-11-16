@@ -189,7 +189,9 @@ export function powershellScript(command: string, secrets: string[]): string {
   return ["$ProgressPreference = 'SilentlyContinue'",
     "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8",
     ...secrets.map(name => `\${${name}} = $env:${name}`),
-    command,
+    // One pipeline into Out-Default, ended before `exit`: Windows PowerShell holds a table back while it sizes its
+    // columns, and an `exit` with output still held drops it (and the strings queued behind it).
+    `& {\n${command}\n} | Out-Default`,
     "if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }", ""].join("\n");
 }
 
