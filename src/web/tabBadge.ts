@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { desktop } from "./desktop";
 
 /** The tab shows how many messages were delivered to you and are unread (A41), like mail and chat apps:
  * a red count on the icon and "(N)" before the title. Only the interrupt kind counts; hints do not. */
@@ -23,6 +24,7 @@ function draw(count: number): string | null {
   return canvas.toDataURL("image/png");
 }
 function apply(count: number): void {
+  desktop()?.setBadge(count);
   document.title = count > 0 ? `(${count > 99 ? "99+" : count}) ${TITLE}` : TITLE;
   const link = iconLink();
   if (!link) return;

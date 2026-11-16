@@ -1,0 +1,61 @@
+import { app } from "electron";
+
+/** The client's own words (the page's are the web app's): Chinese when the system is, English otherwise. */
+const zh = {
+  appName: "Jarvy",
+  open: "打开 Jarvy",
+  pause: "暂停 Bot 在这台电脑上的工作",
+  rejoin: "重新接入这台电脑",
+  loginItem: "开机时启动",
+  change: "更换 Jarvy 地址…",
+  quit: "退出",
+  connecting: "正在连接…",
+  online: "已连接",
+  workingHere: "{names} 正在这里工作",
+  offline: "已断开：{reason}",
+  paused: "已暂停，Bot 无法在这台电脑上工作",
+  unpaired: "这台电脑已在 Jarvy 中解除配对",
+  outdated: "客户端版本过旧，请更新",
+  signIn: "登录后，这台电脑会接入 Jarvy",
+  stillRunning: "Jarvy 仍在后台运行",
+  stillRunningBody: "这台电脑保持连接。在托盘图标的菜单里可以退出。",
+  registered: "这台电脑已接入 Jarvy",
+  registeredBody: "在「环境」页把它授权给 Bot 后，Bot 就能在这里工作。",
+  registerFailed: "无法接入这台电脑：{reason}",
+  changeTitle: "更换 Jarvy 地址？",
+  changeBody: "这台电脑会从当前的 Jarvy 断开。它在那里的配对仍然保留，可以在「环境」页解除。",
+  changeConfirm: "更换",
+  cancel: "取消",
+};
+type Words = typeof zh;
+const en: Words = {
+  appName: "Jarvy",
+  open: "Open Jarvy",
+  pause: "Pause Bots' work on this computer",
+  rejoin: "Connect this computer again",
+  loginItem: "Start at login",
+  change: "Change Jarvy address…",
+  quit: "Quit",
+  connecting: "Connecting…",
+  online: "Connected",
+  workingHere: "{names} working here",
+  offline: "Disconnected: {reason}",
+  paused: "Paused: Bots can't work on this computer",
+  unpaired: "This computer was unpaired in Jarvy",
+  outdated: "This client is out of date; please update it",
+  signIn: "Sign in to connect this computer to Jarvy",
+  stillRunning: "Jarvy is still running",
+  stillRunningBody: "This computer stays connected. Quit from the tray icon's menu.",
+  registered: "This computer is connected to Jarvy",
+  registeredBody: "Grant it to a Bot on the Environments page to let the Bot work here.",
+  registerFailed: "Couldn't connect this computer: {reason}",
+  changeTitle: "Change the Jarvy address?",
+  changeBody: "This computer disconnects from the current Jarvy. Its pairing there stays until you unpair it on the Environments page.",
+  changeConfirm: "Change",
+  cancel: "Cancel",
+};
+
+export const chinese = () => app.getLocale().toLowerCase().startsWith("zh");
+export function say(key: keyof Words, values: Record<string, string> = {}): string {
+  return (chinese() ? zh : en)[key].replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? "");
+}
