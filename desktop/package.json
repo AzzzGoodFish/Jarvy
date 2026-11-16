@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "22.20.4",
+    "@types/ws": "8.18.1",
     "electron": "45.3.3",
     "electron-builder": "26.18.0",
     "esbuild": "0.25.12",
@@ -26,10 +27,42 @@
     "appId": "com.goodfish.jarvy",
     "productName": "Jarvy",
     "artifactName": "Jarvy-${version}-${os}-${arch}.${ext}",
-    "files": ["dist/**", "package.json"],
-    "directories": { "output": "release", "buildResources": "dist/static" },
-    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "dist/static/icon.png" },
-    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "shortcutName": "Jarvy" },
-    "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "icon": "dist/static/icon.png", "category": "Network" }
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist/static"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "dist/static/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Jarvy"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "dist/static/icon.png",
+      "category": "Network"
+    }
   }
 }
