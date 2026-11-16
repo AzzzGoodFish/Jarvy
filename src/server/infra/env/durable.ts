@@ -15,7 +15,7 @@ export function overDurable(id: string, kind: EnvironmentKind, env: ExecutionEnv
   };
   return {
     id, kind, local: options.passEnv, cwd: env.cwd, ...(options.temp ? { temp: options.temp } : {}),
-    async exec(command: string, exec: ExecOptions) {
+    async exec(command: string | readonly string[], exec: ExecOptions) {
       const result = await env.exec(command, {
         cwd: exec.cwd,
         ...(options.passEnv && exec.env ? { env: { ...exec.env, ...exec.secrets }, inheritEnv: false } : { ...(exec.secrets ? { env: exec.secrets } : {}), inheritEnv: true }),

@@ -7,7 +7,9 @@ import type { Place } from "../environments.js";
 export interface KindDeps { computers: { available: boolean; dockerProblem: string | null; status(botId: string): { state: string } | null; create(botId: string): void;
   ensure(botId: string): Promise<string>; environment(botId: string, record: EnvironmentRecord): WorkEnvironment };
   machines: { environment(record: EnvironmentRecord, botId: string): WorkEnvironment; about(record: EnvironmentRecord, botId: string): string;
-    address(record: EnvironmentRecord): string } }
+    address(record: EnvironmentRecord): string };
+  devices: { environment(record: EnvironmentRecord, botId: string): WorkEnvironment; about(record: EnvironmentRecord, botId: string): string;
+    describe(record: EnvironmentRecord): Record<string, unknown>; place(record: EnvironmentRecord): string } }
 /** One kind of environment, from `kinds/`. */
 export interface EnvironmentKindEntry {
   kind: EnvironmentKind;
@@ -18,7 +20,7 @@ export interface EnvironmentKindEntry {
   /** The environment the Bot's tools use. */
   open(record: EnvironmentRecord, botId: string, workspacePath: string, deps: KindDeps): WorkEnvironment;
   /** What the Bot calls it and the directory its tools start in (A50); `botId` is the Bot being told. */
-  place(record: EnvironmentRecord, botId: string, workspacePath: string): Place;
+  place(record: EnvironmentRecord, botId: string, workspacePath: string, deps: KindDeps): Place;
   /** A switch starts what the environment needs first (a sandbox), before the Bot is moved there. */
   ensure?(record: EnvironmentRecord, botId: string, deps: KindDeps): Promise<void>;
   /** A switch connects first, and stays where it was when the environment's directory isn't reachable. */

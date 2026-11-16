@@ -46,8 +46,9 @@ export function environmentTools(lookup: () => WorkEnvironment, secrets?: Secret
 function inside(definition: ToolDefinition, lookup: () => WorkEnvironment, pinned: AsyncLocalStorage<Call>): ToolDefinition {
   const execute = definition.execute.bind(definition) as (...args: unknown[]) => ReturnType<ToolDefinition["execute"]>;
   return { ...definition, execute: ((...args: unknown[]) => {
-    const env = lookup(), ctx = args[4];
+    const env = lookup(), ctx = args[4], params = args[1] as { path?: unknown } | undefined;
     if (ctx && typeof ctx === "object") args[4] = new Proxy(ctx, { get: (target, key) => key === "cwd" ? env.cwd : Reflect.get(target, key, target) });
+    if (env.normalize && params && typeof params.path === "string") args[1] = { ...params, path: env.normalize(params.path) };
     return pinned.run({ env, toolCallId: typeof args[0] === "string" ? args[0] : null }, () => execute(...args));
   }) as ToolDefinition["execute"] };
 }

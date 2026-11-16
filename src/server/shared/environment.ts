@@ -13,9 +13,10 @@ export interface WorkEnvironment {
   readonly cwd: string;
   /** Where Jarvy puts files for the Bot there (long outputs, files from the chat); `cwd`/temp when unset. */
   readonly temp?: string;
-  /** Runs a shell command, streaming its output. A non-zero exit is a result, not an error; a timeout throws
-   * `timeout:<seconds>` and an abort throws `aborted`, as Pi's bash tool expects. */
-  exec(command: string, options: ExecOptions): Promise<{ exitCode: number | null }>;
+  /** Runs a shell command, or with a list a program and its arguments without a shell, streaming its output. A
+   * non-zero exit is a result, not an error; a timeout throws `timeout:<seconds>` and an abort throws `aborted`, as
+   * Pi's bash tool expects. */
+  exec(command: string | readonly string[], options: ExecOptions): Promise<{ exitCode: number | null }>;
   readFile(path: string): Promise<Buffer>;
   /** The first bytes of a file (fewer when it is shorter), to tell what kind of file it is. */
   head(path: string, bytes: number): Promise<Buffer>;
@@ -30,6 +31,9 @@ export interface WorkEnvironment {
   exists(path: string): Promise<boolean>;
   /** The size of the regular file at the path, following links; null when there is none. */
   fileSize(path: string): Promise<number | null>;
+  /** Turns a path the Bot gave into one of this environment's: a computer running Windows (A96) takes `C:\\x` and
+   * shows it as `/c/x`, as Git Bash does, so Pi's tools can resolve it. */
+  normalize?(path: string): string;
   /** Releases what the environment holds open (connections, processes); idempotent. */
   close(): Promise<void>;
 }

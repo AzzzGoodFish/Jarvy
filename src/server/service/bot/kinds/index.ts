@@ -2,7 +2,8 @@ import type { EnvironmentKind } from "../../../../contract/environment.js";
 import type { EnvironmentKindEntry } from "./kind.js";
 import { sandbox } from "./sandbox.js";
 import { ssh } from "./ssh.js";
+import { device } from "./device.js";
 
 /** Every kind of work environment, once (A65): the code that runs a Bot's tools looks its kind up here instead of
  * asking what kind it is. */
-export const KINDS: Record<EnvironmentKind, EnvironmentKindEntry> = { computer: sandbox, ssh };
+export const KINDS: Record<EnvironmentKind, EnvironmentKindEntry> = { computer: sandbox, ssh, device };

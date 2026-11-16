@@ -2,7 +2,7 @@ import type { AgentActionPage, Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
 import type { PortRange, PublishedPort } from "../contract/ports";
-import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport } from "../contract/environment";
+import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport, Device } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, ConnectionQuota, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
 import type { Secret, SecretUse } from "../contract/secrets";
 import type { Task, TaskInput } from "../contract/tasks";
@@ -138,6 +138,11 @@ export const api = {
   trustMachine: (id: string, fingerprints: string[]) => request<SshMachine>(`/environments/${id}/trust`, { method: "POST", body: body({ fingerprints }) }),
   deleteMachine: (id: string, force = false) => request<{ ok: boolean }>(`/environments/${id}${force ? "?force=1" : ""}`, { method: "DELETE" }),
   grantMachine: (id: string, botId: string, granted: boolean) => request<SshMachine>(`/environments/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
+  /** Computers the desktop client connected (A96); their tokens never come back. */
+  devices: () => request<{ devices: Device[] }>("/environments/devices"),
+  updateDevice: (id: string, input: { name?: string; directory?: string; description?: string; shell?: Device["shell"] }) => request<Device>(`/environments/devices/${id}`, { method: "PUT", body: body(input) }),
+  deleteDevice: (id: string) => request<{ ok: boolean }>(`/environments/devices/${id}`, { method: "DELETE" }),
+  grantDevice: (id: string, botId: string, granted: boolean) => request<Device>(`/environments/devices/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   fulfilMachine: (chatId: string, messageId: string, answer: { password: string } | { keyId: string }) =>
     request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body(answer) }),
   computer: (id: string, action: "start" | "stop" | "reset" | "restart") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),

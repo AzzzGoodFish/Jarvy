@@ -81,5 +81,9 @@ export function createJarvyServer(services: ApiServices, webRoot: string, tls: {
   return dualProtocol(tls, (request, response) => {
     if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { redirectToHttps(request, response); return; }
     void handle(request, response);
+  }, (request, socket, head) => {
+    // A computer's client connecting itself (A96): over HTTPS from another machine, as the web is.
+    if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"); return; }
+    if (!services.bots.devices.upgrade(request, socket, head)) socket.destroy();
   });
 }

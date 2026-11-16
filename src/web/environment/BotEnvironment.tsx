@@ -39,7 +39,7 @@ export function BotEnvironment({ bot, onSaved, heading = true }: { bot: Bot; onS
     {computer && state && label && <div className="jv-list jv-env-sandbox">
       <div className="jv-list-row jv-static-row">
         <span className="jv-row-text"><strong>{t("environment.own")}</strong>
-          {current === "ssh" && <span className="jv-env-away">{t("environment.awayMachine", { name: currentName ?? "" })}</span>}</span>
+          {current !== "computer" && currentName && <span className="jv-env-away">{t("environment.awayMachine", { name: currentName ?? "" })}</span>}</span>
         <span className="jv-status" data-ok={state === "running" || undefined} data-busy={state === "preparing" || undefined}>{t(label)}</span>
       </div>
       {state !== "unavailable" && <SandboxType bot={bot} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>}

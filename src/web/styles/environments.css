@@ -48,3 +48,12 @@
   .jv-envs-head { padding: 0 12px; }
   .jv-envs-body { padding: 16px 14px max(24px, env(safe-area-inset-bottom)); }
 }
+/* Adding: an SSH machine or a computer (A96). */
+.jv-envs-add-kind { align-self: flex-start; width: fit-content; margin-bottom: 12px; }
+.jv-device-facts { padding: 0; }
+.jv-device-facts > .jv-hint { margin: 4px 0 0; }
+.jv-device-connect { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+.jv-device-connect > .jv-hint, .jv-device-connect > .jv-secret-heading { margin: 0; }
+.jv-device-connect .jv-machine-key code { font-size: 12px; }
+.jv-list .jv-device-facts > .jv-list-row.jv-env-fact { padding-left: 0; padding-right: 0; min-height: 36px; }
+.jv-list .jv-list-row.jv-device-connect { padding-top: 14px; padding-bottom: 14px; }

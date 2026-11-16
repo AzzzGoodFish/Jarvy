@@ -4,13 +4,14 @@ import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environmen
 import type { BotPlacement } from "../../../contract/environment.js";
 import type { Computers } from "./computers.js";
 import type { SshMachines } from "./machines.js";
+import type { Devices } from "./devices.js";
 import { KINDS } from "./kinds/index.js";
 import { AGENT_BOT_ID } from "../../shared/models.js";
 import type { KindDeps } from "./kinds/kind.js";
 
 /** An environment as a Bot is told of it (A50): what to call it and the directory its tools start in there. A
  * sandbox is what the code calls a `computer`; an SSH machine (A57) is called by the name its owner gave it. */
-export interface Place { id: string; kind: "sandbox" | "ssh"; name: string; directory: string }
+export interface Place { id: string; kind: "sandbox" | "ssh" | "device"; name: string; directory: string }
 /** What an owner's change did to where the Bot works; the service tells the Bot (A41). */
 export interface Moved { from: Place; to: Place }
 
@@ -24,8 +25,8 @@ interface Opened { id: string; env: WorkEnvironment; view: WorkEnvironment; busy
 export class BotEnvironments {
   private readonly open = new Map<string, Opened>();
   private readonly kinds: KindDeps;
-  constructor(private readonly store: Store, private readonly computers: Computers, machines: SshMachines) {
-    this.kinds = { computers, machines };
+  constructor(private readonly store: Store, private readonly computers: Computers, machines: SshMachines, devices: Devices) {
+    this.kinds = { computers, machines, devices };
   }
 
   current(botId: string, workspacePath: string): WorkEnvironment {
@@ -41,9 +42,10 @@ export class BotEnvironments {
     const environments = this.store.environments, current = this.settled(botId);
     const granted = new Set(environments.grants(botId).map(grant => grant.id)), once = environments.onceGrants(botId);
     const mark = (id: string) => ({ granted: granted.has(id), ...(once.has(id) ? { once: true as const } : {}) });
-    return { current: current.kind, ...(current.kind === "ssh" ? { currentName: current.name } : {}),
+    return { current: current.kind, ...(current.kind !== "computer" ? { currentName: current.name } : {}),
       computer: this.computers.info(botId), docker: this.computers.available,
       machines: environments.sshMachines().map(machine => ({ id: machine.id, name: machine.name, ...mark(machine.id) })),
+      devices: environments.devices().map(device => ({ id: device.id, name: device.name, ...mark(device.id) })),
       // The agent Bot may be let into other Bots' sandboxes (A93).
       ...(botId === AGENT_BOT_ID ? { sandboxes: this.othersSandboxes(botId).map(record => ({ id: record.id, name: this.botName(record), ...mark(record.id) })) } : {}) };
   }
@@ -88,6 +90,7 @@ export class BotEnvironments {
     if (!record) return null;
     return record.kind === "computer"
       ? { label: this.label(botId, record), enter: { kind: "sandbox", name: this.botName(record) } }
+      : record.kind === "device" ? { label: record.name, enter: { kind: "machine", name: record.name, ...(record.spec.hostname ? { address: record.spec.hostname } : {}) } }
       : { label: record.name, enter: { kind: "machine", name: record.name, address: `${record.spec.user}@${record.spec.host}${record.spec.port === "22" ? "" : `:${record.spec.port}`}` } };
   }
   /** When a Bot goes, anyone (the agent) working in its sandbox goes back home. */
@@ -104,7 +107,7 @@ export class BotEnvironments {
     const all = [environments.computerOf(botId), environments.placement(botId).home, ...environments.grants(botId)];
     return [...new Map(all.filter((record): record is EnvironmentRecord => !!record).map(record => [record.id, record])).values()];
   }
-  place(botId: string, record: EnvironmentRecord, workspacePath: string): Place { return KINDS[record.kind].place(record, botId, workspacePath); }
+  place(botId: string, record: EnvironmentRecord, workspacePath: string): Place { return KINDS[record.kind].place(record, botId, workspacePath, this.kinds); }
   /** A Bot's environments as other Bots see them in bots.list. */
   summary(botId: string) {
     const name = (record: EnvironmentRecord) => KINDS[record.kind].summary(record, botId);
@@ -120,7 +123,7 @@ export class BotEnvironments {
   list(botId: string, workspacePath: string) {
     const { home } = this.store.environments.placement(botId), current = this.settled(botId), usable = this.usable(botId), mine = new Set(usable.map(record => record.id));
     const agent = botId === AGENT_BOT_ID;
-    const others = [...this.store.environments.sshMachines(), ...(agent ? this.othersSandboxes(botId) : [])].filter(record => !mine.has(record.id));
+    const others = [...this.store.environments.sshMachines(), ...this.store.environments.devices(), ...(agent ? this.othersSandboxes(botId) : [])].filter(record => !mine.has(record.id));
     const entry = (record: EnvironmentRecord, granted: boolean) => ({ ...this.place(botId, record, workspacePath), ...(record.id === home.id ? { default: true } : {}),
       ...(record.kind === "computer" && record.botId !== botId ? { bot: this.botName(record) } : {}),
       ...(this.grantableTo(botId, record) ? { granted } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) });
@@ -204,6 +207,7 @@ export class BotEnvironments {
       mkdir: path => run(() => env.mkdir(path)),
       exists: path => run(() => env.exists(path)),
       fileSize: path => run(() => env.fileSize(path)),
+      ...(env.normalize ? { normalize: env.normalize.bind(env) } : {}),
       close: () => env.close(),
     };
     return opened;

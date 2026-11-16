@@ -19,6 +19,7 @@ import type { ModelCatalog } from "../../infra/pi/catalog.js";
 import { BotEnvironments, type Moved } from "./environments.js";
 import { Computers } from "./computers.js";
 import { SshMachines } from "./machines.js";
+import { Devices } from "./devices.js";
 import { resolveThinking } from "../../infra/pi/thinking.js";
 import { Memory } from "./memory.js";
 import { Bot } from "./bot.js";
@@ -69,6 +70,8 @@ export class BotService {
   private readonly environments: BotEnvironments;
   /** The owner's SSH machines (A57). */
   readonly machines: SshMachines;
+  /** Computers the desktop client connected (A96). */
+  readonly devices: Devices;
   /** Ports Bots publish from their sandboxes (A74). */
   readonly ports: PublishedPorts;
   private closed = false;
@@ -83,7 +86,8 @@ export class BotService {
     this.computers.adopt(deps.store.bots.list().map(record => record.id));
     this.ports = new PublishedPorts(deps.store, this.computers, () => deps.listening?.() ?? null);
     this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
-    this.environments = new BotEnvironments(deps.store, this.computers, this.machines);
+    this.devices = new Devices(deps.store, () => this.listChanged());
+    this.environments = new BotEnvironments(deps.store, this.computers, this.machines, this.devices);
   }
   listChanged() { this.deps.listChanged?.(); }
   get(id: string): Bot {
@@ -170,7 +174,13 @@ export class BotService {
   }
   /** The owner lets a Bot use an SSH machine (A57), or takes it back; taking it back while the Bot is there sends it
    * home. */
-  grantMachine(id: string, machineId: string, granted: boolean) { this.machines.get(machineId); return this.grant(id, machineId, granted); }
+  /** A machine over SSH, or a computer (A96): Bot info's 授权 tab lists both as external environments. */
+  grantMachine(id: string, machineId: string, granted: boolean) {
+    if (this.deps.store.environments.get(machineId)?.kind === "device") return this.grantDevice(id, machineId, granted);
+    this.machines.get(machineId); return this.grant(id, machineId, granted);
+  }
+  /** The same for a computer the desktop client connected (A96). */
+  grantDevice(id: string, deviceId: string, granted: boolean) { this.devices.get(deviceId); return this.grant(id, deviceId, granted); }
   /** The owner lets the agent Bot into another Bot's sandbox, or takes it back (A93). */
   grantSandbox(id: string, sandboxId: string, granted: boolean) {
     const record = this.deps.store.environments.get(sandboxId);
@@ -185,7 +195,14 @@ export class BotService {
   /** The owner deletes an SSH machine: Bots working there are back in their default, and told. */
   async removeMachine(machineId: string, force: boolean): Promise<void> {
     const name = this.machines.get(machineId).name, granted = this.machines.get(machineId).botIds;
-    const moved = await this.machines.remove(machineId, force);
+    this.removed(name, granted, await this.machines.remove(machineId, force));
+  }
+  /** The owner unpairs a computer (A96), the same way. */
+  removeDevice(deviceId: string): void {
+    const { name, botIds } = this.devices.get(deviceId);
+    this.removed(name, botIds, this.devices.remove(deviceId));
+  }
+  private removed(name: string, granted: string[], moved: string[]): void {
     for (const id of new Set([...granted, ...moved])) {
       if (!this.deps.store.bots.get(id)) continue;
       const changes: BotChange[] = [{ what: "access", value: `${name}: removed` }];
@@ -348,6 +365,7 @@ export class BotService {
     await Promise.all([...this.bots.values()].map(bot => bot.stop()));
     for (const live of this.lives.values()) live.close();
     await this.environments.close();
+    this.devices.close();
   }
 }
 
