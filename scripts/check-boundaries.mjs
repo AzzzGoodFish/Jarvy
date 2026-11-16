@@ -10,6 +10,11 @@ function files(dir, pattern = /\.ts$/) {
   return readdirSync(dir, { withFileTypes: true }).flatMap(item => item.isDirectory() ? files(resolve(dir, item.name), pattern) : pattern.test(item.name) ? [resolve(dir, item.name)] : []);
 }
 const failures = [];
+// A package the server imports is one it declares (dependencies, or devDependencies for type-only imports): one only
+// reached through another package's dependencies may not be installed where Jarvy can find it.
+const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+const declared = new Set(Object.keys(manifest.dependencies ?? {})), typesOnly = new Set(Object.keys(manifest.devDependencies ?? {}));
+const packageOf = specifier => specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0];
 // Execution in work environments (A50): pi-env and the Pi Durable pieces it is built on stay in infra/env.
 const EXECUTION = /^@earendil-works\/(pi-env|pi-durable|chord)(\/|$)/;
 // No source file over 500 lines (AGENTS.md), server and web alike.
@@ -35,6 +40,9 @@ for (const file of files(root)) {
       || specifier === 'node:sqlite' && !relative(root, file).startsWith('infra/storage/')
       || specifier === 'sharp' && !relative(root, file).startsWith('infra/files/');
     if (forbidden) failures.push(`${relative(root, file)} → ${specifier}`);
+    const bare = !specifier.startsWith('.') && !specifier.startsWith('node:') ? packageOf(specifier) : null;
+    const typeOnly = ts.isImportDeclaration(node) && node.importClause?.isTypeOnly;
+    if (bare && !declared.has(bare) && !(typeOnly && typesOnly.has(bare))) failures.push(`${relative(root, file)} → ${specifier} (not in package.json dependencies)`);
   }
 }
 // The contract is plain types and pure functions: it imports only its own files, no package, Node or browser module.
