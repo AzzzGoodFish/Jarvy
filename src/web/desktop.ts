@@ -18,3 +18,34 @@ export function notifyDesktop(message: ChatMessage, chat: Chat, me: string, memb
   const body = message.content.replace(/\[\[q\d+\]\]/g, "").replace(/\s+/g, " ").trim().slice(0, 200) || t("desktop.attachment");
   client.notify({ title: where, body, chatId: message.chatId });
 }
+
+/** Inside the desktop client the window has no system title bar (A96): the page draws a strip across the top that
+ * moves the window, under the window's own buttons, and everything else sits below it. In a browser, nothing. */
+export function startFrame(): void {
+  if (!desktop()?.frameless || document.querySelector(".jv-titlebar")) return;
+  document.documentElement.dataset.desktop = "";
+  const strip = document.createElement("div");
+  strip.className = "jv-titlebar";
+  strip.setAttribute("aria-hidden", "true");
+  const icon = document.createElement("img"); icon.src = "/favicon.svg"; icon.alt = "";
+  const name = document.createElement("span"); name.textContent = "Jarvy";
+  strip.append(icon, name);
+  document.documentElement.insertBefore(strip, document.body);
+}
+
+/** Tells the client the page's theme, and the strip's colours for the window's buttons drawn over it. */
+export function syncFrame(mode: "light" | "dark"): void {
+  const client = desktop();
+  if (!client?.setTheme) return;
+  const style = getComputedStyle(document.documentElement);
+  client.setTheme(mode, { background: hex(style.getPropertyValue("--ui-bg-subtle")), symbol: hex(style.getPropertyValue("--ui-text-secondary")) });
+}
+/** A CSS colour (the tokens are oklch) as #rrggbb, which the window's buttons take. */
+function hex(color: string): string {
+  const canvas = document.createElement("canvas"); canvas.width = canvas.height = 1;
+  const context = canvas.getContext("2d");
+  if (!context) return "#808080";
+  context.fillStyle = color.trim() || "#808080"; context.fillRect(0, 0, 1, 1);
+  const [r = 128, g = 128, b = 128] = context.getImageData(0, 0, 1, 1).data;
+  return `#${[r, g, b].map(value => value.toString(16).padStart(2, "0")).join("")}`;
+}

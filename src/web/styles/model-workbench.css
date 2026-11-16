@@ -124,7 +124,7 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
 /* ── Settings shell ─────────────────────────────────────── */
 .jv-settings-shell {
   width: min(960px, calc(100vw - 48px)); max-width: none !important;
-  height: min(760px, calc(100dvh - 48px)); padding: 0 !important; gap: 0 !important;
+  height: min(760px, calc(var(--jv-vh, 100dvh) - 48px)); padding: 0 !important; gap: 0 !important;
   display: grid !important; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden;
 }
 .jv-settings-nav { display: flex; flex-direction: column; gap: 2px; padding: 16px 10px; background: var(--jv-raised); border-right: 1px solid var(--jv-line); }
@@ -220,7 +220,7 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
 .jv-select-menu [data-slot="select-item"][data-highlighted] { background: var(--jv-hover); }
 
 @media (max-width: 700px) {
-  .jv-settings-shell { width: calc(100vw - 16px); height: calc(100dvh - 16px); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .jv-settings-shell { width: calc(100vw - 16px); height: calc(var(--jv-vh, 100dvh) - 16px); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   /* One row on a phone: the title keeps its width, and only the tabs scroll, in a strip that ends before the close
      button, so none of them sits under it; its edge fades, so the ones further on show there are more. Text-only tabs keep the row short in English as well as Chinese. */
   .jv-settings-nav { flex-direction: row; align-items: center; gap: 4px; padding: 10px 52px 10px 12px; border-right: 0; border-bottom: 1px solid var(--jv-line); }

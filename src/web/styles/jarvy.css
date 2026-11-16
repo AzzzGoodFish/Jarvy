@@ -1,5 +1,5 @@
 /* Jarvy-specific rules on top of the shell styles (shell.css). */
-.jarvy-loading { height: 100dvh; display: grid; place-items: center; font: 14px/1.5 sans-serif; color: #555; }
+.jarvy-loading { height: var(--jv-vh, 100dvh); display: grid; place-items: center; font: 14px/1.5 sans-serif; color: #555; }
 [data-slot="dialog-content"], [data-slot="card"] { border-color: var(--border); }
 [data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; }
 .jarvy-sidebar-create { position: relative; }

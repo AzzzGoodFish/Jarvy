@@ -38,7 +38,7 @@
 .jv-model-error button { color: inherit; background: none; border: 0; text-decoration: underline; cursor: pointer; font: inherit; }
 
 /* Bot info (A83): one size whichever tab is open; the top and the tabs stay, the tab below scrolls or fills. */
-.jv-bot-info { width: min(760px, calc(100vw - 24px)); height: min(780px, calc(100dvh - 32px)); padding: 0; gap: 0; }
+.jv-bot-info { width: min(760px, calc(100vw - 24px)); height: min(780px, calc(var(--jv-vh, 100dvh) - 32px)); padding: 0; gap: 0; }
 .jv-bot-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar who run" "avatar error error"; column-gap: 16px;
   align-items: start; padding: 20px 60px 16px 24px; flex-shrink: 0; }
 .jv-bot-head > .jv-bot-avatar { grid-area: avatar; }
@@ -95,7 +95,7 @@
 .jv-agent-log-more { align-self: flex-start; }
 @media (max-width: 560px) {
   .jv-bot-model-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .jv-bot-info { width: calc(100vw - 16px); height: calc(100dvh - 24px); }
+  .jv-bot-info { width: calc(100vw - 16px); height: calc(var(--jv-vh, 100dvh) - 24px); }
   .jv-bot-head { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "avatar who" "avatar run" "error error"; column-gap: 12px; padding: 16px 48px 12px 16px; }
   .jv-bot-run { padding-top: 10px; flex-wrap: wrap; }
   .jv-bot-tabs { gap: 18px; padding: 0 16px; }

@@ -1,0 +1,15 @@
+/* The desktop client's frame (A96): with no system title bar, the page draws a strip across the top that moves the
+   window; the window's own buttons are drawn over its right end. The page sits below it: every full-height size
+   counts from there (--jv-vh), and what is centred in the window moves down by half the strip. */
+html[data-desktop] { --jv-titlebar: 32px; --jv-vh: calc(100dvh - var(--jv-titlebar)); }
+html[data-desktop] body { padding-top: var(--jv-titlebar); }
+html[data-desktop] .jv-login { top: var(--jv-titlebar); }
+html[data-desktop] [data-slot="dialog-content"] { margin-top: calc(var(--jv-titlebar) / 2); }
+html[data-desktop] dialog { inset: var(--jv-titlebar) 0 0 0; }
+.jv-titlebar {
+  position: fixed; top: 0; right: 0; left: 0; z-index: 2147483000; display: flex; align-items: center; gap: 8px;
+  height: var(--jv-titlebar); padding: 0 12px; background: var(--ui-bg-subtle); border-bottom: 1px solid var(--ui-border-weak);
+  color: var(--ui-text-secondary); font: 500 12px/1 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  user-select: none; -webkit-app-region: drag; app-region: drag;
+}
+.jv-titlebar > img { width: 16px; height: 16px; }

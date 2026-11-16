@@ -14,6 +14,8 @@ import { pin } from "./trust.js";
 const STATIC = join(__dirname, "static"), ICON = icon(join(STATIC, "icon.png"));
 let config: Config | null = null, win: BrowserWindow | null = null, setup: BrowserWindow | null = null, tray: JarvyTray | null = null;
 let connector: Connector | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
+/** The page draws the title bar on Windows and Linux; macOS keeps its own. */
+const FRAMELESS = process.platform !== "darwin", TITLEBAR = 32;
 const origin = () => config ? new URL(config.server).origin : null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -38,6 +40,7 @@ async function start(): Promise<void> {
 function ipc(): void {
   ipcMain.on("jarvy:origin", event => { event.returnValue = origin(); });
   ipcMain.on("jarvy:version", event => { event.returnValue = app.getVersion(); });
+  ipcMain.on("jarvy:frameless", event => { event.returnValue = FRAMELESS; });
   ipcMain.on("setup:chinese", event => { event.returnValue = chinese(); });
   const fromPage = (event: Electron.IpcMainEvent) => !!origin() && event.senderFrame?.url.startsWith(`${origin()}/`) === true;
   ipcMain.on("jarvy:notify", (event, notice: { title: string; body: string; chatId: string }) => {
@@ -46,10 +49,12 @@ function ipc(): void {
     note.on("click", () => { show(); win?.webContents.send("jarvy:open-chat", notice.chatId); });
     note.show();
   });
-  ipcMain.on("jarvy:theme", (event, mode: "light" | "dark") => {
+  ipcMain.on("jarvy:theme", (event, mode: "light" | "dark", frame?: { background: string | null; symbol: string | null }) => {
     if (!fromPage(event)) return;
     nativeTheme.themeSource = mode;
-    if (config && config.theme !== mode) { config = { ...config, theme: mode }; void save(config); }
+    const colours = frame?.background && frame.symbol ? { background: frame.background, symbol: frame.symbol } : config?.frame;
+    if (FRAMELESS && colours) win?.setTitleBarOverlay({ color: colours.background, symbolColor: colours.symbol, height: TITLEBAR });
+    if (config && (config.theme !== mode || config.frame?.background !== colours?.background)) { config = { ...config, theme: mode, frame: colours }; void save(config); }
   });
   ipcMain.on("jarvy:badge", (event, count: number) => {
     if (!fromPage(event)) return;
@@ -94,6 +99,10 @@ function openMain(): void {
     grant(contents.getURL().startsWith(`${origin()}/`) && ["clipboard-sanitized-write", "notifications", "fullscreen"].includes(permission)));
   win = new BrowserWindow({ width: 1280, height: 840, minWidth: 380, minHeight: 520, show: false, icon: ICON, title: "Jarvy", autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111113" : "#ffffff",
+    // No system title bar: the page draws the strip at the top, the window's buttons are drawn over its right end in
+    // its colours (the last ones the page gave, until it says again).
+    ...(FRAMELESS ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: config!.frame?.background ?? (nativeTheme.shouldUseDarkColors ? "#2d323b" : "#f6f7f9"),
+      symbolColor: config!.frame?.symbol ?? (nativeTheme.shouldUseDarkColors ? "#b9c3d1" : "#5b6472"), height: TITLEBAR } } : {}),
     webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
   win.once("ready-to-show", () => win?.show());
   // Jarvy's own pages stay here; any other link opens in the browser.

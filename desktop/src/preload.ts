@@ -6,10 +6,14 @@ const trusted = ipcRenderer.sendSync("jarvy:origin") as string | null;
 if (trusted && window.location.origin === trusted) {
   contextBridge.exposeInMainWorld("jarvyDesktop", {
     version: ipcRenderer.sendSync("jarvy:version") as string,
+    frameless: ipcRenderer.sendSync("jarvy:frameless") as boolean,
     notify: (notice: { title: string; body: string; chatId: string }) => ipcRenderer.send("jarvy:notify", {
       title: String(notice?.title ?? "").slice(0, 200), body: String(notice?.body ?? "").slice(0, 500), chatId: String(notice?.chatId ?? "").slice(0, 80) }),
     setBadge: (count: number) => ipcRenderer.send("jarvy:badge", Math.max(0, Math.min(100000, Math.floor(Number(count) || 0)))),
-    setTheme: (mode: string) => ipcRenderer.send("jarvy:theme", mode === "dark" ? "dark" : "light"),
+    setTheme: (mode: string, frame?: { background?: string; symbol?: string }) => {
+      const colour = (value: unknown) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : null;
+      ipcRenderer.send("jarvy:theme", mode === "dark" ? "dark" : "light", { background: colour(frame?.background), symbol: colour(frame?.symbol) });
+    },
     onOpenChat: (listener: (chatId: string) => void) => { ipcRenderer.on("jarvy:open-chat", (_event, chatId: string) => listener(chatId)); },
   });
 }

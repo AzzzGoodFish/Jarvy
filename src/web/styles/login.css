@@ -9,7 +9,7 @@
   position: fixed;
   inset: 0;
   width: 100vw;
-  height: 100dvh;
+  height: var(--jv-vh, 100dvh);
   overflow: auto;
   color: var(--login-text);
   background: var(--login-base);
