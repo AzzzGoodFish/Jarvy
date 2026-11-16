@@ -14,8 +14,10 @@ import { pin } from "./trust.js";
 const STATIC = join(__dirname, "static"), ICON = icon(join(STATIC, "icon.png"));
 let config: Config | null = null, win: BrowserWindow | null = null, setup: BrowserWindow | null = null, tray: JarvyTray | null = null;
 let connector: Connector | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
-/** The page draws the title bar on Windows and Linux; macOS keeps its own. */
-const FRAMELESS = process.platform !== "darwin", TITLEBAR = 32;
+/** The page can draw the title bar on Windows and Linux (macOS keeps its own), once it has said it can: a Jarvy from
+ * before that keeps the system's. `frameless` is the window's state, `heard` whether this load of the page said so. */
+const CAN_FRAME = process.platform !== "darwin", TITLEBAR = 32;
+let frameless = false, heard = false;
 const origin = () => config ? new URL(config.server).origin : null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -40,7 +42,7 @@ async function start(): Promise<void> {
 function ipc(): void {
   ipcMain.on("jarvy:origin", event => { event.returnValue = origin(); });
   ipcMain.on("jarvy:version", event => { event.returnValue = app.getVersion(); });
-  ipcMain.on("jarvy:frameless", event => { event.returnValue = FRAMELESS; });
+  ipcMain.on("jarvy:frameless", event => { event.returnValue = event.sender === win?.webContents && frameless; });
   ipcMain.on("setup:chinese", event => { event.returnValue = chinese(); });
   const fromPage = (event: Electron.IpcMainEvent) => !!origin() && event.senderFrame?.url.startsWith(`${origin()}/`) === true;
   ipcMain.on("jarvy:notify", (event, notice: { title: string; body: string; chatId: string }) => {
@@ -52,9 +54,12 @@ function ipc(): void {
   ipcMain.on("jarvy:theme", (event, mode: "light" | "dark", frame?: { background: string | null; symbol: string | null }) => {
     if (!fromPage(event)) return;
     nativeTheme.themeSource = mode;
-    const colours = frame?.background && frame.symbol ? { background: frame.background, symbol: frame.symbol } : config?.frame;
-    if (FRAMELESS && colours) win?.setTitleBarOverlay({ color: colours.background, symbolColor: colours.symbol, height: TITLEBAR });
-    if (config && (config.theme !== mode || config.frame?.background !== colours?.background)) { config = { ...config, theme: mode, frame: colours }; void save(config); }
+    const colours = frame?.background && frame.symbol ? { background: frame.background, symbol: frame.symbol } : undefined;
+    if (colours) heard = true;
+    if (frameless && colours) win?.setTitleBarOverlay({ color: colours.background, symbolColor: colours.symbol, height: TITLEBAR });
+    if (config && (config.theme !== mode || (colours && config.frame?.background !== colours.background))) { config = { ...config, theme: mode, frame: colours ?? config.frame }; void save(config); }
+    // The page can draw the title bar: from now on the window has none (made again once, where it was).
+    if (colours && CAN_FRAME && !frameless && config) { config = { ...config, pageFrame: true }; void save(config); setImmediate(remake); }
   });
   ipcMain.on("jarvy:badge", (event, count: number) => {
     if (!fromPage(event)) return;
@@ -97,14 +102,36 @@ function openMain(): void {
   pin(session.defaultSession, server, config!.ca);
   session.defaultSession.setPermissionRequestHandler((contents, permission, grant) =>
     grant(contents.getURL().startsWith(`${origin()}/`) && ["clipboard-sanitized-write", "notifications", "fullscreen"].includes(permission)));
-  win = new BrowserWindow({ width: 1280, height: 840, minWidth: 380, minHeight: 520, show: false, icon: ICON, title: "Jarvy", autoHideMenuBar: true,
+  makeWindow(server);
+  const token = unseal(config!.token);
+  if (token) connect(token); else watch();
+}
+
+/** Makes the window afresh, as it was (where, how large, shown or not, the page it was on), with or without the
+ * system title bar as the page now calls for. */
+function remake(): void {
+  if (!win) return;
+  const bounds = win.getBounds(), shown = win.isVisible(), url = win.webContents.getURL() || config!.server;
+  win.destroy(); win = null;
+  makeWindow(url, bounds, shown);
+}
+
+function makeWindow(url: string, bounds?: Electron.Rectangle, shown = true): void {
+  frameless = CAN_FRAME && config?.pageFrame === true; heard = false;
+  win = new BrowserWindow({ width: bounds?.width ?? 1280, height: bounds?.height ?? 840, x: bounds?.x, y: bounds?.y, minWidth: 380, minHeight: 520, show: false, icon: ICON, title: "Jarvy", autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111113" : "#ffffff",
     // No system title bar: the page draws the strip at the top, the window's buttons are drawn over its right end in
     // its colours (the last ones the page gave, until it says again).
-    ...(FRAMELESS ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: config!.frame?.background ?? (nativeTheme.shouldUseDarkColors ? "#2d323b" : "#f6f7f9"),
+    ...(frameless ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: config!.frame?.background ?? (nativeTheme.shouldUseDarkColors ? "#2d323b" : "#f6f7f9"),
       symbolColor: config!.frame?.symbol ?? (nativeTheme.shouldUseDarkColors ? "#b9c3d1" : "#5b6472"), height: TITLEBAR } } : {}),
     webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
-  win.once("ready-to-show", () => win?.show());
+  if (shown) win.once("ready-to-show", () => win?.show());
+  // A frameless window whose page doesn't draw the title bar (Jarvy went back to an older version): the system's again.
+  const mine = win;
+  win.webContents.on("did-finish-load", () => {
+    heard = false;
+    if (frameless) setTimeout(() => { if (win === mine && frameless && !heard && config) { config = { ...config, pageFrame: false }; void save(config); remake(); } }, 8000);
+  });
   // Jarvy's own pages stay here; any other link opens in the browser.
   const outside = (url: string) => !url.startsWith(`${origin()}/`);
   win.webContents.on("will-navigate", (event, url) => { if (outside(url)) { event.preventDefault(); external(url); } });
@@ -125,9 +152,7 @@ function openMain(): void {
       config = { ...config!, closeHint: true }; void save(config);
     }
   });
-  void win.loadURL(server);
-  const token = unseal(config!.token);
-  if (token) connect(token); else watch();
+  void win.loadURL(url);
 }
 function external(url: string): void { if (/^https?:\/\//i.test(url)) void shell.openExternal(url); }
 function show(): void {
