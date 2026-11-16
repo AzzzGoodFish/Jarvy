@@ -74,19 +74,21 @@ export function findShells(): { bash?: string; powershell?: string } {
 }
 
 /** The pi-env daemon of the Jarvy it connects to, kept by its SHA-256 under `cache`, downloaded once per version. */
-export async function daemon(server: string, trust: Trust, token: string, cache: string): Promise<string> {
+export async function daemon(server: string, trust: Trust, token: string, cache: string, have?: { path: string; sha256: string }): Promise<{ path: string; sha256: string }> {
   const query = `?platform=${process.platform}&arch=${process.arch}`, name = process.platform === "win32" ? "pi-env.exe" : "pi-env";
-  const res = await call(server, trust, "GET", `${DEVICE_DAEMON_PATH}${query}`, { headers: { Authorization: `Device ${token}` } });
+  const known = have && existsSync(have.path) ? have : undefined;
+  const res = await call(server, trust, "GET", `${DEVICE_DAEMON_PATH}${query}`, { headers: { Authorization: `Device ${token}`, ...(known ? { "If-None-Match": `"${known.sha256}"` } : {}) } });
+  if (res.status === 304 && known) return known;
   if (res.status !== 200) throw new Error(res.status === 403 ? "Jarvy doesn't know this computer any more" : `Jarvy answered ${res.status} for the daemon: ${res.body.toString().slice(0, 200)}`);
   const sha256 = createHash("sha256").update(res.body).digest("hex");
   if (sha256 !== res.headers["x-daemon-sha256"]) throw new Error("The daemon Jarvy sent doesn't match its checksum");
   const folder = join(cache, sha256.slice(0, 16)), path = join(folder, name);
-  if (existsSync(path) && createHash("sha256").update(await readFile(path)).digest("hex") === sha256) return path;
+  if (existsSync(path) && createHash("sha256").update(await readFile(path)).digest("hex") === sha256) return { path, sha256 };
   await mkdir(folder, { recursive: true });
   await writeFile(`${path}.part`, res.body);
   await chmod(`${path}.part`, 0o755);
   await rename(`${path}.part`, path);
-  return path;
+  return { path, sha256 };
 }
 
 export interface ConnectorOptions {
@@ -108,6 +110,8 @@ export class Connector {
   private wait = 1000;
   private timer: NodeJS.Timeout | null = null;
   private name = "";
+  /** The daemon fetched last, checked again (without its body when unchanged) on every connection. */
+  private program: { path: string; sha256: string } | undefined;
   constructor(private readonly options: ConnectorOptions) {}
 
   start(): void { this.stopped = false; void this.connect(); }
@@ -129,7 +133,7 @@ export class Connector {
     if (this.stopped) return;
     this.options.onStatus?.({ state: "connecting" });
     let program: string;
-    try { program = await daemon(this.options.server, this.options.trust, this.options.token, this.options.cache); }
+    try { this.program = await daemon(this.options.server, this.options.trust, this.options.token, this.options.cache, this.program); program = this.program.path; }
     catch (error) { return this.retry(error instanceof Error ? error.message : String(error)); }
     const url = new URL(DEVICE_PATH, this.options.server);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";

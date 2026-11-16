@@ -122,6 +122,8 @@ export class DeviceLinks {
     const hello = setTimeout(() => ws.close(4002, "no hello"), 15_000);
     ws.on("pong", () => { if (link) link.alive = true; });
     ws.on("message", (data: RawData, binary: boolean) => {
+      // Anything from the client shows it is there: under a long output its pong can wait behind the data.
+      if (link) link.alive = true;
       const bytes = Buffer.isBuffer(data) ? data : Buffer.concat(Array.isArray(data) ? data : [Buffer.from(data)]);
       if (binary) { if (link && bytes.length >= 4) link.data(bytes.readUInt32BE(0), bytes.subarray(4)); return; }
       let message: Control;
@@ -141,13 +143,14 @@ export class DeviceLinks {
       else if (message.t === "state") { link.paused = !!message.paused; this.hooks.presence(device.id, true); }
       else if (message.t === "exit") link.exit(message.ch);
     });
-    ws.on("close", () => {
+    ws.on("close", (code: number) => {
       clearTimeout(hello);
+      if (link && code !== 1000 && code !== 1001) console.warn(`[devices] ${device.name}: connection closed (${code})`);
       if (!link) return;
       link.drop();
       if (this.links.get(device.id) === link) { this.links.delete(device.id); this.hooks.presence(device.id, false); }
     });
-    ws.on("error", () => ws.terminate());
+    ws.on("error", error => { console.warn(`[devices] ${device.name}: ${error.message}`); ws.terminate(); });
   }
   /** A relay pi-env started: its first line says which computer, and the daemon's arguments. */
   private relay(socket: Socket): void {
@@ -171,7 +174,7 @@ export class DeviceLinks {
   }
   private heartbeat(): void {
     for (const link of this.links.values()) {
-      if (!link.alive) { link.socket.terminate(); continue; }
+      if (!link.alive) { console.warn(`[devices] ${link.id}: no answer for 30 s, disconnected`); link.socket.terminate(); continue; }
       link.alive = false;
       link.socket.ping();
     }
