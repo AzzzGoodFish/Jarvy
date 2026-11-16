@@ -16,6 +16,8 @@ export function applyTheme(mode: "light" | "dark"): void {
   document.documentElement.classList.toggle("dark", mode === "dark");
   document.documentElement.style.colorScheme = mode;
   localStorage.setItem("jarvy-theme", mode);
+  // In the desktop client the window's frame (its title bar) follows the page too.
+  (window as unknown as { jarvyDesktop?: { setTheme?: (mode: "light" | "dark") => void } }).jarvyDesktop?.setTheme?.(mode);
 }
 /** The app's icon names, drawn with Lucide. */
 const ICONS: Record<string, LucideIcon> = {

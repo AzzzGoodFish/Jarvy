@@ -7,6 +7,8 @@ export interface JarvyDesktop {
   notify(notice: { title: string; body: string; chatId: string }): void;
   /** The count on the taskbar icon (0 clears it), as the browser tab shows it. */
   setBadge(count: number): void;
+  /** The page's light or dark theme, for the window's frame (its title bar). Clients before 0.1.1 lack it. */
+  setTheme?(mode: "light" | "dark"): void;
   /** The client asks the page to open a chat (a notification was chosen). */
   onOpenChat(listener: (chatId: string) => void): void;
 }

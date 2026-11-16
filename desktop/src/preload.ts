@@ -9,6 +9,7 @@ if (trusted && window.location.origin === trusted) {
     notify: (notice: { title: string; body: string; chatId: string }) => ipcRenderer.send("jarvy:notify", {
       title: String(notice?.title ?? "").slice(0, 200), body: String(notice?.body ?? "").slice(0, 500), chatId: String(notice?.chatId ?? "").slice(0, 80) }),
     setBadge: (count: number) => ipcRenderer.send("jarvy:badge", Math.max(0, Math.min(100000, Math.floor(Number(count) || 0)))),
+    setTheme: (mode: string) => ipcRenderer.send("jarvy:theme", mode === "dark" ? "dark" : "light"),
     onOpenChat: (listener: (chatId: string) => void) => { ipcRenderer.on("jarvy:open-chat", (_event, chatId: string) => listener(chatId)); },
   });
 }

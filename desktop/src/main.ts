@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, session, shell } from "electron";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { call, Connector, fetchRoot, type Status } from "../../src/connect/connector.js";
@@ -30,6 +30,8 @@ async function start(): Promise<void> {
   tray = new JarvyTray(ICON, { open: show, pause: setPaused, rejoin: () => void register(true), change: () => void change(), quit: () => app.quit() });
   ipc();
   config = await load();
+  // The frame starts in the theme the page last had, so it doesn't flash light before the page says so.
+  if (config?.theme) nativeTheme.themeSource = config.theme;
   if (config) { await save(config); openMain(); } else openSetup();
 }
 
@@ -43,6 +45,11 @@ function ipc(): void {
     const note = new Notification({ title: notice.title, body: notice.body, icon: ICON, silent: false });
     note.on("click", () => { show(); win?.webContents.send("jarvy:open-chat", notice.chatId); });
     note.show();
+  });
+  ipcMain.on("jarvy:theme", (event, mode: "light" | "dark") => {
+    if (!fromPage(event)) return;
+    nativeTheme.themeSource = mode;
+    if (config && config.theme !== mode) { config = { ...config, theme: mode }; void save(config); }
   });
   ipcMain.on("jarvy:badge", (event, count: number) => {
     if (!fromPage(event)) return;
@@ -86,12 +93,21 @@ function openMain(): void {
   session.defaultSession.setPermissionRequestHandler((contents, permission, grant) =>
     grant(contents.getURL().startsWith(`${origin()}/`) && ["clipboard-sanitized-write", "notifications", "fullscreen"].includes(permission)));
   win = new BrowserWindow({ width: 1280, height: 840, minWidth: 380, minHeight: 520, show: false, icon: ICON, title: "Jarvy", autoHideMenuBar: true,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#111113" : "#ffffff",
     webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
   win.once("ready-to-show", () => win?.show());
   // Jarvy's own pages stay here; any other link opens in the browser.
   const outside = (url: string) => !url.startsWith(`${origin()}/`);
   win.webContents.on("will-navigate", (event, url) => { if (outside(url)) { event.preventDefault(); external(url); } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (outside(url)) { external(url); return { action: "deny" }; } return { action: "allow" }; });
+  // As in a browser: F5 or Ctrl+R loads the page again (after Jarvy is upgraded, say), Ctrl+Shift+R without the cache.
+  win.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    const key = input.key.toLowerCase(), command = process.platform === "darwin" ? input.meta : input.control;
+    if (key !== "f5" && !(command && key === "r")) return;
+    event.preventDefault();
+    if (input.shift) win?.webContents.reloadIgnoringCache(); else win?.webContents.reload();
+  });
   win.on("close", event => {
     if (quitting) return;
     event.preventDefault(); win?.hide();
