@@ -4,28 +4,28 @@
 
 /* Code figures anywhere (messages, Markdown previews). */
 .ui-code-figure {
-  position: relative; max-width: 100%; margin: 12px 0; overflow: hidden;
-  border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-base); background: var(--ui-bg-subtle); color: var(--ui-text-primary);
+  position: relative; max-width: 100%; margin: var(--ui-space-12) 0; overflow: hidden;
+  border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-subtle); color: var(--ui-text-primary);
 }
 .ui-code-figure:last-child { margin-bottom: 0; }
-.ui-code-figure pre { max-width: 100%; margin: 0; padding: 12px 42px 12px 12px; overflow: auto; font: 12.5px/1.6 var(--ui-font-mono); tab-size: 2; text-align: left; }
+.ui-code-figure pre { max-width: 100%; margin: 0; padding: var(--ui-space-12) 42px var(--ui-space-12) var(--ui-space-12); overflow: auto; font: var(--ui-text-sm)/1.6 var(--ui-font-mono); tab-size: 2; text-align: left; }
 .ui-code-figure code { padding: 0; background: none; color: inherit; white-space: pre; overflow-wrap: normal; }
 /* The copy button sits over the code; an opaque background keeps scrolled code from showing through. */
 .ui-code-figure > .ui-iconbtn { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; background: var(--ui-bg-subtle); }
 .ui-code-figure > .ui-iconbtn .ui-icon { width: 14px; height: 14px; }
 
 /* In bubbles and flat message rows. Reading rhythm: 15px / 1.7, paragraph 12px, list items 4px. */
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) { font-size: 15px; line-height: 1.7; padding: 10px 14px; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) p { margin: 0 0 12px; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(ul, ol) { margin: 0 0 12px; padding-left: 24px; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) li + li { margin-top: 4px; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) { font-size: var(--ui-text-lg); line-height: 1.7; padding: var(--ui-space-12) var(--ui-space-16); }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) p { margin: 0 0 var(--ui-space-12); }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(ul, ol) { margin: 0 0 var(--ui-space-12); padding-left: var(--ui-space-24); }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) li + li { margin-top: var(--ui-space-4); }
 /* Markers and rules derive from the bubble's text colour: the shell's fixed secondary grey
    disappeared on the dark user bubble (list numbers looked "lost"). */
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) li::marker { color: color-mix(in srgb, currentColor 65%, transparent); }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) li > :is(ul, ol) { margin: 4px 0 0; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) li > :is(ul, ol) { margin: var(--ui-space-4) 0 0; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) li > p { margin: 0; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(h1, h2, h3, h4, h5, h6) { font-size: 16px; line-height: 1.5; margin: 16px 0 6px; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) hr { border: 0; border-top: .5px solid color-mix(in srgb, currentColor 30%, transparent); margin: 14px 0; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(h1, h2, h3, h4, h5, h6) { font-size: 16px; line-height: 1.5; margin: var(--ui-space-16) 0 var(--ui-space-6); }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) hr { border: 0; border-top: .5px solid color-mix(in srgb, currentColor 30%, transparent); margin: var(--ui-space-12) 0; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) > :first-child { margin-top: 0; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) > :last-child { margin-bottom: 0; }
 /* Also inside the box that cuts a long message (fold.tsx), or a bubble is taller under its text than over it. A flat
@@ -34,9 +34,9 @@
 .ui-message-row .ui-bubble:not(.jv-flat) > .jv-long > :last-child { margin-bottom: 0; }
 /* Code blocks: .ui-code-figure (copy button slot) with a tint from the bubble's own text
    colour, so user (dark) and Bot (light) bubbles both keep readable code. */
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure { margin: 0 0 12px; border: 0; border-radius: 8px; background: color-mix(in srgb, currentColor 7%, transparent); color: inherit; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure { margin: 0 0 var(--ui-space-12); border: 0; border-radius: var(--ui-radius-md); background: color-mix(in srgb, currentColor 7%, transparent); color: inherit; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure:last-child { margin-bottom: 0; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure pre { padding: 10px 40px 10px 12px; font: 13px/1.6 var(--ui-font-mono); white-space: pre; overflow-x: auto; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure pre { padding: var(--ui-space-12) 40px var(--ui-space-12) var(--ui-space-12); font: var(--ui-text-md)/1.6 var(--ui-font-mono); white-space: pre; overflow-x: auto; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure code { color: inherit; background: transparent; box-shadow: none; padding: 0; white-space: pre; overflow-wrap: normal; }
 .ui-bubble { --jv-bubble-bg: var(--ui-fill-bubble-agent); }
 .ui-user .ui-bubble { --jv-bubble-bg: var(--ui-fill-bubble-user); }
@@ -48,8 +48,8 @@
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) .ui-code-figure > .ui-iconbtn:hover { background: color-mix(in srgb, currentColor 16%, var(--jv-bubble-bg)); color: inherit; }
 :is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) a { color: var(--ui-text-accent); }
 .ui-user .ui-bubble a { color: inherit; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) blockquote { border-left: 2px solid color-mix(in srgb, currentColor 35%, transparent); padding-left: 10px; margin: 0 0 12px; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) table { display: block; max-width: 100%; overflow-x: auto; margin: 0 0 12px; border-collapse: collapse; }
-:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(td, th) { padding: 4px 8px; border-bottom: .5px solid color-mix(in srgb, currentColor 30%, transparent); text-align: left; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) blockquote { border-left: 2px solid color-mix(in srgb, currentColor 35%, transparent); padding-left: var(--ui-space-12); margin: 0 0 var(--ui-space-12); }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) table { display: block; max-width: 100%; overflow-x: auto; margin: 0 0 var(--ui-space-12); border-collapse: collapse; }
+:is(.ui-message-row .ui-bubble, .ui-bubble.jv-flat) :is(td, th) { padding: var(--ui-space-4) var(--ui-space-8); border-bottom: .5px solid color-mix(in srgb, currentColor 30%, transparent); text-align: left; }
 
-@media (max-width: 620px) { .ui-code-figure pre { font-size: 11.5px; } }
+@media (max-width: 620px) { .ui-code-figure pre { font-size: var(--ui-text-sm); } }

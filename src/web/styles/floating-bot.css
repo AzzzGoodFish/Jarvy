@@ -16,7 +16,7 @@
 .jv-figure-mark[data-mark="ask"] { top: 4%; right: 2%; display: grid; place-items: center; width: 24%; aspect-ratio: 1; border-radius: 50%;
   background: var(--ui-bg-base); color: var(--ui-text-primary); font-size: 15cqw; font-weight: 700; line-height: 1;
   box-shadow: 0 0 0 1px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .12); }
-.jv-figure-mark[data-mark="zz"] { top: 0; right: 4%; display: flex; align-items: flex-end; gap: 1px; color: var(--ui-text-tertiary);
+.jv-figure-mark[data-mark="zz"] { top: 0; right: 4%; display: flex; align-items: flex-end; gap: var(--ui-space-2); color: var(--ui-text-tertiary);
   font-size: 18cqw; font-weight: 700; font-style: italic; line-height: 1; animation: jv-mark-drift 3.2s ease-in-out infinite; }
 .jv-figure-mark[data-mark="zz"] i:first-child { font-size: .65em; }
 .jv-figure-mark[data-mark="sweat"] { top: 18%; right: 12%; width: 12%; aspect-ratio: 20 / 28; animation: jv-mark-drip 1.4s ease-in infinite; }
@@ -32,7 +32,7 @@
 @keyframes jv-mark-twinkle { 50% { opacity: .45; transform: scale(.94); } }
 @media (prefers-reduced-motion: reduce) { .jv-figure-mark { animation: none !important; } }
 /* Mobile: the sidebar toggle that lived in the title bar floats top-left. */
-.jv-floating-nav { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: 10px; background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
+.jv-floating-nav { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: var(--ui-radius-lg); background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .08); }
 /* At the top of the history nothing sits under the cat in its default spot. */
 .jarvy-transcript { padding-top: 100px; }
@@ -41,6 +41,6 @@
   .jarvy-transcript { padding-top: 76px; }
 }
 /* The Bot's DMs with other Bots (bot/BotDirects.tsx), top-left of its DM; on mobile beside the sidebar toggle. */
-.jv-floating-dms { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: 10px; background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
+.jv-floating-dms { position: absolute; top: 8px; left: 8px; z-index: 5; border-radius: var(--ui-radius-lg); background: color-mix(in srgb, var(--ui-bg-base) 82%, transparent);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 .5px var(--ui-border-weak), 0 1px 3px rgb(0 0 0 / .08); }
 @media (max-width: 620px) { .jv-floating-dms { left: 52px; } }

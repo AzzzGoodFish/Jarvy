@@ -1,39 +1,39 @@
 /* Settings → Environments: SSH machines (A57). Rows, grants and confirmations share secrets.css. */
 /* The form is as wide as the machines below it; the address row is the host, then a narrow port. */
-.jv-machine-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 14px; }
-.jv-machine-fields .jv-machine-address { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 14px; }
+.jv-machine-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--ui-space-12) var(--ui-space-12); }
+.jv-machine-fields .jv-machine-address { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: var(--ui-space-12); }
 .jv-machine-fields .jv-machine-wide { grid-column: 1 / -1; }
-.jv-machine-where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; font-size: 13px; }
-.jv-machine-where code { font-size: 12px; color: var(--jv-muted); }
-.jv-machine-prints { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--jv-line); border-radius: 8px; background: var(--jv-field); }
-.jv-machine-prints code { font-size: 12px; color: var(--jv-text); overflow-wrap: anywhere; }
+.jv-machine-where { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ui-space-4) var(--ui-space-8); margin: 0; font-size: var(--ui-text-md); }
+.jv-machine-where code { font-size: var(--ui-text-sm); color: var(--jv-muted); }
+.jv-machine-prints { display: grid; gap: var(--ui-space-4); padding: var(--ui-space-8) var(--ui-space-12); border: 1px solid var(--jv-line); border-radius: var(--ui-radius-md); background: var(--jv-field); }
+.jv-machine-prints code { font-size: var(--ui-text-sm); color: var(--jv-text); overflow-wrap: anywhere; }
 .jv-machine-prints code[data-new] { color: var(--ui-text-warning); }
 .jv-secret-grants > .jv-hint { margin: 0; }
 /* Jarvy's public key for a machine (A59): one line to copy into authorized_keys. */
-.jv-machine-key { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--jv-line); border-radius: 8px; background: var(--jv-field); }
-.jv-machine-key code { flex: 1; min-width: 0; font-size: 13px; color: var(--jv-text); overflow-wrap: anywhere; user-select: all; }
-.jv-machine-key .jv-machine-copy { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; font-size: 13px; }
+.jv-machine-key { display: flex; align-items: flex-start; gap: var(--ui-space-8); padding: var(--ui-space-8) var(--ui-space-12); border: 1px solid var(--jv-line); border-radius: var(--ui-radius-md); background: var(--jv-field); }
+.jv-machine-key code { flex: 1; min-width: 0; font-size: var(--ui-text-md); color: var(--jv-text); overflow-wrap: anywhere; user-select: all; }
+.jv-machine-key .jv-machine-copy { flex: none; display: inline-flex; align-items: center; gap: var(--ui-space-4); height: 26px; padding: 0 var(--ui-space-8); font-size: var(--ui-text-md); }
 .jv-machine-key .jv-machine-copy svg { width: 14px; height: 14px; }
 .jv-machine-login { align-self: flex-start; }
-.jv-machine-password { display: grid; gap: 8px; }
+.jv-machine-password { display: grid; gap: var(--ui-space-8); }
 .jv-secret-grants > .jv-hint[data-warn] { color: var(--ui-text-warning); }
 @media (max-width: 600px) {
   .jv-machine-fields { grid-template-columns: minmax(0, 1fr); }
 }
 /* The request card (environment/MachineRequestCard.tsx); the panel is question.css, the password field secret-request.css. */
-.jv-machine-card-field { display: grid; gap: 4px; }
-.jv-machine-card-field > span { font-size: 12px; color: var(--ui-text-secondary); }
+.jv-machine-card-field { display: grid; gap: var(--ui-space-4); }
+.jv-machine-card-field > span { font-size: var(--ui-text-sm); color: var(--ui-text-secondary); }
 .jv-machine-card-field .jv-machine-prints { border: 0; background: var(--ui-fill-control-track); }
-.jv-machine-card-field > small { font-size: 12px; line-height: 17px; color: var(--ui-text-tertiary); }
+.jv-machine-card-field > small { font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); color: var(--ui-text-tertiary); }
 .jv-machine-card-field .jv-machine-key { border: 0; background: var(--ui-fill-control-track); }
 /* Machine details in three parts: the machine (name, directory, description, its own Save), how Jarvy connects, who may use it. */
 .jv-machine-edit .jv-machine-description { grid-column: 1 / -1; }
 .jv-machine-edit textarea { min-height: 72px; resize: vertical; }
-.jv-machine-part { display: grid; gap: 14px; padding-top: 14px; border-top: 1px solid var(--jv-line); }
+.jv-machine-part { display: grid; gap: var(--ui-space-12); padding-top: var(--ui-space-16); border-top: 1px solid var(--jv-line); }
 .jv-machine-fingerprint { align-items: center; }
-.jv-machine-codes { flex: 1; min-width: 0; display: grid; gap: 4px; }
-.jv-machine-codes code { font-size: 13px; color: var(--jv-text); overflow-wrap: anywhere; }
+.jv-machine-codes { flex: 1; min-width: 0; display: grid; gap: var(--ui-space-4); }
+.jv-machine-codes code { font-size: var(--ui-text-md); color: var(--jv-text); overflow-wrap: anywhere; }
 .jv-machine-codes code[data-new] { color: var(--ui-text-warning); }
 /* On the Environments page the machine's address and fingerprints read at the page's size; a request card keeps the card's. */
-.jv-envs-detail .jv-machine-where { font-size: 14px; }
-.jv-envs-detail :is(.jv-machine-where, .jv-machine-prints) code { font-size: 13px; }
+.jv-envs-detail .jv-machine-where { font-size: var(--ui-text-base); }
+.jv-envs-detail :is(.jv-machine-where, .jv-machine-prints) code { font-size: var(--ui-text-md); }

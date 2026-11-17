@@ -1,35 +1,35 @@
-.jv-history-detail-head { display: flex; gap: 14px; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--jv-line); }
-.jv-history-detail-head h3 { margin: 0; font-size: 13px; font-weight: 600; }
-.jv-history-detail-head h3 span { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--jv-muted); }
-.jv-history-detail-head p { margin: 5px 0 0; font-size: 11px; color: var(--jv-muted); }
-.jv-history-detail-head [role=tablist] { display: flex; flex: none; gap: 2px; }
+.jv-history-detail-head { display: flex; gap: var(--ui-space-12); justify-content: space-between; align-items: center; padding: var(--ui-space-16) var(--ui-space-20); border-bottom: 1px solid var(--jv-line); }
+.jv-history-detail-head h3 { margin: 0; font-size: var(--ui-text-md); font-weight: 600; }
+.jv-history-detail-head h3 span { margin-left: var(--ui-space-8); font-size: var(--ui-text-sm); font-weight: 400; color: var(--jv-muted); }
+.jv-history-detail-head p { margin: var(--ui-space-4) 0 0; font-size: var(--ui-text-xs); color: var(--jv-muted); }
+.jv-history-detail-head [role=tablist] { display: flex; flex: none; gap: var(--ui-space-2); }
 /* Above the shared button look, which would otherwise clear it. */
 .jv-history-detail-head [role=tab][aria-selected=true] { background: var(--jv-selected); color: var(--jv-text); }
-.jv-history-detail-scroll { overflow: auto; padding: 20px; flex: 1; min-height: 0; }
-.jv-history-block { margin-bottom: 22px; min-width: 0; }
-.jv-history-block h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 11px; color: var(--jv-muted); font-weight: 400; }
-.jv-history-block h4 strong { color: var(--jv-text); font-size: 12px; font-weight: 500; }
+.jv-history-detail-scroll { overflow: auto; padding: var(--ui-space-20); flex: 1; min-height: 0; }
+.jv-history-block { margin-bottom: var(--ui-space-20); min-width: 0; }
+.jv-history-block h4 { display: flex; align-items: center; gap: var(--ui-space-8); margin: 0 0 var(--ui-space-8); font-size: var(--ui-text-xs); color: var(--jv-muted); font-weight: 400; }
+.jv-history-block h4 strong { color: var(--jv-text); font-size: var(--ui-text-sm); font-weight: 500; }
 .jv-history-text { margin: 0; color: var(--jv-text); font: inherit; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Laid out markup (markup.ts): monospace, so its indents line up, each line moved in by its depth and wrapping there. */
-.jv-history-markup { font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.jv-history-markup { font: var(--ui-text-sm)/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .jv-history-markup > div { white-space: pre-wrap; overflow-wrap: anywhere; }
-.jv-history-json { margin: 0; padding: 12px; border-radius: 5px; background: var(--jv-field); color: var(--jv-text); font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-.jv-history-call { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 11px; color: var(--jv-muted); }
+.jv-history-json { margin: 0; padding: var(--ui-space-12); border-radius: var(--ui-radius-xs); background: var(--jv-field); color: var(--jv-text); font: var(--ui-text-xs)/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.jv-history-call { display: flex; flex-wrap: wrap; gap: var(--ui-space-8); align-items: center; margin-bottom: var(--ui-space-8); font-size: var(--ui-text-xs); color: var(--jv-muted); }
 .jv-history-call code { overflow-wrap: anywhere; }
-.jv-history-call button { border: 0; padding: 2px 4px; border-radius: 3px; color: var(--jv-accent); background: transparent; font: inherit; cursor: pointer; }
+.jv-history-call button { border: 0; padding: var(--ui-space-2) var(--ui-space-4); border-radius: var(--ui-radius-xs); color: var(--jv-accent); background: transparent; font: inherit; cursor: pointer; }
 .jv-history-call button:hover { background: var(--jv-hover); }
-.jv-history-block .jv-history-block { margin: 12px 0; }
+.jv-history-block .jv-history-block { margin: var(--ui-space-12) 0; }
 .jv-history-block .jv-history-block h4 { display: none; }
 .jv-history-image { display: block; max-width: 100%; max-height: 420px; object-fit: contain; }
-.jv-history-fold { margin-top: 16px; }
-.jv-history-fold summary, .jv-history-block summary { font-size: 11px; cursor: pointer; color: var(--jv-muted); padding: 6px 0; }
-.jv-history-fold[open] summary { margin-bottom: 6px; }
-.jv-history-model { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; font-size: 11px; color: var(--jv-muted); }
-.jv-history-model strong { font-size: 12px; font-weight: 500; color: var(--jv-text); overflow-wrap: anywhere; }
-.jv-history-model small { font-size: 11px; }
-.jv-history-note { font-size: 11px; color: var(--jv-muted); margin: 16px 0; }
+.jv-history-fold { margin-top: var(--ui-space-16); }
+.jv-history-fold summary, .jv-history-block summary { font-size: var(--ui-text-xs); cursor: pointer; color: var(--jv-muted); padding: var(--ui-space-6) 0; }
+.jv-history-fold[open] summary { margin-bottom: var(--ui-space-6); }
+.jv-history-model { display: flex; align-items: baseline; gap: var(--ui-space-8); flex-wrap: wrap; margin-bottom: var(--ui-space-24); font-size: var(--ui-text-xs); color: var(--jv-muted); }
+.jv-history-model strong { font-size: var(--ui-text-sm); font-weight: 500; color: var(--jv-text); overflow-wrap: anywhere; }
+.jv-history-model small { font-size: var(--ui-text-xs); }
+.jv-history-note { font-size: var(--ui-text-xs); color: var(--jv-muted); margin: var(--ui-space-16) 0; }
 .jv-history-failure { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--jv-danger); }
-.jv-history-error-tag { font-size: 10px; color: var(--jv-danger); }
+.jv-history-error-tag { font-size: var(--ui-text-2xs); color: var(--jv-danger); }
 @media (max-width: 640px) {
-.jv-history-detail-head, .jv-history-detail-scroll { padding: 14px; }
+.jv-history-detail-head, .jv-history-detail-scroll { padding: var(--ui-space-16); }
 }

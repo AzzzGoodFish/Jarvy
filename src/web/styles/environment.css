@@ -1,44 +1,44 @@
 /* Work environments in Bot info (A50, A68): the Bot's Docker sandbox, what it is made of and its actions, then the
    external environments it may use, each with a switch at the row's end. */
 .jv-env-sandbox .jv-row-text > span { white-space: normal; }
-.jv-list .jv-list-row.jv-env-fact { min-height: 0; padding-top: 6px; padding-bottom: 6px; border-top: 0; gap: 12px; font-size: 13px; }
+.jv-list .jv-list-row.jv-env-fact { min-height: 0; padding-top: var(--ui-space-6); padding-bottom: var(--ui-space-6); border-top: 0; gap: var(--ui-space-12); font-size: var(--ui-text-md); }
 .jv-env-fact > span { flex: none; color: var(--jv-muted); }
 .jv-env-fact > code { flex: 1; min-width: 0; text-align: right; color: var(--jv-text); overflow-wrap: anywhere; }
-.jv-env-confirm { margin-top: 8px; padding: 12px 14px; border: 1px solid var(--jv-line); border-radius: 10px; background: var(--jv-field); }
-.jv-env-confirm > strong { display: block; font-size: 14px; color: var(--jv-text); }
-.jv-env-confirm > p { margin: 4px 0 10px; font-size: 14px; line-height: 1.5; color: var(--jv-dim); }
-.jv-env-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.jv-env-confirm { margin-top: var(--ui-space-8); padding: var(--ui-space-12) var(--ui-space-16); border: 1px solid var(--jv-line); border-radius: var(--ui-radius-lg); background: var(--jv-field); }
+.jv-env-confirm > strong { display: block; font-size: var(--ui-text-base); color: var(--jv-text); }
+.jv-env-confirm > p { margin: var(--ui-space-4) 0 var(--ui-space-8); font-size: var(--ui-text-base); line-height: 1.5; color: var(--jv-dim); }
+.jv-env-confirm-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-8); }
 .jv-env-away { color: var(--jv-text); }
-.jv-list .jv-list-row.jv-env-details { flex-direction: column; align-items: stretch; gap: 10px; min-height: 0; }
-.jv-env-details > p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--jv-dim); }
-.jv-env-actions { display: flex; gap: 8px; }
+.jv-list .jv-list-row.jv-env-details { flex-direction: column; align-items: stretch; gap: var(--ui-space-8); min-height: 0; }
+.jv-env-details > p { margin: 0; font-size: var(--ui-text-base); line-height: 1.5; color: var(--jv-dim); }
+.jv-env-actions { display: flex; gap: var(--ui-space-8); }
 .jv-env-details .jv-env-confirm { margin-top: 0; }
-.jv-env-switch { position: relative; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--ui-fill-control-track); box-shadow: inset 0 0 0 1px var(--jv-line); transition: background var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-env-switch { position: relative; flex: none; width: 34px; height: 20px; border-radius: var(--ui-radius-full); background: var(--ui-fill-control-track); box-shadow: inset 0 0 0 1px var(--jv-line); transition: background var(--ui-duration-fast) var(--ui-ease-out); }
 .jv-env-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--ui-fill-control-knob); box-shadow: var(--ui-shadow-sm); transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
 .jv-env-access[aria-checked="true"] .jv-env-switch { background: var(--ui-fill-control-checked); box-shadow: none; }
 .jv-env-access[aria-checked="true"] .jv-env-switch::after { transform: translateX(14px); }
 .jv-env-access:disabled { cursor: progress; opacity: .7; }
 /* Resource limits (A75): a row that opens its form in place, and what the sandbox uses now. */
 .jv-env-fact > .jv-env-value { flex: 1; min-width: 0; text-align: right; color: var(--jv-text); overflow-wrap: anywhere; }
-.jv-env-limits .jv-row-chevron { flex: none; width: 14px; height: 14px; margin-left: -4px; transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-env-limits .jv-row-chevron { flex: none; width: 14px; height: 14px; margin-left: calc(-1 * var(--ui-space-4)); transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
 .jv-env-limits[aria-expanded="true"] .jv-row-chevron { transform: rotate(90deg); }
-.jv-env-limits-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--jv-line); border-radius: 10px; }
-.jv-env-limits-form > p { margin: 0; font-size: 14px; line-height: 1.5; }
-.jv-env-limit-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.jv-env-limits-form { display: flex; flex-direction: column; gap: var(--ui-space-8); padding: var(--ui-space-12) var(--ui-space-16); border: 1px solid var(--jv-line); border-radius: var(--ui-radius-lg); }
+.jv-env-limits-form > p { margin: 0; font-size: var(--ui-text-base); line-height: 1.5; }
+.jv-env-limit-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-12); }
 .jv-env-warn { color: var(--ui-text-warning); }
 /* A85: the sandbox's type, a container or a VM, chosen in its row. */
-.jv-list .jv-list-row.jv-env-type { align-items: center; padding-top: 8px; padding-bottom: 8px; }
+.jv-list .jv-list-row.jv-env-type { align-items: center; padding-top: var(--ui-space-8); padding-bottom: var(--ui-space-8); }
 .jv-env-type > .jv-seg { margin-left: auto; }
-.jv-env-type > .jv-seg > button { padding: 3px 12px; font-size: 13px; }
-.jv-env-details > p.jv-env-type-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
-.jv-env-type-note > button { height: auto; padding: 0; font-size: 14px; }
+.jv-env-type > .jv-seg > button { padding: var(--ui-space-4) var(--ui-space-12); font-size: var(--ui-text-md); }
+.jv-env-details > p.jv-env-type-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--ui-space-6); }
+.jv-env-type-note > button { height: auto; padding: 0; font-size: var(--ui-text-base); }
 /* What a running sandbox uses (A75, A85): a row per resource, its figure and a bar under it; a VM's memory and disk
    open what they take of this machine. */
-.jv-list .jv-list-row.jv-env-meter { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; row-gap: 5px; }
+.jv-list .jv-list-row.jv-env-meter { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; row-gap: var(--ui-space-4); }
 /* The last one keeps the bar off the line under it. */
-.jv-list .jv-list-row.jv-env-meter:not(:has(+ .jv-env-meter)) { padding-bottom: 14px; }
-.jv-env-meter > .jv-env-bar { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--jv-field); overflow: hidden; }
+.jv-list .jv-list-row.jv-env-meter:not(:has(+ .jv-env-meter)) { padding-bottom: var(--ui-space-16); }
+.jv-env-meter > .jv-env-bar { grid-column: 1 / -1; height: 4px; border-radius: var(--ui-radius-full); background: var(--jv-field); overflow: hidden; }
 .jv-env-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--jv-muted); }
 .jv-env-bar > span[data-high] { background: var(--ui-text-warning); }
 button.jv-env-meter { width: 100%; text-align: left; cursor: help; }
-.jv-env-tip { z-index: 100; max-width: min(280px, calc(100vw - 24px)); padding: 6px 10px; background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: 8px; box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: 13px; line-height: 1.5; }
+.jv-env-tip { z-index: 100; max-width: min(280px, calc(100vw - 24px)); padding: var(--ui-space-6) var(--ui-space-12); background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: var(--ui-radius-md); box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: var(--ui-text-md); line-height: 1.5; }

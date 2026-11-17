@@ -19,7 +19,7 @@ html[data-desktop] :is(.ui-chat:not(:has(.ui-chat-header)), .jv-home, .jv-follow
 html[data-desktop] :is(.jv-floating-dms, .jv-floating-nav) { -webkit-app-region: no-drag; app-region: no-drag; }
 /* The header under the window's buttons (desktop.ts marks it) keeps clear of them, with a short line between, as in
    Discord. */
-html[data-desktop] [data-under-controls] { position: relative; padding-right: calc(var(--jv-controls) + 10px); }
+html[data-desktop] [data-under-controls] { position: relative; padding-right: calc(var(--jv-controls) + var(--ui-space-12)); }
 html[data-desktop] [data-under-controls]::after {
   content: ""; position: absolute; top: 50%; right: var(--jv-controls); width: 1px; height: 20px; transform: translateY(-50%); background: var(--ui-border-default);
 }
