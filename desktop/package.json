@@ -1,7 +1,7 @@
 {
   "name": "jarvy-desktop",
   "productName": "Jarvy",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "The Jarvy desktop client: Jarvy in a window, and this computer connected to it for Bots to work on.",
   "license": "Apache-2.0",
   "author": "AzzzGoodFish",

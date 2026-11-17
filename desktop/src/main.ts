@@ -16,7 +16,7 @@ let config: Config | null = null, win: BrowserWindow | null = null, setup: Brows
 let connector: Connector | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
 /** The page can draw the title bar on Windows and Linux (macOS keeps its own), once it has said it can: a Jarvy from
  * before that keeps the system's. `frameless` is the window's state, `heard` whether this load of the page said so. */
-const CAN_FRAME = process.platform !== "darwin", TITLEBAR = 32;
+const CAN_FRAME = process.platform !== "darwin", TITLEBAR = 52;
 let frameless = false, heard = false;
 const origin = () => config ? new URL(config.server).origin : null;
 

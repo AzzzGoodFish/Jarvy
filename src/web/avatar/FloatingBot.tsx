@@ -82,7 +82,9 @@ export function FloatingBot({ bot, chatId, status, area, avoid, lastMine, onOpen
     const box = area.current!.getBoundingClientRect(), size = button.current!.offsetWidth;
     const bottom = avoid.current ? avoid.current.getBoundingClientRect().top - box.top : box.height;
     // Above the box is the room a lift or a hop rises into; the chat area cuts off what reaches past its top.
-    const minY = Math.max(MARGIN, Math.round(ROOM * size));
+    // In the desktop client the top row moves the window and holds its buttons (styles/desktop.css): the cat stays below.
+    const frame = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--jv-titlebar")) || 0;
+    const minY = frame + Math.max(MARGIN, Math.round(ROOM * size));
     const maxX = Math.max(MARGIN, box.width - size - MARGIN), maxY = Math.max(minY, bottom - size - MARGIN);
     return { minX: MARGIN, minY, maxX, maxY };
   }
