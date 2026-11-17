@@ -122,7 +122,7 @@ function makeWindow(url: string, bounds?: Electron.Rectangle, shown = true): voi
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111113" : "#ffffff",
     // No system title bar: the page draws the strip at the top, the window's buttons are drawn over its right end in
     // its colours (the last ones the page gave, until it says again).
-    ...(frameless ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: config!.frame?.background ?? (nativeTheme.shouldUseDarkColors ? "#2d323b" : "#f6f7f9"),
+    ...(frameless ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: config!.frame?.background ?? (nativeTheme.shouldUseDarkColors ? "#282c34" : "#fcfdfe"),
       symbolColor: config!.frame?.symbol ?? (nativeTheme.shouldUseDarkColors ? "#b9c3d1" : "#5b6472"), height: TITLEBAR } } : {}),
     webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
   if (shown) win.once("ready-to-show", () => win?.show());
