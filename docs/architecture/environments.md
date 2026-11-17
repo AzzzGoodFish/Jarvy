@@ -120,7 +120,7 @@ Computers the owner's desktop client connects (A96), 「电脑」 in the interfa
 
 ## The desktop client
 
-`desktop/` (A96) is an Electron app, released apart from the npm package (`desktop-v*` tags; `.github/workflows/desktop.yml` builds the Windows NSIS installer and the Linux AppImage on GitHub Actions, unsigned).
+`desktop/` (A96) is an Electron app with Jarvy's own version (fish m3252–m3253): `.github/workflows/desktop.yml` builds the Windows NSIS installer and the Linux AppImage on GitHub Actions, unsigned, and for a Jarvy release tag (`v*`) puts them into that GitHub Release beside the npm package. `desktop/package.json` stays at 0.0.0; `build.mjs` and `dist.mjs` take the version from the root `package.json`. A client works with other Jarvy versions too: the page comes from Jarvy, and the client only keeps the window and the connection.
 
 - **The page is the web app's**: the window loads Jarvy's own address; nothing of the interface is in the client. `contextIsolation` on, `nodeIntegration` off, `sandbox` on. The preload gives `window.jarvyDesktop` (`src/contract/desktop.ts`: `notify`, `setBadge`, `onOpenChat`, `version`) only to that origin; the page gets no Node. Links elsewhere open in the browser.
 - **Trust**: the first run asks for the address and, over HTTPS, shows the root certificate's SHA-256 to compare with Settings › 网络. The window then accepts, for that host, only certificates issued by that root (`setCertificateVerifyProc`), whatever the system trusts.
