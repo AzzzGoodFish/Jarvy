@@ -14,7 +14,8 @@ html[data-desktop] :is(.jv-rail, .ui-sidebar-header, .ui-chat-header, .ui-pane-h
 }
 /* A DM has no header: its top row is left free to move the window, the button for the Bot's DMs stays in it. */
 html[data-desktop] .ui-chat:not(:has(.ui-chat-header)) { padding-top: var(--jv-titlebar); }
-html[data-desktop] :is(.ui-chat:not(:has(.ui-chat-header)), .jv-home)::before { content: ""; position: absolute; top: 0; right: 0; left: 0; height: var(--jv-titlebar); -webkit-app-region: drag; app-region: drag; }
+/* Followed threads with none open: the empty side has no header, so its top moves the window too. */
+html[data-desktop] :is(.ui-chat:not(:has(.ui-chat-header)), .jv-home, .jv-followed-page:not([data-open]))::before { content: ""; position: absolute; top: 0; right: 0; left: 0; height: var(--jv-titlebar); -webkit-app-region: drag; app-region: drag; }
 html[data-desktop] :is(.jv-floating-dms, .jv-floating-nav) { -webkit-app-region: no-drag; app-region: no-drag; }
 /* The header under the window's buttons (desktop.ts marks it) keeps clear of them, with a short line between, as in
    Discord. */
