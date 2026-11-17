@@ -6,6 +6,8 @@ html[data-desktop] {
   --jv-titlebar: 52px; --jv-vh: calc(100dvh - var(--jv-titlebar));
   --jv-controls: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
 }
+/* The top row is part of these, so they still take the whole window. */
+html[data-desktop] :is(#root > .ui-app, #root > .jarvy-loading, .jv-login, .jv-insecure-shell) { height: 100dvh; }
 html[data-desktop] :is(.jv-rail, .ui-sidebar-header, .ui-chat-header, .ui-pane-header, .jv-envs-head) { -webkit-app-region: drag; app-region: drag; }
 html[data-desktop] :is(.jv-rail, .ui-sidebar-header, .ui-chat-header, .ui-pane-header, .jv-envs-head) :is(button, a, input, textarea, select, label, [role="button"], [role="tab"], [tabindex]) {
   -webkit-app-region: no-drag; app-region: no-drag;
