@@ -1,7 +1,7 @@
 /* The desktop client's frame (A96): the window has no system title bar. The interface's own top row is the title
    bar: the headers of the columns (and the rail, and the top of the agent's page) move the window, their buttons and
    fields stay buttons and fields, and the window's buttons sit at the right end of that row, in the chat's colour.
-   Whatever is rightmost in the row keeps clear of them (--jv-controls). Dialogs keep clear of the row (--jv-vh). */
+   The header under them keeps clear of them (--jv-controls). Dialogs keep clear of the row (--jv-vh). */
 html[data-desktop] {
   --jv-titlebar: 52px; --jv-vh: calc(100dvh - var(--jv-titlebar));
   --jv-controls: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
@@ -13,12 +13,13 @@ html[data-desktop] :is(.jv-rail, .ui-sidebar-header, .ui-chat-header, .ui-pane-h
   -webkit-app-region: no-drag; app-region: no-drag;
 }
 /* A DM has no header: its top row is left free to move the window, the button for the Bot's DMs stays in it. */
-html[data-desktop] .ui-chat:not(:has(> header)) { padding-top: var(--jv-titlebar); }
-html[data-desktop] :is(.ui-chat:not(:has(> header)), .jv-home)::before { content: ""; position: absolute; top: 0; right: 0; left: 0; height: var(--jv-titlebar); -webkit-app-region: drag; app-region: drag; }
+html[data-desktop] .ui-chat:not(:has(.ui-chat-header)) { padding-top: var(--jv-titlebar); }
+html[data-desktop] :is(.ui-chat:not(:has(.ui-chat-header)), .jv-home)::before { content: ""; position: absolute; top: 0; right: 0; left: 0; height: var(--jv-titlebar); -webkit-app-region: drag; app-region: drag; }
 html[data-desktop] :is(.jv-floating-dms, .jv-floating-nav) { -webkit-app-region: no-drag; app-region: no-drag; }
-html[data-desktop] :is(.ui-app:not([data-pane]) .ui-chat-header, .ui-pane-header, .jv-envs-head) { position: relative; padding-right: calc(var(--jv-controls) + 10px); }
-/* A short line between the row's own buttons and the window's, as in Discord. */
-html[data-desktop] :is(.ui-app:not([data-pane]) .ui-chat-header, .ui-pane-header, .jv-envs-head)::after {
+/* The header under the window's buttons (desktop.ts marks it) keeps clear of them, with a short line between, as in
+   Discord. */
+html[data-desktop] [data-under-controls] { position: relative; padding-right: calc(var(--jv-controls) + 10px); }
+html[data-desktop] [data-under-controls]::after {
   content: ""; position: absolute; top: 50%; right: var(--jv-controls); width: 1px; height: 20px; transform: translateY(-50%); background: var(--ui-border-default);
 }
 html[data-desktop] .jv-login-corner { right: calc(var(--jv-controls) + 12px); top: 10px; }

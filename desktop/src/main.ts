@@ -16,7 +16,7 @@ let config: Config | null = null, win: BrowserWindow | null = null, setup: Brows
 let connector: Connector | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
 /** The page can draw the title bar on Windows and Linux (macOS keeps its own), once it has said it can: a Jarvy from
  * before that keeps the system's. `frameless` is the window's state, `heard` whether this load of the page said so. */
-const CAN_FRAME = process.platform !== "darwin", TITLEBAR = 52;
+const CAN_FRAME = process.platform !== "darwin", TITLEBAR = 51;
 let frameless = false, heard = false;
 const origin = () => config ? new URL(config.server).origin : null;
 
@@ -51,13 +51,14 @@ function ipc(): void {
     note.on("click", () => { show(); win?.webContents.send("jarvy:open-chat", notice.chatId); });
     note.show();
   });
-  ipcMain.on("jarvy:theme", (event, mode: "light" | "dark", frame?: { background: string | null; symbol: string | null }) => {
+  ipcMain.on("jarvy:theme", (event, mode: "light" | "dark", frame?: { background: string | null; symbol: string | null; height?: number | null }) => {
     if (!fromPage(event)) return;
     nativeTheme.themeSource = mode;
-    const colours = frame?.background && frame.symbol ? { background: frame.background, symbol: frame.symbol } : undefined;
+    // The page says how tall the window's buttons are (its top row, less the line under it).
+    const colours = frame?.background && frame.symbol ? { background: frame.background, symbol: frame.symbol, ...(frame.height ? { height: frame.height } : {}) } : undefined;
     if (colours) heard = true;
-    if (frameless && colours) win?.setTitleBarOverlay({ color: colours.background, symbolColor: colours.symbol, height: TITLEBAR });
-    if (config && (config.theme !== mode || (colours && config.frame?.background !== colours.background))) { config = { ...config, theme: mode, frame: colours ?? config.frame }; void save(config); }
+    if (frameless && colours) win?.setTitleBarOverlay({ color: colours.background, symbolColor: colours.symbol, height: colours.height ?? TITLEBAR });
+    if (config && (config.theme !== mode || (colours && (config.frame?.background !== colours.background || config.frame?.height !== colours.height)))) { config = { ...config, theme: mode, frame: colours ?? config.frame }; void save(config); }
     // The page can draw the title bar: from now on the window has none (made again once, where it was).
     if (colours && CAN_FRAME && !frameless && config) { config = { ...config, pageFrame: true }; void save(config); setImmediate(remake); }
   });
@@ -123,7 +124,7 @@ function makeWindow(url: string, bounds?: Electron.Rectangle, shown = true): voi
     // No system title bar: the page draws the strip at the top, the window's buttons are drawn over its right end in
     // its colours (the last ones the page gave, until it says again).
     ...(frameless ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: config!.frame?.background ?? (nativeTheme.shouldUseDarkColors ? "#282c34" : "#fcfdfe"),
-      symbolColor: config!.frame?.symbol ?? (nativeTheme.shouldUseDarkColors ? "#b9c3d1" : "#5b6472"), height: TITLEBAR } } : {}),
+      symbolColor: config!.frame?.symbol ?? (nativeTheme.shouldUseDarkColors ? "#b9c3d1" : "#5b6472"), height: config!.frame?.height ?? TITLEBAR } } : {}),
     webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
   if (shown) win.once("ready-to-show", () => win?.show());
   // A frameless window whose page doesn't draw the title bar (Jarvy went back to an older version): the system's again.
