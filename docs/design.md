@@ -10,15 +10,14 @@ Every screen is built from the same few values and the same few parts. A change 
 
 ### Spacing
 
-Padding, margin and gap take one of ten steps:
+Padding, margin and gap take one of nine steps, on a 4 px grid with 2 and 6 for tight places:
 
 | Variable | px | For |
 | --- | --- | --- |
 | `--ui-space-2` | 2 | Hairline gaps: between stacked lines of one row, a badge from its text |
 | `--ui-space-4` | 4 | Inside a control: icon to label, between icon buttons |
 | `--ui-space-6` | 6 | A row's vertical padding; label to its field |
-| `--ui-space-8` | 8 | A row's horizontal padding; between items in a row |
-| `--ui-space-10` | 10 | Leading icon or avatar to the row's text |
+| `--ui-space-8` | 8 | A row's horizontal padding; between items in a row; an icon or avatar to its text |
 | `--ui-space-12` | 12 | A list column's inset; a card's padding |
 | `--ui-space-16` | 16 | A content column's inset; between fields; a panel's padding |
 | `--ui-space-20` | 20 | A dialog's inset |
@@ -45,7 +44,9 @@ Each size comes with its line height for single-line UI:
 | `--ui-text-xl` | 17 / 24 | A dialog's page title, a Bot's name in Bot info |
 | `--ui-text-display` | 22 / 28 | Empty states, the agent's page, sign-in |
 
-Weights: 400 for text, 500 for names (rows, tabs, buttons, pane titles), 600 for labels that head something (section titles, field groups, badges), 650 for titles (column headers, dialog titles, a message's author). Nothing heavier.
+The sizes follow the macOS text styles (body 13, title 15, 17 and 22), with 14 for body text as the web reads it.
+
+Weights are the three every system font has, so they look the same on macOS, Windows and Linux: 400 for text, 500 for names (rows, tabs, buttons), 600 for titles and labels that head something (column headers, dialog titles, section titles, a message's author, badges).
 
 Long text reads at `--ui-leading-reading` (1.6): messages and Markdown.
 
@@ -62,11 +63,11 @@ Exceptions, kept where they are:
 | `--ui-radius-xs` | 4 | Tags, inline code, focus outlines inside a row |
 | `--ui-radius-sm` | 6 | Small controls inside a row: a segmented control's thumb, a row's icon button |
 | `--ui-radius-md` | 8 | Controls and rows: buttons, inputs, list rows, menu items |
-| `--ui-radius-lg` | 10 | Cards and grouped lists, popovers, a Bot's card |
-| `--ui-radius-xl` | 14 | Dialogs and sheets |
+| `--ui-radius-lg` | 12 | Cards and grouped lists, popovers, a Bot's card |
+| `--ui-radius-xl` | 16 | Dialogs and sheets |
 | `--ui-radius-full` | 999 | Pills, avatars, the composer |
 
-`md`, `lg` and `xl` are the existing `--ui-radius-base`, `--ui-radius-lg` and `--ui-radius-xl`, renamed; shadcn's `--radius` stays at 10 so its parts match.
+A radius inside another is the outer one less the padding between them, so nested corners stay parallel. shadcn's `--radius-*` are set from these, so its parts match.
 
 ### Shadow and lines
 
@@ -89,18 +90,18 @@ The top row of every column: a chat, the sidebar, the Environments page, the mem
 
 - `--ui-header` high, a bottom line in `--ui-border-weak` (except the sidebar's, which has none).
 - Inset `--ui-inset-content` in a content column, `--ui-inset-list` in a list column or pane.
-- Left: an optional back or menu button, then the title at `--ui-text-lg` / 650, then an optional muted subtitle at `--ui-text-md`. Right: icon buttons, `--ui-space-4` apart.
+- Left: an optional back or menu button, then the title at `--ui-text-lg` / 600, on the left, then an optional muted subtitle at `--ui-text-md`. Right: icon buttons, `--ui-space-4` apart.
 - One component and one class, so the desktop frame (`desktop.css`) styles one thing.
 
 ### Dialog header
 
-The top of Settings' pages and of Bot info: the title at `--ui-text-xl` / 650, actions on the right, inset `--ui-space-20` (16 on a phone), with the close button in the corner kept clear.
+The top of Settings' pages and of Bot info: the title at `--ui-text-xl` / 600, actions on the right, inset `--ui-space-20` (16 on a phone), with the close button in the corner kept clear.
 
 ### List row
 
 One component for the rows people pick from: channels, DMs, environments, members, Settings' navigation.
 
-- `--ui-radius-md`, padding `--ui-space-6` × `--ui-space-8`, leading part to text `--ui-space-10`.
+- `--ui-radius-md`, padding `--ui-space-6` × `--ui-space-8`, leading part to text `--ui-space-8`.
 - Leading: a 20 px icon in a 32 px tile, or an avatar (32, or 36 for DMs).
 - Name at `--ui-text-base` / 500 (600 when unread); second line at `--ui-text-sm` in `--ui-text-tertiary`, `--ui-space-2` below.
 - Trailing: time at `--ui-text-xs`, then a count badge; a more button that shows on hover.
