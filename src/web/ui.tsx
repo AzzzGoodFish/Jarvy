@@ -6,6 +6,7 @@ import { remarkCjkLinks } from "./cjk-links";
 import { remarkMessageIds } from "./message-ids";
 import remarkGfm from "remark-gfm";
 import { t, useLocale } from "./i18n";
+import { syncFrame } from "./desktop";
 import { AppWindow, ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Ellipsis, Eye, EyeOff, File, FileAudio, FileVideo, Folder,
   Expand, FoldVertical, UnfoldVertical, Image, Info, List, LogOut, MessageCircle, Moon, PanelLeft, Paperclip, Pencil, Megaphone, Trash2, Pin, Quote, Plus, Reply,
   Search, Settings, Shrink, SmilePlus, Sun, UserPlus, Users, X, type LucideIcon } from "lucide-react";
@@ -17,7 +18,7 @@ export function applyTheme(mode: "light" | "dark"): void {
   document.documentElement.style.colorScheme = mode;
   localStorage.setItem("jarvy-theme", mode);
   // In the desktop client the window's frame (its title bar) follows the page too.
-  (window as unknown as { jarvyDesktop?: { setTheme?: (mode: "light" | "dark") => void } }).jarvyDesktop?.setTheme?.(mode);
+  syncFrame(mode);
 }
 /** The app's icon names, drawn with Lucide. */
 const ICONS: Record<string, LucideIcon> = {

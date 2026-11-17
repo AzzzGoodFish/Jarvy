@@ -1,0 +1,18 @@
+/* The desktop client's frame (A96): with no system title bar, the top of the window is a band the page leaves free,
+   where each column's own background goes on up (no line under it), and the window's buttons are drawn over its right
+   end in the chat's colour. An invisible strip over the band moves the window. Every other full-height size (dialogs)
+   counts from below the band (--jv-vh), and what is centred in the window moves down by half of it. */
+html[data-desktop] { --jv-titlebar: 32px; --jv-vh: calc(100dvh - var(--jv-titlebar)); }
+html[data-desktop] :is(.ui-app > :not(.jv-envs), .jv-envs > *, .jarvy-loading) { border-top: var(--jv-titlebar) solid transparent; }
+/* Over plain HTTP the warning sits at the top: it goes below the band, and the page below it as in a browser. */
+html[data-desktop] .jv-insecure-shell { height: 100dvh; padding-top: var(--jv-titlebar); }
+html[data-desktop] .jv-insecure-shell .ui-app > * { border-top: 0; }
+/* The band is inside these, so they still take the whole window. */
+html[data-desktop] #root > :is(.ui-app, .jv-login, .jarvy-loading) { height: 100dvh; }
+/* The columns' dividers start below the band, as the band has none. */
+html[data-desktop] :is(.jv-rail, .ui-sidebar, .jv-envs-list) { border-right: 0; box-shadow: inset -1px 0 var(--ui-border-weak); }
+html[data-desktop] .ui-pane { border-left: 0; box-shadow: inset 1px 0 var(--ui-border-weak); }
+html[data-desktop] .jv-login-corner { top: calc(var(--jv-titlebar) + 14px); }
+html[data-desktop] [data-slot="dialog-content"] { margin-top: calc(var(--jv-titlebar) / 2); }
+html[data-desktop] dialog { inset: var(--jv-titlebar) 0 0 0; }
+.jv-titlebar { position: fixed; top: 0; right: 0; left: 0; z-index: 2147483000; height: var(--jv-titlebar); -webkit-app-region: drag; app-region: drag; }

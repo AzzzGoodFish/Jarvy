@@ -17,7 +17,7 @@
 .jv-conn-http:disabled { cursor: progress; opacity: .7; }
 
 /* The banner takes its own row; the app or login page fills the rest of the screen. */
-.jv-insecure-shell { display: flex; flex-direction: column; height: 100dvh; }
+.jv-insecure-shell { display: flex; flex-direction: column; height: var(--jv-vh, 100dvh); }
 .jv-insecure-shell > .ui-app, .jv-insecure-shell > .jv-login, .jv-insecure-shell > .jarvy-loading { flex: 1 1 0; min-height: 0; height: auto; }
 /* The login page normally covers the screen on its own. */
 .jv-insecure-shell > .jv-login { position: relative; inset: auto; width: auto; }

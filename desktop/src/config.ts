@@ -13,7 +13,7 @@ export interface Config {
   /** The computer's token, sealed with `safeStorage`. */
   token?: string;
   /** The close-to-tray notice was shown once. */
-  theme?: "light" | "dark"; closeHint?: boolean;
+  theme?: "light" | "dark"; frame?: { background: string; symbol: string }; pageFrame?: boolean; closeHint?: boolean;
 }
 
 const file = () => join(app.getPath("userData"), "config.json");

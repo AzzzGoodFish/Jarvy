@@ -46,7 +46,7 @@ button:focus:not(:focus-visible) { outline: none; }
 /* ── Layout: rail | sidebar | chat | optional side pane ───────── */
 .ui-app {
   --ui-rail: 56px; --ui-sidebar: 280px; --ui-pane: 320px;
-  position: relative; display: grid; grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr); height: 100dvh; overflow: hidden;
+  position: relative; display: grid; grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr); height: var(--jv-vh, 100dvh); overflow: hidden;
 }
 .ui-app[data-pane] { grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr) var(--ui-pane); }
 /* The agent Bot's page (A87) takes everything beside the rail; the chats stay as they were, out of sight. */
@@ -117,7 +117,7 @@ button:focus:not(:focus-visible) { outline: none; }
 
 /* ── Popover menus ────────────────────────────────────────────── */
 .ui-popover {
-  position: fixed; width: 228px; min-width: 160px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 48px);
+  position: fixed; width: 228px; min-width: 160px; max-width: calc(100vw - 16px); max-height: calc(var(--jv-vh, 100dvh) - 48px);
   margin: 0; padding: 6px; overflow: auto; font: inherit; color: var(--ui-text-primary);
   background: var(--ui-bg-elevated); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg); box-shadow: var(--ui-shadow-md);
   animation: ui-rise .12s var(--ui-ease-out);
@@ -152,7 +152,7 @@ button:focus:not(:focus-visible) { outline: none; }
 
 /* ── Dialogs ──────────────────────────────────────────────────── */
 dialog {
-  inset: 0; max-width: calc(100vw - 32px); max-height: calc(100dvh - 64px); margin: auto; padding: 0; overflow: hidden; font: inherit;
+  inset: 0; max-width: calc(100vw - 32px); max-height: calc(var(--jv-vh, 100dvh) - 64px); margin: auto; padding: 0; overflow: hidden; font: inherit;
   color: var(--ui-text-primary); background: var(--ui-bg-base); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-xl);
 }
 dialog::backdrop { background: var(--ui-bg-scrim); }
