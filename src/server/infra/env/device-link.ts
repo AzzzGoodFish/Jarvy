@@ -111,7 +111,10 @@ export class DeviceLinks {
   disconnect(id: string): void { this.links.get(id)?.socket.close(4003, "unpaired"); }
   close(): void {
     clearInterval(this.beat);
-    for (const link of this.links.values()) link.socket.close(1001, "Jarvy is stopping");
+    // Let go of the links first: a socket's close arrives after the database has closed, and must not record presence.
+    const links = [...this.links.values()];
+    this.links.clear();
+    for (const link of links) { link.drop(); link.socket.close(1001, "Jarvy is stopping"); }
     this.server.close();
     this.relays.close();
     rmSync(this.folder, { recursive: true, force: true });
