@@ -847,3 +847,16 @@ A Bot worked only in its sandbox or on machines Jarvy reaches over SSH. The owne
 - **The desktop client** (`desktop/`, Electron, fish m3185–m3186): Jarvy's own page in a window with a narrow `window.jarvyDesktop` (notifications, the taskbar count), the window trusting only the checked root, the computer registered with the page's sign-in and connected by the same connector code; closing hides it to the tray, start at login is off by default. Unsigned NSIS and AppImage builds on GitHub Actions, with Jarvy's version and in Jarvy's own release (one number for both, m3252–m3253); auto-update comes next. The command-line connector stays for machines without a desktop or the client (m3178).
 
 Why: the owner's computer is where their devices, programs and desktop are; a connection from it needs no open port, no SSH server and no address that stays put, and it runs in the person's session, which computer use needs. Reusing pi-env's daemon keeps one execution model for every kind of environment.
+
+## A97 A design system
+
+Every page wrote its own values and its own version of the same UI: 40 spacing values, 17 font sizes, 22 radii, eight kinds of column header and seven of list row. Spacing and alignment kept going wrong one page at a time, and the desktop client's title bar, which hangs on the headers, broke with them.
+
+- **Values only from the scales** in the [design system](design.md), as `--ui-*` variables: spacing on a 4 px grid (2, 4, 6, 8, 12, 16, 20, 24, 32), sizes with their line heights following the macOS text styles, the three weights every system font has (400, 500, 600), radii 4, 6, 8, 12, 16 and round, three shadows, three control heights.
+- **Repeated UI from one part each**: column header, dialog header, list row, grouped list, card, field, button, tabs. The part owns its spacing and alignment; a page does not restyle its insides.
+- **A new kind of UI extends the design system first**, a new part or a new step, and is used after.
+- **Checked**: `check:architecture` rejects literal pixels where a variable is required; the end-to-end run checks alignment across pages.
+
+Why: a 4 px grid and three weights are what design systems commonly use, so the values are few and every pair of neighbours differs visibly; weights other than 400, 500 and 600 render differently on Windows and Linux, whose system fonts have fixed weights. A nested corner is its container's radius less the padding between them, so corners stay parallel. One implementation of each part means a fix lands everywhere at once.
+
+Consequences: existing values move to the nearest step (most by 2 px), page by page, each with before-and-after shots; titles at 650 (the Chats and Environments headers) become 600.
