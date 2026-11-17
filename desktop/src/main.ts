@@ -16,6 +16,8 @@ let config: Config | null = null, win: BrowserWindow | null = null, setup: Brows
 let connector: Connector | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
 /** The page can draw the title bar on Windows and Linux (macOS keeps its own), once it has said it can: a Jarvy from
  * before that keeps the system's. `frameless` is the window's state, `heard` whether this load of the page said so. */
+/** Jarvy's version, which the client shares (build.mjs). */
+declare const JARVY_VERSION: string;
 const CAN_FRAME = process.platform !== "darwin", TITLEBAR = 51;
 let frameless = false, heard = false;
 const origin = () => config ? new URL(config.server).origin : null;
@@ -41,7 +43,7 @@ async function start(): Promise<void> {
 
 function ipc(): void {
   ipcMain.on("jarvy:origin", event => { event.returnValue = origin(); });
-  ipcMain.on("jarvy:version", event => { event.returnValue = app.getVersion(); });
+  ipcMain.on("jarvy:version", event => { event.returnValue = JARVY_VERSION; });
   ipcMain.on("jarvy:frameless", event => { event.returnValue = event.sender === win?.webContents && frameless; });
   ipcMain.on("setup:chinese", event => { event.returnValue = chinese(); });
   const fromPage = (event: Electron.IpcMainEvent) => !!origin() && event.senderFrame?.url.startsWith(`${origin()}/`) === true;
@@ -192,7 +194,7 @@ async function register(again: boolean): Promise<void> {
 function connect(token: string): void {
   connector?.stop();
   connector = new Connector({ server: config!.server, token, trust: { ca: config!.ca }, cache: join(app.getPath("userData"), "daemon"),
-    client: `desktop-${app.getVersion()}`, capabilities: [], log: text => console.error(text),
+    client: `desktop-${JARVY_VERSION}`, capabilities: [], log: text => console.error(text),
     onStatus: next => {
       report(next);
       if (next.state === "unpaired") { config = { ...config!, token: undefined }; void save(config); connector = null; }

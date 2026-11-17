@@ -1,8 +1,8 @@
 {
   "name": "jarvy-desktop",
   "productName": "Jarvy",
-  "version": "0.1.4",
-  "description": "The Jarvy desktop client: Jarvy in a window, and this computer connected to it for Bots to work on.",
+  "version": "0.0.0",
+  "description": "The Jarvy desktop client: Jarvy in a window, and this computer connected to it for Bots to work on. It has Jarvy's version (set when packed).",
   "license": "Apache-2.0",
   "author": "AzzzGoodFish",
   "homepage": "https://github.com/AzzzGoodFish/Jarvy",
@@ -12,7 +12,7 @@
     "build": "node build.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node build.mjs && electron .",
-    "dist": "node build.mjs && electron-builder --publish never"
+    "dist": "node dist.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.4",
