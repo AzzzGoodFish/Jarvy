@@ -19,15 +19,10 @@ export function notifyDesktop(message: ChatMessage, chat: Chat, me: string, memb
   client.notify({ title: where, body, chatId: message.chatId });
 }
 
-/** Inside the desktop client the window has no system title bar (A96): the page leaves a band across the top, with an
- * invisible strip over it that moves the window, under the window's own buttons. In a browser, nothing. */
+/** Inside the desktop client the window has no system title bar (A96): the interface's own top row is the title bar
+ * (styles/desktop.css), with the window's buttons at its right end. In a browser, nothing. */
 export function startFrame(): void {
-  if (!desktop()?.frameless || document.querySelector(".jv-titlebar")) return;
-  document.documentElement.dataset.desktop = "";
-  const strip = document.createElement("div");
-  strip.className = "jv-titlebar";
-  strip.setAttribute("aria-hidden", "true");
-  document.documentElement.insertBefore(strip, document.body);
+  if (desktop()?.frameless) document.documentElement.dataset.desktop = "";
 }
 
 /** Tells the client the page's theme, and the colours for the window's buttons, drawn over the chat's top right. */
