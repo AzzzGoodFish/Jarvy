@@ -5,6 +5,7 @@ import type { FollowedSummary, ThreadFilter, ThreadItem } from "../../contract/t
 import { formatDate, t } from "../i18n";
 import { previewText } from "../channel/quotes";
 import { IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { Button } from "../components/ui/button";
 import { MemberAvatar } from "../channel/ChannelView";
 import { ThreadSortSelect, useThreadSort } from "./sort";
@@ -38,10 +39,10 @@ export function FollowedThreads({ events, summary, chats, members, bots, onNav, 
     ["open", t("threads.openCount", { count: summary?.open ?? 0 })], ["done", t("threads.doneCount", { count: summary?.done ?? 0 })]];
   return <main className="ui-chat jv-followed-page" aria-label={t("sidebar.followed")} data-open={current ? "" : undefined}>
     <section className="jv-followed-list" aria-label={t("threads.list")}>
-      <header className="ui-chat-header jv-channel-header"><div className="ui-header-left">
-        <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>
-        <strong className="jv-channel-title">{t("sidebar.followed")}</strong></div>
-        <ThreadSortSelect value={sort} onChange={setSort}/></header>
+      <ColumnHeader place="content"
+        leading={<IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>}
+        title={t("sidebar.followed")}
+        actions={<div className="ui-column-actions"><ThreadSortSelect value={sort} onChange={setSort}/></div>}/>
       <div className="jv-tabs" role="tablist" aria-label={t("threads.filter")}>
         {tabs.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)}>{label}</button>)}
       </div>

@@ -88,9 +88,10 @@ A radius inside another is the outer one less the padding between them, so neste
 The top row of every column: a chat, the sidebar, the Environments page, the members, thread, search and thread-list panes, followed threads.
 
 - `--ui-header` high, a bottom line in `--ui-border-weak` (except the sidebar's, which has none).
-- Inset `--ui-inset-content` in a content column, `--ui-inset-list` in a list column or pane.
+- Inset `--ui-inset-content` in a content column, `--ui-inset-list` in a list column or pane; on a phone every column's is `--ui-inset-list`.
 - Left: an optional back or menu button, then the title at `--ui-text-lg` / 600, on the left, then an optional muted subtitle at `--ui-text-md`. Right: icon buttons, `--ui-space-4` apart.
-- One component and one class, so the desktop frame (`desktop.css`) styles one thing.
+- A title that opens something (a channel's opens channel info) is a button in the same type, with a hover fill.
+- One component, `ColumnHeader` (`components/column-header.tsx`), and one class, `.ui-column-header`, so the desktop frame (`desktop.css`) styles one thing. Its `place` is `content`, `pane` or `sidebar` (the list column of Chats and Environments, the one with no line).
 - In the desktop client this row is the title bar (A96): it moves the window, its controls stay clickable, and the header at the top right keeps clear of the window's buttons (`--jv-controls`) with a short vertical line between them.
 
 ### Dialog header

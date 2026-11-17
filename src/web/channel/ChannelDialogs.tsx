@@ -27,7 +27,7 @@ function MemberPicker({ candidates, bots, busy, onCancel, onConfirm }: {
       {shown.length === 0 && <p className="jv-picker-empty">{t(candidates.length ? "common.noMatch" : "dialogs.allInside")}</p>}
     </div>
     <div className="ui-dialog-actions">
-      <span className="jv-spacer"/>
+      <span className="ui-spacer"/>
       <button type="button" className="ui-button" onClick={onCancel}>{t("common.cancel")}</button>
       <button type="button" className="ui-button ui-primary" disabled={busy || picked.length === 0} onClick={() => onConfirm(picked)}>{picked.length ? t("dialogs.addCount", { count: picked.length }) : t("common.add")}</button>
     </div>
@@ -90,7 +90,7 @@ export function NewChannelDialog({ sections, members, bots, me, onClose, onSaved
       </div>
       {error && <p className="jv-form-error" role="alert">{error}</p>}
       <div className="ui-dialog-actions">
-        <span className="jv-spacer"/>
+        <span className="ui-spacer"/>
         <button type="button" className="ui-button" onClick={onClose}>{t("common.cancel")}</button>
         <button type="submit" className="ui-button ui-primary" disabled={busy || !name.trim()}>{t("common.create")}</button>
       </div>
@@ -125,7 +125,7 @@ export function SectionDialog({ section, onClose, onSaved, onDeleted }: {
       {error && <p className="jv-form-error" role="alert">{error}</p>}
       <div className="ui-dialog-actions">
         {section && <button type="button" className="ui-button jv-danger" disabled={busy} onClick={() => void remove()}>{t("common.delete")}</button>}
-        <span className="jv-spacer"/>
+        <span className="ui-spacer"/>
         <button type="button" className="ui-button" onClick={onClose}>{t("common.cancel")}</button>
         <button type="submit" className="ui-button ui-primary" disabled={busy || !name.trim()}>{t(section ? "common.save" : "common.create")}</button>
       </div>

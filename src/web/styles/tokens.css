@@ -47,6 +47,14 @@
   --ui-radius-lg: 12px;
   --ui-radius-xl: 16px;
   --ui-radius-full: 999px;
+  /* Columns: the side inset a column's header, search box and rows share, and the header's height (48 on a phone). */
+  --ui-inset-list: 12px;
+  --ui-inset-content: 16px;
+  --ui-header: 52px;
+  /* Controls. */
+  --ui-control-sm: 28px;
+  --ui-control-md: 32px;
+  --ui-control-lg: 36px;
   --ui-shadow-md: 0 10px 20px -3px var(--ui-shadow-popover-ambient), 0 4px 6px -4px var(--ui-shadow-popover-key), 0 0 0 1px var(--ui-shadow-ring);
   --ui-shadow-sm: 0 1px 3px 0 var(--ui-shadow-control);
 
@@ -95,6 +103,7 @@
   --ui-text-tertiary: oklch(.6 .013 255);
   --ui-text-warning: oklch(.56 .13 65);
 }
+@media (max-width: 620px) { :root { --ui-header: 48px; } }
 
 :root[data-theme="dark"] {
   /* Dark: charcoal greys; accents and status colours lightened for contrast. */

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Chat, Member } from "../../contract/chat";
 import { t } from "../i18n";
 import { IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { MessageHit, useSearch } from "./search";
 
 /** Search inside one chat (a channel includes its threads), in the right-hand pane; Ctrl+F opens it. A result opens
@@ -17,8 +18,7 @@ export function SearchPane({ chat, chats, members, focusKey, onOpenMessage, onCl
   const { result, loading } = useSearch(query, chat.id, onError);
   const where = chat.type === "channel" ? `#${chat.title}` : t(chat.type === "thread" ? "search.inThread" : "search.inDm");
   return <aside className="ui-pane jv-pane jv-search-pane" aria-label={t("search.paneLabel")}>
-    <header className="ui-pane-header jv-pane-header"><strong>{t("search.title")}</strong><span className="jv-muted jv-pane-sub">{where}</span><span className="jv-spacer"/>
-      <IconButton icon="close" label={t("search.close")} onClick={onClose}/></header>
+    <ColumnHeader place="pane" title={t("search.title")} sub={where} actions={<IconButton icon="close" label={t("search.close")} onClick={onClose}/>}/>
     <div className="jv-pane-search">
       <input ref={input} type="search" value={query} placeholder={t(chat.type === "channel" ? "search.channelPlaceholder" : "search.placeholder")} aria-label={t("search.placeholder")}
         onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); if (query) setQuery(""); else onClose(); } }}/>

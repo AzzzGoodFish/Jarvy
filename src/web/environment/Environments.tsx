@@ -7,6 +7,7 @@ import { BotAvatar } from "../avatar/BotAvatar";
 import { errorText } from "../errors";
 import { BotPorts } from "../ports/BotPorts";
 import { IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { t } from "../i18n";
 import { BotEnvironment, STATE } from "./BotEnvironment";
@@ -70,8 +71,8 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
   const shownSandboxes = sandboxes.filter(item => found(`${item.name} ${t("envs.sandboxOf", { name: item.name })}`));
   return <section className="jv-envs" data-open={open || undefined} aria-label={t("rail.environments")}>
     <aside className="jv-envs-list">
-      <header className="ui-sidebar-header">
-        <IconButton icon="add" label={t("machines.add")} aria-pressed={adding} onClick={() => { onAdding(true); setOpen(true); }}/></header>
+      <ColumnHeader place="sidebar" title={<span className="sr-only">{t("rail.environments")}</span>}
+        actions={<IconButton icon="add" label={t("machines.add")} aria-pressed={adding} onClick={() => { onAdding(true); setOpen(true); }}/>}/>
       <div className="mx-3 mt-1 mb-2 shrink-0" role="search">
         <InputGroup className="h-9 bg-background">
           <InputGroupInput type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder={t("envs.search")} aria-label={t("envs.search")}
@@ -105,13 +106,11 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
       </div>
     </aside>
     <main className="jv-envs-detail jv-ui">
-      <header className="jv-envs-head">
-        <button type="button" className="jv-envs-back" aria-label={t("envs.back")} onClick={() => { setOpen(false); onAdding(false); }}><ChevronLeftIcon aria-hidden="true"/></button>
-        {adding ? <h2>{t(connecting ? "devices.connect" : "machines.add")}</h2>
-          : device ? <><Kind type="device"/><h2>{device.name}</h2><span className="jv-envs-sub">{deviceSystem(device)}</span></>
-          : machine ? <><Kind type="ssh"/><h2>{machine.name}</h2><span className="jv-envs-sub jv-mono">{machineAddress(machine)}</span></>
-          : bot ? <><Kind type={bot.environment.computer!.type}/><h2>{t("envs.sandboxOf", { name: bot.name })}</h2></> : null}
-      </header>
+      <ColumnHeader place="content" as="h2" className="jv-envs-head"
+        leading={<><button type="button" className="jv-envs-back" aria-label={t("envs.back")} onClick={() => { setOpen(false); onAdding(false); }}><ChevronLeftIcon aria-hidden="true"/></button>
+          {device ? <Kind type="device"/> : machine ? <Kind type="ssh"/> : bot ? <Kind type={bot.environment.computer!.type}/> : null}</>}
+        title={adding ? t(connecting ? "devices.connect" : "machines.add") : device ? device.name : machine ? machine.name : bot ? t("envs.sandboxOf", { name: bot.name }) : ""}
+        sub={device ? deviceSystem(device) : machine ? <span className="jv-mono">{machineAddress(machine)}</span> : undefined}/>
       <div className="jv-envs-body">
         {!adding && here.length > 0 && <p className="jv-envs-here">{faces(here)}{t("envs.workingHere", { names: here.map(item => item.name).join(t("common.listSeparator")), count: here.length })}</p>}
         {adding && <div className="jv-seg jv-envs-add-kind" role="radiogroup" aria-label={t("machines.add")}>

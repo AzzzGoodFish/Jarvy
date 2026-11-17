@@ -5,6 +5,7 @@ import { type Chat, type Member, type ThreadEntry } from "../../contract/chat";
 import { formatDate, t } from "../i18n";
 import { previewText } from "../channel/quotes";
 import { IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { MemberAvatar } from "../channel/ChannelView";
 import { sortThreads, ThreadSortSelect, useThreadSort } from "./sort";
 import { changeKey, type ChatChanges } from "../chat-changes";
@@ -27,9 +28,8 @@ export function ThreadList({ channel, members, bots, changes, onOpen, onClose, o
   const shown = sortThreads((threads ?? []).filter(thread => tab === "all" || thread.status === tab), sort);
   const count = (status: "open" | "done") => (threads ?? []).filter(thread => thread.status === status).length;
   return <aside className="ui-pane jv-pane" aria-label={t("threads.list")}>
-    <header className="ui-pane-header jv-pane-header"><strong>{t("channel.threads")}</strong><span className="jv-muted jv-pane-sub">#{channel.title}</span><span className="jv-spacer"/>
-      <ThreadSortSelect value={sort} onChange={setSort}/>
-      <IconButton icon="close" label={t("threads.closeList")} onClick={onClose}/></header>
+    <ColumnHeader place="pane" title={t("channel.threads")} sub={`#${channel.title}`}
+      actions={<div className="ui-column-actions"><ThreadSortSelect value={sort} onChange={setSort}/><IconButton icon="close" label={t("threads.closeList")} onClick={onClose}/></div>}/>
     <div className="jv-tabs" role="tablist" aria-label={t("threads.byStatus")}>
       {([["open", t("threads.openCount", { count: count("open") })], ["done", t("threads.doneCount", { count: count("done") })], ["all", t("threads.all")]] as const).map(([value, label]) =>
         <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)}>{label}</button>)}
