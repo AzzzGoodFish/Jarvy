@@ -4,6 +4,7 @@ import { api } from "../api";
 import { type Bot, type BotStatus } from "../../contract/bots";
 import { type Chat, type Member, type Section } from "../../contract/chat";
 import { Icon, IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { MemberList } from "./MemberList";
 import { t } from "../i18n";
 
@@ -47,10 +48,9 @@ export function ChannelInfo({ channel, page, sections, members, bots, statuses, 
   };
   const count = members.filter(member => channel.memberIds.includes(member.id)).length;
   return <aside className="ui-pane jv-pane" aria-label={t(page === "members" ? "info.memberList" : "entry.channelInfo")}>
-    <header className="ui-pane-header jv-pane-header">
-      {page === "members" && <IconButton icon="chevron-left" label={t("info.back")} className="jv-pane-back" onClick={() => onPage("main")}/>}
-      <strong>{t(page === "members" ? "channel.members" : "entry.channelInfo")}</strong><span className="jv-muted jv-pane-sub">#{channel.title}</span><span className="jv-spacer"/>
-      <IconButton icon="close" label={t("common.close")} onClick={onClose}/></header>
+    <ColumnHeader place="pane" leading={page === "members" && <IconButton icon="chevron-left" label={t("info.back")} className="jv-pane-back" onClick={() => onPage("main")}/>}
+      title={t(page === "members" ? "channel.members" : "entry.channelInfo")} sub={`#${channel.title}`}
+      actions={<IconButton icon="close" label={t("common.close")} onClick={onClose}/>}/>
     {page === "members" ? <MemberList channel={channel} members={members} bots={bots} statuses={statuses} me={me} onAdd={onAdd} onBot={onBot} onChanged={onChanged} onError={onError}/>
       : <div className="ui-pane-body jv-pane-body jv-info">
         <div className="jv-info-actions">

@@ -6,6 +6,7 @@ import { formatDate, t } from "../i18n";
 import { previewText } from "../channel/quotes";
 import { memberName } from "../members";
 import { IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { ChannelMessages, MemberAvatar } from "../channel/ChannelView";
 import { addMessage, replaceMessage, useHeard, type LiveHub } from "../live";
 
@@ -49,11 +50,9 @@ export function BotDirects({ bot, chats, members, bots, me, live, onClose, onPre
   const other = (chat: Chat) => members.find(member => member.id !== bot.id && chat.memberIds.includes(member.id));
   const current = chats.find(chat => chat.id === open);
   return <aside className="ui-pane jv-pane" aria-label={t("chat.botDms", { name: bot.name })}>
-    <header className="ui-pane-header jv-pane-header">
-      {current && <IconButton icon="chevron-left" label={t("directs.back")} onClick={() => setOpen(null)}/>}
-      <strong>{current ? t("directs.between", { name: bot.name, other: memberName(other(current)) }) : t("chat.botDms", { name: bot.name })}</strong>
-      <span className="jv-spacer"/><IconButton icon="close" label={t("common.close")} onClick={onClose}/>
-    </header>
+    <ColumnHeader place="pane" leading={current && <IconButton icon="chevron-left" label={t("directs.back")} onClick={() => setOpen(null)}/>}
+      title={current ? t("directs.between", { name: bot.name, other: memberName(other(current)) }) : t("chat.botDms", { name: bot.name })}
+      actions={<IconButton icon="close" label={t("common.close")} onClick={onClose}/>}/>
     {current ? <>
       <div className="ui-pane-body jv-pane-body">
         {messages === null ? <p className="jv-picker-empty">{t("threads.loading")}</p> : messages.length === 0 ? <p className="jv-picker-empty">{t("chat.empty")}</p>

@@ -56,7 +56,23 @@ button:focus:not(:focus-visible) { outline: none; }
   position: relative; z-index: 3; display: flex; flex-direction: column; min-width: 0; min-height: 0;
   background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak);
 }
-.ui-sidebar-header { display: flex; flex: none; align-items: center; justify-content: flex-end; height: 52px; padding: 0 var(--ui-space-16); }
+/* ── Column header (A97, docs/design.md) ──────────────────────── */
+/* One top row for every column: a chat's, a side pane's, a list column's, a page's. The title reads the same in all of
+   them; `place` says which inset the column uses, and the sidebar's has no line under it. In the desktop client this
+   row is the title bar (A96). */
+.ui-column-header {
+  display: flex; flex: none; align-items: center; gap: var(--ui-space-8); min-width: 0; height: var(--ui-header);
+  padding: 0 var(--ui-inset-content); border-bottom: 1px solid var(--ui-border-weak);
+}
+.ui-column-header:is([data-place="pane"], [data-place="sidebar"]) { padding: 0 var(--ui-inset-list); }
+.ui-column-header[data-place="sidebar"] { border-bottom: 0; }
+.ui-spacer { flex: 1; }
+.ui-column-title {
+  flex: none; min-width: 0; margin: 0; padding: 0; border: 0; background: none; overflow: hidden; color: var(--ui-text-primary);
+  font-size: var(--ui-text-lg); font-weight: 600; line-height: var(--ui-leading-lg); white-space: nowrap; text-overflow: ellipsis; text-align: left;
+}
+.ui-column-sub { min-width: 0; overflow: hidden; font-size: var(--ui-text-md); color: var(--ui-text-tertiary); white-space: nowrap; text-overflow: ellipsis; }
+.ui-column-actions { display: flex; flex: none; align-items: center; gap: var(--ui-space-4); margin-left: auto; }
 .ui-user-avatar {
   display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
   background: var(--ui-fill-secondary); border: 1px solid var(--ui-border-weak);
@@ -68,12 +84,6 @@ button:focus:not(:focus-visible) { outline: none; }
 
 /* ── Chat column ──────────────────────────────────────────────── */
 .ui-chat { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
-.ui-chat-header {
-  display: flex; flex: none; align-items: center; justify-content: space-between; gap: var(--ui-space-8); height: 52px; padding: 0 var(--ui-space-16);
-  border-bottom: 1px solid var(--ui-border-weak);
-}
-.ui-header-left, .ui-header-actions { display: flex; align-items: center; gap: var(--ui-space-4); min-width: 0; }
-.ui-header-actions { flex: none; gap: var(--ui-space-6); }
 .ui-transcript {
   flex: 1; min-height: 0; padding: var(--ui-space-6) var(--ui-space-16) var(--ui-space-20); overflow: auto; outline: none; overflow-anchor: none;
   scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent;
@@ -135,8 +145,6 @@ button:focus:not(:focus-visible) { outline: none; }
   position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   background: var(--ui-bg-base); border-left: 1px solid var(--ui-border-weak); animation: ui-slide .18s var(--ui-ease-out);
 }
-.ui-pane-header { display: flex; flex: none; align-items: center; gap: var(--ui-space-2); height: 52px; padding: 0 var(--ui-space-12); }
-.ui-pane-header strong { flex: 1; min-width: 0; text-align: center; font-weight: 500; white-space: nowrap; }
 .ui-pane-body { flex: 1; min-height: 0; padding: 0 var(--ui-space-16) var(--ui-space-20); overflow: auto; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
 
 /* ── Form fields ──────────────────────────────────────────────── */
@@ -189,20 +197,18 @@ dialog[open] { animation: ui-rise .16s var(--ui-ease-out); }
   .ui-app { --ui-sidebar: 240px; }
   .ui-app[data-pane] { grid-template-columns: var(--ui-rail) var(--ui-sidebar) minmax(0, 1fr); }
   .ui-pane { position: absolute; inset: 0 0 0 auto; z-index: 5; width: min(360px, calc(100% - 80px)); box-shadow: var(--ui-shadow-md); }
-  .ui-pane-header strong { padding-left: var(--ui-space-8); text-align: left; }
 }
 @media (max-width: 620px) {
   .ui-app, .ui-app[data-pane] { display: flex; }
   .ui-chat { flex: 1; }
   .ui-sidebar {
     /* The chat list fills the screen over the tab bar (home.css), the way the chats tab opens it. */
-    position: absolute; inset: 0 auto 0 0; z-index: 10; width: 100%;
+    position: absolute; inset: 0 auto 0 0; z-index: 10; width: 100%; border-right: 0;
     transform: translateX(-102%); visibility: hidden; transition: transform .2s var(--ui-ease-out);
   }
   .ui-app[data-nav] .ui-sidebar { transform: none; visibility: visible; }
-  .ui-sidebar-header { justify-content: space-between; }
   .ui-mobile-only { display: flex; }
-  .ui-chat-header { height: 48px; padding: 0 var(--ui-space-12) 0 var(--ui-space-8); }
+  .ui-column-header { padding: 0 var(--ui-inset-list); }
   .ui-transcript { padding: var(--ui-space-12) var(--ui-space-12) var(--ui-space-20); }
   .ui-bubble { max-width: 96%; padding: var(--ui-space-8) var(--ui-space-12); line-height: var(--ui-leading-xl); }
   .ui-user .ui-bubble { max-width: 93%; }
@@ -212,7 +218,6 @@ dialog[open] { animation: ui-rise .16s var(--ui-ease-out); }
   .ui-composer textarea { min-height: 27px; font-size: 16px; line-height: 23px; }
   .ui-composer .ui-round { width: 30px; height: 30px; }
   .ui-pane { width: 100%; border-left: 0; }
-  .ui-pane-header { height: 48px; border-bottom: 1px solid var(--ui-border-weak); }
   .ui-pane-body { padding: 0 var(--ui-space-20) var(--ui-space-20); }
   .ui-field :is(input, textarea) { font-size: 16px; }
   .ui-field textarea { min-height: 110px; }

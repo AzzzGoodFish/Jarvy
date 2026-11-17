@@ -40,7 +40,7 @@ export function startFrame(): void {
   window.addEventListener("resize", soon);
   soon();
 }
-const HEADERS = ".ui-chat-header, .ui-pane-header, .jv-envs-head";
+const HEADERS = ".ui-column-header";
 
 /** Tells the client the page's theme, and the colours for the window's buttons, drawn over the chat's top right. */
 export function syncFrame(mode: "light" | "dark"): void {

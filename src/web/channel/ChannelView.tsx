@@ -5,6 +5,7 @@ import { BotAvatar } from "../avatar/BotAvatar";
 import { FileCards } from "../files/FileCards";
 import { QuestionCard } from "../question/QuestionCard";
 import { Icon, IconButton, Markdown } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { MessageText } from "./quotes";
 import { MessageActions, ReactionPills, ReplyQuote } from "./MessageActions";
 import { FoldedLine, LongText, useUnfolded } from "./fold";
@@ -33,14 +34,10 @@ export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, thre
   onNav: () => void; onInfo: () => void; onMembers: () => void; onThreads: () => void; onSearch: () => void;
 }) {
   const inside = members.filter(member => chat.memberIds.includes(member.id));
-  return <header className="ui-chat-header jv-channel-header">
-    <div className="ui-header-left">
-      <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>
-      <button type="button" className="jv-channel-title" aria-label={t("channel.infoFor", { name: chat.title })} aria-pressed={infoOpen} onClick={onInfo}>
-        <span className="jv-hash">#</span>{chat.title}<Icon name="chevron-down"/></button>
-      {chat.topic && <span className="jv-channel-topic">{chat.topic}</span>}
-    </div>
-    <div className="ui-header-actions">
+  return <ColumnHeader place="content" as="button" className="jv-channel-header"
+    leading={<IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>}
+    title={<><span className="jv-hash">#</span>{chat.title}<Icon name="chevron-down"/></>} titleProps={{ "aria-label": t("channel.infoFor", { name: chat.title }), "aria-pressed": infoOpen, onClick: onInfo }} sub={chat.topic}
+    actions={<div className="ui-column-actions">
       <button type="button" className="jv-members-button" aria-label={t("channel.membersCount", { count: inside.length })} aria-pressed={membersOpen} title={t("channel.members")} onClick={onMembers}>
         <span className="jv-stack">{inside.slice(0, 3).map(member => <span key={member.id} className="jv-stack-item">
           <MemberAvatar member={member} bots={bots} size={22}/></span>)}</span>
@@ -48,8 +45,7 @@ export function ChannelHeader({ chat, members, bots, infoOpen, membersOpen, thre
       </button>
       <IconButton icon="search" label={t("channel.search")} aria-pressed={searchOpen} className="jv-threads-button" onClick={onSearch}/>
       <IconButton icon="chat-bubble" label={t("channel.threads")} aria-pressed={threadsOpen} className="jv-threads-button" onClick={onThreads}/>
-    </div>
-  </header>;
+    </div>}/>;
 }
 
 /** The channel's notice (A37): folds to one line, anyone in the channel can edit it, version and author shown. */

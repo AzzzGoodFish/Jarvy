@@ -9,6 +9,7 @@ import { highlightPassage, jumpToPassage, QuoteSelection } from "../channel/quot
 import type { Focus } from "../pane";
 import { findMentions } from "../../contract/mentions";
 import { Icon, IconButton } from "../ui";
+import { ColumnHeader } from "../components/column-header";
 import { liveMembers } from "../members";
 import { t } from "../i18n";
 import { ThreadMeta } from "./ThreadMeta";
@@ -282,19 +283,21 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
   return <section role={mode === "pane" ? "complementary" : mode === "full" ? "main" : undefined}
     className={mode === "pane" ? "ui-pane jv-pane" : mode === "embed" ? "ui-chat jv-thread-full jv-thread-embed" : "ui-chat jv-thread-full"} aria-label={t("thread.label")}
     onKeyDown={event => { if (chat && onSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") { event.preventDefault(); onSearch(chat); } }}>
-    <header className={mode === "pane" ? "ui-pane-header jv-pane-header" : "ui-chat-header jv-pane-header"}>
-      {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>}
-      {mode === "embed" && <IconButton icon="chevron-left" className="ui-mobile-only" label={t("thread.backToList")} onClick={onClose}/>}
-      {mode === "full" ? <button type="button" className="jv-crumb" onClick={onClose}><Icon name="chevron-left"/><span className="jv-hash">#</span>{channelName}</button>
-        : mode === "embed" ? <button type="button" className="jv-crumb" title={t("thread.inChannel")} onClick={onToggleMode}><span className="jv-hash">#</span>{channelName}</button>
-        : <><strong>{t("thread.label")}</strong><span className="jv-muted jv-pane-sub">#{channelName}</span></>}
-      <span className="jv-spacer"/>
+    <ColumnHeader place={mode === "pane" ? "pane" : "content"}
+      leading={<>
+        {mode === "full" && <IconButton icon="layout-sidebar-left" className="ui-mobile-only" label={t("common.openNav")} onClick={onNav}/>}
+        {mode === "embed" && <IconButton icon="chevron-left" className="ui-mobile-only" label={t("thread.backToList")} onClick={onClose}/>}
+        {mode === "full" && <button type="button" className="jv-crumb" onClick={onClose}><Icon name="chevron-left"/><span className="jv-hash">#</span>{channelName}</button>}
+        {mode === "embed" && <button type="button" className="jv-crumb" title={t("thread.inChannel")} onClick={onToggleMode}><span className="jv-hash">#</span>{channelName}</button>}
+      </>}
+      title={mode === "pane" ? t("thread.label") : undefined} sub={mode === "pane" ? `#${channelName}` : undefined}
+      actions={<div className="ui-column-actions">
       {chat && onSearch && <IconButton icon="search" label={t("thread.search")} onClick={() => onSearch(chat)}/>}
       {chat && <button type="button" className="ui-button jv-follow" data-on={chat.following || undefined} title={t(chat.following ? "thread.followingHint" : "thread.notFollowingHint")}
         onClick={() => void save(() => api.follow(threadId, !chat.following)).catch(() => {})}><Icon name="bell"/>{t(chat.following ? "threads.following" : "thread.follow")}</button>}
       {mode !== "embed" && <IconButton icon={mode === "pane" ? "arrows-expand" : "arrows-contract"} className="jv-desktop-only" label={t(mode === "pane" ? "thread.expand" : "thread.collapse")} onClick={onToggleMode}/>}
       {mode === "pane" && <IconButton icon="close" label={t("thread.close")} onClick={onClose}/>}
-    </header>
+      </div>}/>
     {chat && <div className={mode === "pane" ? "jv-thread-pin" : "jv-thread-pin jv-thread-pin-wide"}><ThreadMeta chat={chat} channelName={channelName} expanded={showSummary}
         onTitle={title => save(() => api.updateThread(threadId, { title }))} onStatus={status => save(() => api.updateThread(threadId, { status }))}
         onSummary={text => save(() => api.setNote(threadId, text))}

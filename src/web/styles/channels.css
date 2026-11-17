@@ -31,17 +31,14 @@
 .jv-count { flex: none; font-size: var(--ui-text-xs); color: var(--ui-text-secondary); font-weight: 500; }
 
 /* Channel header and notice */
-.jv-channel-header .ui-header-left { min-width: 0; flex: 1; }
-.jv-channel-header .ui-header-left { gap: var(--ui-space-6); }
-.jv-channel-title { display: inline-flex; flex: none; align-items: center; gap: var(--ui-space-2); height: 30px; padding: 0 var(--ui-space-6); margin-left: calc(-1 * var(--ui-space-6)); border-radius: var(--ui-radius-md);
-  font-size: var(--ui-text-lg); font-weight: 600; white-space: nowrap; color: var(--ui-text-primary); }
-.jv-channel-title:hover { background: var(--ui-fill-ghost-hover); }
-.jv-channel-title .ui-icon { width: 14px; height: 14px; margin-left: var(--ui-space-2); color: var(--ui-text-tertiary); }
+button.ui-column-title { display: inline-flex; align-items: center; gap: var(--ui-space-2); height: 30px; padding: 0 var(--ui-space-6); margin-left: calc(-1 * var(--ui-space-6)); border-radius: var(--ui-radius-md); }
+button.ui-column-title:hover { background: var(--ui-fill-ghost-hover); }
+button.ui-column-title[aria-pressed=true] { background: var(--ui-fill-ghost-selected); }
+button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--ui-space-2); color: var(--ui-text-tertiary); }
 .jv-members-button { display: inline-flex; align-items: center; gap: var(--ui-space-6); height: 32px; padding: 0 var(--ui-space-8) 0 var(--ui-space-6); border-radius: var(--ui-radius-md); color: var(--ui-text-secondary); font-size: var(--ui-text-md); font-weight: 600; }
 .jv-members-button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-members-button[aria-pressed=true] { background: var(--ui-fill-ghost-selected); color: var(--ui-text-primary); }
 .jv-members-count { min-width: 8px; font-variant-numeric: tabular-nums; }
-.jv-channel-topic { min-width: 0; font-size: var(--ui-text-sm); color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-channel-transcript { padding-top: var(--ui-space-8); }
 .jv-notice { flex: none; margin: var(--ui-space-8) var(--ui-space-16) 0; padding: var(--ui-space-8) var(--ui-space-12) var(--ui-space-8) var(--ui-space-12); border-radius: var(--ui-radius-lg); background: var(--ui-bg-subtle); box-shadow: inset 0 0 0 .5px var(--ui-border-weak); font-size: var(--ui-text-md); }
 .jv-notice[data-empty] { display: flex; align-items: center; gap: var(--ui-space-8); }
@@ -109,7 +106,6 @@
 }
 
 /* Channel info (channel/ChannelInfo.tsx): quick actions, fields edited in place, the menu; the member page (MemberList.tsx). */
-.jv-channel-title[aria-pressed=true] { background: var(--ui-fill-ghost-selected); }
 .jv-pane-back { margin-left: calc(-1 * var(--ui-space-6)); }
 .jv-pane-body.jv-info { padding: var(--ui-space-16) var(--ui-space-16) var(--ui-space-20); }
 .jv-info-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ui-space-8); margin-bottom: var(--ui-space-16); }
@@ -172,11 +168,10 @@
 .jv-check .ui-icon { width: 12px; height: 12px; }
 .jv-picker-empty { margin: var(--ui-space-24) 0; text-align: center; font-size: var(--ui-text-md); color: var(--ui-text-tertiary); }
 .jv-form-error { margin: var(--ui-space-8) 0 0; font-size: var(--ui-text-md); color: var(--ui-text-danger); }
-.jv-spacer { flex: 1; }
 .ui-button.jv-danger { color: var(--ui-text-danger); }
 
 @media (max-width: 620px) {
-  .jv-channel-topic, .jv-notice-meta { display: none; }
+  .jv-channel-header .ui-column-sub, .jv-notice-meta { display: none; }
   .jv-notice { margin: var(--ui-space-8) var(--ui-space-8) 0; }
   .jv-notice-body { max-height: 26vh; }
   .jv-row { grid-template-columns: 38px minmax(0, 1fr); padding-right: var(--ui-space-6); }
@@ -229,7 +224,7 @@
 .jv-emoji-quick button:hover, .jv-emoji-cell:hover { background: var(--ui-fill-ghost-hover); }
 .jv-emoji-cell:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
 .jv-emoji-search { display: flex; align-items: center; gap: var(--ui-space-6); height: 28px; padding: 0 var(--ui-space-8); border-radius: var(--ui-radius-md);
-  background: var(--ui-fill-ghost); color: var(--ui-text-tertiary); }
+  background: var(--ui-fill-ghost-hover); color: var(--ui-text-tertiary); }
 .jv-emoji-search .lucide { width: 14px; height: 14px; flex: none; }
 .jv-emoji-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; font-size: var(--ui-text-md); color: var(--ui-text-primary); outline: none; }
 .jv-emoji-groups { display: flex; gap: var(--ui-space-2); border-bottom: .5px solid var(--ui-border-weak); padding-bottom: var(--ui-space-4); }

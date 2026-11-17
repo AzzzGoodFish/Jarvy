@@ -3,6 +3,7 @@ import type { Chat, Member, Section } from "../contract/chat";
 import type { FollowedSummary } from "../contract/threads";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Icon, IconButton } from "./ui";
+import { ColumnHeader } from "./components/column-header";
 import { t } from "./i18n";
 import { type MenuTarget } from "./sidebar/EntryMenu";
 import { useEffect, useRef } from "react";
@@ -32,14 +33,14 @@ export function AppSidebar({ chats, sections, bots, members, followed, followedO
     return () => document.removeEventListener("pointerdown", close);
   }, [createMenu]);
   return <aside className="ui-sidebar" aria-label={t("sidebar.label")}>
-    <header className="ui-sidebar-header"><div className="jarvy-sidebar-create" ref={createRef}>
+    <ColumnHeader place="sidebar" title={<span className="sr-only">{t("sidebar.label")}</span>} actions={<div className="ui-column-actions"><div className="jarvy-sidebar-create" ref={createRef}>
       <IconButton icon="add" label={t("sidebar.create")} aria-expanded={createMenu} aria-haspopup="menu" disabled={creating} onClick={() => onToggleCreate(!createMenu)}/>
       {createMenu && <div className="ui-popover jarvy-create-menu" role="menu" aria-label={t("sidebar.createMenu")}>
         <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("channel")}><Icon name="list-bullets"/><span className="ui-menu-copy">{t("sidebar.newChannel")}</span></button>
         <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("section")}><Icon name="folder"/><span className="ui-menu-copy">{t("sidebar.newSection")}</span></button>
         <button role="menuitem" className="ui-menu-item" onClick={() => onCreate("bot")}><Icon name="person-add"/><span className="ui-menu-copy">{t("sidebar.newBot")}</span></button>
       </div>}
-    </div></header>
+    </div></div>}/>
     <Sidebar chats={chats} sections={sections} bots={bots} members={members} onOpenMessage={onFind} onOpenFound={onOpenFound} onError={onError}
       working={working} asking={asking} selected={selected} filter={filter} onFilterChange={onFilterChange}
       followed={followed} followedOpen={followedOpen} onOpenFollowed={onOpenFollowed}
