@@ -16,7 +16,11 @@ html[data-desktop] :is(.jv-rail, .ui-sidebar-header, .ui-chat-header, .ui-pane-h
 html[data-desktop] .ui-chat:not(:has(> header)) { padding-top: var(--jv-titlebar); }
 html[data-desktop] :is(.ui-chat:not(:has(> header)), .jv-home)::before { content: ""; position: absolute; top: 0; right: 0; left: 0; height: var(--jv-titlebar); -webkit-app-region: drag; app-region: drag; }
 html[data-desktop] :is(.jv-floating-dms, .jv-floating-nav) { -webkit-app-region: no-drag; app-region: no-drag; }
-html[data-desktop] :is(.ui-app:not([data-pane]) .ui-chat-header, .ui-pane-header, .jv-envs-head) { padding-right: calc(var(--jv-controls) + 10px); }
+html[data-desktop] :is(.ui-app:not([data-pane]) .ui-chat-header, .ui-pane-header, .jv-envs-head) { position: relative; padding-right: calc(var(--jv-controls) + 10px); }
+/* A short line between the row's own buttons and the window's, as in Discord. */
+html[data-desktop] :is(.ui-app:not([data-pane]) .ui-chat-header, .ui-pane-header, .jv-envs-head)::after {
+  content: ""; position: absolute; top: 50%; right: var(--jv-controls); width: 1px; height: 20px; transform: translateY(-50%); background: var(--ui-border-default);
+}
 html[data-desktop] .jv-login-corner { right: calc(var(--jv-controls) + 12px); top: 10px; }
 html[data-desktop] [data-slot="dialog-content"] { margin-top: calc(var(--jv-titlebar) / 2); }
 html[data-desktop] dialog { inset: var(--jv-titlebar) 0 0 0; }
