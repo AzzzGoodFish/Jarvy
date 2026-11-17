@@ -48,7 +48,7 @@ The sizes follow the macOS text styles (body 13, title 15, 17 and 22), with 14 f
 
 Weights are the three every system font has, so they look the same on macOS, Windows and Linux: 400 for text, 500 for names (rows, tabs, buttons), 600 for titles and labels that head something (column headers, dialog titles, section titles, a message's author, badges).
 
-Long text reads at `--ui-leading-reading` (1.6): messages and Markdown.
+Long text keeps its reading height (1.5 to 1.7) rather than a single-line one: messages, Markdown, document bodies.
 
 Exceptions, kept where they are:
 
@@ -73,7 +73,6 @@ A radius inside another is the outer one less the padding between them, so neste
 
 - `--ui-shadow-sm`: a raised control (a selected segment, a switch's knob).
 - `--ui-shadow-md`: menus and popovers.
-- `--ui-shadow-lg`: dialogs and floating cards.
 - Hairline outlines are borders, not shadows: `1px solid var(--ui-border-weak)` between parts, `--ui-border-default` around a control.
 
 ### Sizes

@@ -4,7 +4,7 @@
 .jv-bot-avatar-tile { width: 68%; height: 52%; border-radius: 26%; background: var(--jv-avatar-color); }
 /* Working badge: three dots rising and falling in turn, like a swell, on the avatar corner. With reduced motion
    they only brighten in turn. */
-.jv-typing { position: absolute; right: -4px; bottom: -2px; display: flex; gap: 2px; align-items: center; padding: 3px 4px; border-radius: 999px;
+.jv-typing { position: absolute; right: -4px; bottom: -2px; display: flex; gap: var(--ui-space-2); align-items: center; padding: var(--ui-space-4) var(--ui-space-4); border-radius: var(--ui-radius-full);
   background: var(--ui-bg-base); box-shadow: 0 0 0 1px var(--ui-border-weak), 0 1px 2px rgb(0 0 0 / 0.12); }
 .jv-typing i { width: 3px; height: 3px; border-radius: 50%; background: var(--ui-text-secondary); animation: jv-swell 1.2s ease-in-out infinite; }
 .jv-typing i:nth-child(2) { animation-delay: .15s; }
@@ -13,11 +13,11 @@
 @keyframes jv-glint { 0%, 60%, 100% { opacity: .35; } 30% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .jv-typing i { animation-name: jv-glint; } }
 /* Bot info colour swatches */
-.jv-bot-colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.jv-bot-colors { display: flex; flex-wrap: wrap; gap: var(--ui-space-8); margin-top: var(--ui-space-8); }
 .jv-bot-colors > button { width: 22px; height: 22px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); transition: box-shadow .15s; }
 .jv-bot-colors > button[aria-checked=true] { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12), 0 0 0 2px var(--ui-bg-base), 0 0 0 4px var(--ui-text-primary); }
 .jv-bot-colors > button:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: 3px; }
 .jv-bot-colors > button:disabled { cursor: default; }
 /* Waiting for an answer (messages.ask): a question mark in the same corner badge. */
-.jv-typing.jv-asking { padding: 0 5px; font-size: 10px; line-height: 13px; font-weight: 700; color: var(--ui-text-primary); }
+.jv-typing.jv-asking { padding: 0 var(--ui-space-6); font-size: var(--ui-text-2xs); line-height: var(--ui-leading-2xs); font-weight: 600; color: var(--ui-text-primary); }

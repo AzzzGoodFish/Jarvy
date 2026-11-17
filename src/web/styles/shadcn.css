@@ -23,13 +23,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) * .6);
-  --radius-md: calc(var(--radius) * .8);
-  --radius-lg: var(--radius);
+  /* shadcn's radii are the design system's (A97). */
+  --radius-xs: var(--ui-radius-xs);
+  --radius-sm: var(--ui-radius-sm);
+  --radius-md: var(--ui-radius-md);
+  --radius-lg: var(--ui-radius-lg);
+  --radius-xl: var(--ui-radius-xl);
 }
 
 :root {
-  --radius: .625rem;
   --background: oklch(.995 .002 250);
   --foreground: oklch(.2 .012 260);
   --card: oklch(1 0 0);

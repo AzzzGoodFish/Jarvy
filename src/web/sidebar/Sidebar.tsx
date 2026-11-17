@@ -108,7 +108,7 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
     return <div className="shadcn-chat-row relative" key={bot.id}
       onContextMenu={event => { event.preventDefault(); onMenu({ kind: "dm", bot, chat }, { x: event.clientX, y: event.clientY }); }}>
       <Button type="button" variant="ghost" data-active={active} aria-current={active ? "page" : undefined}
-        className="h-15 w-full justify-start gap-2.5 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
+        className="h-15 w-full justify-start gap-2 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
         onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}>
         <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge} crown={bot.agent}/>
         {badge && <span className="sr-only">{t(badge === "asking" ? "sidebar.asking" : "sidebar.working")}</span>}
@@ -117,7 +117,7 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
             <span className={`min-w-0 flex-1 truncate text-sm ${chat?.unread ? "font-semibold" : "font-medium"}`} title={bot.name}>{bot.name}</span>
             {chat?.muted && <span className="jv-side-muted" aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}
             {chat?.pinned && <Pin className="jv-dm-pin shrink-0" aria-label={t("sidebar.pinned")}/>}
-            {chat && <time className="shadcn-chat-time shrink-0 text-[11px] font-normal text-muted-foreground" dateTime={new Date(chat.updatedAt).toISOString()}>
+            {chat && <time className="shadcn-chat-time shrink-0 text-[length:var(--ui-text-xs)] font-normal text-muted-foreground" dateTime={new Date(chat.updatedAt).toISOString()}>
               {formatClock(chat.updatedAt)}
             </time>}
           </span>

@@ -1,10 +1,10 @@
 /* Jarvy-specific rules on top of the shell styles (shell.css). */
-.jarvy-loading { height: var(--jv-vh, 100dvh); display: grid; place-items: center; font: 14px/1.5 sans-serif; color: #555; }
+.jarvy-loading { height: var(--jv-vh, 100dvh); display: grid; place-items: center; font: var(--ui-text-base)/1.5 sans-serif; color: #555; }
 [data-slot="dialog-content"], [data-slot="card"] { border-color: var(--border); }
 [data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; }
 .jarvy-sidebar-create { position: relative; }
 .jarvy-create-menu { position: absolute; top: 36px; left: calc(100% + 6px); right: auto; z-index: 15; background: var(--ui-bg-base); }
-.jarvy-create-menu .ui-menu-item .jv-bot-avatar { margin-right: 2px; }
+.jarvy-create-menu .ui-menu-item .jv-bot-avatar { margin-right: var(--ui-space-2); }
 .jarvy-create-menu .ui-menu-copy { overflow: hidden; text-overflow: ellipsis; }
 .shadcn-chat-row:hover .shadcn-chat-more, .shadcn-chat-row:focus-within .shadcn-chat-more { opacity: 1; }
 .shadcn-chat-row:hover .shadcn-chat-time, .shadcn-chat-row:focus-within .shadcn-chat-time { visibility: hidden; }
@@ -17,20 +17,20 @@
 .jarvy-attach-trigger:focus-within { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
 .jarvy-attach-trigger input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 .jarvy-attach-trigger:has(input:disabled) { opacity: .4; cursor: default; }
-.jarvy-pending-files { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-.jarvy-file-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 230px; padding: 5px 8px; border-radius: 9px; background: var(--ui-fill-secondary); color: var(--ui-text-primary); font-size: 12px; line-height: 18px; text-decoration: none; }
+.jarvy-pending-files { display: flex; flex-wrap: wrap; gap: var(--ui-space-6); margin: 0 0 var(--ui-space-8); }
+.jarvy-file-chip { display: inline-flex; align-items: center; gap: var(--ui-space-4); max-width: 230px; padding: var(--ui-space-6) var(--ui-space-8); border-radius: var(--ui-radius-md); background: var(--ui-fill-secondary); color: var(--ui-text-primary); font-size: var(--ui-text-sm); line-height: var(--ui-leading-md); text-decoration: none; }
 .jarvy-file-chip span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.jarvy-file-chip button { font-size: 16px; padding: 0 2px; line-height: 16px; }
+.jarvy-file-chip button { font-size: var(--ui-text-lg); padding: 0 var(--ui-space-2); line-height: var(--ui-leading-sm); }
 .jarvy-file-chip .ui-icon { width: 14px; height: 14px; }
 .jarvy-transcript { scroll-behavior: smooth; display: block; }
-.jarvy-empty-text { text-align: center; padding: 24px; font-size: 12px; color: var(--ui-text-secondary); }
-.jarvy-empty-chat { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: var(--ui-text-secondary); padding: 32px 20px; }
-.jarvy-empty-chat h2 { margin: 6px 0 0; font-weight: 600; font-size: 19px; color: var(--ui-text-primary); }
-.jarvy-empty-chat p { margin: 0; max-width: 350px; font-size: 13px; line-height: 21px; }
+.jarvy-empty-text { text-align: center; padding: var(--ui-space-24); font-size: var(--ui-text-sm); color: var(--ui-text-secondary); }
+.jarvy-empty-chat { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ui-space-8); text-align: center; color: var(--ui-text-secondary); padding: var(--ui-space-32) var(--ui-space-20); }
+.jarvy-empty-chat h2 { margin: var(--ui-space-6) 0 0; font-weight: 600; font-size: var(--ui-text-xl); color: var(--ui-text-primary); }
+.jarvy-empty-chat p { margin: 0; max-width: 350px; font-size: var(--ui-text-md); line-height: var(--ui-leading-base); }
 .jarvy-first-chat { flex: 1; min-height: 0; }
-.jarvy-first-chat .ui-button { margin-top: 16px; }
+.jarvy-first-chat .ui-button { margin-top: var(--ui-space-16); }
 .jarvy-first-chat .ui-icon { width: 14px; height: 14px; }
-.jarvy-bubble-avatar { margin-right: 8px; align-self: flex-end; }
+.jarvy-bubble-avatar { margin-right: var(--ui-space-8); align-self: flex-end; }
 .jarvy-dropping .ui-composer { border-style: dashed; border-color: var(--ui-border-focus); background: var(--ui-fill-ghost-hover); }
 /* A file being uploaded: its chip, with the progress along the bottom edge until it joins the draft. */
 .jarvy-file-chip[data-uploading] { position: relative; overflow: hidden; color: var(--ui-text-secondary); }
@@ -40,29 +40,29 @@
 .jarvy-file-progress > span { display: block; height: 100%; background: var(--ui-text-primary); transition: width .15s linear; }
 /* Dragging files over the composer: the hint sits inside the input, over its content. */
 .jarvy-drop-hint { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: inherit; background: var(--ui-bg-base);
-  font-size: 13px; color: var(--ui-text-secondary); pointer-events: none; }
+  font-size: var(--ui-text-md); color: var(--ui-text-secondary); pointer-events: none; }
 /* Beside the rail's account button (A87); on a phone above the tab bar (home.css). */
 .jarvy-account-menu { bottom: 12px; left: calc(var(--ui-rail) + 8px); right: auto; top: auto; z-index: 50; }
-.jarvy-account-menu .ui-menu-item { gap: 9px; }
-.jarvy-account-menu .ui-menu-note { padding: 8px 9px; }
-.jarvy-model-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.jarvy-account-menu .ui-menu-item { gap: var(--ui-space-8); }
+.jarvy-account-menu .ui-menu-note { padding: var(--ui-space-8) var(--ui-space-8); }
+.jarvy-model-check { display: inline-flex; align-items: center; gap: var(--ui-space-8); font-size: var(--ui-text-md); cursor: pointer; }
 .jarvy-model-check input { width: 15px; height: 15px; accent-color: var(--foreground); }
-.jarvy-model-feedback { color: var(--destructive); font-size: 12px; margin: 0; }
-.jarvy-model-onboarding { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 18px; padding: 30px 16px; }
+.jarvy-model-feedback { color: var(--destructive); font-size: var(--ui-text-sm); margin: 0; }
+.jarvy-model-onboarding { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: var(--ui-space-16); padding: var(--ui-space-32) var(--ui-space-16); }
 .jarvy-model-onboarding .jarvy-model-picker { width: min(540px, calc(100vw - 40px)); }
 @media (max-width: 620px) {
-  .jarvy-model-onboarding { min-height: 0; padding: 22px 10px; }
+  .jarvy-model-onboarding { min-height: 0; padding: var(--ui-space-24) var(--ui-space-12); }
   .jarvy-model-onboarding .jarvy-model-picker { width: min(420px, calc(100vw - 20px)); }
   .jarvy-create-menu { left: 0; right: auto; top: 34px; }
   .jarvy-empty-chat { min-height: 0; flex: 1; }
 }
 /* HTML with scripts: confirm before running it in the sandbox (A35). */
-.jv-run-tip { display: flex; align-items: center; gap: 12px; flex: none; padding: 9px 16px; border-bottom: .5px solid var(--ui-border-weak); background: var(--ui-fill-secondary); }
-.jv-run-tip p { flex: 1; min-width: 0; margin: 0; font-size: 12px; line-height: 18px; color: var(--ui-text-secondary); }
-.jv-run-tip .ui-button { flex: none; font-size: 12px; }
-@media (max-width: 620px) { .jv-run-tip { padding: 8px 10px; align-items: flex-start; } }
+.jv-run-tip { display: flex; align-items: center; gap: var(--ui-space-12); flex: none; padding: var(--ui-space-8) var(--ui-space-16); border-bottom: .5px solid var(--ui-border-weak); background: var(--ui-fill-secondary); }
+.jv-run-tip p { flex: 1; min-width: 0; margin: 0; font-size: var(--ui-text-sm); line-height: var(--ui-leading-md); color: var(--ui-text-secondary); }
+.jv-run-tip .ui-button { flex: none; font-size: var(--ui-text-sm); }
+@media (max-width: 620px) { .jv-run-tip { padding: var(--ui-space-8) var(--ui-space-12); align-items: flex-start; } }
 /* App icon above the login title (option G). */
-.jv-login-logo { display: block; width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 15px; }
+.jv-login-logo { display: block; width: 64px; height: 64px; margin: 0 auto var(--ui-space-12); border-radius: 15px; }
 /* Dark theme: dialogs and the composer sit on the solid secondary fill. */
 :root[data-theme="dark"] dialog { background: var(--ui-fill-secondary-solid); box-shadow: 0 20px 60px #00000030; }
 :root[data-theme="dark"] .ui-composer { background: var(--ui-fill-secondary-solid); }
