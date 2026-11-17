@@ -1,6 +1,6 @@
 # Design system
 
-Every screen is built from the same few values and the same few parts. A change to the UI is checked against this page first; a new kind of UI extends this page (a new part, or a new step in a scale) before it is used anywhere.
+Every screen is built from the same few values and the same few parts (A97). A change to the UI is checked against this page first; a new kind of UI extends this page (a new part, or a new step in a scale) before it is used anywhere.
 
 - **Values** come from the scales below, as `--ui-*` variables in `web/styles/tokens.css`. Feature CSS never writes a pixel value for spacing, type, radius or shadow.
 - **Parts** own their spacing and alignment. A page puts parts together; it does not restyle their insides.
@@ -92,6 +92,7 @@ The top row of every column: a chat, the sidebar, the Environments page, the mem
 - Inset `--ui-inset-content` in a content column, `--ui-inset-list` in a list column or pane.
 - Left: an optional back or menu button, then the title at `--ui-text-lg` / 600, on the left, then an optional muted subtitle at `--ui-text-md`. Right: icon buttons, `--ui-space-4` apart.
 - One component and one class, so the desktop frame (`desktop.css`) styles one thing.
+- In the desktop client this row is the title bar (A96): it moves the window, its controls stay clickable, and the header at the top right keeps clear of the window's buttons (`--jv-controls`) with a short vertical line between them.
 
 ### Dialog header
 
@@ -143,5 +144,5 @@ A block with its own border: the notice, request cards in a chat, a followed thr
 
 ## Checks
 
-- `check:architecture` reads `web/styles/*.css` (except `tokens.css` and `shadcn.css`) and the `className`s in `web/**/*.tsx`: a literal `px` in padding, margin, gap, font-size, line-height, border-radius or box-shadow fails, as does a Tailwind arbitrary value (`text-[11px]`). Widths and heights of pictures and layouts are not checked.
+- `check:architecture` reads `web/styles/*.css` (except `tokens.css` and `shadcn.css`) and the `className`s in `web/**/*.tsx`: a literal `px` in padding, margin, gap, font-size, line-height, border-radius or box-shadow fails, as does a Tailwind arbitrary value (`text-[11px]`). Widths and heights of pictures and layouts are not checked. Allowed: `0`; border widths (`1px solid …`); a variable inside `calc()` (`calc(-1 * var(--ui-space-4))` for a negative margin, `calc(var(--ui-control-md) + var(--ui-space-8))`).
 - The end-to-end run measures every column header (same height, title on the same baseline), the list columns' rows (same left edge as the search box), and compares a shot of each page with the last approved one.
