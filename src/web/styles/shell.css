@@ -73,6 +73,49 @@ button:focus:not(:focus-visible) { outline: none; }
 }
 .ui-column-sub { min-width: 0; overflow: hidden; font-size: var(--ui-text-md); color: var(--ui-text-tertiary); white-space: nowrap; text-overflow: ellipsis; }
 .ui-column-actions { display: flex; flex: none; align-items: center; gap: var(--ui-space-4); margin-left: auto; }
+/* ── List row (A97, docs/design.md) ───────────────────────────── */
+/* A row people pick from: a glyph, tile or avatar, then a name with an optional second line, then what trails it. */
+.ui-row {
+  display: flex; align-items: center; gap: var(--ui-space-8); width: 100%; min-width: 0; padding: var(--ui-space-6) var(--ui-space-8);
+  border: 0; border-radius: var(--ui-radius-md); background: none; color: var(--ui-text-primary); font-size: var(--ui-text-base); text-align: left;
+}
+button.ui-row { cursor: pointer; }
+button.ui-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
+@media (hover: hover) { button.ui-row:hover, .ui-row-wrap:hover > button.ui-row { background: var(--ui-fill-ghost-hover); } }
+.ui-row[data-active] { background: var(--ui-fill-ghost-selected); }
+.ui-row[data-line] { height: var(--ui-control-md); padding-block: 0; }
+.ui-row[data-line] > svg, .ui-row[data-line] > .ui-icon { flex: none; width: 16px; height: 16px; color: var(--ui-text-secondary); }
+.ui-row-text { display: flex; flex: 1; flex-direction: column; gap: var(--ui-space-2); min-width: 0; }
+.ui-row-line { display: flex; align-items: center; gap: var(--ui-space-6); min-width: 0; line-height: var(--ui-leading-base); }
+.ui-row-title { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ui-row[data-unread] .ui-row-title { font-weight: 600; }
+.ui-row-end { display: flex; flex: none; align-items: center; gap: var(--ui-space-4); font-size: var(--ui-text-xs); color: var(--ui-text-tertiary); }
+.ui-row-end .ui-icon, .ui-row-end svg { width: 12px; height: 12px; }
+.ui-row-sub { min-height: var(--ui-leading-sm); font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); color: var(--ui-text-tertiary); }
+.ui-row-digest { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The leading part: a glyph column (a channel's #), or an icon in a tile. Avatars bring their own size. */
+.ui-row-glyph { display: grid; flex: none; place-items: center; width: 16px; color: var(--ui-text-tertiary); }
+.ui-row-glyph svg { width: 14px; height: 14px; }
+.ui-tile { display: grid; flex: none; place-items: center; width: var(--ui-control-md); height: var(--ui-control-md); border-radius: var(--ui-radius-md);
+  background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
+.ui-tile svg { width: 20px; height: 20px; }
+/* The menu button shows on hover, over what ends the first line. */
+.ui-row-wrap { position: relative; }
+.ui-row-more {
+  position: absolute; top: 50%; right: var(--ui-space-4); display: grid; place-items: center; width: 24px; height: 24px; transform: translateY(-50%);
+  border: 0; border-radius: var(--ui-radius-sm); background: none; color: var(--ui-text-tertiary); opacity: 0;
+}
+.ui-row-wrap:has(.ui-row[data-two]) .ui-row-more { top: var(--ui-space-4); transform: none; }
+.ui-row-more svg { width: 16px; height: 16px; }
+.ui-row-more:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.ui-row-wrap:is(:hover, :focus-within) .ui-row-more { opacity: 1; }
+.ui-row-wrap:is(:hover, :focus-within) .ui-row-end { visibility: hidden; }
+/* Without hover it always shows, and the first line keeps room for it. */
+@media (hover: none) {
+  .ui-row-more { opacity: 1; }
+  .ui-row-wrap .ui-row-text > .ui-row-line:first-child { padding-right: var(--ui-space-24); }
+  .ui-row-wrap:is(:hover, :focus-within) .ui-row-end { visibility: visible; }
+}
 .ui-user-avatar {
   display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
   background: var(--ui-fill-secondary); border: 1px solid var(--ui-border-weak);

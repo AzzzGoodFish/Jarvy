@@ -4,16 +4,6 @@
 .jv-envs-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak); }
 /* The list's head and search box are the chat list's (shell.css, Sidebar.tsx), so the two pages line up. */
 .jv-envs-scroll { flex: 1; min-height: 0; padding: 0 var(--ui-space-12) var(--ui-space-16); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
-.jv-envs-row { display: flex; align-items: center; gap: var(--ui-space-8); width: 100%; min-height: 48px; padding: var(--ui-space-6) var(--ui-space-12) var(--ui-space-6) var(--ui-space-8); border: 0; border-radius: var(--ui-radius-md);
-  background: none; color: var(--ui-text-primary); text-align: left; cursor: pointer; }
-@media (hover: hover) { .jv-envs-row:hover { background: var(--ui-fill-ghost-hover); } }
-.jv-envs-row[aria-current] { background: var(--ui-fill-ghost-selected); }
-.jv-envs-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline-offset: -2px; }
-.jv-envs-text { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: var(--ui-space-2); }
-.jv-envs-text strong { overflow: hidden; font-size: var(--ui-text-base); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.jv-envs-text span { overflow: hidden; font-size: var(--ui-text-sm); color: var(--ui-text-tertiary); text-overflow: ellipsis; white-space: nowrap; }
-.jv-envs-icon { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border-radius: var(--ui-radius-md); background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
-.jv-envs-icon svg { width: 15px; height: 15px; }
 /* A sandbox's state at a glance: running green, on its way amber, stopped grey, failed or without Docker red. */
 .jv-envs-state { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ui-text-disabled); }
 .jv-envs-state:not([data-state]) { visibility: hidden; }

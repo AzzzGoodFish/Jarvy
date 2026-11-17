@@ -20,13 +20,9 @@
 .jv-side-section-edit:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-side-section-edit .ui-icon { width: 13px; height: 13px; }
 .jv-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ui-text-primary); }
-.jv-side-row { display: flex; align-items: center; gap: var(--ui-space-6); width: 100%; height: 30px; padding: 0 var(--ui-space-8) 0 var(--ui-space-24); border-radius: var(--ui-radius-md); font-size: var(--ui-text-base); color: var(--ui-text-secondary); text-align: left; }
-.jv-side-row:hover { background: var(--ui-fill-ghost-hover); }
-.jv-side-row[data-active] { background: var(--ui-fill-ghost-selected); color: var(--ui-text-primary); }
-.jv-side-row[data-unread] { color: var(--ui-text-primary); font-weight: 600; }
-.jv-side-row .jv-hash { width: 14px; text-align: center; margin: 0; }
-.jv-side-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jv-side-empty { margin: var(--ui-space-2) 0 0 var(--ui-space-24); font-size: var(--ui-text-sm); color: var(--ui-text-tertiary); }
+/* Chat rows keep one height, with or without a second line. */
+.jv-side-nav .ui-row:not([data-line]) { min-height: calc(var(--ui-leading-base) + var(--ui-space-2) + var(--ui-leading-sm) + 2 * var(--ui-space-6)); }
+.jv-side-empty { margin: var(--ui-space-2) 0 0 var(--ui-space-8); font-size: var(--ui-text-sm); color: var(--ui-text-tertiary); }
 .jv-badge { flex: none; min-width: 18px; height: 18px; padding: 0 var(--ui-space-6); border-radius: var(--ui-radius-full); background: var(--ui-fill-danger); color: #fff; font-size: var(--ui-text-xs); line-height: var(--ui-leading-md); font-weight: 600; text-align: center; }
 .jv-count { flex: none; font-size: var(--ui-text-xs); color: var(--ui-text-secondary); font-weight: 500; }
 
@@ -135,16 +131,10 @@ button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--
 .jv-member-bar .ui-icon { width: 14px; height: 14px; }
 .jv-member-group { margin-bottom: var(--ui-space-8); }
 .jv-member-group h3 { margin: var(--ui-space-6) var(--ui-space-8) var(--ui-space-4); font-size: var(--ui-text-sm); font-weight: 600; color: var(--ui-text-secondary); }
-.jv-member-row { position: relative; display: flex; align-items: center; border-radius: var(--ui-radius-md); }
-.jv-member-row:hover { background: var(--ui-fill-ghost-hover); }
-.jv-member-main { display: flex; flex: 1; align-items: center; gap: var(--ui-space-8); min-width: 0; min-height: 44px; padding: var(--ui-space-4) var(--ui-space-12); border-radius: var(--ui-radius-md); font-size: var(--ui-text-base); text-align: left; }
-.jv-member-main .jv-member-name .jv-role { margin-left: var(--ui-space-6); vertical-align: 1px; }
+.ui-row-title .jv-role { margin-left: var(--ui-space-6); vertical-align: 1px; }
 .jv-member-state { flex: none; font-size: var(--ui-text-sm); color: var(--ui-text-tertiary); }
 .jv-member-state[data-tone=busy] { color: var(--ui-text-success, var(--ui-text-secondary)); }
 .jv-member-state[data-tone=error] { color: var(--ui-text-danger); }
-.jv-member-row .jv-member-remove { flex: none; margin-right: var(--ui-space-6); opacity: 0; }
-.jv-member-row:hover .jv-member-remove, .jv-member-row .jv-member-remove:focus-visible { opacity: 1; }
-@media (hover: none) { .jv-member-row .jv-member-remove { opacity: .7; } }
 
 /* Dialogs */
 .jv-select { display: block; width: 100%; min-height: 36px; padding: var(--ui-space-8) var(--ui-space-12); border: .5px solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-bg-base); color: var(--ui-text-primary); font-size: var(--ui-text-base); }
@@ -251,17 +241,6 @@ button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--
 .jv-dialog { width: min(420px, calc(100vw - 32px)); }
 .jv-checkline { display: flex; align-items: flex-start; gap: var(--ui-space-8); }
 .jv-checkline input { margin-top: var(--ui-space-2); }
-/* A pinned row shows a pin instead of the channel hash. */
-.jv-side-wrap { position: relative; }
-.jv-side-pin { flex: none; width: 14px; height: 14px; margin: 0 var(--ui-space-2) 0 0; color: var(--ui-text-tertiary); }
-.jv-side-more { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--ui-radius-sm);
-  opacity: 0; color: var(--ui-text-secondary); }
-.jv-side-more .lucide, .jv-side-more svg { width: 15px; height: 15px; }
-.jv-side-wrap:hover .jv-side-more, .jv-side-wrap:focus-within .jv-side-more { opacity: 1; }
-.jv-side-more:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
-@media (hover: none) { .jv-side-more { opacity: 1; } }
-.jv-dm-pin { width: 12px; height: 12px; color: var(--ui-text-tertiary); }
-.shadcn-chat-row:hover .jv-dm-pin, .shadcn-chat-row:focus-within .jv-dm-pin { visibility: hidden; }
 .jv-emoji-menu[data-up] { top: auto; bottom: 34px; }
 /* A DM message stacks its quote, bubble and marks; the user's side aligns right. */
 .jv-dm-stack { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: min(88%, 640px); }
@@ -276,19 +255,8 @@ button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--
 @media (max-width: 640px) { .jv-emoji-menu, .jv-emoji-menu[data-up], .jv-emoji-menu[data-right] { position: fixed; top: auto; right: 12px; bottom: 76px; left: 12px; width: auto; } }
 /* Queued deliveries you have not seen show as a hint line (A41): under a channel's name, or in place of a
    DM's preview. */
-.jv-side-row:has(.jv-side-text) { height: auto; min-height: 42px; padding-top: var(--ui-space-4); padding-bottom: var(--ui-space-4); }
-.jv-side-text { display: flex; flex: 1; flex-direction: column; gap: var(--ui-space-2); min-width: 0; }
-.jv-side-line { display: flex; align-items: center; gap: var(--ui-space-6); min-width: 0; }
-.jv-digest { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); font-weight: 400; color: var(--ui-text-tertiary); }
-.shadcn-chat-row .jv-digest { font-size: inherit; line-height: inherit; color: inherit; }
 .jv-at-me { margin-right: var(--ui-space-2); color: var(--ui-text-danger, #e5484d); }
 .jv-hint-line { color: var(--ui-text-accent, var(--ui-text-secondary)); }
-.jv-side-muted { display: inline-flex; flex: none; color: var(--ui-text-tertiary); }
-.jv-side-muted .ui-icon { width: 12px; height: 12px; }
-/* Two-line rows: the 「…」 button sits on the title line, where the 免打扰 icon steps aside for it. */
-.jv-side-wrap:has(.jv-side-text) .jv-side-more { top: 6px; transform: none; }
-.jv-side-wrap:hover .jv-side-muted, .jv-side-wrap:focus-within .jv-side-muted { visibility: hidden; }
-@media (hover: none) { .jv-side-text .jv-side-line:first-child { padding-right: var(--ui-space-24); } .jv-side-wrap .jv-side-muted { visibility: visible; } }
 /* Search: the sidebar's results (chats by name, threads and channels, messages) and the in-chat search pane. */
 .jv-result-group { margin-top: var(--ui-space-8); }
 .jv-result-head { display: flex; align-items: center; gap: var(--ui-space-6); margin: 0 0 var(--ui-space-2); padding: 0 var(--ui-space-8); font-size: var(--ui-text-sm); font-weight: 600; color: var(--ui-text-secondary); }

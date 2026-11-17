@@ -3,7 +3,8 @@ import { api } from "../api";
 import { type Bot, type BotStatus } from "../../contract/bots";
 import { type Chat, type Member } from "../../contract/chat";
 import { ConfirmDialog } from "../dm/DeleteDialog";
-import { Icon, IconButton } from "../ui";
+import { Icon } from "../ui";
+import { ListRow } from "../components/list-row";
 import { t } from "../i18n";
 import { botState } from "../members";
 import { MemberAvatar } from "./ChannelView";
@@ -42,19 +43,15 @@ export function MemberList({ channel, members, bots, statuses, me, onAdd, onBot,
   const row = (member: Member) => {
     const bot = member.kind === "bot" ? bots.find(item => item.id === member.id) : undefined, status = statuses[member.id];
     const state = member.kind === "bot" ? botState(bot, status) : undefined;
-    const body = <>
-      <MemberAvatar member={member} bots={bots} size={28} working={status?.status === "running" && status.activity !== "asking"}/>
-      <span className="jv-member-name">{member.name}{member.id === me && <span className="jv-role">{t("common.you")}</span>}
+    return <ListRow key={member.id} static={!bot} aria-label={bot ? t("members.view", { name: member.name }) : undefined}
+      onClick={bot ? () => onBot(member.id) : undefined}
+      leading={<MemberAvatar member={member} bots={bots} size={32} working={status?.status === "running" && status.activity !== "asking"}/>}
+      title={<>{member.name}{member.id === me && <span className="jv-role">{t("common.you")}</span>}
         {member.id === channel.createdBy ? <span className="jv-role">{t("members.creator")}</span>
-          : channel.adminIds.includes(member.id) && <span className="jv-role">{t("members.admin")}</span>}</span>
-      {state && <span className="jv-member-state" data-tone={state.tone}>{state.label}</span>}
-    </>;
-    return <div key={member.id} className="jv-member-row">
-      {bot ? <button type="button" className="jv-member-main" aria-label={t("members.view", { name: member.name })} onClick={() => onBot(member.id)}>{body}</button>
-        : <div className="jv-member-main">{body}</div>}
-      {member.id !== me && <IconButton icon="more" label={t("members.more", { name: member.name })} className="jv-member-remove"
-        onClick={event => { const box = event.currentTarget.getBoundingClientRect(); setMenu({ member, x: box.right, y: box.bottom + 4 }); }}/>}
-    </div>;
+          : channel.adminIds.includes(member.id) && <span className="jv-role">{t("members.admin")}</span>}</>}
+      titleEnd={state && <span className="jv-member-state" data-tone={state.tone}>{state.label}</span>}
+      more={member.id !== me ? { label: t("members.more", { name: member.name }),
+        onClick: event => { const box = event.currentTarget.getBoundingClientRect(); setMenu({ member, x: box.right, y: box.bottom + 4 }); } } : undefined}/>;
   };
   return <>
     <div className="jv-member-bar"><span>{t("members.count", { count: inside.length })}</span>
