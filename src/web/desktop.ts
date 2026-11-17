@@ -22,15 +22,34 @@ export function notifyDesktop(message: ChatMessage, chat: Chat, me: string, memb
 /** Inside the desktop client the window has no system title bar (A96): the interface's own top row is the title bar
  * (styles/desktop.css), with the window's buttons at its right end. In a browser, nothing. */
 export function startFrame(): void {
-  if (desktop()?.frameless) document.documentElement.dataset.desktop = "";
+  if (!desktop()?.frameless) return;
+  document.documentElement.dataset.desktop = "";
+  // Whichever header reaches the window's top right sits beside its buttons: it is marked, to keep clear of them and
+  // show the line between. Which one that is changes with the view (a chat, a side panel, followed threads…).
+  let queued = false;
+  const mark = () => {
+    queued = false;
+    const edge = window.innerWidth - 2;
+    for (const header of document.querySelectorAll<HTMLElement>(HEADERS)) {
+      const box = header.getBoundingClientRect(), under = box.width > 0 && box.top < 4 && box.right >= edge;
+      if (under !== header.hasAttribute("data-under-controls")) header.toggleAttribute("data-under-controls", under);
+    }
+  };
+  const soon = () => { if (!queued) { queued = true; requestAnimationFrame(mark); } };
+  new MutationObserver(soon).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden", "data-pane", "data-view", "data-open"] });
+  window.addEventListener("resize", soon);
+  soon();
 }
+const HEADERS = ".ui-chat-header, .ui-pane-header, .jv-envs-head";
 
 /** Tells the client the page's theme, and the colours for the window's buttons, drawn over the chat's top right. */
 export function syncFrame(mode: "light" | "dark"): void {
   const client = desktop();
   if (!client?.setTheme) return;
   const style = getComputedStyle(document.documentElement);
-  client.setTheme(mode, { background: hex(style.getPropertyValue("--ui-bg-base")), symbol: hex(style.getPropertyValue("--ui-text-secondary")) });
+  // The buttons stop just above the row's bottom line, so the line runs on under them.
+  const height = (parseFloat(style.getPropertyValue("--jv-titlebar")) || 52) - 1;
+  client.setTheme(mode, { background: hex(style.getPropertyValue("--ui-bg-base")), symbol: hex(style.getPropertyValue("--ui-text-secondary")), height });
 }
 /** A CSS colour (the tokens are oklch) as #rrggbb, which the window's buttons take. */
 function hex(color: string): string {

@@ -11,7 +11,7 @@ export interface JarvyDesktop {
   setBadge(count: number): void;
   /** The page's light or dark theme, for the window's frame, and the colours of the strip the page draws at the top
    * (0.1.2 on), for the window's buttons drawn over it. Clients before 0.1.1 lack it. */
-  setTheme?(mode: "light" | "dark", frame?: { background: string; symbol: string }): void;
+  setTheme?(mode: "light" | "dark", frame?: { background: string; symbol: string; height?: number }): void;
   /** The client asks the page to open a chat (a notification was chosen). */
   onOpenChat(listener: (chatId: string) => void): void;
 }
