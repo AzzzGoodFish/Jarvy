@@ -143,6 +143,19 @@ A block with its own border: the notice, request cards in a chat, a followed thr
 - Underlined, for a dialog's pages (Bot info): `--ui-text-base` / 500, `--ui-space-20` apart, a 2 px line under the current one.
 - Segmented, for filters in a column (followed threads, an environment's type): `--ui-control-sm` high, `--ui-radius-sm` thumb on a `--ui-radius-md` track.
 
+## Doing a system-wide pass
+
+Values, parts and their checks grow from a pass over the whole UI, not from a rule invented up front (A98). A pass goes in this order; reversing two steps costs a redo of the first.
+
+1. **Count first.** Measure what the code has now: every spacing, size, line height and radius written by hand, and every distinct implementation of the same piece of UI. The count is the baseline the result is shown against (this pass: 40 spacing values, 17 sizes, 18 radii, eight column headers, seven list rows).
+2. **Settle the few steps, on paper.** Choose the scales by what the UI actually needs, keep the steps far enough apart that two neighbours look different, and write them in this page with what each step is for. Weights follow what every system font has, so text looks the same on each platform.
+3. **Values before parts.** Swap hand-written values for variables across the styles with no change of layout, one class of value at a time. Parts cannot be built while pages still disagree on the numbers.
+4. **Parts, one per merge.** A part takes over one piece of UI everywhere it appears, and the old class and its CSS are deleted in the same change — a second style that still works is a style that will come back (A97, engineering principle 10). Each part is one pull request with a measured before and after (a row 42 → 50, an icon 15 → 20) and light, dark and phone shots.
+5. **Behaviour changes are named apart.** Where a part changes what people get, not only how it looks (the more button replacing a status on hover, a time no longer hidden on a phone), say so separately and get it agreed before it goes in.
+6. **Checks last, but invented first.** Write the mechanical check as soon as the rule can be stated (`check:architecture` for literal values, the end-to-end measurements for alignment) so later work cannot quietly go back.
+
+What the pass must not do: move a value by eye when the scales do not have a step for it — add the step to this page first, or use the nearest one and say why; and leave a compatibility class for the old markup.
+
 ## Checks
 
 - `check:architecture` reads `web/styles/*.css` (except `tokens.css` and `shadcn.css`) and the `className`s in `web/**/*.tsx`: a literal `px` in padding, margin, gap, font-size, line-height, border-radius or box-shadow fails, as does a Tailwind arbitrary value (`text-[11px]`). Widths and heights of pictures and layouts are not checked. Allowed: `0`; border widths (`1px solid …`); a variable inside `calc()` (`calc(-1 * var(--ui-space-4))` for a negative margin, `calc(var(--ui-control-md) + var(--ui-space-8))`).

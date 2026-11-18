@@ -24,6 +24,7 @@ There are no unit tests. Verify with:
 2. A real run against an isolated data directory (`--data-dir`, a separate port), using a fake model endpoint for routine flows. Never test against a data directory someone uses.
 3. For UI changes, browser screenshots in light and dark themes and at 390 px width.
 4. For schema changes, also migrate a copy of an existing database (credentials removed, pending work cancelled) and check `PRAGMA integrity_check` and `PRAGMA foreign_key_check`.
+5. For a change across the whole UI, report the measured before and after of what it moved (heights, insets, weights), not only the shots.
 
 ## Frontend
 

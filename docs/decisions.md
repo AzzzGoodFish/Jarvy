@@ -860,3 +860,19 @@ Every page wrote its own values and its own version of the same UI: 40 spacing v
 Why: a 4 px grid and three weights are what design systems commonly use, so the values are few and every pair of neighbours differs visibly; weights other than 400, 500 and 600 render differently on Windows and Linux, whose system fonts have fixed weights. A nested corner is its container's radius less the padding between them, so corners stay parallel. One implementation of each part means a fix lands everywhere at once.
 
 Consequences: existing values move to the nearest step (most by 2 px), page by page, each with before-and-after shots; titles at 650 (the Chats and Environments headers) become 600.
+
+## A98 A system-wide UI pass, in one order
+
+The design system (A97) was built by passing over the whole UI, and how that pass was ordered decided how much of it had to be redone. Written down so the next one, here or elsewhere, does not rediscover it.
+
+- **Count first**: measure the values and the duplicate implementations that exist, and keep the count as the baseline the result is reported against.
+- **Scale before values**: choose the steps from what the UI needs, write them down with what each is for, then replace values one class at a time without changing layout.
+- **Values before parts**: a part cannot absorb spacing while the pages still disagree on it.
+- **One part per merge, old path deleted inside it** (principle 10): a second style that still works is a style that comes back.
+- **A change in behaviour is named apart** from a change in looks, and agreed on its own.
+- **The check is written as soon as the rule can be stated**, ahead of the work that would break it.
+- **Merging waits for the maintainer's own confirmation**, quoted by message, not for a summary of it.
+
+Why: the order was found by running it — the scales had to be settled before the styles could be converted, and the conversion before any part could be extracted; each part was its own merge with measured before-and-after numbers, which is what made the result visible and the regressions obvious. Nothing in the order is specific to CSS: the same sequence applies to a set of API responses, log formats or error messages.
+
+Consequences: `docs/design.md` carries the pass as steps for the next UI change, engineering principle 7 asks for one mechanism and a check against a new copy, and `AGENTS.md` asks for measured before-and-after numbers on a change across the whole UI.
