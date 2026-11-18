@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { Ellipsis, Pin, Search } from "lucide-react";
+import { Pin, Search } from "lucide-react";
 import type { MenuTarget } from "./EntryMenu";
 import type { Bot } from "../../contract/bots";
 import type { Chat, Member, Section } from "../../contract/chat";
 import type { FollowedSummary } from "../../contract/threads";
 import { ResultGroup, SearchResults } from "../search/SearchResults";
 import { BotAvatar } from "../avatar/BotAvatar";
-import { Button } from "../components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { formatClock, t } from "../i18n";
 import { previewText } from "../channel/quotes";
 import { Icon } from "../ui";
+import { ListRow } from "../components/list-row";
 
 const COLLAPSED_KEY = "jarvy-collapsed-sections";
 const savedCollapsed = (): string[] => { try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]") as string[]; } catch { return []; } };
@@ -40,11 +40,14 @@ export function hintThread(chat: Chat): string | null {
 }
 /** A row's second line, as in Feishu: the newest thing — a hint, or the last message (channels add
  * who wrote it) — after a red 「[有人@我]」 while an @ or a reply to you is unread. */
-function Digest({ chat, channel }: { chat: Chat; channel: boolean }) {
+/** The second line: an unseen delivery's hint, else the last message (with its sender in a channel), else a
+ * channel's topic. Nothing to say leaves the row one line, centred at the list's height. */
+function digest(chat: Chat, channel: boolean) {
   const hint = hintText(chat);
   const last = chat.lastMessage && previewText(chat.lastMessage);
   const text = hint ?? (last ? (channel && chat.lastSender ? t("sidebar.said", { name: chat.lastSender, text: last }) : last) : channel ? chat.topic : "");
-  return <span className="jv-digest">{chat.atMe && <span className="jv-at-me">{t("sidebar.atMe")}</span>}<span className={hint ? "jv-hint-line" : undefined}>{text}</span></span>;
+  if (!text && !chat.atMe) return undefined;
+  return <>{chat.atMe && <span className="jv-at-me">{t("sidebar.atMe")}</span>}<span className={hint ? "jv-hint-line" : undefined}>{text}</span></>;
 }
 
 /** Channel groups (Section) with their channels, ungrouped channels under 「频道」, then one DM row per Bot
@@ -90,45 +93,27 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
   const dms = bots.map(bot => ({ bot, chat: chats.find(chat => chat.type === "dm" && chat.botId === bot.id) }))
     .filter(({ bot }) => bot.name.toLocaleLowerCase().includes(query))
     .sort((a, b) => Number(b.bot.agent) - Number(a.bot.agent) || Number(!!b.chat?.pinned) - Number(!!a.chat?.pinned) || (b.chat?.updatedAt ?? 0) - (a.chat?.updatedAt ?? 0));
-  const channelRow = (chat: Chat) => <div className="jv-side-wrap" key={chat.id}
-    onContextMenu={event => { event.preventDefault(); onMenu({ kind: "channel", chat }, { x: event.clientX, y: event.clientY }); }}>
-    <button type="button" className="jv-side-row" data-active={selected === chat.id || undefined}
-      data-unread={chat.unread > 0 || undefined} aria-current={selected === chat.id ? "page" : undefined} onClick={() => onSelect(chat)}>
-      {chat.pinned ? <Pin className="jv-side-pin" aria-label={t("sidebar.pinned")}/> : <span className="jv-hash" aria-hidden="true">#</span>}
-      <span className="jv-side-text">
-        <span className="jv-side-line"><span className="jv-side-label" title={chat.title}>{chat.title}</span>
-          {chat.muted && <span className="jv-side-muted" aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}</span>
-        <span className="jv-side-line"><Digest chat={chat} channel/><Badge chat={chat}/></span>
-      </span>
-    </button>
-    <button type="button" className="jv-side-more" aria-label={t("sidebar.more", { name: chat.title })} onClick={event => onMenu({ kind: "channel", chat }, below(event.currentTarget))}><Ellipsis aria-hidden="true"/></button>
-  </div>;
+  const channelRow = (chat: Chat) => <ListRow key={chat.id} active={selected === chat.id} unread={chat.unread > 0} onClick={() => onSelect(chat)}
+    onContextMenu={event => { event.preventDefault(); onMenu({ kind: "channel", chat }, { x: event.clientX, y: event.clientY }); }}
+    leading={<span className="ui-row-glyph">{chat.pinned ? <Pin aria-label={t("sidebar.pinned")}/> : <span className="jv-hash" aria-hidden="true">#</span>}</span>}
+    title={<span title={chat.title}>{chat.title}</span>}
+    titleEnd={chat.muted && <span aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}
+    sub={digest(chat, true) ?? (chat.alerts || chat.unread ? "" : undefined)} subEnd={<Badge chat={chat}/>}
+    more={{ label: t("sidebar.more", { name: chat.title }), onClick: event => onMenu({ kind: "channel", chat }, below(event.currentTarget)) }}/>;
   const dmRow = ({ bot, chat }: { bot: Bot; chat: Chat | undefined }) => {
     const badge = asking.has(bot.id) ? "asking" : working.has(bot.id) ? "working" : undefined, active = !!chat && selected === chat.id;
-    return <div className="shadcn-chat-row relative" key={bot.id}
-      onContextMenu={event => { event.preventDefault(); onMenu({ kind: "dm", bot, chat }, { x: event.clientX, y: event.clientY }); }}>
-      <Button type="button" variant="ghost" data-active={active} aria-current={active ? "page" : undefined}
-        className="h-15 w-full justify-start gap-2 rounded-md px-2 text-left hover:bg-accent/70 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
-        onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}>
-        <BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge} crown={bot.agent}/>
-        {badge && <span className="sr-only">{t(badge === "asking" ? "sidebar.asking" : "sidebar.working")}</span>}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className={`min-w-0 flex-1 truncate text-sm ${chat?.unread ? "font-semibold" : "font-medium"}`} title={bot.name}>{bot.name}</span>
-            {chat?.muted && <span className="jv-side-muted" aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}
-            {chat?.pinned && <Pin className="jv-dm-pin shrink-0" aria-label={t("sidebar.pinned")}/>}
-            {chat && <time className="shadcn-chat-time shrink-0 text-[length:var(--ui-text-xs)] font-normal text-muted-foreground" dateTime={new Date(chat.updatedAt).toISOString()}>
-              {formatClock(chat.updatedAt)}
-            </time>}
-          </span>
-          <span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{chat ? <Digest chat={chat} channel={false}/> : ""}</span>{chat && <Badge chat={chat}/>}</span>
-        </span>
-      </Button>
-      <Button type="button" variant="ghost" size="icon-xs" aria-label={t("sidebar.more", { name: bot.name })}
-        className="shadcn-chat-more absolute top-4 right-2 opacity-0" onClick={event => onMenu({ kind: "dm", bot, chat }, below(event.currentTarget))}>
-        <Ellipsis aria-hidden="true"/>
-      </Button>
-    </div>;
+    return <ListRow key={bot.id} active={active} unread={!!chat?.unread} onClick={() => chat ? onSelect(chat) : onOpenBot(bot)}
+      onContextMenu={event => { event.preventDefault(); onMenu({ kind: "dm", bot, chat }, { x: event.clientX, y: event.clientY }); }}
+      leading={<><BotAvatar color={bot.color} mood={bot.mood} size={36} badge={badge} crown={bot.agent}/>
+        {badge && <span className="sr-only">{t(badge === "asking" ? "sidebar.asking" : "sidebar.working")}</span>}</>}
+      title={<span title={bot.name}>{bot.name}</span>}
+      titleEnd={chat && <>
+        {chat?.muted && <span aria-label={t("sidebar.muted")}><Icon name="bell-slash"/></span>}
+        {chat?.pinned && <Pin aria-label={t("sidebar.pinned")}/>}
+        {chat && <time dateTime={new Date(chat.updatedAt).toISOString()}>{formatClock(chat.updatedAt)}</time>}
+      </>}
+      sub={chat && (digest(chat, false) ?? (chat.alerts || chat.unread ? "" : undefined))} subEnd={chat && <Badge chat={chat}/>}
+      more={{ label: t("sidebar.more", { name: bot.name }), onClick: event => onMenu({ kind: "dm", bot, chat }, below(event.currentTarget)) }}/>;
   };
   // The whole group name folds and unfolds the group, like Discord categories.
   const head = (key: string, label: string, closed: boolean, unread: boolean, section?: Section) => <div className="jv-side-section-head">
@@ -158,17 +143,15 @@ export function Sidebar({ chats, sections, bots, members, onOpenMessage, onOpenF
         <SearchResults query={filter} shown={new Set(channels.map(chat => chat.id))} chats={chats} members={members}
           onOpenChat={onOpenFound} onOpenMessage={onOpenMessage} onError={onError}/>
       </nav> : <nav className="jv-side-nav px-3 pb-6" aria-label={t("sidebar.nav")}>
-        {!!followed?.total && <button type="button" className="jv-side-row jv-side-top" data-active={followedOpen || undefined} data-unread={threadUnread > 0 || undefined}
-          aria-current={followedOpen ? "page" : undefined} onClick={onOpenFollowed}>
-          <Icon name="chat-bubble"/><span className="jv-side-label">{t("sidebar.followed")}</span>
-          {threadMentions > 0 ? <span className="jv-badge">{threadMentions}</span> : threadUnread > 0 && <span className="jv-count">{threadUnread}</span>}
-        </button>}
+        {!!followed?.total && <ListRow line className="jv-side-top" active={followedOpen} unread={threadUnread > 0} onClick={onOpenFollowed}
+          leading={<Icon name="chat-bubble"/>} title={t("sidebar.followed")}
+          trailing={threadMentions > 0 ? <span className="jv-badge">{threadMentions}</span> : threadUnread > 0 && <span className="jv-count">{threadUnread}</span>}/>}
         {sections.map(section => group(`s:${section.id}`, section.name, channels.filter(chat => chat.sectionId === section.id), section))}
         {channels.some(chat => !chat.sectionId || !sections.some(section => section.id === chat.sectionId)) &&
           group("channels", t("sidebar.channels"), channels.filter(chat => !chat.sectionId || !sections.some(section => section.id === chat.sectionId)))}
         <div className="jv-side-section">
           {head("dms", t("sidebar.dms"), isClosed("dms"), dms.some(({ chat }) => !!chat?.unread))}
-          {!isClosed("dms") && <div className="space-y-1">{dms.map(dmRow)}</div>}
+          {!isClosed("dms") && dms.map(dmRow)}
           {!isClosed("dms") && dms.length === 0 && <p className="jv-side-empty">{t("sidebar.noDms")}</p>}
         </div>
       </nav>}

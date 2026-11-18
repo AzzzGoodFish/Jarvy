@@ -6,9 +6,6 @@
 .jarvy-create-menu { position: absolute; top: 36px; left: calc(100% + 6px); right: auto; z-index: 15; background: var(--ui-bg-base); }
 .jarvy-create-menu .ui-menu-item .jv-bot-avatar { margin-right: var(--ui-space-2); }
 .jarvy-create-menu .ui-menu-copy { overflow: hidden; text-overflow: ellipsis; }
-.shadcn-chat-row:hover .shadcn-chat-more, .shadcn-chat-row:focus-within .shadcn-chat-more { opacity: 1; }
-.shadcn-chat-row:hover .shadcn-chat-time, .shadcn-chat-row:focus-within .shadcn-chat-time { visibility: hidden; }
-@media (hover: none) { .shadcn-chat-more { opacity: 1; } .shadcn-chat-time { visibility: hidden; } }
 /* Radix ScrollArea wraps content in an inline display:table box, which grows to the longest
    preview instead of letting rows truncate (time and delete ended up off-screen). */
 .ui-sidebar [data-slot="scroll-area-viewport"] > div { display: block !important; }

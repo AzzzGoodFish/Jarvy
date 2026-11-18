@@ -8,6 +8,7 @@ import { errorText } from "../errors";
 import { BotPorts } from "../ports/BotPorts";
 import { IconButton } from "../ui";
 import { ColumnHeader } from "../components/column-header";
+import { ListRow } from "../components/list-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { t } from "../i18n";
 import { BotEnvironment, STATE } from "./BotEnvironment";
@@ -81,32 +82,26 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
         </InputGroup>
       </div>
       <div className="jv-envs-scroll">
-        {shownDevices?.map(item => <button key={item.id} type="button" className="jv-envs-row" aria-current={device?.id === item.id || undefined} onClick={() => pick({ kind: "device", id: item.id })}>
-          <Kind type="device"/>
-          <span className="jv-envs-text"><strong>{item.name}</strong><span>{deviceSystem(item) || t("devices.kindDevice")}</span></span>
-          {faces(at(item))}<DeviceDot device={item}/>
-        </button>)}
-        {shownMachines?.map(item => <button key={item.id} type="button" className="jv-envs-row" aria-current={machine?.id === item.id || undefined} onClick={() => pick({ kind: "machine", id: item.id })}>
-          <Kind type="ssh"/>
-          <span className="jv-envs-text"><strong>{item.name}</strong><span className="jv-mono">{machineAddress(item)}</span></span>
-          {faces(on(item))}<span className="jv-envs-state"/>
-        </button>)}
+        {shownDevices?.map(item => <ListRow key={item.id} active={device?.id === item.id} onClick={() => pick({ kind: "device", id: item.id })}
+          leading={<Kind type="device"/>} title={item.name} sub={deviceSystem(item) || t("devices.kindDevice")}
+          trailing={<>{faces(at(item))}<DeviceDot device={item}/></>}/>)}
+        {shownMachines?.map(item => <ListRow key={item.id} active={machine?.id === item.id} onClick={() => pick({ kind: "machine", id: item.id })}
+          leading={<Kind type="ssh"/>} title={item.name} sub={<span className="jv-mono">{machineAddress(item)}</span>}
+          trailing={<>{faces(on(item))}<span className="jv-envs-state"/></>}/>)}
         {shownSandboxes.map(item => {
           const computer = item.environment.computer!;
-          return <button key={item.id} type="button" className="jv-envs-row" aria-current={bot?.id === item.id || undefined} onClick={() => pick({ kind: "sandbox", id: item.id })}>
-            <Kind type={computer.type}/>
-            <span className="jv-envs-text"><strong>{t("envs.sandboxOf", { name: item.name })}</strong>
-              <span>{t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container")}</span></span>
-            {faces(home(item))}
-            <span className="jv-envs-state" data-state={computer.state} role="img" aria-label={t(STATE[computer.state])} title={t(STATE[computer.state])}/>
-          </button>;
+          return <ListRow key={item.id} active={bot?.id === item.id} onClick={() => pick({ kind: "sandbox", id: item.id })}
+            leading={<Kind type={computer.type}/>} title={t("envs.sandboxOf", { name: item.name })}
+            sub={t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container")}
+            trailing={<>{faces(home(item))}
+              <span className="jv-envs-state" data-state={computer.state} role="img" aria-label={t(STATE[computer.state])} title={t(STATE[computer.state])}/></>}/>;
         })}
         {query && machines && !shownMachines?.length && !shownDevices?.length && !shownSandboxes.length && <p className="jv-envs-none">{t("envs.noMatch")}</p>}
         {error && <p className="jv-note-error" role="alert">{error}</p>}
       </div>
     </aside>
     <main className="jv-envs-detail jv-ui">
-      <ColumnHeader place="content" as="h2" className="jv-envs-head"
+      <ColumnHeader place="content" as="h2"
         leading={<><button type="button" className="jv-envs-back" aria-label={t("envs.back")} onClick={() => { setOpen(false); onAdding(false); }}><ChevronLeftIcon aria-hidden="true"/></button>
           {device ? <Kind type="device"/> : machine ? <Kind type="ssh"/> : bot ? <Kind type={bot.environment.computer!.type}/> : null}</>}
         title={adding ? t(connecting ? "devices.connect" : "machines.add") : device ? device.name : machine ? machine.name : bot ? t("envs.sandboxOf", { name: bot.name }) : ""}
@@ -135,7 +130,7 @@ export function Environments({ bots, statuses, adding, onAdding, onSaved }: {
 /** What kind of place it is: a container, a VM (A85) or a machine over SSH. */
 function Kind({ type }: { type: "container" | "vm" | "ssh" | "device" }) {
   const Icon = type === "device" ? LaptopIcon : type === "ssh" ? ServerIcon : type === "vm" ? MonitorIcon : ContainerIcon;
-  return <span className="jv-envs-icon" data-kind={type}><Icon aria-hidden="true"/></span>;
+  return <span className="ui-tile" data-kind={type}><Icon aria-hidden="true"/></span>;
 }
 
 /** A computer's dot: green online, amber paused in its client, grey offline. */

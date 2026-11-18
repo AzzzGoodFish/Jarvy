@@ -100,13 +100,14 @@ The top of Settings' pages and of Bot info: the title at `--ui-text-xl` / 600, a
 
 ### List row
 
-One component for the rows people pick from: channels, DMs, environments, members, Settings' navigation.
+One component, `ListRow` (`components/list-row.tsx`, class `.ui-row`), for the rows people pick from: channels, DMs, environments, members, Settings' navigation.
 
 - `--ui-radius-md`, padding `--ui-space-6` × `--ui-space-8`, leading part to text `--ui-space-8`.
-- Leading: a 20 px icon in a 32 px tile, or an avatar (32, or 36 for DMs).
+- Leading: a 16 px glyph column (a channel's `#` or pin), a 20 px icon in a 32 px tile (`.ui-tile`), or an avatar (32, or 36 for DMs).
 - Name at `--ui-text-base` / 500 (600 when unread); second line at `--ui-text-sm` in `--ui-text-tertiary`, `--ui-space-2` below.
-- Trailing: time at `--ui-text-xs`, then a count badge; a more button that shows on hover.
+- Trailing: on the first line a time or state at `--ui-text-xs`, on the second a count badge; a more button shows on hover in place of the first line's end. Without hover it always shows, and the first line keeps room for it.
 - Hover `--ui-fill-ghost-hover`, selected `--ui-fill-ghost-selected`.
+- The chat list keeps one row height: a row with nothing on its second line is centred at the same height.
 - A one-line row (Settings' navigation, the followed-threads entry) is `--ui-control-md` high with a 16 px icon.
 
 ### Grouped list

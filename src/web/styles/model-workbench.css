@@ -130,10 +130,6 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
 .jv-settings-nav { display: flex; flex-direction: column; gap: var(--ui-space-2); padding: var(--ui-space-16) var(--ui-space-12); background: var(--jv-raised); border-right: 1px solid var(--jv-line); }
 .jv-settings-title { padding: var(--ui-space-6) var(--ui-space-12) var(--ui-space-16); font-size: var(--ui-text-lg) !important; font-weight: 600; }
 .jv-settings-tabs { display: flex; flex-direction: column; gap: var(--ui-space-2); }
-.jv-nav-item { display: flex; align-items: center; gap: var(--ui-space-8); height: 34px; padding: 0 var(--ui-space-12); border: 0; border-radius: var(--ui-radius-md); background: transparent; color: var(--jv-muted); font-size: var(--ui-text-base); text-align: left; cursor: pointer; }
-.jv-nav-item svg { width: 16px; height: 16px; }
-.jv-nav-item:hover { background: var(--jv-hover); color: var(--jv-text); }
-.jv-nav-item[aria-current="page"] { background: var(--jv-selected); color: var(--jv-text); font-weight: 600; }
 .jv-settings-content { min-width: 0; min-height: 0; overflow: hidden; }
 
 /* ── Provider editor ────────────────────────────────────── */
@@ -228,8 +224,8 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
   .jv-settings-tabs { flex: 1; min-width: 0; flex-direction: row; gap: var(--ui-space-4); overflow-x: auto; scrollbar-width: none;
     mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent); }
   .jv-settings-tabs::-webkit-scrollbar { display: none; }
-  .jv-nav-item { height: 30px; flex: none; white-space: nowrap; }
-  .jv-nav-item svg { display: none; }
+  .jv-settings-tabs .ui-row { width: auto; flex: none; height: var(--ui-control-sm); }
+  .jv-settings-tabs .ui-row > svg { display: none; }
   .jv-page { padding: var(--ui-space-20) var(--ui-space-16) var(--ui-space-32); gap: var(--ui-space-20); }
   .jv-page-header { flex-wrap: wrap; padding-right: 0; }
   .jv-editor-header { padding: var(--ui-space-16) 52px var(--ui-space-12) var(--ui-space-16); gap: var(--ui-space-8); }

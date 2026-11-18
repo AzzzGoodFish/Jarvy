@@ -10,6 +10,7 @@ import { SecretSettings } from "./secrets/SecretSettings";
 import { AllUsage } from "./usage/AllUsage";
 import { Dialog, DialogContent, DialogTitle } from "./components/ui/dialog";
 import { t } from "./i18n";
+import { ListRow } from "./components/list-row";
 import "./styles/model-workbench.css";
 
 /** Settings' pages. The machines added over SSH have the Environments page (A89). */
@@ -26,8 +27,8 @@ export function SettingsDialog({ connections, bots, onChanged, onClose, initialT
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="jv-settings-shell" aria-describedby={undefined}>
     <nav className="jv-settings-nav" aria-label={t("settings.sections")}>
       <DialogTitle className="jv-settings-title">{t("settings.title")}</DialogTitle>
-      <div className="jv-settings-tabs">{TABS.map(item => <button type="button" key={item.id} ref={tab === item.id ? current : undefined} className="jv-nav-item"
-        aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}><item.icon/>{t(item.label)}</button>)}</div>
+      <div className="jv-settings-tabs">{TABS.map(item => <ListRow line key={item.id} ref={tab === item.id ? current : undefined} active={tab === item.id}
+        onClick={() => setTab(item.id)} leading={<item.icon/>} title={t(item.label)}/>)}</div>
     </nav>
     <main className="jv-settings-content">{tab === "general" ? <General/> : tab === "models" ? <ModelSettings connections={connections} onChanged={onChanged}/> : tab === "usage" ? <AllUsage bots={bots}/> : tab === "secrets" ? <SecretSettings/> : tab === "network" ? <NetworkSettings/> : <About/>}</main>
   </DialogContent></Dialog>;

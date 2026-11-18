@@ -81,8 +81,7 @@
   .jv-followed-list { width: 100%; border-right: 0; }
   .jv-followed-page[data-open] .jv-followed-list, .jv-followed-page:not([data-open]) .jv-followed-empty { display: none; }
 }
-.jv-side-top { padding-left: var(--ui-space-8); margin-bottom: var(--ui-space-8); }
-.jv-side-top .ui-icon { width: 14px; height: 14px; flex: none; }
+.jv-side-top { margin-bottom: var(--ui-space-8); }
 /* A Bot's DMs with other Bots (bot/BotDirects.tsx): read-only for you. */
 .jv-thread-item-head .jv-muted { flex: none; font-size: var(--ui-text-xs); }
 .jv-thread-item > .jv-thread-item-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
