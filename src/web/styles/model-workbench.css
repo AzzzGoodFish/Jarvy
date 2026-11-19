@@ -190,9 +190,6 @@ a.jv-list-row:focus-visible { outline: 2px solid var(--jv-focus); outline-offset
 .jv-thinking-levels { display: grid; gap: var(--ui-space-6); }
 .jv-thinking-level { display: grid; grid-template-columns: 110px 240px minmax(0, 1fr); align-items: center; gap: var(--ui-space-8); }
 .jv-thinking-level > span:first-child { display: flex; align-items: baseline; gap: var(--ui-space-6); font-size: var(--ui-text-base); white-space: nowrap; }
-/* The choice is one line in a control-height trigger: "Supported, send this value" is long for the column it has. */
-.jv-thinking-level [data-slot=select-trigger] { white-space: nowrap; }
-.jv-thinking-level [data-slot=select-trigger] > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .jv-thinking-level code { font-size: var(--ui-text-sm); color: var(--jv-dim); }
 .jv-thinking > .jv-field-hint { margin-top: var(--ui-space-8); }
 

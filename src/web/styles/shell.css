@@ -73,6 +73,11 @@ button:focus:not(:focus-visible) { outline: none; }
 }
 .ui-column-sub { min-width: 0; overflow: hidden; font-size: var(--ui-text-md); color: var(--ui-text-tertiary); white-space: nowrap; text-overflow: ellipsis; }
 .ui-column-actions { display: flex; flex: none; align-items: center; gap: var(--ui-space-4); margin-left: auto; }
+/* A select shows its choice on one line: a trigger has a fixed height, so a long choice wraps, gets cut in half and
+   leaves a gap. It ends in an ellipsis instead, whatever the width it is given. */
+[data-slot="select-trigger"] { white-space: nowrap; }
+[data-slot="select-trigger"] > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
 /* ── List row (A97, docs/design.md) ───────────────────────────── */
 /* A row people pick from: a glyph, tile or avatar, then a name with an optional second line, then what trails it. */
 .ui-row {
