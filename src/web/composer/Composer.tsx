@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { ATTACHMENT_MAX_BYTES, type Member } from "../../contract/chat";
@@ -32,6 +32,8 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   const saved = useDraft(drafts, chatId), sending = saved.sending;
   /** Files on their way up: chips above the input with a progress bar until they join the draft. */
   const [uploads, setUploads] = useState<{ key: string; chatId: string; name: string; done: number }[]>([]), [dropping, setDropping] = useState(false);
+  /** More than one line: the box turns from a pill into a card, and the buttons take a row of their own under the text. */
+  const [tall, setTall] = useState(false);
   const pending = uploads.filter(item => item.chatId === chatId), uploading = pending.length > 0;
   /** One per file on its way up, to cancel it from its chip. */
   const cancels = useRef(new Map<string, AbortController>());
@@ -118,16 +120,24 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   }
   // Grow with the content (CSS max-height caps it, then it scrolls). Measuring via "auto" briefly enlarges the
   // transcript and clamps its scroll position; restore it so the bottom anchor is not lost on every keystroke.
+  const fit = useCallback(() => {
+    const el = textarea.current, log = scrollRef?.current; if (!el) return;
+    const top = log?.scrollTop;
+    el.style.height = "auto";
+    const natural = el.scrollHeight, line = parseFloat(getComputedStyle(el).lineHeight) || 20;
+    el.style.height = `${natural}px`;
+    setTall(natural > line + 8);
+    if (log && top !== undefined && log.scrollTop !== top) log.scrollTo({ top, behavior: "instant" });
+  }, [scrollRef]);
   useLayoutEffect(() => {
-    const fit = () => {
-      const el = textarea.current, log = scrollRef?.current; if (!el) return;
-      const top = log?.scrollTop;
-      el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`;
-      if (log && top !== undefined && log.scrollTop !== top) log.scrollTo({ top, behavior: "instant" });
-    };
-    fit(); window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [draft, chatId, scrollRef]);
+    fit();
+    // Its width decides how the text wraps: any change to it is measured again (a resized window, the box turning
+    // from a pill into a card).
+    const el = textarea.current; if (!el) return;
+    const watched = new ResizeObserver(() => fit());
+    watched.observe(el);
+    return () => watched.disconnect();
+  }, [draft, chatId, fit]);
 
   return <form ref={formRef} className={`ui-compose-wrap${dropping ? " jarvy-dropping" : ""}`} onSubmit={event => void send(event)} onDragEnter={dragOver} onDragOver={dragOver}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false); }} onDrop={drop}>
@@ -141,7 +151,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">{t("composer.replying")}</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || t("common.attachment")}</span>
       <button type="button" aria-label={t("composer.cancelReply")} onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
     <QuoteTags quotes={saved.passages} onRemove={index => drafts.update(chatId, draft => ({ passages: draft.passages.filter((_, at) => at !== index) }))}/>
-    <div className="ui-composer jv-composer">
+    <div className="ui-composer jv-composer" data-tall={tall || undefined}>
       {mention && menu.menu}
       {dropping && <span className="jarvy-drop-hint" role="status">{t("composer.drop")}</span>}
       <label className="jarvy-attach-trigger" title={t("composer.attach")}><Icon name="add"/><input type="file" multiple aria-label={t("composer.attach")} disabled={sending || uploading || disabled || files.length >= 5}

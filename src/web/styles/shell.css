@@ -161,6 +161,15 @@ button.ui-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline
   transition: border-color var(--ui-duration-fast);
 }
 .ui-composer:focus-within { border-color: var(--ui-border-strong); }
+/* More than one line: a pill's ends would cut into the text, and the buttons would take its width, so the box becomes a
+   rounded card whose input keeps the whole top and whose buttons share a row under it. */
+.ui-composer[data-tall] { flex-wrap: wrap; align-content: flex-start; padding: var(--ui-space-8) var(--ui-space-8) var(--ui-space-6); border-radius: var(--ui-radius-lg); }
+/* The text starts where the buttons' labels do, one column in from the box's edge. */
+.ui-composer[data-tall] textarea { order: -1; flex: 1 0 100%; min-height: 0; max-height: 124px; padding: 0 var(--ui-space-4) 0 var(--ui-space-8); }
+.ui-composer[data-tall] :is(.jarvy-attach-trigger, .ui-send) { margin-top: var(--ui-space-2); }
+.ui-composer[data-tall] .jarvy-attach-trigger { margin-left: calc(-1 * var(--ui-space-2)); }
+.ui-composer[data-tall] :is(.ui-send, .jv-dock-go) { margin-left: auto; }
+.ui-composer[data-tall] :is(.ui-send, .jv-dock-go) + .ui-send, .ui-composer[data-tall] .jv-dock-go + * { margin-left: 0; }
 .ui-composer textarea {
   display: block; flex: 1; min-height: 26px; max-height: 130px; padding: var(--ui-space-4) 0 var(--ui-space-2); overflow-y: auto; resize: none;
   border: 0; background: transparent; font-size: var(--ui-text-base); line-height: var(--ui-leading-base);
