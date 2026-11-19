@@ -1,3 +1,4 @@
+import type { LiveEvent } from "../../shared/live.js";
 import type { EnvironmentKind } from "../../../contract/environment.js";
 import type { Urgency } from "../../shared/delivery.js";
 import type { ActivityCursor } from "../../shared/activity.js";
@@ -80,6 +81,11 @@ export interface RuntimeSetup {
   tools: readonly ToolDefinition[];
   onStatus(status: BotStatus): void;
   onHistory(record: HistoryDraft): Promise<void>;
+  /** A handoff (A99) replaced the session: the new one is numbered `session`, and it starts with `text`, which cites
+   * `references` messages. */
+  onHandoff?(info: { session: string; references: number; text: string }): void;
+  /** The turn as it happens (A47), for the handoff step (A99). */
+  live?(event: LiveEvent): void;
 }
 export interface BotState {
   snapshot(): BotStatus;

@@ -38,6 +38,7 @@ function viewStep(step: LiveStep, depth: number, chatId: string | null): ViewSte
   switch (step.kind) {
     case "thinking": return { ...common, look: "thought", icon: "think", title: t("npc.step.think"), line: step.text ?? "", detail: omitted(step) + (step.text ?? "") };
     case "text": return { ...common, look: "mutter", icon: "mutter", title: t("npc.step.mutter"), line: step.text ?? "", detail: omitted(step) + (step.text ?? "") };
+    case "handoff": return action("compact", t("npc.live.handoff", { count: formatNumber(step.references ?? 0) }), step.handoff ?? "");
     case "compaction": return action("compact", t(`npc.live.compact.${state(step)}`),
       step.tokensBefore != null && step.tokensAfter != null ? t("npc.live.tokens", { before: formatNumber(step.tokensBefore), after: formatNumber(step.tokensAfter) }) : output(step.output));
     case "retry": return action("retry", step.state === "running" ? t("npc.live.retry.running", { attempt: step.attempt ?? 1, max: step.maxAttempts ?? 1 }) : t(`npc.live.retry.${state(step)}`), output(step.output));

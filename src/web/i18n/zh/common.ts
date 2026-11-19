@@ -152,6 +152,8 @@ export const common: Part<typeof en> = {
   "error.discoveryProtocol": "所选协议不支持获取模型列表，请手动添加模型。",
   "error.discoveryUrl": "API URL 无效。",
   "error.discoveryUrlMissing": "请填写 API URL。",
+  "error.handoffTooEarly": "这段对话还太小，不需要转交，在这个会话里继续就好。",
+  "error.handoffTwice": "这一轮已经写过转交了。",
   "error.historyMissing": "找不到这条 History 记录。",
   "error.invalidCredential": "凭证格式无效。",
   "error.invalidRun": "Bot 的状态刚刚变化，请刷新后重试。",

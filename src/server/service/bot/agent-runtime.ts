@@ -3,6 +3,8 @@ import type { BotSession, PromptResult } from "../../infra/pi/session.js";
 import type { AgentRuntime as RuntimePort, RuntimeSetup, PreparedModel, BotStatus } from "./contracts.js";
 import type { Urgency } from "../../shared/delivery.js";
 import { BotInbox } from "./inbox.js";
+import { HANDOFF_MIN_TOKENS } from "./tools/handoff.js";
+import { citedIds, handoffId, renderHandoff, type HandoffReference } from "../../shared/handoff.js";
 
 export type CreateSession = (setup: RuntimeSetup, model: PreparedModel, reference: SessionRef, activity: (phase: BotPhase) => void) => Promise<BotSession>;
 
@@ -23,6 +25,10 @@ export class AgentRuntime implements RuntimePort {
   private notices: Promise<unknown> = Promise.resolve();
   private runId: string | null = null;
   private status: BotStatus = { status: "stop", activity: null, context: null, error: null };
+  /** Every message id the current session was shown, for checking a handoff's references (A99); and the handoff waiting
+   * for the end of the turn, with the run it was written in. */
+  private readonly shown = new Set<string>();
+  private handoff: { text: string; runId: string | null } | null = null;
   constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession) {}
   get activeRunId() { return this.runId; }
   private update(patch: Partial<BotStatus>) {
@@ -58,6 +64,7 @@ export class AgentRuntime implements RuntimePort {
       catch (error) { await this.session.dispose(); this.session = undefined; throw error; }
     }
     this.session = await this.createSession(this.setup!, this.model!, reference, phase => this.activity(phase));
+    this.shown.clear();
     return this.session;
   }
   /** Something was delivered (A41); the runtime only looks at how urgent it is. Interrupt: abort the running
@@ -109,12 +116,13 @@ export class AgentRuntime implements RuntimePort {
       try {
         // A changed system prompt is told with the batch, not swapped in (A56).
         const change = session.promptChange();
-        const prepared = await this.inbox.prepare(batch, change);
+        const prepared = await this.inbox.prepare(batch, change, this.inbox.takeHandoff());
         if (!prepared) { repository.releaseUnsubmitted(batch.run.id); continue; }
         const { xml, notices } = prepared;
         if (this.stopping || this.pauses || version !== this.inputVersion) { repository.releaseUnsubmitted(batch.run.id); continue; }
         repository.submitted(batch.run.id); submitted = true; this.prompting = true;
         this.inbox.acknowledge(notices);
+        for (const id of this.inbox.shown(xml)) this.shown.add(id);
         if (change) session.promptTold(change);
         this.promptTask = session.prompt(xml);
         const result = await this.promptTask;
@@ -128,9 +136,42 @@ export class AgentRuntime implements RuntimePort {
       } finally { this.prompting = false; this.promptTask = undefined; }
       this.runId = null;
       this.update({ status: "idle", activity: null });
+      await this.handOff();
     }
   }
-  /** Serialises session.configure between the pump and model changes. */
+  /** A handoff (A99): check its references against what this session was shown, and keep it for the end of the turn.
+   * Returns the ids it cites that this session never saw; nothing is recorded then. */
+  async prepareHandoff(text: string): Promise<string[]> {
+    const cited = citedIds(text).map(handoffId), unknown = cited.filter(id => !this.shown.has(id));
+    if (unknown.length) return unknown;
+    const tokens = this.status.context?.tokens;
+    if (tokens !== null && tokens !== undefined && tokens < HANDOFF_MIN_TOKENS)
+      throw new RuntimeFault("handoff_too_early", `This conversation is ${tokens} tokens; a handoff needs at least ${HANDOFF_MIN_TOKENS}. Carry on in this session.`, 409);
+    if (this.handoff?.runId === this.runId && this.runId !== null) throw new RuntimeFault("handoff_twice", "A handoff is already written for this turn; it starts when this turn ends.", 409);
+    this.handoff = { text, runId: this.runId };
+    return [];
+  }
+  /** The end of the turn that wrote a handoff: the session is replaced by a new one, which starts with it. The old
+   * session file stays; History and the chat keep everything it was about. */
+  private async handOff(): Promise<void> {
+    const handoff = this.handoff;
+    this.handoff = null;
+    if (!handoff || !this.session || !this.setup) return;
+    const references: HandoffReference[] = [];
+    for (const id of new Set(citedIds(handoff.text).map(handoffId))) {
+      const cited = this.inbox.cited(id);
+      if (cited) references.push({ id, ...cited });
+    }
+    const text = renderHandoff(handoff.text, references);
+    // The next batch is told where it came from, and what it had read of its chats is forgotten with the session (A67).
+    this.inbox.handOff(text);
+    this.activity("starting");
+    await this.session.dispose();
+    this.session = undefined;
+    const session = await this.ensureSession();
+    this.setup.onHandoff?.({ session: this.inbox.reference(this.setup.workspace.cwd).sessionId ?? "", references: references.length, text });
+    void session;
+  }
   private exclusive<T>(work: () => Promise<T>): Promise<T> {
     const task = this.configuring.catch(() => {}).then(work);
     this.configuring = task;

@@ -12,6 +12,7 @@ export type LiveEvent =
   | { type: "tool_end"; id: string; output: string; failed: boolean }
   | { type: "compaction_start" }
   | { type: "compaction_end"; failed: boolean; error: string | null; tokensBefore: number | null; tokensAfter: number | null }
+  | { type: "handoff"; session: string; references: number; text: string }
   | { type: "retry_start"; attempt: number; maxAttempts: number; error: string }
   | { type: "retry_end"; failed: boolean; error: string | null };
 
@@ -26,7 +27,7 @@ export interface LiveInput {
 }
 /** A long output keeps its start and end; `omitted` characters are left out between them. */
 export interface LiveOutput { head: string; tail: string; omitted: number; }
-export type LiveStepKind = "thinking" | "text" | "tool" | "compaction" | "retry";
+export type LiveStepKind = "thinking" | "text" | "tool" | "compaction" | "handoff" | "retry";
 export interface LiveStep {
   id: string; kind: LiveStepKind; state: "running" | "ok" | "failed"; startedAt: number; endedAt: number | null;
   /** A call made from inside another tool (codemode): that tool's call. */
@@ -38,6 +39,8 @@ export interface LiveStep {
   /** Tools: the result or error. Compaction: tokens before and after. Retry: the error being retried. */
   output?: LiveOutput | null;
   tokensBefore?: number | null; tokensAfter?: number | null; attempt?: number; maxAttempts?: number;
+  /** Handoff: the session it starts, how many messages it cites, and its text. */
+  session?: string; references?: number; handoff?: string;
 }
 export interface LiveTurn {
   startedAt: number; steps: LiveStep[];

@@ -66,6 +66,7 @@ export const npc = {
   "npc.live.compact.running": "Tidying up the context",
   "npc.live.compact.ok": "Tidied up the context",
   "npc.live.compact.failed": "Couldn't tidy up the context",
+  "npc.live.handoff": "Handed over to a new session: {count} messages cited",
   "npc.live.retry.running": "Retrying ({attempt}/{max})",
   "npc.live.retry.ok": "Retried",
   "npc.live.retry.failed": "Retrying failed",

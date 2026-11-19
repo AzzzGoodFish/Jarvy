@@ -69,6 +69,7 @@ export const npc: Part<typeof en> = {
   "npc.live.compact.running": "在整理上下文",
   "npc.live.compact.ok": "整理好了上下文",
   "npc.live.compact.failed": "整理上下文失败了",
+  "npc.live.handoff": "转交给新会话，引用了 {count} 条消息",
   "npc.live.retry.running": "在重试（第 {attempt}/{max} 次）",
   "npc.live.retry.ok": "重试成功",
   "npc.live.retry.failed": "重试失败了",

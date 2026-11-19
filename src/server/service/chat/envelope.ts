@@ -1,6 +1,7 @@
 import type { Member } from "../../../contract/chat.js";
 import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
+import { encodeHandoff } from "../../shared/handoff.js";
 
 export interface EnvelopeMessage {
   id: string;
@@ -146,6 +147,12 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
 /** Compact derived input; no runtime bookkeeping, base64 or secret credentials.
  * File readability and Chat authorization are checked by the calling service.
  */
+/** A handoff (A99) comes before the batch it opens: the Bot's own text from the end of its previous session, so the new
+ * session starts with what it decided to keep. */
+export function withHandoff(xml: string, handoff?: string): string {
+  return handoff ? `${encodeHandoff(handoff)}${xml}` : xml;
+}
+
 export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessage[], digest?: BatchDigest, notices?: readonly EnvelopeNotice[], prompt?: PromptChange | null): string {
   if (!messages.length) throw new Error("Empty chat batch");
   const chats = new Map<string, string>(), members = new Map<string, string>(), ids = new Set<string>();

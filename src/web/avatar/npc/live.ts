@@ -5,9 +5,10 @@ export interface LiveChat { id: string | null; type: "dm" | "channel" | "thread"
 export interface LiveInput { path?: string; command?: string; action?: string; chat?: LiveChat; text?: string; options?: string[]; args?: string; }
 export interface LiveOutput { head: string; tail: string; omitted: number; }
 export interface LiveStep {
-  id: string; kind: "thinking" | "text" | "tool" | "compaction" | "retry"; state: "running" | "ok" | "failed"; startedAt: number; endedAt: number | null;
+  id: string; kind: "thinking" | "text" | "tool" | "compaction" | "handoff" | "retry"; state: "running" | "ok" | "failed"; startedAt: number; endedAt: number | null;
   parentId: string | null; tool?: string; input?: LiveInput; text?: string; omitted?: number; output?: LiveOutput | null;
   tokensBefore?: number | null; tokensAfter?: number | null; attempt?: number; maxAttempts?: number;
+  session?: string; references?: number; handoff?: string;
 }
 export interface LiveTurn { startedAt: number; steps: LiveStep[]; dropped: number; }
 export type LiveOutcome = "completed" | "interrupted" | "failed";

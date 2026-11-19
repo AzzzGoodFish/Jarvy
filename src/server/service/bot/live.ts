@@ -79,6 +79,7 @@ export class LiveTurns {
         this.finish(step, event.failed);
         return;
       }
+      case "handoff": this.add({ kind: "handoff", session: event.session, references: event.references, handoff: event.text }).state = "ok"; return;
       case "compaction_start": this.compaction = this.add({ kind: "compaction" }).id; return;
       case "compaction_end": {
         const step = this.steps.get(this.compaction ?? "");

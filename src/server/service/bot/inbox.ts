@@ -1,9 +1,9 @@
 import { join, dirname } from "node:path";
-import { previewQuotes } from "../../shared/quotes.js";
+import { clipQuote, previewQuotes } from "../../shared/quotes.js";
 import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { ChatService } from "../chat/service.js";
-import { encodeChatBatch, encodeNoticeBatch, type BatchEnvironment, type EnvelopeNotice } from "../chat/envelope.js";
+import { encodeChatBatch, encodeNoticeBatch, withHandoff, type BatchEnvironment, type EnvelopeNotice } from "../chat/envelope.js";
 import type { TaskRepository } from "../../infra/storage/task-repository.js";
 import { describeSchedule } from "../../shared/task.js";
 import type { BotNotice } from "../../infra/storage/inbox-repository.js";
@@ -29,11 +29,29 @@ export class BotInbox {
     if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.");
     return this.repository.ensureSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
   }
+  /** A handoff (A99) waiting to open the next session. */
+  private handoff: string | undefined;
+  handOff(text: string): void { this.handoff = text; }
+  takeHandoff(): string | undefined { const text = this.handoff; this.handoff = undefined; return text; }
+  /** The message ids a batch shows the Bot: its messages, a reply it quotes, a mark on a message, and the sources of the
+   * quotes inside them. A handoff (A99) may cite only these. */
+  shown(xml: string): string[] {
+    const ids = new Set([...xml.matchAll(/<(?:message|reply_to|reaction)[^>]*?\b(?:id|message)="(m\d+)"/g)].map(match => match[1]!));
+    for (const id of [...ids]) for (const quote of this.chats.message(this.botId, id)?.quotes ?? []) if (quote.messageId) ids.add(quote.messageId);
+    return [...ids];
+  }
+  /** What a cited message is, for a handoff: who wrote it and its first line. Null when this Bot can't read it. */
+  cited(id: string): { from: string; line: string } | null {
+    const message = this.chats.message(this.botId, id);
+    if (!message) return null;
+    const text = previewQuotes(message.content, message.quotes ?? []).replace(/\s+/g, " ").trim();
+    return { from: message.sender.name, line: text ? clipQuote(text) : "(attachment)" };
+  }
   /** XML for the claimed messages plus the tail (other deliveries not told yet, how the instructions changed,
    * unread); `notices` are told once the batch is submitted. */
-  async prepare(batch: InputBatch, prompt?: PromptChange | null): Promise<{ xml: string; notices: number[] } | null> {
+  async prepare(batch: InputBatch, prompt?: PromptChange | null, handoff?: string): Promise<{ xml: string; notices: number[] } | null> {
     // A run for notices alone; null when they were withdrawn since the claim.
-    if (!batch.inputs.length) { const pending = this.notices(prompt); return pending && { xml: pending.xml, notices: pending.ids }; }
+    if (!batch.inputs.length) { const pending = this.notices(prompt); return pending && { xml: withHandoff(pending.xml, handoff), notices: pending.ids }; }
     const inputs = await this.files.envelope(this.botId, batch.inputs.map(input => input.messageId));
     for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "Chat access has changed.");
     // A Bot that was told of a notice but never read it is reminded here, where it is about to act (A67): its own
@@ -43,7 +61,8 @@ export class BotInbox {
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const tail = this.convert(this.chats.notices(this.botId));
     this.tell(tail.stale);
-    return { xml: encodeChatBatch(this.botId, inputs, digest, tail.kept.length ? tail.kept : undefined, prompt), notices: tail.kept.map(notice => notice.id) };
+    return { xml: withHandoff(encodeChatBatch(this.botId, inputs, digest, tail.kept.length ? tail.kept : undefined, prompt), handoff),
+      notices: tail.kept.map(notice => notice.id) };
   }
   /** Inbox rows as the envelope shape (`kept`); the steered and the batch tails share it. `stale`: the ids of rows with
    * nothing left to say, which are told and dropped — a task deleted before its Bot was told it is due (A58), no open

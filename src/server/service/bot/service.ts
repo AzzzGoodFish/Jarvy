@@ -107,6 +107,7 @@ export class BotService {
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog, onReply: this.deps.onReply,
+        onHandoff: info => live.event({ type: "handoff", ...info }),
         onCompacted: () => {
           chats.channels.clearNotesSeen(id);
           // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).
@@ -120,6 +121,7 @@ export class BotService {
       identity: new Identity(id, store), model: new Model(id, store, resolveThinking),
       workspace, memory,
       tools: new Tools({ botId: id, chats, files, memory, workspace, asking: on => runtime.waitingForUser(on), roster: () => this.roster(),
+          handoff: { prepare: text => runtime.prepareHandoff(text) },
         places: { list: () => this.environments.list(id, record.workspacePath), switch: environmentId => this.environments.switch(id, environmentId, record.workspacePath),
           summary: botId => this.environments.summary(botId), request: input => this.machines.prepareRequest(id, input), found: input => this.machines.find(id, input),
           address: environmentId => this.machines.located(environmentId),

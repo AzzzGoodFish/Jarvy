@@ -149,6 +149,8 @@ export const common = {
   "error.discoveryProtocol": "The selected protocol can't list models. Add models manually.",
   "error.discoveryUrl": "The API URL isn't valid.",
   "error.discoveryUrlMissing": "Enter the API URL.",
+  "error.handoffTooEarly": "This conversation is too small to hand over; carry on in it.",
+  "error.handoffTwice": "A handoff is already written for this turn.",
   "error.historyMissing": "Can't find this History record.",
   "error.invalidCredential": "The credential format isn't valid.",
   "error.invalidRun": "The Bot's state just changed. Refresh and try again.",

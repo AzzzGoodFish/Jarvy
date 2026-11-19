@@ -17,6 +17,8 @@ export class RuntimeRepository {
     this.db.prepare("INSERT INTO bot_sessions(bot_id,file,created_at) VALUES(?,?,?) ON CONFLICT(bot_id) DO NOTHING").run(botId, file, Date.now());
     return this.session(botId)!;
   }
+  /** A handoff (A99): the Bot's next session is a new file; the old one stays on disk and in History. */
+  newSession(botId: string): void { this.db.prepare("DELETE FROM bot_sessions WHERE bot_id=?").run(botId); }
   recordSession(botId: string, sessionId: string, persisted: boolean): void {
     this.db.prepare("UPDATE bot_sessions SET runtime_session_id=?,persisted=MAX(persisted,?) WHERE bot_id=?").run(sessionId, persisted ? 1 : 0, botId);
   }
