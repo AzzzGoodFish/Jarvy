@@ -108,6 +108,7 @@ export class BotService {
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog, onReply: this.deps.onReply,
         onHandoff: info => live.event({ type: "handoff", ...info }),
+        onHandoffStarted: session => live.handoffStarted(session),
         onCompacted: () => {
           chats.channels.clearNotesSeen(id);
           // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).

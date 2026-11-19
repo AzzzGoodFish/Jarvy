@@ -23,6 +23,7 @@ export class LiveTurns {
   private readonly blocks = new Map<string, string>();
   private compaction: string | null = null;
   private retry: string | null = null;
+  private handoffStep: string | null = null;
   private counter = 0;
   private pending: LivePatch[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -35,6 +36,14 @@ export class LiveTurns {
     this.flush();
     this.listeners.set(listener, close);
     return { turn: this.turn ? structuredClone(this.turn) : null, unsubscribe: () => { this.listeners.delete(listener); } };
+  }
+  /** The session the last handoff started, named on the step it left (A99). */
+  handoffStarted(session: string): void {
+    const step = this.steps.get(this.handoffStep ?? "");
+    this.handoffStep = null;
+    if (!step) return;
+    step.session = session;
+    this.queue({ op: "step", step: structuredClone(step) });
   }
   /** Ends every listener's stream (the Bot was deleted, or the server is stopping). */
   close() { for (const close of [...this.listeners.values()]) close(); this.listeners.clear(); }
@@ -79,7 +88,13 @@ export class LiveTurns {
         this.finish(step, event.failed);
         return;
       }
-      case "handoff": this.add({ kind: "handoff", session: event.session, references: event.references, handoff: event.text }).state = "ok"; return;
+      case "handoff": {
+        // A handoff (A99) ends the turn that wrote it; the session it starts is named once that session exists.
+        const step = this.add({ kind: "handoff", references: event.references, handoff: event.text });
+        this.handoffStep = step.id;
+        this.finish(step, false);
+        return;
+      }
       case "compaction_start": this.compaction = this.add({ kind: "compaction" }).id; return;
       case "compaction_end": {
         const step = this.steps.get(this.compaction ?? "");
@@ -150,7 +165,7 @@ export class LiveTurns {
     }
   }
   private reset() {
-    this.turn = null; this.steps.clear(); this.blocks.clear(); this.compaction = null; this.retry = null; this.counter = 0; this.pending = [];
+    this.turn = null; this.steps.clear(); this.blocks.clear(); this.compaction = null; this.retry = null; this.handoffStep = null; this.counter = 0; this.pending = [];
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
   }
 }

@@ -37,8 +37,9 @@ export interface SessionOptions {
   /** A compaction rewrote the conversation (A67): whatever it held is gone, so what a Bot had read of its chat
    * notices is forgotten and told again where it acts. */
   onCompacted?: () => void;
-  /** A handoff (A99) replaced the session: the step the Bot's page shows, with the new session and its references. */
-  onHandoff?: (info: { session: string; references: number; text: string }) => void;
+  /** A handoff (A99) is carried out, and the new session it starts: the step the Bot's page shows. */
+  onHandoff?: (info: { references: number; text: string }) => void;
+  onHandoffStarted?: (session: string) => void;
   /** Where bash, read, write and edit run (A50): the Bot's current environment, asked at every tool call. */
   environment: () => WorkEnvironment;
   /** The Bot's secrets (A52): placeholders in bash, and masking of what reaches the model and the chat. */

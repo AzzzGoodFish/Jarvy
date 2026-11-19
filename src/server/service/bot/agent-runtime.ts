@@ -69,7 +69,7 @@ export class AgentRuntime implements RuntimePort {
     const handed = this.handedOver;
     if (handed) {
       this.handedOver = null;
-      this.setup!.onHandoff?.({ session: this.session.sessionId ?? "", ...handed });
+      this.setup!.onHandoffStarted?.(this.session.sessionId ?? "");
     }
     return this.session;
   }
@@ -140,9 +140,10 @@ export class AgentRuntime implements RuntimePort {
         if (run?.state === "claimed" || run?.state === "submitted") repository.finish(batch.run.id, submitted ? "unknown" : "failed", publicFault(error).code);
         throw error;
       } finally { this.prompting = false; this.promptTask = undefined; }
+      // A handoff written in this turn is carried out here, while the turn is still open on the page (A99).
+      await this.handOff();
       this.runId = null;
       this.update({ status: "idle", activity: null });
-      await this.handOff();
     }
   }
   /** A handoff (A99): check its references against what this session was shown, and keep it for the end of the turn.
@@ -173,9 +174,10 @@ export class AgentRuntime implements RuntimePort {
     // Nothing pending yet: the session is made by the run that needs it, so an idle Bot holds none.
     this.inbox.handOff(text);
     this.handedOver = { references: references.length, text };
+    // The step sits at the end of the turn that wrote it; the session it names is made by the next run.
+    this.setup.onHandoff?.({ references: references.length, text });
     await this.session.dispose();
     this.session = undefined;
-    this.update({ status: "idle", activity: null });
   }
   private exclusive<T>(work: () => Promise<T>): Promise<T> {
     const task = this.configuring.catch(() => {}).then(work);

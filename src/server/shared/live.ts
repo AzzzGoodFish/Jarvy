@@ -12,7 +12,7 @@ export type LiveEvent =
   | { type: "tool_end"; id: string; output: string; failed: boolean }
   | { type: "compaction_start" }
   | { type: "compaction_end"; failed: boolean; error: string | null; tokensBefore: number | null; tokensAfter: number | null }
-  | { type: "handoff"; session: string; references: number; text: string }
+  | { type: "handoff"; references: number; text: string }
   | { type: "retry_start"; attempt: number; maxAttempts: number; error: string }
   | { type: "retry_end"; failed: boolean; error: string | null };
 
