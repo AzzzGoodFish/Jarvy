@@ -25,8 +25,10 @@ export class AgentRuntime implements RuntimePort {
   private notices: Promise<unknown> = Promise.resolve();
   private runId: string | null = null;
   private status: BotStatus = { status: "stop", activity: null, context: null, error: null };
-  /** The handoff waiting for the end of the turn, with the run it was written in (A99). */
+  /** The handoff waiting for the end of the turn, with the run it was written in, and the one already carried out, told
+   * once the new session exists (A99). */
   private handoff: { text: string; runId: string | null } | null = null;
+  private handedOver: { references: number; text: string } | null = null;
   constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession) {}
   get activeRunId() { return this.runId; }
   private update(patch: Partial<BotStatus>) {
@@ -64,6 +66,11 @@ export class AgentRuntime implements RuntimePort {
       catch (error) { await this.session.dispose(); this.session = undefined; throw error; }
     }
     this.session = await this.createSession(this.setup!, this.model!, reference, phase => this.activity(phase));
+    const handed = this.handedOver;
+    if (handed) {
+      this.handedOver = null;
+      this.setup!.onHandoff?.({ session: this.session.sessionId ?? "", ...handed });
+    }
     return this.session;
   }
   /** Something was delivered (A41); the runtime only looks at how urgent it is. Interrupt: abort the running
@@ -162,13 +169,12 @@ export class AgentRuntime implements RuntimePort {
     }
     const text = renderHandoff(handoff.text, references);
     // The next batch is told where it came from, and what it had read of its chats is forgotten with the session (A67).
+    // Nothing pending yet: the session is made by the run that needs it, so an idle Bot holds none.
     this.inbox.handOff(text);
-    this.activity("starting");
+    this.handedOver = { references: references.length, text };
     await this.session.dispose();
     this.session = undefined;
-    const session = await this.ensureSession();
-    this.setup.onHandoff?.({ session: this.inbox.reference(this.setup.workspace.cwd).sessionId ?? "", references: references.length, text });
-    void session;
+    this.update({ status: "idle", activity: null });
   }
   private exclusive<T>(work: () => Promise<T>): Promise<T> {
     const task = this.configuring.catch(() => {}).then(work);
