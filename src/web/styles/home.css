@@ -72,7 +72,16 @@
   transition: opacity .14s, transform .36s cubic-bezier(.32, .72, 0, 1); }
 .jv-dock[data-state="open"] .jv-dock-input { position: relative; width: auto; opacity: 1; transform: none; pointer-events: auto; transition-delay: .14s; transition-duration: .26s, .4s; }
 .jv-dock .jv-dock-input .ui-compose-wrap { padding: 0; }
+/* The bar is the box: the composer inside it keeps no frame of its own. More than one line, the bar grows with it and
+   turns from a pill into a rounded card, the input takes the whole width and the buttons share the line under it. */
 .jv-dock .jv-dock-input .ui-composer.jv-composer { min-height: 42px; padding: var(--ui-space-6) var(--ui-space-6); border: 0; border-radius: 0; background: none; box-shadow: none; }
+.jv-dock .jv-dock-input .ui-composer.jv-composer[data-tall] { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "text text text" "attach . go"; align-items: center; row-gap: 0; column-gap: var(--ui-space-4); padding: var(--ui-space-6); }
+.jv-dock .jv-dock-input .ui-composer[data-tall] textarea { grid-area: text; min-height: 0; max-height: 124px; padding: 0 var(--ui-space-4) var(--ui-space-4) var(--ui-space-2); }
+.jv-dock .jv-dock-input .ui-composer[data-tall] .jarvy-attach-trigger { grid-area: attach; justify-self: start; margin: 0; }
+.jv-dock .jv-dock-input .ui-composer[data-tall] .ui-send { grid-area: go; justify-self: end; margin: 0; }
+.jv-dock[data-state="open"] .jv-dock-bar:has(.ui-composer[data-tall]) { overflow: visible; border-radius: var(--ui-radius-lg); }
+.jv-dock .jv-dock-input .ui-composer.jv-composer[data-tall] { padding: var(--ui-space-8); }
+.jv-dock .jv-dock-input .ui-composer[data-tall] textarea { padding: 0 var(--ui-space-4) var(--ui-space-6) 0; }
 .jv-dock .jv-dock-input .jarvy-pending-files, .jv-dock .jv-dock-input .jv-compose-quote { margin: var(--ui-space-8) var(--ui-space-8) 0; }
 .jv-dock-go { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--ui-radius-xl); cursor: pointer;
   background: none; color: var(--ui-text-tertiary); }
