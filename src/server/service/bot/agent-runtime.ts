@@ -100,7 +100,8 @@ export class AgentRuntime implements RuntimePort {
   }
   private wake() { if (!this.stopping) { this.wakeVersion++; this.schedule(); } }
   private schedule() {
-    if (!this.setup || !this.session || this.pump || this.stopping || this.pauses || !this.inbox.pending()) return;
+    // A handoff (A99) leaves no session behind: the next run makes the new one.
+    if (!this.setup || this.pump || this.stopping || this.pauses || !this.inbox.pending()) return;
     const wake = this.wakeVersion;
     this.pump = Promise.resolve().then(() => this.drain()).catch(error => this.fail(error)).finally(() => {
       this.pump = undefined;
