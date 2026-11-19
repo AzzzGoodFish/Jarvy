@@ -25,9 +25,7 @@ export class AgentRuntime implements RuntimePort {
   private notices: Promise<unknown> = Promise.resolve();
   private runId: string | null = null;
   private status: BotStatus = { status: "stop", activity: null, context: null, error: null };
-  /** Every message id the current session was shown, for checking a handoff's references (A99); and the handoff waiting
-   * for the end of the turn, with the run it was written in. */
-  private readonly shown = new Set<string>();
+  /** The handoff waiting for the end of the turn, with the run it was written in (A99). */
   private handoff: { text: string; runId: string | null } | null = null;
   constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession) {}
   get activeRunId() { return this.runId; }
@@ -64,7 +62,6 @@ export class AgentRuntime implements RuntimePort {
       catch (error) { await this.session.dispose(); this.session = undefined; throw error; }
     }
     this.session = await this.createSession(this.setup!, this.model!, reference, phase => this.activity(phase));
-    this.shown.clear();
     return this.session;
   }
   /** Something was delivered (A41); the runtime only looks at how urgent it is. Interrupt: abort the running
@@ -122,7 +119,6 @@ export class AgentRuntime implements RuntimePort {
         if (this.stopping || this.pauses || version !== this.inputVersion) { repository.releaseUnsubmitted(batch.run.id); continue; }
         repository.submitted(batch.run.id); submitted = true; this.prompting = true;
         this.inbox.acknowledge(notices);
-        for (const id of this.inbox.shown(xml)) this.shown.add(id);
         if (change) session.promptTold(change);
         this.promptTask = session.prompt(xml);
         const result = await this.promptTask;
@@ -142,7 +138,7 @@ export class AgentRuntime implements RuntimePort {
   /** A handoff (A99): check its references against what this session was shown, and keep it for the end of the turn.
    * Returns the ids it cites that this session never saw; nothing is recorded then. */
   async prepareHandoff(text: string): Promise<string[]> {
-    const cited = citedIds(text).map(handoffId), unknown = cited.filter(id => !this.shown.has(id));
+    const cited = citedIds(text).map(handoffId), unknown = cited.filter(id => !this.inbox.cited(id));
     if (unknown.length) return unknown;
     const tokens = this.status.context?.tokens;
     if (tokens !== null && tokens !== undefined && tokens < HANDOFF_MIN_TOKENS)

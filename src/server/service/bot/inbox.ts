@@ -37,14 +37,8 @@ export class BotInbox {
     return join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`);
   }
   takeHandoff(): string | undefined { const text = this.handoff; this.handoff = undefined; return text; }
-  /** The message ids a batch shows the Bot: its messages, a reply it quotes, a mark on a message, and the sources of the
-   * quotes inside them. A handoff (A99) may cite only these. */
-  shown(xml: string): string[] {
-    const ids = new Set([...xml.matchAll(/<(?:message|reply_to|reaction)[^>]*?\b(?:id|message)="(m\d+)"/g)].map(match => match[1]!));
-    for (const id of [...ids]) for (const quote of this.chats.message(this.botId, id)?.quotes ?? []) if (quote.messageId) ids.add(quote.messageId);
-    return [...ids];
-  }
-  /** What a cited message is, for a handoff: who wrote it and its first line. Null when this Bot can't read it. */
+  /** What a cited message is, for a handoff (A99): who wrote it and its first line. Null when it doesn't exist or this
+   * Bot can't read it. */
   cited(id: string): { from: string; line: string } | null {
     const message = this.chats.message(this.botId, id);
     if (!message) return null;

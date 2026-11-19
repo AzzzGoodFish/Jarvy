@@ -26,7 +26,7 @@ export interface ToolScope {
   secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
   /** Scheduled tasks (A58): the Bot manages its own. */
   tasks: TaskService;
-  /** Compressing by hand (A99): takes the handoff's text and returns the cited ids this session was never shown; empty
+  /** Compressing by hand (A99): takes the handoff's text and returns the cited ids that are missing or unreadable; empty
    * when the handoff is recorded. */
   handoff?: { prepare(text: string): Promise<string[]> };
   /** Ports published from sandboxes (A74): the Bot publishes its own. */
