@@ -13,11 +13,24 @@ export function citedIds(text: string): string[] {
 /** The canonical id for a cited one: a Bot writes `m3263`, not `M3263`. */
 export function handoffId(raw: string): string { return raw.toLowerCase(); }
 
-/** How a checked handoff reads at the start of the next session: the Bot's text, then what the cited messages say. */
+/** The heading the checked references live under; a Bot often writes its own list under the same one. */
+const HEADING = "## Referenced messages";
+/** Drops a list the Bot wrote under that heading itself, so the checked one is not the second of two: two lists of the
+ * same ids, one unchecked, is worse than none. Only a heading that ends the text, with nothing but id lines under it. */
+function withoutReferences(text: string): string {
+  const at = text.lastIndexOf(HEADING);
+  if (at < 0) return text.trimEnd();
+  const rest = text.slice(at + HEADING.length).trim();
+  const listOnly = !rest || rest.split("\n").every(line => /^[-*]?\s*m\d+/.test(line.trim()));
+  return listOnly ? text.slice(0, at).trimEnd() : text.trimEnd();
+}
+/** How a checked handoff reads at the start of the next session: the Bot's text, then what the cited messages say, one
+ * line each (who wrote it and how it opens), which is what the next session needs to recognise them. */
 export function renderHandoff(text: string, references: readonly HandoffReference[]): string {
-  if (!references.length) return text;
+  const body = withoutReferences(text);
+  if (!references.length) return body;
   const lines = references.map(reference => `- ${reference.id} ${reference.from}: ${reference.line}`);
-  return `${text.trimEnd()}\n\n## Referenced messages\n${lines.join("\n")}`;
+  return `${body}\n\n${HEADING}\n${lines.join("\n")}`;
 }
 
 /** The envelope of a handoff: the first thing the next session is told. It is not a message from anyone in the chat,

@@ -1,5 +1,5 @@
 import { join, dirname } from "node:path";
-import { clipQuote, previewQuotes } from "../../shared/quotes.js";
+import { previewQuotes } from "../../shared/quotes.js";
 import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { ChatService } from "../chat/service.js";
@@ -12,6 +12,8 @@ import { welcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
 
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
+/** How much of a cited message a handoff shows (A99): its opening line, this long at most. */
+const HANDOFF_LINE = 120;
 /** How many of the open threads it follows a Bot is shown after a compaction (A73); the rest are counted. */
 const FOLLOWED_SHOWN = 15;
 /** Converts already-committed Chat input into runtime input; no SDK dependencies. */
@@ -47,8 +49,10 @@ export class BotInbox {
   cited(id: string): { from: string; line: string } | null {
     const message = this.chats.message(this.botId, id);
     if (!message) return null;
-    const text = previewQuotes(message.content, message.quotes ?? []).replace(/\s+/g, " ").trim();
-    return { from: message.sender.name, line: text ? clipQuote(text) : "(attachment)" };
+    // Its opening line only, bounded: a long message's whole start would bury the handoff it is attached to.
+    const line = (previewQuotes(message.content, message.quotes ?? []).split("\n").find(text => text.trim()) ?? "").trim();
+    const chars = [...line];
+    return { from: message.sender.name, line: chars.length > HANDOFF_LINE ? `${chars.slice(0, HANDOFF_LINE).join("").trimEnd()}…` : line || "(attachment)" };
   }
   /** XML for the claimed messages plus the tail (other deliveries not told yet, how the instructions changed,
    * unread); `notices` are told once the batch is submitted. */
