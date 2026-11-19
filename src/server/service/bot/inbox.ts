@@ -32,6 +32,10 @@ export class BotInbox {
   /** A handoff (A99) waiting to open the next session. */
   private handoff: string | undefined;
   handOff(text: string): void { this.handoff = text; }
+  /** The file the next session opens in: a new one, dated now, beside the old (which stays). */
+  nextSessionFile(workspace: string): string {
+    return join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`);
+  }
   takeHandoff(): string | undefined { const text = this.handoff; this.handoff = undefined; return text; }
   /** The message ids a batch shows the Bot: its messages, a reply it quotes, a mark on a message, and the sources of the
    * quotes inside them. A handoff (A99) may cite only these. */

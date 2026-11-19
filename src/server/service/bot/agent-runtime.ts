@@ -166,6 +166,8 @@ export class AgentRuntime implements RuntimePort {
     // The next batch is told where it came from, and what it had read of its chats is forgotten with the session (A67).
     this.inbox.handOff(text);
     this.activity("starting");
+    // A new file: the old session stays where History can find it.
+    this.inbox.repository.newSession(this.inbox.botId, this.inbox.nextSessionFile(this.setup.workspace.cwd));
     await this.session.dispose();
     this.session = undefined;
     const session = await this.ensureSession();
