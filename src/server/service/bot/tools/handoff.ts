@@ -31,7 +31,7 @@ export const handoffTools = [
       const handoff = context.scope.handoff;
       if (!handoff) throw new Error("Handoff is not available in this session");
       const unknown = await handoff.prepare(args.text);
-      if (unknown.length) throw new Error("These message ids were not in this session's batches: " + unknown.join(", ")
+      if (unknown.length) throw new Error("These message ids are not messages you can read: " + unknown.join(", ")
         + ". Check the ids, or write what they said into the handoff instead; nothing was handed off.");
       return "Handoff recorded. This session is replaced when this turn ends; the next one starts with it."
         + (citedIds(args.text).length ? ` ${citedIds(args.text).length} referenced message(s) are attached with their sender and first line.` : "");
