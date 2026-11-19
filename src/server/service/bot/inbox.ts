@@ -29,14 +29,19 @@ export class BotInbox {
     if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.");
     return this.repository.ensureSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
   }
-  /** A handoff (A99) waiting to open the next session. */
+  /** A handoff (A99) waiting to open the next session; `fresh` says the next session starts in a new file, whose record
+   * is written when that session is made, so a failure leaves nothing half-written. */
   private handoff: string | undefined;
-  handOff(text: string): void { this.handoff = text; }
-  /** The file the next session opens in: a new one, dated now, beside the old (which stays). */
-  nextSessionFile(workspace: string): string {
-    return join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`);
-  }
+  private fresh = false;
+  handOff(text: string): void { this.handoff = text; this.fresh = true; }
   takeHandoff(): string | undefined { const text = this.handoff; this.handoff = undefined; return text; }
+  /** Starts the next session in a new file (a handoff, A99); the old file stays on disk and in History. Called just
+   * before that session is created. */
+  startFreshSession(workspace: string): void {
+    if (!this.fresh) return;
+    this.fresh = false;
+    this.repository.newSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
+  }
   /** What a cited message is, for a handoff (A99): who wrote it and its first line. Null when it doesn't exist or this
    * Bot can't read it. */
   cited(id: string): { from: string; line: string } | null {

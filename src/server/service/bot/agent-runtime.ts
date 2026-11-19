@@ -55,6 +55,8 @@ export class AgentRuntime implements RuntimePort {
     });
   }
   private async ensureSession(): Promise<BotSession> {
+    // A handoff (A99) starts the next session in a new file, made just before the session itself.
+    this.inbox.startFreshSession(this.setup!.workspace.cwd);
     const reference = this.inbox.reference(this.setup!.workspace.cwd);
     if (this.session) {
       // Reads this.model inside the lock so a concurrent change is never reverted by a stale selection.
@@ -162,8 +164,6 @@ export class AgentRuntime implements RuntimePort {
     // The next batch is told where it came from, and what it had read of its chats is forgotten with the session (A67).
     this.inbox.handOff(text);
     this.activity("starting");
-    // A new file: the old session stays where History can find it.
-    this.inbox.repository.newSession(this.inbox.botId, this.inbox.nextSessionFile(this.setup.workspace.cwd));
     await this.session.dispose();
     this.session = undefined;
     const session = await this.ensureSession();
