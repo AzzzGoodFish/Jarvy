@@ -22,7 +22,8 @@
 .jv-envs-back:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-envs-back svg { width: 20px; height: 20px; }
 .jv-envs-body { display: flex; flex: 1; flex-direction: column; gap: var(--ui-space-24); min-height: 0; padding: var(--ui-space-20) var(--ui-inset-content) var(--ui-space-32); overflow-y: auto; }
-.jv-envs-body > * { width: 100%; max-width: 720px; }
+/* Scroll column: keep cards and sections at their natural height instead of shrinking and clipping overflow: hidden children. */
+.jv-envs-body > * { flex-shrink: 0; width: 100%; max-width: 720px; }
 .jv-envs-here { display: flex; align-items: center; gap: var(--ui-space-8); margin: 0; font-size: var(--ui-text-base); color: var(--ui-text-secondary); }
 
 /* Phones: the list fills the screen over the tab bar; a pick opens over it, with a way back and without the tab bar. */
