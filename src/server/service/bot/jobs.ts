@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import type {
@@ -65,12 +66,14 @@ interface JobRecord {
  * without killing the process; when a detached job finishes, `onFinished` notifies the Bot through Deliveries. */
 export class BotJobs implements CommandJobs {
   private readonly jobs = new Map<string, JobRecord>();
+  /** Random per-instance prefix so job IDs and temp log files never collide across restarts (A98). */
+  private readonly prefix = randomBytes(3).toString("hex");
   private counter = 0;
 
   constructor(private readonly onFinished: (payload: JobNoticePayload) => void) {}
 
   start(input: JobStartInput): string {
-    const id = `j${++this.counter}`;
+    const id = `j-${this.prefix}-${++this.counter}`;
     const controller = new AbortController();
     let resolveDone = () => {};
     const done = new Promise<void>(resolve => { resolveDone = resolve; });
@@ -257,7 +260,7 @@ export class BotJobs implements CommandJobs {
     return list;
   }
 
-  async stopAll(): Promise<void> {
+  async stopAll(reason?: string): Promise<JobNoticePayload[]> {
     const active: JobRecord[] = [];
     for (const job of this.jobs.values()) {
       if (job.status === "running" && !job.exited) {
@@ -266,13 +269,18 @@ export class BotJobs implements CommandJobs {
         active.push(job);
       }
     }
-    if (!active.length) return;
+    if (!active.length) return [];
     await Promise.race([Promise.all(active.map(job => job.done)), delay(STOP_WAIT_MS)]);
+    return active.map(job => ({
+      ...this.noticePayload(job),
+      status: "stopped",
+      ...(reason ? { error: cleanXml(reason) } : {}),
+    }));
   }
 
   private requireJob(id: string): JobRecord {
     const job = this.jobs.get(id);
-    if (!job) throw new Error(`Unknown job "${id}". Use bash_job(action="list") to see available jobs.`);
+    if (!job) throw new Error(`Unknown job "${id}" (background jobs do not survive a server or Bot restart). Use bash_job(action="list") to see current jobs.`);
     return job;
   }
 

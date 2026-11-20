@@ -130,5 +130,5 @@ export interface CommandJobs {
   list(): JobSummary[];
   stop(id: string): Promise<JobStopResult>;
   running(): RunningJobSummary[];
-  stopAll(): Promise<void>;
+  stopAll(reason?: string): Promise<JobNoticePayload[]>;
 }

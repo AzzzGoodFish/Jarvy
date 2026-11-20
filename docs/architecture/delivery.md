@@ -34,7 +34,7 @@ type Urgency = "interrupt" | "queue" | "digest";
 type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task" | "followed" | "job";
 type DeliveryCategory = "message" | "activity" | "system";
 const CATEGORY: Record<DeliveryKind, DeliveryCategory>;
-type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule" | "compaction" | "finish";
+type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule" | "compaction" | "finish" | "shutdown";
 interface DeliveryPayloads {               // what each kind carries, stored as JSON in inbox.payload
   message: null; reaction: { emoji: string }; note: { version: number };
   onboard: { language: WelcomeLanguage }; change: { what: ChangeField; value: string | null }; task: { task: string; due: number }; followed: null; job: JobNoticePayload;
@@ -61,7 +61,7 @@ System notices have no route; the source names the recipient:
 | change | a Bot whose work environment the owner changed (A50); `move` when a running Bot was moved | `owner`, `move` |
 | task | the Bot whose scheduled task is due (A58) | `schedule` |
 | followed | a Bot whose conversation Pi just compacted (A73) | `compaction` |
-| job | a Bot whose background bash command finished (A98) | `finish` |
+| job | a Bot whose background bash command finished or was stopped by server shutdown (A98) | `finish`, `shutdown` |
 
 The sender is never its own recipient; each member gets at most one row per message.
 
@@ -75,7 +75,7 @@ onboard:  { setup: "interrupt" },
 change:   { agent: "digest", owner: "digest", move: "interrupt" },
 task:     { schedule: "queue" },
 followed: { compaction: "digest" },
-job:      { finish: "queue" },
+job:      { finish: "queue", shutdown: "digest" },
 ```
 
 Urgency is decided only here. A move (an SSH machine taken back or deleted while the Bot is there) of a Bot that is running is reason `move`, so it doesn't go on in the old place; a Bot that isn't running, and a change of access alone, are `owner`: there is nothing to stop, and waking it would only spend a turn.

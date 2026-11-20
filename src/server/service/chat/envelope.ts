@@ -150,7 +150,7 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
   ]);
   return (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
     + "then send what is worth sending, to your owner unless the task says where; if nothing is, do nothing.</note></tasks>" : "")
-    + (jobs.length ? `<jobs>${jobs.join("")}<note>Background commands above finished. Use bash_job(action="read") if you need more of their output.</note></jobs>` : "")
+    + (jobs.length ? `<jobs>${jobs.join("")}<note>Background commands above ended. Use bash_job(action="read") if you need more of their output, or read full_output when provided.</note></jobs>` : "")
     + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`

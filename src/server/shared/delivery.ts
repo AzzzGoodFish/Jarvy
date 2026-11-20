@@ -33,7 +33,7 @@ export interface DeliveryPayloads {
 /** Why a member gets it; the policy table maps kind × reason to an urgency. `owner` is the owner changing where a
  * Bot works; `move` is that change moving a Bot that is running. */
 export type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule"
-  | "compaction" | "finish";
+  | "compaction" | "finish" | "shutdown";
 /** A route's answer: who should know, and why. */
 export interface DeliveryTarget { member: Member; reason: DeliveryReason }
 /** A planned delivery, written with the fact it is about and handed to the recipient after commit. */

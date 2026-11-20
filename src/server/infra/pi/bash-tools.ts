@@ -34,7 +34,7 @@ const bashJobSchema = Type.Object({
     enum: ["list", "read", "wait", "stop"],
     description: "Operation to perform: list, read, wait, or stop",
   }),
-  jobId: Type.Optional(Type.String({ description: "Job ID (e.g. j1), required for read, wait, and stop" })),
+  jobId: Type.Optional(Type.String({ description: "Job ID from bash or bash_job(action=\"list\"), required for read, wait, and stop" })),
   fromLine: Type.Optional(Type.Number({ description: "For read: 1-based starting line number (omit to read the latest lines)" })),
   limit: Type.Optional(Type.Number({ description: "For read: max lines to return (default 200, max 2000)" })),
   waitSeconds: Type.Optional(Type.Number({

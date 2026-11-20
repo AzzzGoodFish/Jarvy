@@ -121,7 +121,7 @@ export class BotService {
           // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).
           const to = chats.member(id);
           if (to) this.deps.deliveries.notify({ to, kind: "followed", reason: "compaction", actorId: null, payloads: [null] });
-        } }), () => jobs.stopAll());
+        } }), () => this.stopBotJobs(id, jobs));
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; });
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
@@ -368,6 +368,13 @@ export class BotService {
     // Its DMs went with it, and the files of their messages go now (A66).
     await this.deps.chats.attachments.clean();
     if (!keepFiles) await rm(dirname(workspacePath), { recursive: true, force: true });
+  }
+  private async stopBotJobs(id: string, jobs: BotJobs): Promise<void> {
+    const shutdown = this.closed;
+    const stopped = await jobs.stopAll(shutdown ? "Stopped because the server restarted" : undefined);
+    if (!shutdown || !stopped.length || !this.deps.store.bots.get(id)) return;
+    const to = this.deps.chats.member(id);
+    if (to) this.deps.deliveries.notify({ to, kind: "job", reason: "shutdown", actorId: null, payloads: stopped });
   }
   async close(): Promise<void> {
     if (this.closed) return;
