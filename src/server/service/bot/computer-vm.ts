@@ -197,13 +197,14 @@ export class VmSandboxes {
    * before tearing down the domain, volumes, and credentials. */
   async remove(record: EnvironmentRecord, limits: ComputerLimits, hostWorkspace: string, keepFiles: boolean): Promise<void> {
     const name = record.spec.container!, vols = vmVolumes(name);
-    let poolReady: boolean;
+    let poolReady: boolean, deleteWorkspace = !keepFiles;
     if (keepFiles) {
       await this.ensureInfra();
       poolReady = true;
       if (await volExists(this.pool, vols.workspace)) {
         const access = await this.ensure(record, limits, hostWorkspace);
         await exportWorkspace(access, hostWorkspace);
+        deleteWorkspace = true;
       }
     } else {
       poolReady = await this.ensureInfra().then(() => true, () => false);
@@ -211,7 +212,7 @@ export class VmSandboxes {
     await undefineDomain(name).catch(() => {});
     if (poolReady) {
       await volDelete(this.pool, vols.os).catch(() => {});
-      await volDelete(this.pool, vols.workspace).catch(() => {});
+      if (deleteWorkspace) await volDelete(this.pool, vols.workspace).catch(() => {});
       await volDelete(this.pool, vols.seed).catch(() => {});
     }
     this.deps.store.environments.clearComputerAuth(record.id);

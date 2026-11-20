@@ -91,7 +91,7 @@ export async function ensurePool(name: string): Promise<void> {
   let info = "";
   try { info = await virsh(["pool-info", name], 15_000); }
   catch (error) {
-    if (!/storage pool not found|no storage pool|failed to get pool\b/i.test((error as Error).message)) throw error;
+    if (!/storage pool not found|no storage pool/i.test((error as Error).message)) throw error;
     await virsh(["pool-define-as", name, "dir", "--target", `${POOL_ROOT}/${name}`], 30_000);
     await virsh(["pool-build", name], 30_000).catch(() => {});
     info = await virsh(["pool-info", name], 15_000);
@@ -102,7 +102,8 @@ export async function ensurePool(name: string): Promise<void> {
 
 export async function poolRefresh(pool: string): Promise<void> { await virsh(["pool-refresh", pool], 30_000); }
 
-const VOL_ABSENT = /storage volume not found|no storage vol|failed to get vol\b/i;
+/** Matches only unambiguous `VIR_ERR_NO_STORAGE_VOL` responses, never the generic `failed to get vol` wrapper. */
+const VOL_ABSENT = /storage volume not found|no storage vol/i;
 
 /** Checks whether `vol` exists in `pool`. Returns false only on confirmed volume absence; rethrows RPC, permission,
  * pool or daemon errors so callers never mistake a lookup failure for an absent volume. */
@@ -185,7 +186,7 @@ export async function ensureVmNetwork(tag: string): Promise<VmNetwork> {
     const xml = await virsh(["net-dumpxml", name], 15_000);
     gateway = /<ip\s+address=['"]([^'"]+)['"]/.exec(xml)?.[1] ?? null;
   } catch (error) {
-    if (!/network not found|no network|failed to get network\b/i.test((error as Error).message)) throw error;
+    if (!/network not found|no network/i.test((error as Error).message)) throw error;
   }
   if (!gateway) {
     const octet = await pickSubnetOctet(tag);

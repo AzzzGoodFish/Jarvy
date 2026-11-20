@@ -103,9 +103,16 @@ export async function ensureVmHostEntry(access: SshAccess, hostName: string, gat
   await execSsh(access, cmd, { timeoutMs: 15_000 });
 }
 
-/** Imports existing files from the host Bot `workspace/` directory into the VM's `/workspace` disk (once, on creation). */
+/** Imports existing files from the host Bot `workspace/` directory into the VM's `/workspace` disk (once, on creation).
+ * Only treats a missing host directory (`ENOENT`) as empty; propagates read/permission errors so callers never mark
+ * migration complete after an unreadable directory. */
 export async function importWorkspace(access: SshAccess, hostWorkspace: string): Promise<void> {
-  const entries = await readdir(hostWorkspace).catch(() => [] as string[]);
+  let entries: string[];
+  try { entries = await readdir(hostWorkspace); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
   if (!entries.length) return;
   await pipeToSsh(access, "sudo tar -xf - -C /workspace && sudo chown -R bot:bot /workspace", "tar", ["-cf", "-", "-C", hostWorkspace, "."], 600_000);
 }
