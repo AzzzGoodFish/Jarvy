@@ -860,3 +860,15 @@ Every page wrote its own values and its own version of the same UI: 40 spacing v
 Why: a 4 px grid and three weights are what design systems commonly use, so the values are few and every pair of neighbours differs visibly; weights other than 400, 500 and 600 render differently on Windows and Linux, whose system fonts have fixed weights. A nested corner is its container's radius less the padding between them, so corners stay parallel. One implementation of each part means a fix lands everywhere at once.
 
 Consequences: existing values move to the nearest step (most by 2 px), page by page, each with before-and-after shots; titles at 650 (the Chats and Environments headers) become 600.
+
+## A98 Only content copies
+
+Everything in the window selected: a drag across the chat list picked up channel names and timestamps on the way, Ctrl+A took the whole shell — sidebar, headers, badges, avatars, buttons — and a press on a label left a caret where typing did nothing, which read as a text box that was not one. Discord, whose interface this follows, lets a person select what has meaning: a message, a file's text, what they typed themselves.
+
+- **The shell does not select** (`user-select: none` on `body`): a drag across it turns nothing blue, a press leaves no caret, and the pointer stays an arrow.
+- **Content selects for itself** (`user-select: text`): a message and the boxes that share it (a channel's notice, a thread's summary), a file's source or text, a Bot's log and a tool call's input, and every field a person types in. A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
+- **Copy and quote from a selection** reads it from a message's box and from nowhere else, so it keeps working unchanged.
+
+Why: a blue run of text and a caret both promise copying and typing. Where neither works they misstate what the interface does, and both were everywhere because no rule said otherwise.
+
+Consequences: selecting a passage in a message still offers copy and quote; selecting anything else offers nothing. A textarea's placeholder takes the highlight on Ctrl+A, as the browser paints it, though nothing of it is copied. Anything new that a person must be able to copy has to say so in its own stylesheet.

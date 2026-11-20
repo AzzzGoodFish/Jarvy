@@ -81,6 +81,19 @@ A radius inside another is the outer one less the padding between them, so neste
 - **Column headers**: `--ui-header` 52, 48 on a phone. The desktop client's title bar is this row (A96).
 - **Icons**: 14 inside text, 16 in controls and rows, 20 as a row's leading icon.
 
+## Copying
+
+The shell does not select (A98): nothing in it can be dragged blue, and a press on it leaves no caret where typing would do
+nothing. Content says otherwise for itself with `user-select: text`:
+
+- a message, and a channel's notice and a thread's summary, which share its box (`.ui-bubble`) — the copy/quote menu
+  reads its selection from there and nowhere else;
+- a file's source or text;
+- a Bot's log and a tool call's input;
+- every field a person types in.
+
+A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
+
 ## Parts
 
 ### Column header

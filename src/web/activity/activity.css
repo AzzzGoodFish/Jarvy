@@ -63,7 +63,8 @@
 .jv-input-quote { margin:8px 0 0; padding:1px 0 1px 10px; border-left:2px solid var(--jv-line); color:var(--jv-muted); line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
 .jv-input-quote > span { display:block; font-size:10px; }
 .jv-input-text { margin:8px 0 0; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
-.jv-input-code { margin:8px 0 0; padding:10px; border-radius:5px; background:var(--jv-field); font:11px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* What a tool was given is read and copied. */
+.jv-input-code { user-select: text; -webkit-user-select: text; margin:8px 0 0; padding:10px; border-radius:5px; background:var(--jv-field); font:11px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
 .jv-input-files, .jv-input-threads { display:flex; flex-direction:column; gap:4px; margin:8px 0 0; padding:0; list-style:none; font-size:11px; }
 .jv-input-files li, .jv-input-threads li { display:flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
 .jv-input-files svg { width:12px; height:12px; flex:none; color:var(--jv-muted); }
