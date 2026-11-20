@@ -22,6 +22,7 @@ import { isToolMedia, type ToolDefinition } from "../../shared/tools.js";
 import type { LiveEvent } from "../../shared/live.js";
 import { LiveTranslator } from "./live.js";
 import type { WorkEnvironment } from "../../shared/environment.js";
+import type { CommandJobs } from "../../shared/jobs.js";
 import { environmentTools } from "./environment-tools.js";
 import type { SecretAccess } from "../../shared/secret.js";
 
@@ -39,6 +40,10 @@ export interface SessionOptions {
   onCompacted?: () => void;
   /** Where bash, read, write and edit run (A50): the Bot's current environment, asked at every tool call. */
   environment: () => WorkEnvironment;
+  /** Human-readable name of the current environment, for background job labels (A98). */
+  environmentName?: () => string;
+  /** Per-Bot background bash job manager (A98). */
+  jobs: CommandJobs;
   /** The Bot's secrets (A52): placeholders in bash, and masking of what reaches the model and the chat. */
   secrets?: SecretAccess;
   /** The model catalog (A49): a saved model takes what it leaves out, such as compat, from its entry (A62). */
@@ -143,7 +148,7 @@ export class PiSession implements BotSession {
     configureHttp(HTTP_IDLE_TIMEOUT_MS);
     const settingsManager = SettingsManager.inMemory({ httpIdleTimeoutMs: HTTP_IDLE_TIMEOUT_MS,
       compaction: { reserveTokens: compactionReserve(model.contextWindow) } });
-    const tools = ["bash", "read", "edit", "write", "codemode", ...options.tools.map(tool => tool.name)];
+    const tools = ["bash", "bash_job", "read", "edit", "write", "codemode", ...options.tools.map(tool => tool.name)];
     const resourceLoader = new DefaultResourceLoader({ cwd: bot.workspacePath, agentDir, settingsManager,
       noExtensions: true, noSkills: true, noPromptTemplates: true, noContextFiles: true,
       systemPromptOverride: () => adapter.prompts.current, appendSystemPromptOverride: () => [],
@@ -183,7 +188,8 @@ export class PiSession implements BotSession {
     });
     await resourceLoader.reload();
     const result = await createAgentSession({ cwd: bot.workspacePath, agentDir, sessionManager, settingsManager, resourceLoader, modelRuntime: models, model,
-      thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools, customTools: environmentTools(options.environment, options.secrets) });
+      thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools,
+      customTools: environmentTools(() => ({ env: options.environment(), name: options.environmentName?.() ?? "your sandbox" }), options.jobs, options.secrets) });
     adapter.session = result.session; adapter.settings = settingsManager;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
       adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");

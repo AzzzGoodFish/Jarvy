@@ -32,4 +32,11 @@ export const inputs = {
   "inputs.what.run": "run state",
   "inputs.what.environment": "working environment",
   "inputs.what.access": "environment access",
+  "inputs.job": "Command {id} {status}: {command}",
+  "inputs.jobExit": "exit {code}",
+  "inputs.jobStatus.done": "finished",
+  "inputs.jobStatus.failed": "failed",
+  "inputs.jobStatus.stopped": "stopped",
+  "inputs.jobStatus.timed_out": "timed out",
+  "inputs.runningJobs": { one: "{count} command running: {list}", other: "{count} commands running: {list}" },
 } as const;

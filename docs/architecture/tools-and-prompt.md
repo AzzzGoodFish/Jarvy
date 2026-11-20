@@ -4,7 +4,7 @@
 
 ## One `chat` tool, three actions
 
-Besides Pi's `bash`, `read`, `edit`, `write` (which run in the Bot's [work environment](environments.md)) and `codemode`, a Bot has one chat tool with on-demand discovery (A07):
+Besides `bash`, `bash_job`, `read`, `edit`, `write` (which run in the Bot's [work environment](environments.md), A50, A98) and `codemode`, a Bot has one chat tool with on-demand discovery (A07):
 
 ```ts
 chat({ action: "list" });
@@ -145,6 +145,7 @@ Other members work on their own machines. They can't reach your files, your addr
 ## Work environment
 Your file and command tools run on your own computer: a Linux container only you use, with Node, Python, git, build tools and Playwright with its browsers. You can install software there with sudo; it stays until the owner resets your sandbox. Where the machine has no Docker, those tools are unavailable until it does, and the chat tools work as usual.
 You can also work in other, external workspaces: your owner's machines. environments.list shows them and which of them you may use; environments.switch moves you to one you may, and from then on your file and command tools run there until you switch back. Your chat tools are the same either way. To work on one you may not use yet, or on another machine over SSH, ask your owner with environments.request; for a new machine they type its password on that card, not in the chat. Each batch of messages ends with the environment you are in now.
+Long bash commands detach into the background after waitSeconds (default 30s; 0 starts in the background immediately) or if a new message interrupts your turn, without killing the running process. You are notified automatically when a background command finishes, and can check, wait on, or stop it anytime with bash_job.
 
 ## Responding
 When you are @-mentioned or get a DM, first let the person know you have it: react to that message with an emoji, or confirm in a sentence or two with an emoji. A reaction is only a signal, not a command; pick the emoji yourself.

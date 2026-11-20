@@ -10,6 +10,7 @@ import type { BotNotice } from "../../infra/storage/inbox-repository.js";
 import { RuntimeFault, type ModelSelection } from "../../shared/runtime.js";
 import { welcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
+import type { RunningJobSummary } from "../../shared/jobs.js";
 
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
 /** How many of the open threads it follows a Bot is shown after a compaction (A73); the rest are counted. */
@@ -18,7 +19,7 @@ const FOLLOWED_SHOWN = 15;
 export class BotInbox {
   /** `where` is the work environment the Bot is in now, named at the end of each batch (A50). */
   constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles,
-    private readonly tasks: TaskRepository, private readonly where?: () => BatchEnvironment) {}
+    private readonly tasks: TaskRepository, private readonly where?: () => BatchEnvironment, private readonly runningJobs?: () => RunningJobSummary[]) {}
   /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. A digest delivery
    * (a change the agent Bot made, A48) is not work of its own: it rides along with the next batch. */
   pending() { return this.repository.hasPending(this.botId) || this.hasNotices(); }
@@ -39,7 +40,9 @@ export class BotInbox {
     // A Bot that was told of a notice but never read it is reminded here, where it is about to act (A67): its own
     // channels and threads, and the channel a thread belongs to.
     const unreadNotes = this.chats.channels.unreadNotes(this.botId, [...new Set(batch.inputs.map(input => input.chatId))]);
-    const digest = { ...this.chats.channels.digest(this.botId), ...(unreadNotes.length ? { unreadNotes } : {}), ...(this.where ? { environment: this.where() } : {}) };
+    const running = this.runningJobs?.() ?? [];
+    const digest = { ...this.chats.channels.digest(this.botId), ...(unreadNotes.length ? { unreadNotes } : {}),
+      ...(running.length ? { runningJobs: running } : {}), ...(this.where ? { environment: this.where() } : {}) };
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const tail = this.convert(this.chats.notices(this.botId));
     this.tell(tail.stale);
@@ -82,6 +85,7 @@ export class BotInbox {
         const open = this.chats.threads.openFollowed(this.botId, FOLLOWED_SHOWN);
         return open.total ? { kind: "followed", id, total: open.total, threads: open.threads, createdAt } : null;
       }
+      case "job": return { kind: "job", id, job: notice.payload, createdAt };
     }
   }
   /** The batch went to the model: each delivery in its tail is told once. */
@@ -100,7 +104,8 @@ export class BotInbox {
     this.tell(stale);
     // A run of notices alone is where a Bot learns of a new version; the ones it still has not read come too (A67).
     const unreadNotes = this.chats.channels.unreadNotes(this.botId, pending.flatMap(notice => notice.chat ? [notice.chat.id] : []));
-    return { xml: encodeNoticeBatch(this.botId, kept, this.where?.(), prompt, unreadNotes), ids: kept.map(notice => notice.id) };
+    const running = this.runningJobs?.() ?? [];
+    return { xml: encodeNoticeBatch(this.botId, kept, this.where?.(), prompt, unreadNotes, running.length ? running : undefined), ids: kept.map(notice => notice.id) };
   }
   /** These notices reached the model. */
   tell(ids: readonly number[]) { this.chats.tellNotices(this.botId, ids); }

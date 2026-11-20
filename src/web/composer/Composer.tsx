@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { ATTACHMENT_MAX_BYTES, type Member } from "../../contract/chat";
@@ -38,6 +38,8 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   /** One per file on its way up, to cancel it from its chip. */
   const cancels = useRef(new Map<string, AbortController>());
   const textarea = useRef<HTMLTextAreaElement>(null);
+  /** The box itself: its layout is what tells whether the text still fits on one line. */
+  const box = useRef<HTMLDivElement>(null);
   const draft = saved.text ?? initialText ?? "", files = saved.files, quote = saved.quote;
   const setDraft = (value: string) => drafts.update(chatId, { text: value });
   const menu = useMentionMenu({ textarea, value: draft, setValue: setDraft, inside: mention?.inside ?? [], outside: mention?.outside ?? [], bots: mention?.bots ?? [],
@@ -121,12 +123,25 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   // Grow with the content (CSS max-height caps it, then it scrolls). Measuring via "auto" briefly enlarges the
   // transcript and clamps its scroll position; restore it so the bottom anchor is not lost on every keystroke.
   const fit = useCallback(() => {
-    const el = textarea.current, log = scrollRef?.current; if (!el) return;
+    const el = textarea.current, shell = box.current, log = scrollRef?.current; if (!el || !shell) return;
     const top = log?.scrollTop;
-    el.style.height = "auto";
-    const natural = el.scrollHeight, line = parseFloat(getComputedStyle(el).lineHeight) || 20;
-    el.style.height = `${natural}px`;
-    setTall(natural > line + 8);
+    // A pill clips its input to one line; the text's whole height is still what it would want, and its padding differs
+    // between a pill and a card, so the height is read without its padding.
+    const measure = () => {
+      const style = getComputedStyle(el), pad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      el.style.height = "auto";
+      return { content: el.scrollHeight - pad, pad };
+    };
+    // Whether the text is one line is what a *pill* gives it, whatever shape the box is in now: the box is put back in
+    // its one-line layout to measure, so the answer is this window's real width for this set of buttons (the home page's
+    // light chat has another), and it cannot change merely because the box is a card. Nothing paints in between.
+    const card = shell.getAttribute("data-tall");
+    if (card !== null) shell.removeAttribute("data-tall");
+    const line = parseFloat(getComputedStyle(el).lineHeight) || 20, oneLine = measure().content <= line + 8;
+    if (card !== null) shell.setAttribute("data-tall", card);
+    const natural = measure();
+    el.style.height = `${natural.content + natural.pad}px`;
+    setTall(!oneLine);
     if (log && top !== undefined && log.scrollTop !== top) log.scrollTo({ top, behavior: "instant" });
   }, [scrollRef]);
   useLayoutEffect(() => {
@@ -138,6 +153,33 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     watched.observe(el);
     return () => watched.disconnect();
   }, [draft, chatId, fit]);
+  // Slide to the new height rather than jump: turning from a pill into a card adds a row of buttons at once, and every
+  // extra line adds a line's worth. The box is clipped while it slides, so the buttons come out from under the text
+  // instead of appearing below it; the first measurement only records where the box starts.
+  const settled = useRef<number | null>(null), slide = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = box.current; if (!el) return;
+    // The height written out by a running slide is dropped first, so what is read is the height this content wants;
+    // the last settled height is where the new slide starts from.
+    const pinned = el.style.height;
+    el.style.height = ""; delete el.dataset.sliding;
+    const to = Math.round(el.getBoundingClientRect().height), from = settled.current;
+    settled.current = to;
+    if (pinned) el.style.height = pinned;
+    // A window drag or a phone keyboard resizes the box far more often than a keystroke; only a line or a new row of
+    // buttons is worth animating.
+    if (from === null || Math.abs(to - from) < 12) return;
+    const started = performance.now();
+    cancelAnimationFrame(slide.current ?? 0);
+    el.dataset.sliding = "";
+    const step = (now: number) => {
+      const part = Math.min(1, (now - started) / 160), eased = 1 - (1 - part) ** 3;
+      if (part < 1) { el.style.height = `${Math.round(from + (to - from) * eased)}px`; slide.current = requestAnimationFrame(step); }
+      else { el.style.height = ""; delete el.dataset.sliding; slide.current = null; }
+    };
+    slide.current = requestAnimationFrame(step);
+  });
+  useEffect(() => () => cancelAnimationFrame(slide.current ?? 0), []);
 
   /* The box is the input, so a press anywhere in it that is not on a button or the file trigger puts the caret in the
      text, at its end. Without this only the line the words sit on takes a press: the box's own padding and the row the
@@ -163,7 +205,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">{t("composer.replying")}</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || t("common.attachment")}</span>
       <button type="button" aria-label={t("composer.cancelReply")} onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
     <QuoteTags quotes={saved.passages} onRemove={index => drafts.update(chatId, draft => ({ passages: draft.passages.filter((_, at) => at !== index) }))}/>
-    <div className="ui-composer jv-composer" data-tall={tall || undefined} onMouseDown={pressBox}>
+    <div ref={box} className="ui-composer jv-composer" data-tall={tall || undefined} onMouseDown={pressBox}>
       {mention && menu.menu}
       {dropping && <span className="jarvy-drop-hint" role="status">{t("composer.drop")}</span>}
       <label className="jarvy-attach-trigger" title={t("composer.attach")} onMouseDown={event => event.preventDefault()}><Icon name="add"/><input type="file" multiple aria-label={t("composer.attach")} disabled={sending || uploading || disabled || files.length >= 5}

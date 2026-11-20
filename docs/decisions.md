@@ -860,3 +860,28 @@ Every page wrote its own values and its own version of the same UI: 40 spacing v
 Why: a 4 px grid and three weights are what design systems commonly use, so the values are few and every pair of neighbours differs visibly; weights other than 400, 500 and 600 render differently on Windows and Linux, whose system fonts have fixed weights. A nested corner is its container's radius less the padding between them, so corners stay parallel. One implementation of each part means a fix lands everywhere at once.
 
 Consequences: existing values move to the nearest step (most by 2 px), page by page, each with before-and-after shots; titles at 650 (the Chats and Environments headers) become 600.
+
+## A98 Background-capable `bash` and non-killing turn interrupts
+
+When a new message interrupted a Bot mid-turn (A05), Pi's abort signal propagated straight into the running `bash` command and killed its process tree. Long-running builds, Docker installs, or test runs were discarded whenever someone asked for status or replied in the chat, forcing the Bot to restart them from scratch. Bots also had no native way to run a long command without blocking the turn or to inspect a running command's output incrementally.
+
+- **Detaching `bash`**: `bash` keeps `{ command, timeout? }` and adds optional `waitSeconds` (default 30 s; `0` starts in the background immediately). Commands that finish within `waitSeconds` return synchronously with the same output and exit semantics as before. If `waitSeconds` elapses, or if the turn's abort signal fires while the command is running, `bash` detaches and resolves immediately with `[running] job=jN` and the output so far — leaving the process running under its own `AbortController` inside `BotJobs` (`service/bot/jobs.ts`).
+- **Standalone `bash_job` tool**: a top-level tool (outside the `chat` gateway, flat enum schema for all providers) with `list`, `read` (`jobId`, optional 1-based `fromLine` and `limit`), `wait` (`jobId`, optional `waitSeconds`, default 30 s, also interruptible without killing), and `stop` (`jobId`, terminates the command).
+- **Works across every work environment**: `BotJobs` runs commands through `WorkEnvironment.exec` (A50) so sandboxes, VMs, SSH machines and desktop computers all behave identically. Output is secret-masked on stream (`StreamMask`, A52), kept in a bounded ring buffer per job, and spilled to `env.temp/jarvy-job-<id>.log` once it exceeds Pi's tail limits (2,000 lines or 50 KB). `BotEnvironments` already keeps a retired environment open until active operations finish.
+- **Automatic completion notification**: when a detached job exits without an active waiter and without being explicitly stopped, `BotJobs` emits a queued system notice (`kind: "job"`, `reason: "finish"`, `urgency: "queue"`, no schema change). A running Bot receives `<jobs>` steered into its turn; an idle Bot wakes with a `<notice_batch>`. Every batch tail also carries `<running_jobs>` while any background jobs are active.
+- **Lifecycle & restart safety**: each `BotJobs` instance prefixes its IDs with a random 6-hex token (`j-<hex>-<n>`) so job IDs and spilled temp logs never collide across restarts with earlier entries in the persistent Pi session, and lookups for stale IDs explain that background jobs do not survive a restart. `bot.stop()` and `bot.delete()` stop running jobs silently; graceful server shutdown (`BotService.close()`) stops running jobs and records a `digest` `job` notice (`reason: "shutdown"`, `status: "stopped"`) so the Bot learns on its next batch that pre-restart jobs were stopped without waking during shutdown. Activity input parsing (`envelope-read.ts`, `contract/inputs.ts`, `web/activity/`) and live turn steps (`live-input.ts`, `live-view.ts`) render `bash_job` and job notices in English and Chinese.
+
+Why: separating turn cancellation from process termination lets people talk to a Bot freely without destroying minutes of build or test progress, and automatic completion delivery eliminates blind polling loops.
+
+Amends: A05 (an interrupt aborts the model turn and detaches any active `bash` command into the background rather than killing it).
+## A100 Only content copies
+
+Everything in the window selected: a drag across the chat list picked up channel names and timestamps on the way, Ctrl+A took the whole shell — sidebar, headers, badges, avatars, buttons — and a press on a label left a caret where typing did nothing, which read as a text box that was not one. Discord, whose interface this follows, lets a person select what has meaning: a message, a file's text, what they typed themselves.
+
+- **The shell does not select** (`user-select: none` on `body`): a drag across it turns nothing blue, a press leaves no caret, and the pointer stays an arrow.
+- **Content selects for itself** (`user-select: text`): a message and the boxes that share it (a channel's notice, a thread's summary), a file's source or text, a Bot's log and a tool call's input, and every field a person types in. A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
+- **Copy and quote from a selection** reads it from a message's box and from nowhere else, so it keeps working unchanged.
+
+Why: a blue run of text and a caret both promise copying and typing. Where neither works they misstate what the interface does, and both were everywhere because no rule said otherwise.
+
+Consequences: selecting a passage in a message still offers copy and quote; selecting anything else offers nothing. A textarea's placeholder takes the highlight on Ctrl+A, as the browser paints it, though nothing of it is copied. Anything new that a person must be able to copy has to say so in its own stylesheet.

@@ -11,6 +11,11 @@ const WHAT: Record<string, Key> = {
 };
 export const whatName = (what: string) => WHAT[what] ? t(WHAT[what]!) : what;
 
+const JOB_STATUS: Record<string, Key> = {
+  done: "inputs.jobStatus.done", failed: "inputs.jobStatus.failed", stopped: "inputs.jobStatus.stopped", timed_out: "inputs.jobStatus.timed_out",
+};
+export const jobStatusName = (status: string) => JOB_STATUS[status] ? t(JOB_STATUS[status]!) : status;
+
 /** One line for an item: who, where and what — a list's card, or an item's heading in the details. */
 export function itemLine(item: ParsedItem, names: Names): string {
   switch (item.kind) {
@@ -23,6 +28,7 @@ export function itemLine(item: ParsedItem, names: Names): string {
     case "onboard": return t("inputs.onboard", { person: personName(names, item.by) });
     case "followed": return t("inputs.followed", { count: item.total });
     case "instructions": return t("inputs.instructions", { parts: item.parts.join(", ") });
+    case "job": return t("inputs.job", { id: item.id, status: jobStatusName(item.status), command: item.command });
     case "other": return item.text;
   }
 }
