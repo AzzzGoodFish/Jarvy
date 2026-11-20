@@ -54,7 +54,7 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
       onClose={() => onConfirm(null)} onConfirm={async deleteFiles => { await deleteBot(confirm.bot, deleteFiles); onConfirm(null); }}/>}
     {infoBot && <BotInfo key={infoBot.id} bot={infoBot} status={statuses[infoBot.id]} connections={connections} chats={chats} onSaved={updateBot}
       onOpenChat={id => { onInfoBot(null); onOpenChatId(id); }} onOpenSubscription={openAnywhere}
-      onManageModels={() => { onInfoBot(null); onSettings("models"); }} onManageSecrets={() => { onInfoBot(null); onSettings("secrets"); }} onAddMachine={() => { onInfoBot(null); onAddMachine(); }} onClose={() => onInfoBot(null)}/>}
+      onManageModels={() => { onInfoBot(null); onSettings("models"); }} onManageSecrets={() => { onInfoBot(null); onSettings("secrets"); }} onManageConnectors={() => { onInfoBot(null); onSettings("connectors"); }} onAddMachine={() => { onInfoBot(null); onAddMachine(); }} onClose={() => onInfoBot(null)}/>}
     {preview && <FileViewer files={preview.files} initialIndex={preview.index} onClose={() => onPreview(null)}/>}
   </>;
 }

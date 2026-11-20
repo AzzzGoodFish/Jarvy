@@ -8,6 +8,7 @@ import { npc } from "./npc";
 import { environment } from "./environment";
 import { connection } from "./connection";
 import { secrets } from "./secrets";
+import { connectors } from "./connectors";
 import { machines } from "./machines";
 import { tasks } from "./tasks";
 import { ports } from "./ports";
@@ -15,4 +16,4 @@ import { inputs } from "./inputs";
 import { botcard } from "./botcard";
 
 /** 中文 (A45): the parts of the English reference, put together the same way. */
-export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...machines, ...tasks, ...ports, ...inputs, ...botcard };
+export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...connectors, ...machines, ...tasks, ...ports, ...inputs, ...botcard };

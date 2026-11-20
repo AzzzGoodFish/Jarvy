@@ -1,5 +1,8 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
-import { type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk } from "../../../contract/chat.js";
+import {
+  type ConnectorAuthAsk, type ConnectorWriteAsk, type ConnectorWriteField,
+  type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk,
+} from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -24,7 +27,9 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
   return { question: (input.question as string).trim(), ...(input.detail === undefined ? {} : { detail: (input.detail as string).trim() }),
     options: parsed, multiple: input.multiple === true, allowCustom: input.allowCustom === true, ...(input.secret === undefined ? {} : { secret: secretAsk(input.secret) }),
     ...(input.machine === undefined ? {} : { machine: machineAsk(input.machine) }),
-    ...(input.enter === undefined ? {} : { enter: enterAsk(input.enter) }) };
+    ...(input.enter === undefined ? {} : { enter: enterAsk(input.enter) }),
+    ...(input.connectorAuth === undefined ? {} : { connectorAuth: connectorAuthAsk(input.connectorAuth) }),
+    ...(input.connectorWrite === undefined ? {} : { connectorWrite: connectorWriteAsk(input.connectorWrite) }) };
 }
 /** A secret request (secrets.request, A52), as built by the secrets service. */
 function secretAsk(value: unknown): SecretAsk {
@@ -52,13 +57,60 @@ function enterAsk(value: unknown): EnterAsk {
   return { kind: ask.kind, name: (ask.name as string).trim(),
     ...(ask.address === undefined ? {} : { address: (ask.address as string).trim() }), purpose: (ask.purpose as string).trim() };
 }
+const CONNECTOR_PROVIDERS = new Set(["github", "gmail", "linear", "custom_mcp"]);
+const CONNECTOR_AUTH_KINDS = new Set(["none", "headers", "oauth"]);
+/** A connector grant/sign-in request (connectors.request, A99). */
+function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
+    || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
+    || !text(ask.purpose, 300) || typeof ask.authKind !== "string" || !CONNECTOR_AUTH_KINDS.has(ask.authKind)
+    || typeof ask.needsGrant !== "boolean" || typeof ask.needsAuth !== "boolean")
+    throw new ChatError(400, "Invalid connector auth request");
+  return {
+    connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
+    provider: ask.provider as ConnectorAuthAsk["provider"], purpose: (ask.purpose as string).trim(),
+    authKind: ask.authKind as ConnectorAuthAsk["authKind"], needsGrant: ask.needsGrant, needsAuth: ask.needsAuth,
+  };
+}
+/** A connector write confirmation request (connectors.call, A99). */
+function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
+    || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
+    || !text(ask.toolName, 120) || !text(ask.actionLabel, 80)
+    || (ask.account !== undefined && !text(ask.account, 120))
+    || !Array.isArray(ask.fields) || ask.fields.length > 12)
+    throw new ChatError(400, "Invalid connector write request");
+  const fields: ConnectorWriteField[] = ask.fields.map(item => {
+    const field = item as Record<string, unknown> | null;
+    if (!field || typeof field !== "object" || !text(field.key, 80) || !text(field.label, 80) || !text(field.value, 1000))
+      throw new ChatError(400, "Invalid connector write field");
+    return {
+      key: (field.key as string).trim(), label: (field.label as string).trim(), value: (field.value as string).trim(),
+      ...(field.multiline === true ? { multiline: true } : {}),
+    };
+  });
+  return {
+    connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
+    provider: ask.provider as ConnectorWriteAsk["provider"], toolName: (ask.toolName as string).trim(),
+    actionLabel: (ask.actionLabel as string).trim(),
+    ...(ask.account !== undefined ? { account: (ask.account as string).trim() } : {}),
+    fields,
+  };
+}
 function answerOf(question: Question, input: Record<string, unknown>): QuestionAnswer {
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;
   if (!Array.isArray(selected) || new Set(selected).size !== selected.length
     || !selected.every(index => Number.isInteger(index) && index >= 0 && index < question.options.length)) throw new ChatError(400, "Invalid selection");
-  if (custom !== null && (!question.allowCustom || !text(custom, 2000))) throw new ChatError(400, "Invalid custom answer");
-  const count = selected.length + (custom === null ? 0 : 1);
-  if (count === 0 || (!question.multiple && count !== 1)) throw new ChatError(400, question.multiple ? "Choose at least one option" : "Choose one option");
+  const maxCustom = question.connectorWrite ? 20_000 : 2000;
+  if (custom !== null && (!question.allowCustom || !text(custom, maxCustom))) throw new ChatError(400, "Invalid custom answer");
+  if (question.connectorWrite) {
+    if (selected.length !== 1) throw new ChatError(400, "Choose one option");
+  } else {
+    const count = selected.length + (custom === null ? 0 : 1);
+    if (count === 0 || (!question.multiple && count !== 1)) throw new ChatError(400, question.multiple ? "Choose at least one option" : "Choose one option");
+  }
   return { selected: [...selected as number[]].sort((a, b) => a - b), custom: custom === null ? null : (custom as string).trim() };
 }
 

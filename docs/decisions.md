@@ -874,6 +874,20 @@ When a new message interrupted a Bot mid-turn (A05), Pi's abort signal propagate
 Why: separating turn cancellation from process termination lets people talk to a Bot freely without destroying minutes of build or test progress, and automatic completion delivery eliminates blind polling loops.
 
 Amends: A05 (an interrupt aborts the model turn and detaches any active `bash` command into the background rather than killing it).
+
+## A99 External service connectors
+
+Bots needed structured access to external services (such as GitHub, Gmail, Linear and arbitrary remote HTTP MCP servers) without stuffing credentials into chat or dumping dozens of third-party tool schemas into every prompt.
+
+- **Shared base + per-vendor modules**: `ConnectorService`, storage (v34), `Masker` redaction, OAuth coordination and `chat` gateway tools (`connectors.list / describe / call / request`) are vendor-agnostic. Each provider (`github`, `gmail`, `linear`, `custom_mcp`) lives in its own module under `infra/connectors/providers/` behind `ConnectorAdapter` and registers in `registry.ts`; remote MCP servers share `infra/pi/mcp.ts` (`@earendil-works/pi-mcp`).
+- **Deployment OAuth clients + token fallback where practical**: GitHub and Gmail OAuth clients come from `process.env` or `<data dir>/.env` (`JARVY_<PROVIDER>_CLIENT_ID` / `_CLIENT_SECRET`, plus optional `JARVY_PUBLIC_URL`), keeping client secrets out of the database and UI. GitHub connects to GitHub's official remote MCP server (`https://api.githubcopilot.com/mcp/`) and also retains a Personal Access Token path using the exact same MCP toolset; Gmail is OAuth only (no IMAP/SMTP). Linear uses MCP dynamic client registration.
+- **Per-tool write confirmation with definition fingerprinting**: there is no connector-wide safety mode. Any tool not explicitly annotated `readOnly: true` (and non-destructive) is treated as a write tool and pauses on an editable in-chat confirmation card. Choosing "Confirm / Send & don't ask again" records `(tool_name, definition_hash)` in `connector_unconfirmed_tools` so only explicit exceptions bypass future cards, and any upstream change to a tool's description, annotations or schema invalidates the exemption automatically.
+- **Calm, ephemeral Settings UI**: unconnected curated presets show one row with a Connect button and open an ephemeral inline drawer; no database row is created until OAuth finishes or a token probes successfully. Connected details show Bot grants and active exemptions first, tucking the full tool list (searchable above 8 tools), usage log and Custom MCP fields into secondary disclosures.
+
+Why: separating per-vendor adapters from the shared connector runtime keeps each integration independently maintainable; ephemeral preset connection prevents half-authorized orphan rows; default-write + definition-hashed exemptions stay safe even on remote MCP servers with dozens of unannotated tools.
+
+Consequences: schema moves to v34; `@earendil-works/pi-mcp` is declared in `package.json`. Local sandbox stdio MCP and webhook triggers remain out of scope for now.
+
 ## A100 Only content copies
 
 Everything in the window selected: a drag across the chat list picked up channel names and timestamps on the way, Ctrl+A took the whole shell — sidebar, headers, badges, avatars, buttons — and a press on a label left a caret where typing did nothing, which read as a text box that was not one. Discord, whose interface this follows, lets a person select what has meaning: a message, a file's text, what they typed themselves.

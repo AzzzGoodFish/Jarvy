@@ -26,8 +26,8 @@ const AGENT_TABS: readonly (readonly [Tab, Key])[] = [...TABS, ["log", "bot.tab.
 /** Bot info (A83): a fixed top with who the Bot is and whether it runs, then seven tabs, eight for the agent Bot. It
  * always opens on 概览; a tab is loaded the first time it is opened and kept, with its scroll and edits, until the
  * dialog closes. */
-export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onManageSecrets, onAddMachine, onClose, onOpenChat, onOpenSubscription }: {
-  onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onManageSecrets: () => void; onAddMachine: () => void; onClose: () => void;
+export function BotInfo({ bot, status, connections, chats, onSaved, onManageModels, onManageSecrets, onManageConnectors, onAddMachine, onClose, onOpenChat, onOpenSubscription }: {
+  onOpenChat: (id: string) => void; onOpenSubscription: (chat: Chat) => void; chats: Chat[]; bot: Bot; status?: BotStatus; connections: ModelConnection[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onManageSecrets: () => void; onManageConnectors: () => void; onAddMachine: () => void; onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [opened, setOpened] = useState<ReadonlySet<Tab>>(() => new Set(["overview"]));
@@ -58,7 +58,7 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
       {panel("overview", <BotOverview bot={bot} status={status} connections={connections} chats={chats} onSaved={onSaved} onManageModels={onManageModels} onOpenSubscription={onOpenSubscription}/>)}
       {panel("profile", <BotProfile bot={bot} onSaved={onSaved}/>)}
       {panel("environment", <><BotEnvironment bot={bot} onSaved={onSaved}/><BotPorts bot={bot} runs={runs}/></>)}
-      {panel("access", <BotAccess bot={bot} onSaved={onSaved} onManageSecrets={onManageSecrets} onAddMachine={onAddMachine}/>)}
+      {panel("access", <BotAccess bot={bot} onSaved={onSaved} onManageSecrets={onManageSecrets} onManageConnectors={onManageConnectors} onAddMachine={onAddMachine}/>)}
       {panel("tasks", <BotTasks bot={bot} runs={runs}/>)}
       {panel("activity", <BotActivity botId={bot.id} onOpenChat={onOpenChat}/>, true)}
       {panel("usage", <BotUsage botId={bot.id}/>, true)}
