@@ -132,6 +132,8 @@ A block with its own border: the notice, request cards in a chat, a followed thr
 - Input `--ui-control-md` high, `--ui-radius-md`, text at `--ui-text-base`.
 - Hint or error at `--ui-text-md` below, `--ui-space-4` from the input.
 - Fields `--ui-space-16` apart; the form's buttons on the right at the end.
+- The whole box takes the press: its padding belongs to the input, so a press anywhere in it puts the caret in (at the
+  end of the text) and the pointer over it is the text pointer. The composer is such a box, buttons and all.
 
 ### Button
 
