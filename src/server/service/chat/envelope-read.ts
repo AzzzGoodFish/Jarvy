@@ -15,7 +15,7 @@ const time = (value: string | undefined) => {
 };
 const count = (value: string | undefined) => Number.isSafeInteger(Number(value)) ? Number(value) : 0;
 // Parts that only group others.
-const GROUPS = new Set(["tasks", "updates", "notices", "changes"]);
+const GROUPS = new Set(["tasks", "updates", "notices", "changes", "jobs"]);
 /** How long a list's first line may be. */
 const SHORT = 200;
 
@@ -36,6 +36,8 @@ export function readEnvelope(text: string): ParsedInput | null {
       .map(chat => ({ id: chat.attrs.id ?? "", ...(chat.attrs.title ? { title: chat.attrs.title } : {}), count: count(chat.attrs.count) })) };
     else if (name === "notice_unread") input.unreadNotes = elements(element, "chat")
       .map(chat => ({ id: chat.attrs.id ?? "", ...(chat.attrs.title ? { title: chat.attrs.title } : {}), type: chat.attrs.type ?? "channel", version: count(chat.attrs.version) }));
+    else if (name === "running_jobs") input.runningJobs = elements(element, "running_job")
+      .map(job => ({ id: job.attrs.id ?? "", env: job.attrs.env ?? "", since: time(job.attrs.since), command: textOf(job) }));
     else if (name === "environment" && attrs.name) input.place = place(attrs);
     else input.items.push({ kind: "other", name, text: element.source });
   };
@@ -76,6 +78,15 @@ function itemOf(self: Element): ParsedItem | null {
   if (name === "followed") return { kind: "followed", total: count(attrs.total),
     threads: elements(self, "thread").map(thread => ({ chat: thread.attrs.chat ?? "", at: time(thread.attrs.at), unread: count(thread.attrs.unread) })) };
   if (name === "instructions_changed") return { kind: "instructions", parts: (attrs.parts ?? "").split(",").map(part => part.trim()).filter(Boolean), text: textOf(self) };
+  if (name === "job") {
+    const exit = attrs.exit !== undefined && Number.isSafeInteger(Number(attrs.exit)) ? Number(attrs.exit) : undefined;
+    const command = elements(self, "command").map(textOf).join("");
+    const output = elements(self, "output").map(textOf).join("");
+    const error = elements(self, "error").map(textOf).join("");
+    return { kind: "job", id: attrs.id ?? "", status: attrs.status ?? "done", command, ...(exit !== undefined ? { exitCode: exit } : {}),
+      ...(attrs.duration ? { duration: attrs.duration } : {}), ...(attrs.env ? { env: attrs.env } : {}), at: time(attrs.at), output,
+      ...(attrs.full_output ? { fullOutputPath: attrs.full_output } : {}), ...(error ? { error } : {}) };
+  }
   return null;
 }
 
