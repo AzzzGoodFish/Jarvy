@@ -38,6 +38,8 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   /** One per file on its way up, to cancel it from its chip. */
   const cancels = useRef(new Map<string, AbortController>());
   const textarea = useRef<HTMLTextAreaElement>(null);
+  /** The box itself: its layout is what tells whether the text still fits on one line. */
+  const box = useRef<HTMLDivElement>(null);
   const draft = saved.text ?? initialText ?? "", files = saved.files, quote = saved.quote;
   const setDraft = (value: string) => drafts.update(chatId, { text: value });
   const menu = useMentionMenu({ textarea, value: draft, setValue: setDraft, inside: mention?.inside ?? [], outside: mention?.outside ?? [], bots: mention?.bots ?? [],
@@ -121,15 +123,25 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   // Grow with the content (CSS max-height caps it, then it scrolls). Measuring via "auto" briefly enlarges the
   // transcript and clamps its scroll position; restore it so the bottom anchor is not lost on every keystroke.
   const fit = useCallback(() => {
-    const el = textarea.current, log = scrollRef?.current; if (!el) return;
-    const top = log?.scrollTop, style = getComputedStyle(el);
+    const el = textarea.current, shell = box.current, log = scrollRef?.current; if (!el || !shell) return;
+    const top = log?.scrollTop;
     // A pill clips its input to one line; the text's whole height is still what it would want, and its padding differs
-    // between a pill and a card, so a line is counted from the line height alone.
-    const pad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom), line = parseFloat(style.lineHeight) || 20;
-    el.style.height = "auto";
-    const natural = el.scrollHeight - pad;
-    el.style.height = `${natural + pad}px`;
-    setTall(natural > line + 8);
+    // between a pill and a card, so the height is read without its padding.
+    const measure = () => {
+      const style = getComputedStyle(el), pad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      el.style.height = "auto";
+      return { content: el.scrollHeight - pad, pad };
+    };
+    // Whether the text is one line is what a *pill* gives it, whatever shape the box is in now: the box is put back in
+    // its one-line layout to measure, so the answer is this window's real width for this set of buttons (the home page's
+    // light chat has another), and it cannot change merely because the box is a card. Nothing paints in between.
+    const card = shell.getAttribute("data-tall");
+    if (card !== null) shell.removeAttribute("data-tall");
+    const line = parseFloat(getComputedStyle(el).lineHeight) || 20, oneLine = measure().content <= line + 8;
+    if (card !== null) shell.setAttribute("data-tall", card);
+    const natural = measure();
+    el.style.height = `${natural.content + natural.pad}px`;
+    setTall(!oneLine);
     if (log && top !== undefined && log.scrollTop !== top) log.scrollTo({ top, behavior: "instant" });
   }, [scrollRef]);
   useLayoutEffect(() => {
@@ -144,7 +156,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   // Slide to the new height rather than jump: turning from a pill into a card adds a row of buttons at once, and every
   // extra line adds a line's worth. The box is clipped while it slides, so the buttons come out from under the text
   // instead of appearing below it; the first measurement only records where the box starts.
-  const box = useRef<HTMLDivElement>(null), settled = useRef<number | null>(null), slide = useRef<number | null>(null);
+  const settled = useRef<number | null>(null), slide = useRef<number | null>(null);
   useLayoutEffect(() => {
     const el = box.current; if (!el) return;
     // The height written out by a running slide is dropped first, so what is read is the height this content wants;
