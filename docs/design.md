@@ -81,6 +81,19 @@ A radius inside another is the outer one less the padding between them, so neste
 - **Column headers**: `--ui-header` 52, 48 on a phone. The desktop client's title bar is this row (A96).
 - **Icons**: 14 inside text, 16 in controls and rows, 20 as a row's leading icon.
 
+## Copying
+
+The shell does not select (A100): nothing in it can be dragged blue, and a press on it leaves no caret where typing would do
+nothing. Content says otherwise for itself with `user-select: text`:
+
+- a message, and a channel's notice and a thread's summary, which share its box (`.ui-bubble`) — the copy/quote menu
+  reads its selection from there and nowhere else;
+- a file's source or text;
+- a Bot's log and a tool call's input;
+- every field a person types in.
+
+A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
+
 ## Parts
 
 ### Column header
@@ -132,6 +145,16 @@ A block with its own border: the notice, request cards in a chat, a followed thr
 - Input `--ui-control-md` high, `--ui-radius-md`, text at `--ui-text-base`.
 - Hint or error at `--ui-text-md` below, `--ui-space-4` from the input.
 - Fields `--ui-space-16` apart; the form's buttons on the right at the end.
+- The whole box takes the press: its padding belongs to the input, so a press anywhere in it puts the caret in (at the
+  end of the text) and the pointer over it is the text pointer. The composer is such a box, buttons and all.
+
+### Composer
+
+- One line: a pill at `--ui-radius-full`, `--ui-control-md` high, the attach and send buttons beside the text.
+- More than one line: a card at `--ui-radius-lg`, the text on a row of its own, the buttons on the row under it.
+- The card's text takes the box's whole inside width, `--ui-space-8` from each side, and wraps there. Whether the text
+  is still one line is measured against the width a pill gives it, not the box's current width: the pill is what
+  decides, so a line that only just wrapped cannot fit again in the wider card and turn it back into a pill.
 
 ### Button
 
