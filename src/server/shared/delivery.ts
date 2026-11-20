@@ -1,5 +1,6 @@
 import type { Member } from "../../contract/chat.js";
 import type { BotChange, WelcomeLanguage } from "./agent.js";
+import type { JobNoticePayload } from "./jobs.js";
 
 /** How urgently a recipient should learn about something (A41): interrupt = now, even mid-run; queue = soon,
  * without interrupting (a Bot is woken or gets it steered in); digest = along with the next thing, never waking anyone
@@ -8,15 +9,16 @@ export type Urgency = "interrupt" | "queue" | "digest";
 /** What happened. Chat kinds have their own route in `service/delivery/routes.ts`; `onboard` (the agent Bot is asked to
  * welcome the owner) and `change` (a Bot's settings or work environment changed) go to one Bot from the agent and Bot
  * services (A48, A50); `task` (one of its scheduled tasks is due) goes to one Bot from the scheduler (A58); `followed`
- * (its conversation was compacted: the open threads it follows) goes to one Bot from its session (A73). */
-export type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task" | "followed";
+ * (its conversation was compacted: the open threads it follows) goes to one Bot from its session (A73); `job` (a
+ * background bash command finished) goes to one Bot from its job manager (A98). */
+export type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task" | "followed" | "job";
 /** The three categories (A61): a chat message; chat activity (a mark, a new notice or summary version), about a chat;
  * a system notice to one member, about no chat. Only the chat categories carry a chat. */
 export type DeliveryCategory = "message" | "activity" | "system";
 export const CATEGORY: Record<DeliveryKind, DeliveryCategory> = {
-  message: "message", reaction: "activity", note: "activity", onboard: "system", change: "system", task: "system", followed: "system",
+  message: "message", reaction: "activity", note: "activity", onboard: "system", change: "system", task: "system", followed: "system", job: "system",
 };
-export type SystemKind = "onboard" | "change" | "task" | "followed";
+export type SystemKind = "onboard" | "change" | "task" | "followed" | "job";
 /** What each kind carries besides who and where, kept as JSON (`inbox.payload`). */
 export interface DeliveryPayloads {
   message: null;
@@ -26,11 +28,12 @@ export interface DeliveryPayloads {
   change: BotChange;
   task: { task: string; due: number };
   followed: null;
+  job: JobNoticePayload;
 }
 /** Why a member gets it; the policy table maps kind × reason to an urgency. `owner` is the owner changing where a
  * Bot works; `move` is that change moving a Bot that is running. */
 export type DeliveryReason = "dm" | "mention" | "reply" | "subscription" | "author" | "member" | "follower" | "setup" | "agent" | "owner" | "move" | "schedule"
-  | "compaction";
+  | "compaction" | "finish" | "shutdown";
 /** A route's answer: who should know, and why. */
 export interface DeliveryTarget { member: Member; reason: DeliveryReason }
 /** A planned delivery, written with the fact it is about and handed to the recipient after commit. */

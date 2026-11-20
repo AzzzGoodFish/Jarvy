@@ -83,7 +83,7 @@ A radius inside another is the outer one less the padding between them, so neste
 
 ## Copying
 
-The shell does not select (A98): nothing in it can be dragged blue, and a press on it leaves no caret where typing would do
+The shell does not select (A100): nothing in it can be dragged blue, and a press on it leaves no caret where typing would do
 nothing. Content says otherwise for itself with `user-select: text`:
 
 - a message, and a channel's notice and a thread's summary, which share its box (`.ui-bubble`) — the copy/quote menu

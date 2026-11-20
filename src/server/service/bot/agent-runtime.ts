@@ -23,7 +23,7 @@ export class AgentRuntime implements RuntimePort {
   private notices: Promise<unknown> = Promise.resolve();
   private runId: string | null = null;
   private status: BotStatus = { status: "stop", activity: null, context: null, error: null };
-  constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession) {}
+  constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession, private readonly onStop?: () => Promise<void>) {}
   get activeRunId() { return this.runId; }
   private update(patch: Partial<BotStatus>) {
     const context = this.session?.context;
@@ -181,6 +181,7 @@ export class AgentRuntime implements RuntimePort {
     this.stopping = true; this.inputVersion++; this.session?.requestAbort();
     await this.pump;
     await this.operations.catch(() => {});
+    await this.onStop?.();
     await this.session?.dispose(); this.session = undefined;
     this.runId = null;
     this.update({ status: "stop", activity: null, error: null });

@@ -9,7 +9,7 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body {
   font: var(--ui-font-size) / var(--ui-line-height) var(--ui-font-sans);
   color: var(--ui-text-primary); background: var(--ui-bg-base);
-  /* The shell itself does not select (A98, docs/design.md "Copying"): a drag across it must not pick up rows, times or
+  /* The shell itself does not select (A100, docs/design.md "Copying"): a drag across it must not pick up rows, times or
      buttons, and a press on one must not leave a caret where typing does nothing. What reads as content says
      `user-select: text` for itself. */
   user-select: none; -webkit-user-select: none;

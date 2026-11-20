@@ -15,6 +15,7 @@ export function liveInput(tool: string, args: unknown, chat: (chatId: string) =>
   const values = record(args);
   switch (tool) {
     case "bash": return { command: field(values.command) };
+    case "bash_job": return { action: field(values.action), command: field(values.jobId) };
     case "read": case "edit": case "write": return { path: field(values.path) };
     case "codemode": return { command: field(values.code) };
     case "chat": return gateway(values, chat);

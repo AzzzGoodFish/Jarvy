@@ -49,6 +49,14 @@ function viewStep(step: LiveStep, depth: number, chatId: string | null): ViewSte
     case "edit": return action("write", t(`npc.live.edit.${state(step)}`, { target: base(input.path) }), detail);
     case "write": return action("write", t(`npc.live.write.${state(step)}`, { target: base(input.path) }), detail);
     case "bash": return action("run", t(`npc.live.run.${state(step)}`, { target: command(input.command) }), detail);
+    case "bash_job": {
+      const target = input.command ?? "";
+      if (input.action === "list") return action("read", t(`npc.live.jobList.${state(step)}`), detail);
+      if (input.action === "read") return action("read", t(`npc.live.jobRead.${state(step)}`, { target }), detail);
+      if (input.action === "wait") return action("run", t(`npc.live.jobWait.${state(step)}`, { target }), detail);
+      if (input.action === "stop") return action("run", t(`npc.live.jobStop.${state(step)}`, { target }), detail);
+      return action("run", t(`npc.live.tool.${state(step)}`, { tool: "bash_job" }), detail);
+    }
     case "codemode": return action("script", t(`npc.live.script.${state(step)}`), detail);
     case "chat": return chatStep(step, common, chatId, result);
     default: return action("tool", t(`npc.live.tool.${state(step)}`, { tool: step.tool ?? "" }), detail);
