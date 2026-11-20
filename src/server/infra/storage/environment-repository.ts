@@ -52,12 +52,39 @@ export class EnvironmentRepository {
     this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
       ...(limits.memory !== null ? { memory: String(limits.memory) } : {}), ...(limits.cpus !== null ? { cpus: String(limits.cpus) } : {}) }), id);
   }
-  /** Keeps what a computer is (A85): a VM, or left out for a container. */
+  /** Keeps what a computer is (A85, A101): a VM, or left out for a container. Switching to container clears any VM
+   * workspace-import completion marker so a later switch back to VM imports fresh host files. */
   setType(id: string, type: "container" | "vm"): void {
     const computer = this.get(id);
     if (computer?.kind !== "computer") return;
-    const { type: _type, ...spec } = computer.spec;
-    this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec, ...(type === "vm" ? { type } : {}) }), id);
+    const { type: _type, workspaceImported: _imported, ...spec } = computer.spec;
+    this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
+      ...(type === "vm" ? { type, ...(computer.spec.workspaceImported ? { workspaceImported: computer.spec.workspaceImported } : {}) } : {}) }), id);
+  }
+  /** Records whether a VM sandbox's initial host-to-VM `/workspace` import completed (A101). */
+  setComputerWorkspaceImported(id: string, imported: boolean): void {
+    const computer = this.get(id);
+    if (computer?.kind !== "computer") return;
+    const { workspaceImported: _prev, ...spec } = computer.spec;
+    this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec, ...(imported ? { workspaceImported: "1" } : {}) }), id);
+  }
+  /** Stores a VM sandbox's SSH credentials (A101): its sealed client private key and accepted SSH host public key. */
+  setComputerAuth(id: string, auth: { privateKey: string; hostKey: string }): void {
+    this.db.prepare("UPDATE environments SET key=?, host_keys=? WHERE id=? AND kind='computer'")
+      .run(this.cipher.seal(auth.privateKey, `environment:${id}`), JSON.stringify({ keys: [auth.hostKey], fingerprints: [] }), id);
+  }
+  /** Reads a VM sandbox's SSH credentials, or null when none have been generated or the key can't be unsealed. */
+  computerAuth(id: string): { privateKey: string; hostKey: string } | null {
+    const row = this.db.prepare("SELECT key, host_keys AS hostKeys FROM environments WHERE id=? AND kind='computer' AND deleted_at IS NULL")
+      .get(id) as { key: string | null; hostKeys: string | null } | undefined;
+    if (!row?.key || !row.hostKeys) return null;
+    const privateKey = this.cipher.open(row.key, `environment:${id}`);
+    const hostKey = (JSON.parse(row.hostKeys) as HostKeys).keys[0];
+    return privateKey && hostKey ? { privateKey, hostKey } : null;
+  }
+  /** Clears a VM sandbox's stored SSH credentials (on reset, switch to container, or deletion). */
+  clearComputerAuth(id: string): void {
+    this.db.prepare("UPDATE environments SET key=NULL, host_keys=NULL WHERE id=? AND kind='computer'").run(id);
   }
   /** The Bot is deleted, and its computer with it. Its row stays its home, deleted, so what reads a deleted Bot's
    * placement still finds one. */

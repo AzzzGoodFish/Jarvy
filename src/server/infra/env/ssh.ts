@@ -96,15 +96,93 @@ export async function removeKey(access: SshAccess, comment: string): Promise<voi
 
 /** The machine as a Bot's environment: tools start in `directory`, Jarvy's files for the Bot go in `temp`. The key
  * (or password) and known hosts are written for as long as it stays open; nothing connects until the first tool call. */
-export function sshEnvironment(id: string, access: SshAccess, directory: string, temp: string, onLog?: (text: string) => void): WorkEnvironment {
+export function sshEnvironment(id: string, access: SshAccess, directory: string, temp: string, onLog?: (text: string) => void, kind: "ssh" | "computer" = "ssh"): WorkEnvironment {
   mkdirSync(access.runtime, { recursive: true, mode: 0o700 });
   const folder = join(access.runtime, `open-${id}-${process.pid}-${Date.now().toString(36)}`);
   const files = writeFilesSync(folder, access);
   const { connection } = sshConnection({ ...target(access, access.alias), ...files, ...(onLog ? { onLog } : {}) });
-  return overDurable(id, "ssh", new RemoteExecutionEnv({ connection, id: `ssh:${id}`, cwd: directory }), {
+  return overDurable(id, kind, new RemoteExecutionEnv({ connection, id: `${kind}:${id}`, cwd: directory }), {
     passEnv: false, temp,
     close: () => { connection.close(); rmSync(folder, { recursive: true, force: true }); },
   });
+}
+
+/** Runs one command over SSH with the given access credentials; optional stdin, timeout and output stream callback. */
+export async function execSsh(access: SshAccess, command: string, options: { stdin?: string | Buffer; timeoutMs?: number; onOutput?: (chunk: Buffer) => void } = {}): Promise<string> {
+  return withFiles(access, files => {
+    const { ssh, ...rest } = files;
+    const args = [...sshArguments({ ...target(access, access.alias), ...rest }), command];
+    return run(ssh ?? "ssh", args, options.stdin ?? "", undefined, options.timeoutMs ?? TIMEOUT_MS, options.onOutput)
+      .catch(error => { throw classify(error, access, access.password ? "password" : "key"); });
+  });
+}
+
+/** Runs a local process whose stdout pipes into a remote SSH command's stdin (for streaming uploads like tar). */
+export async function pipeToSsh(access: SshAccess, remoteCommand: string, localProgram: string, localArgs: string[], timeoutMs = 300_000): Promise<void> {
+  await withFiles(access, files => new Promise<void>((resolve, reject) => {
+    const { ssh, ...rest } = files;
+    const local = spawn(localProgram, localArgs, { stdio: ["ignore", "pipe", "pipe"], detached: true });
+    const remote = spawn(ssh ?? "ssh", [...sshArguments({ ...target(access, access.alias), ...rest }), remoteCommand], { stdio: ["pipe", "pipe", "pipe"], detached: true });
+    const errLocal: Buffer[] = [], errRemote: Buffer[] = [];
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      local.kill(); remote.kill();
+      reject(error);
+    };
+    const timer = setTimeout(() => fail(new Error(`SSH transfer timed out after ${timeoutMs / 1000}s`)), timeoutMs);
+    local.stderr.on("data", chunk => errLocal.push(chunk));
+    remote.stderr.on("data", chunk => errRemote.push(chunk));
+    remote.stdout.resume();
+    local.stdout.pipe(remote.stdin);
+    remote.stdin.on("error", () => {});
+    local.on("error", fail); remote.on("error", fail);
+    let localCode: number | null | undefined, remoteCode: number | null | undefined;
+    const done = () => {
+      if (settled || localCode === undefined || remoteCode === undefined) return;
+      settled = true; clearTimeout(timer);
+      if (localCode === 0 && remoteCode === 0) return resolve();
+      const why = Buffer.concat(errRemote).toString("utf8").trim() || Buffer.concat(errLocal).toString("utf8").trim() || `local=${localCode} remote=${remoteCode}`;
+      reject(new Error(why));
+    };
+    local.on("close", code => { localCode = code; done(); });
+    remote.on("close", code => { remoteCode = code; done(); });
+  }));
+}
+
+/** Runs a remote SSH command whose stdout pipes into a local process's stdin (for streaming downloads like tar). */
+export async function pipeFromSsh(access: SshAccess, remoteCommand: string, localProgram: string, localArgs: string[], timeoutMs = 300_000): Promise<void> {
+  await withFiles(access, files => new Promise<void>((resolve, reject) => {
+    const { ssh, ...rest } = files;
+    const remote = spawn(ssh ?? "ssh", [...sshArguments({ ...target(access, access.alias), ...rest }), remoteCommand], { stdio: ["ignore", "pipe", "pipe"], detached: true });
+    const local = spawn(localProgram, localArgs, { stdio: ["pipe", "pipe", "pipe"], detached: true });
+    const errRemote: Buffer[] = [], errLocal: Buffer[] = [];
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      remote.kill(); local.kill();
+      reject(error);
+    };
+    const timer = setTimeout(() => fail(new Error(`SSH transfer timed out after ${timeoutMs / 1000}s`)), timeoutMs);
+    remote.stderr.on("data", chunk => errRemote.push(chunk));
+    local.stderr.on("data", chunk => errLocal.push(chunk));
+    local.stdout.resume();
+    remote.stdout.pipe(local.stdin);
+    local.stdin.on("error", () => {});
+    remote.on("error", fail); local.on("error", fail);
+    let remoteCode: number | null | undefined, localCode: number | null | undefined;
+    const done = () => {
+      if (settled || remoteCode === undefined || localCode === undefined) return;
+      settled = true; clearTimeout(timer);
+      if (remoteCode === 0 && localCode === 0) return resolve();
+      const why = Buffer.concat(errRemote).toString("utf8").trim() || Buffer.concat(errLocal).toString("utf8").trim() || `remote=${remoteCode} local=${localCode}`;
+      reject(new Error(why));
+    };
+    remote.on("close", code => { remoteCode = code; done(); });
+    local.on("close", code => { localCode = code; done(); });
+  }));
 }
 
 /** Clears key folders a previous run left (a crash skips their close). */
@@ -147,13 +225,13 @@ function runSsh(access: SshAccess, files: Files, command: string, stdin: string,
   return run(ssh ?? "ssh", [...sshArguments({ ...target(access, access.alias), ...rest }), command], stdin)
     .catch(error => { throw classify(error, access, how); });
 }
-function run(program: string, args: string[], stdin = "", env?: NodeJS.ProcessEnv): Promise<string> {
+function run(program: string, args: string[], stdin: string | Buffer = "", env?: NodeJS.ProcessEnv, timeoutMs = TIMEOUT_MS, onOutput?: (chunk: Buffer) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(program, args, { stdio: ["pipe", "pipe", "pipe"], ...(env ? { env } : {}), detached: true });
     const out: Buffer[] = [], err: Buffer[] = [];
-    const timer = setTimeout(() => child.kill(), TIMEOUT_MS);
-    child.stdout.on("data", chunk => out.push(chunk));
-    child.stderr.on("data", chunk => err.push(chunk));
+    const timer = setTimeout(() => child.kill(), timeoutMs);
+    child.stdout.on("data", chunk => { out.push(chunk); onOutput?.(chunk); });
+    child.stderr.on("data", chunk => { err.push(chunk); onOutput?.(chunk); });
     child.stdin.on("error", () => {});
     child.on("error", error => { clearTimeout(timer); reject(error); });
     child.on("close", code => {
