@@ -35,9 +35,9 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   machine?: MachineAsk;
   /** A request by the agent Bot to enter another Bot's sandbox or an ungranted SSH machine (environments.enter, A93). */
   enter?: EnterAsk;
-  /** A request for a connector (connectors.request, A99): grants access or opens OAuth in place. */
+  /** A request for a connector (connectors.request, A102): grants access or opens OAuth in place. */
   connectorAuth?: ConnectorAuthAsk;
-  /** A confirmation card before a connector runs a write tool (connectors.call, A99). */
+  /** A confirmation card before a connector runs a write tool (connectors.call, A102). */
   connectorWrite?: ConnectorWriteAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */
@@ -48,12 +48,12 @@ export interface MachineAsk { name: string; host: string; port: number; user: st
   hostKeys: HostKeys; existing: { id: string; name: string } | null }
 /** The environment the agent Bot asks to enter, with a system-fixed target name and free-form purpose (A93). */
 export interface EnterAsk { kind: "sandbox" | "machine"; name: string; address?: string; purpose: string; }
-/** A connector access / sign-in request (A99). */
+/** A connector access / sign-in request (A102). */
 export interface ConnectorAuthAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider; purpose: string;
   authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
 }
-/** One human-readable field displayed (and optionally edited) on a write confirmation card (A99). */
+/** One human-readable field displayed (and optionally edited) on a write confirmation card (A102). */
 export interface ConnectorWriteField {
   key: string;
   label: string;
@@ -64,7 +64,7 @@ export interface ConnectorWriteField {
   /** True only when editing this field in the card safely updates the effective tool argument. */
   editable?: boolean;
 }
-/** A write tool confirmation card posted before an external mutation runs (A99). */
+/** A write tool confirmation card posted before an external mutation runs (A102). */
 export interface ConnectorWriteAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider;
   toolName: string; actionLabel: string; account?: string; fields: ConnectorWriteField[];

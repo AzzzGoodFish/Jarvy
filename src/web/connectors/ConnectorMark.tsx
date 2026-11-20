@@ -1,7 +1,7 @@
 import { PlugIcon } from "lucide-react";
 import type { ConnectorProvider } from "../../contract/connectors";
 
-/** Brand marks for connectors (A99): 24×24 brand SVGs matching provider-logos, wrapped in .jv-provider-mark when badge=true. */
+/** Brand marks for connectors (A102): 24×24 brand SVGs matching provider-logos, wrapped in .jv-provider-mark when badge=true. */
 export function ConnectorMark({ provider, badge = false, className }: {
   provider: ConnectorProvider; badge?: boolean; className?: string;
 }) {

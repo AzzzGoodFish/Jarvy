@@ -45,7 +45,7 @@ export function connectorCallbackRoute(connectors: ApiServices["connectors"]) {
   return routes;
 }
 
-/** Settings → Connectors, ephemeral preset OAuth/token connection, and Bot access grants (A99). */
+/** Settings → Connectors, ephemeral preset OAuth/token connection, and Bot access grants (A102). */
 export function connectorRoutes(connectors: ApiServices["connectors"]) {
   const routes = new Hono<ApiEnv>();
   routes.get("/", c => c.json({ connectors: connectors.list(), presets: connectors.presets(), publicUrl: connectors.publicUrl() }));

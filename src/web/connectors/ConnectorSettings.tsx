@@ -18,7 +18,7 @@ const isLoopback = (host: string) => host === "localhost" || host === "127.0.0.1
 const defaultOrigin = () => window.location.protocol === "http:" && !isLoopback(window.location.hostname)
   ? `https://${window.location.host}` : window.location.origin;
 
-/** Settings → Connectors (A99): calm two-part directory — connected apps on top, available apps below,
+/** Settings → Connectors (A102): calm two-part directory — connected apps on top, available apps below,
  * and an inline form for custom remote HTTP MCP servers. */
 export function ConnectorSettings() {
   const [connectors, setConnectors] = useState<Connector[] | null>(null);

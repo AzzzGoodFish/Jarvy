@@ -875,7 +875,7 @@ Why: separating turn cancellation from process termination lets people talk to a
 
 Amends: A05 (an interrupt aborts the model turn and detaches any active `bash` command into the background rather than killing it).
 
-## A99 External service connectors
+## A102 External service connectors
 
 Bots needed structured access to external services (such as GitHub, Gmail, Linear and arbitrary remote HTTP MCP servers) without stuffing credentials into chat or dumping dozens of third-party tool schemas into every prompt.
 

@@ -7,7 +7,7 @@ import { gmailAdapter } from "./providers/gmail.js";
 import { createLinearAdapter } from "./providers/linear.js";
 import { createCustomMcpAdapter } from "./providers/custom-mcp.js";
 
-/** Single registry of every connector vendor module (A99): adding a provider means adding a module under `providers/`
+/** Single registry of every connector vendor module (A102): adding a provider means adding a module under `providers/`
  * and listing it here; service, storage and env layers read metadata from this registry instead of branching by name. */
 export class ConnectorRegistry implements ConnectorDriver {
   private readonly adapters: Map<ConnectorProvider, ConnectorAdapter>;

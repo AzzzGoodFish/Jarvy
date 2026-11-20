@@ -24,10 +24,11 @@ import {
 
 const MAX_TOOL_TEXT = 32_000;
 
-/** Connectors service (A99): vendor-agnostic lifecycle, encrypted credentials, per-Bot grants, fingerprinted
+/** Connectors service (A102): vendor-agnostic lifecycle, encrypted credentials, per-Bot grants, fingerprinted
  * write confirmations, and usage logs. Vendor specifics live behind `ConnectorDriver` (`infra/connectors/providers/`). */
 export class ConnectorService {
   private readonly locks = new Map<string, Promise<unknown>>();
+  private readonly generations = new Map<string, number>();
   readonly oauth: ConnectorOAuthCoordinator;
 
   constructor(
@@ -41,12 +42,16 @@ export class ConnectorService {
     this.oauth = new ConnectorOAuthCoordinator(
       store, driver, listening, env,
       (id, work) => this.withLock(id, work),
+      id => this.generation(id),
       id => this.probeLocked(id).then(() => {}),
       (provider, snapshot) => this.createFromOAuth(provider, snapshot),
       () => this.secrets.refreshMask(),
       text => this.secrets.masker().mask(text),
     );
   }
+
+  private generation(id: string): number { return this.generations.get(id) ?? 0; }
+  private bumpGeneration(id: string): number { const next = this.generation(id) + 1; this.generations.set(id, next); return next; }
 
   presets(): ConnectorPreset[] {
     return this.driver.catalog().map(item => ({
@@ -163,13 +168,15 @@ export class ConnectorService {
     const credsChanged = urlChanged || authChanged || headers !== undefined || (own && (input.clientId !== undefined || input.clientSecret !== undefined));
 
     if (urlChanged) {
-      // Changing a custom MCP destination is a new trust decision: discard credentials, pending OAuth,
-      // cached tools and saved write exemptions, and require reconnection before authenticated use.
+      // Changing a custom MCP destination is a new trust decision: bump generation first so any in-flight
+      // probe/call/OAuth discards stale writes, then wipe credentials, cached tools and saved exemptions.
+      this.bumpGeneration(id);
       this.oauth.clear(id);
       this.store.connectors.saveCredentials(id, nextAuth, {});
       this.store.connectors.setUnconfirmed(id, []);
       this.secrets.refreshMask();
     } else if (credsChanged) {
+      this.bumpGeneration(id);
       const prior = this.store.connectors.credentials(id) ?? {};
       const next: StoredConnectorCredentials = { ...prior };
       if (authChanged) {
@@ -207,6 +214,7 @@ export class ConnectorService {
   }
 
   delete(id: string): void {
+    this.bumpGeneration(id);
     this.oauth.clear(id);
     if (!this.store.connectors.delete(id)) this.missing();
     this.secrets.refreshMask();
@@ -228,6 +236,7 @@ export class ConnectorService {
 
   disconnect(id: string): Connector {
     const current = this.get(id);
+    this.bumpGeneration(id);
     this.oauth.clear(id);
     const creds = this.store.connectors.credentials(id) ?? {};
     const next: StoredConnectorCredentials = {
@@ -244,7 +253,9 @@ export class ConnectorService {
   }
 
   private async probeLocked(id: string): Promise<Connector> {
-    const connector = this.get(id);
+    const startGen = this.generation(id);
+    const connector = this.store.connectors.get(id);
+    if (!connector) this.missing();
     const creds = this.store.connectors.credentials(id);
     if (creds === null) return this.store.connectors.update(id, { status: "error", statusDetail: "Credentials cannot be decrypted" })!;
     if (connector.authKind === "headers" && Object.keys(creds.headers ?? {}).length === 0) {
@@ -259,6 +270,8 @@ export class ConnectorService {
       ...this.clientOf(connector, creds),
       redirectUrl: this.oauth.defaultRedirectUri(),
     });
+    // Discard stale probe results if settings/disconnect/delete ran while awaiting the remote server.
+    if (this.generation(id) !== startGen) return this.store.connectors.get(id) ?? connector;
     if ("snapshot" in result && result.snapshot) {
       this.store.connectors.saveCredentials(id, connector.authKind, { ...creds, oauth: result.snapshot });
       this.secrets.refreshMask();
@@ -349,37 +362,40 @@ export class ConnectorService {
         if (confirmed) this.chats.questions.invalidate(chatId, confirmed.messageId);
         throw new ChatError(409, "Connector credentials cannot be decrypted", "credential_unreadable");
       }
+      const startGen = this.generation(live!.id);
       if (confirmed?.always) this.store.connectors.allowUnconfirmed(live!.id, liveTool!.name, confirmed.toolHash);
       const out = await this.driver.callTool({
         provider: live!.provider, url: live!.url, authKind: live!.authKind,
         headers: creds.headers, oauth: creds.oauth, ...this.clientOf(live!, creds),
         redirectUrl: this.oauth.defaultRedirectUri(), toolName, args: finalArgs, signal,
       });
-      if ("snapshot" in out && out.snapshot) {
+      // Discard refreshed token snapshots if settings/disconnect/delete ran while this tool call was in flight.
+      if ("snapshot" in out && out.snapshot && this.generation(live!.id) === startGen) {
         this.store.connectors.saveCredentials(live!.id, live!.authKind, { ...creds, oauth: out.snapshot });
         this.secrets.refreshMask();
       }
-      return out;
+      return { out, stale: this.generation(live!.id) !== startGen };
     });
 
-    if (res.outcome === "needs_auth") {
-      const masked = this.secrets.masker().mask(res.message);
-      this.store.connectors.update(initial.id, { status: "needs_auth", statusDetail: masked.slice(0, 300) });
+    const { out, stale } = res;
+    if (out.outcome === "needs_auth") {
+      const masked = this.secrets.masker().mask(out.message);
+      if (!stale) this.store.connectors.update(initial.id, { status: "needs_auth", statusDetail: masked.slice(0, 300) });
       this.store.connectors.recordUse({ connectorId: initial.id, slug: initial.slug, botId, toolName, outcome: "error", detail: masked });
       throw new ChatError(409, `Connector "${slug}" needs re-authorization (${masked}). Ask your owner with connectors.request.`, "connector_auth_required");
     }
-    if (res.outcome === "error") {
-      const masked = this.secrets.masker().mask(res.message);
+    if (out.outcome === "error") {
+      const masked = this.secrets.masker().mask(out.message);
       this.store.connectors.recordUse({ connectorId: initial.id, slug: initial.slug, botId, toolName, outcome: "error", detail: masked });
       throw new ChatError(409, `Connector "${slug}" failed: ${masked}`, "connector_unreachable");
     }
-    const maskedText = this.secrets.masker().mask(res.text);
+    const maskedText = this.secrets.masker().mask(out.text);
     const text = maskedText.length > MAX_TOOL_TEXT ? `${maskedText.slice(0, MAX_TOOL_TEXT)}\n…(truncated)` : maskedText;
     this.store.connectors.recordUse({
       connectorId: initial.id, slug: initial.slug, botId, toolName,
-      outcome: res.isError ? "error" : "ok", detail: res.isError ? text.slice(0, 200) : "",
+      outcome: out.isError ? "error" : "ok", detail: out.isError ? text.slice(0, 200) : "",
     });
-    return { connector: slug, tool: toolName, isError: res.isError, text };
+    return { connector: slug, tool: toolName, isError: out.isError, text };
   }
 
   /** connectors.request: returns immediately if granted & connected, else prepares an in-chat auth/grant card. */

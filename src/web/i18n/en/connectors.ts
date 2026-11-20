@@ -1,4 +1,4 @@
-/** English: Settings → Connectors, ephemeral connection drawers, and in-chat authorization/write cards (A99). */
+/** English: Settings → Connectors, ephemeral connection drawers, and in-chat authorization/write cards (A102). */
 export const connectors = {
   "connectors.addCustom": "Custom MCP",
   "connectors.connectedSection": "Connected",
@@ -88,6 +88,8 @@ export const connectors = {
   "connectorCard.expired": "Expired",
   "connectorCard.showMore": "Show full text",
   "connectorCard.showLess": "Collapse",
+  "connectorCard.showAllFields": "Show all {count} fields",
+  "connectorCard.showFewerFields": "Show fewer fields",
   "connectorCard.toggleDetails": "Show or hide details",
 
   "connectorAction.create_issue": "Create issue",

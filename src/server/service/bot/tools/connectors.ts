@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { tool } from "./registry.js";
 
-/** External service connectors (A99): discover, inspect, authorize and call tools without loading every schema up front. */
+/** External service connectors (A102): discover, inspect, authorize and call tools without loading every schema up front. */
 export const connectorTools = [
   tool(
     "connectors.list",

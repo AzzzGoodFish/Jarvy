@@ -25,7 +25,7 @@ export interface ToolScope {
   botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
   /** The secrets this Bot may use (A52), never their values, and the card that asks the owner for one. */
   secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
-  /** External service connectors (A99): discover, inspect, authorize and call tools through the chat gateway. */
+  /** External service connectors (A102): discover, inspect, authorize and call tools through the chat gateway. */
   connectors: {
     list(query?: string): unknown;
     describe(slug: string, toolName?: string, query?: string): unknown;

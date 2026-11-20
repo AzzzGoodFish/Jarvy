@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { migration } from "../transaction.js";
 
-/** v34 (A99): connectors, per-tool unconfirmed write approvals (fingerprinted by tool definition hash),
+/** v34 (A102): connectors, per-tool unconfirmed write approvals (fingerprinted by tool definition hash),
  * sealed connector credentials, per-Bot grants and usage logs. Downgrading needs a v33 backup and matching program. */
 export function migrateConnectors(db: DatabaseSync): void {
   migration(db, 34, () => {

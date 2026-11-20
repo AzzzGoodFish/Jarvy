@@ -2,7 +2,7 @@
 
 [Index](../index.md) · [Secrets](secrets.md) · [Tools and prompt](tools-and-prompt.md)
 
-External service integrations exposed uniformly to Bots through the `chat` gateway (A99). Each provider is a self-contained adapter module behind a shared connector base, hiding whether a connector speaks Streamable HTTP MCP (`remote_mcp`) or a built-in REST/OAuth adapter (`builtin`).
+External service integrations exposed uniformly to Bots through the `chat` gateway (A102). Each provider is a self-contained adapter module behind a shared connector base, hiding whether a connector speaks Streamable HTTP MCP (`remote_mcp`) or a built-in REST/OAuth adapter (`builtin`).
 
 ## Architecture: shared base + per-vendor modules
 

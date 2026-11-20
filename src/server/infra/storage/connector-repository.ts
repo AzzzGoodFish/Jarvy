@@ -32,7 +32,7 @@ interface StoredConfig {
   authKind?: ConnectorAuthKind;
 }
 
-/** Persistent connectors, sealed credentials, fingerprinted write-tool approvals, per-Bot grants and usage logs (A99). */
+/** Persistent connectors, sealed credentials, fingerprinted write-tool approvals, per-Bot grants and usage logs (A102). */
 export class ConnectorRepository {
   private runtime: ConnectorRuntimeInfo | null = null;
 
@@ -106,7 +106,7 @@ export class ConnectorRepository {
     };
   }
 
-  /** Only approvals whose stored definition hash still matches the current tool definition remain active (A99). */
+  /** Only approvals whose stored definition hash still matches the current tool definition remain active (A102). */
   private activeUnconfirmed(id: string, tools: ConnectorTool[]): string[] {
     const rows = this.db.prepare("SELECT tool_name AS name, definition_hash AS hash FROM connector_unconfirmed_tools WHERE connector_id=? ORDER BY tool_name")
       .all(id) as { name: string; hash: string }[];

@@ -10,7 +10,7 @@ import { ConnectorMark } from "./ConnectorMark";
 
 type DrawerMode = "closed" | "oauth" | "token" | "env_guide";
 
-/** One unconnected curated connector row (GitHub, Gmail, Linear) (A99):
+/** One unconnected curated connector row (GitHub, Gmail, Linear) (A102):
  * stays a single calm row until clicked, and never creates a database record until sign-in or token check succeeds. */
 export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
   preset: ConnectorPreset; callbackUrl: string; onConnected: (connector: Connector) => void;

@@ -9,7 +9,7 @@ import { Input } from "../components/ui/input";
 import { ConnectorMark } from "./ConnectorMark";
 import "../styles/connectors.css";
 
-/** In-chat authorization & grant card for connectors.request (A99):
+/** In-chat authorization & grant card for connectors.request (A102):
  * either grants an already-connected connector, or runs OAuth in place and settles automatically once connected. */
 export function ConnectorAuthCard({ message, onSettled }: {
   message: ChatMessage & { question: Question & { connectorAuth: ConnectorAuthAsk } };

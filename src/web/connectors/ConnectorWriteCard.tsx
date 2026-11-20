@@ -84,7 +84,7 @@ function resolvedFields(ask: ConnectorWriteAsk, customJson: string | null | unde
   return fields;
 }
 
-/** Interactive draft & confirmation card for connector write tools (A99):
+/** Interactive draft & confirmation card for connector write tools (A102):
  * Gmail uses an email-draft layout (From/To/Cc + editable subject & body); other write tools show editable scalar
  * fields and visibly read-only complex/masked/oversized fields; the primary button carries "don't ask again". */
 export function ConnectorWriteCard({ message, onSettled }: {
@@ -103,6 +103,8 @@ export function ConnectorWriteCard({ message, onSettled }: {
     Object.fromEntries(ask.fields.filter(isEditable).map(field => [field.key, field.value])),
   );
   const [expandedBody, setExpandedBody] = useState(false);
+  const [expandedFields, setExpandedFields] = useState(false);
+  const [expandedReadonly, setExpandedReadonly] = useState<Record<string, boolean>>({});
   const [bodyOverflows, setBodyOverflows] = useState(false);
   const [settledOpen, setSettledOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -241,24 +243,42 @@ export function ConnectorWriteCard({ message, onSettled }: {
         : <p className="jv-write-subject-static">{headingField.value}</p>
       )}
 
-      {(isMail || metaFields.length > 0) && <div className="jv-write-meta">
-        {isMail && ask.account && <div className="jv-write-meta-row">
-          <span className="jv-write-meta-label">{t("connectorCard.from")}</span>
-          <span className="jv-write-meta-static">{ask.account}</span>
+      {(isMail || metaFields.length > 0) && <>
+        <div className="jv-write-meta">
+          {isMail && ask.account && <div className="jv-write-meta-row">
+            <span className="jv-write-meta-label">{t("connectorCard.from")}</span>
+            <span className="jv-write-meta-static">{ask.account}</span>
+          </div>}
+          {(expandedFields ? metaFields : metaFields.slice(0, 6)).map(field => {
+            const longStatic = !isEditable(field) && (field.value.length > 160 || field.value.includes("\n"));
+            const openStatic = Boolean(expandedReadonly[field.key]);
+            return <div key={field.key} className="jv-write-meta-row" data-multiline={longStatic || undefined}>
+              <span className="jv-write-meta-label" title={fieldLabel(field.key, field.label)}>{fieldLabel(field.key, field.label)}</span>
+              {isEditable(field)
+                ? <input className="jv-write-meta-input" value={draft[field.key] ?? ""}
+                    onChange={event => setDraft(prev => ({ ...prev, [field.key]: event.target.value }))}/>
+                : longStatic
+                  ? <div className="jv-write-readonly-wrap">
+                      <pre className="jv-write-readonly-block" data-expanded={openStatic || undefined}>{field.value}</pre>
+                      <button type="button" className="jv-connector-link-btn" onClick={() => setExpandedReadonly(prev => ({ ...prev, [field.key]: !openStatic }))}>
+                        {t(openStatic ? "connectorCard.showLess" : "connectorCard.showMore")}
+                      </button>
+                    </div>
+                  : <span className="jv-write-meta-static" title={field.value}>{field.value}</span>}
+            </div>;
+          })}
+          {isMail && !ask.fields.some(f => f.key === "cc") && <div className="jv-write-meta-row">
+            <span className="jv-write-meta-label">{t("connectorCard.cc")}</span>
+            <input className="jv-write-meta-input" value={draft.cc ?? ""} placeholder={t("connectorCard.ccPlaceholder")}
+              onChange={event => setDraft(prev => ({ ...prev, cc: event.target.value }))}/>
+          </div>}
+        </div>
+        {metaFields.length > 6 && <div className="jv-write-body-toggle">
+          <button type="button" className="jv-connector-link-btn" onClick={() => setExpandedFields(v => !v)}>
+            {expandedFields ? t("connectorCard.showFewerFields") : t("connectorCard.showAllFields", { count: metaFields.length })}
+          </button>
         </div>}
-        {metaFields.map(field => <div key={field.key} className="jv-write-meta-row">
-          <span className="jv-write-meta-label" title={fieldLabel(field.key, field.label)}>{fieldLabel(field.key, field.label)}</span>
-          {isEditable(field)
-            ? <input className="jv-write-meta-input" value={draft[field.key] ?? ""}
-                onChange={event => setDraft(prev => ({ ...prev, [field.key]: event.target.value }))}/>
-            : <span className="jv-write-meta-static">{field.value}</span>}
-        </div>)}
-        {isMail && !ask.fields.some(f => f.key === "cc") && <div className="jv-write-meta-row">
-          <span className="jv-write-meta-label">{t("connectorCard.cc")}</span>
-          <input className="jv-write-meta-input" value={draft.cc ?? ""} placeholder={t("connectorCard.ccPlaceholder")}
-            onChange={event => setDraft(prev => ({ ...prev, cc: event.target.value }))}/>
-        </div>}
-      </div>}
+      </>}
 
       {bodyField && (bodyEditable
         ? <div className="jv-write-body-wrap">
@@ -271,7 +291,14 @@ export function ConnectorWriteCard({ message, onSettled }: {
               </button>
             </div>}
           </div>
-        : <div className="jv-write-body-static"><Markdown text={bodyField.value}/></div>
+        : <div className="jv-write-body-wrap">
+            <div className="jv-write-body-static jv-write-readonly-body" data-expanded={expandedBody || undefined}><Markdown text={bodyField.value}/></div>
+            {(bodyField.value.length > 360 || bodyField.value.split("\n").length > 8) && <div className="jv-write-body-toggle">
+              <button type="button" className="jv-connector-link-btn" onClick={() => setExpandedBody(v => !v)}>
+                {t(expandedBody ? "connectorCard.showLess" : "connectorCard.showMore")}
+              </button>
+            </div>}
+          </div>
       )}
 
       {error && <p className="jv-question-error" role="alert">{error}</p>}

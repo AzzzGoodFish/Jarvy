@@ -108,7 +108,7 @@ export interface ConnectorRuntimeInfo {
   secrets(): { name: string; value: string }[];
 }
 
-/** A tool is treated as a write/mutation unless explicitly annotated readOnly=true and not destructive (MCP safety default, A99). */
+/** A tool is treated as a write/mutation unless explicitly annotated readOnly=true and not destructive (MCP safety default, A102). */
 export function isWriteTool(tool: ConnectorTool): boolean {
   return !(tool.readOnly === true && tool.destructive !== true);
 }
@@ -127,7 +127,7 @@ function canonical(value: unknown): unknown {
 }
 
 /** Fingerprint of a tool's definition: if a remote server alters a tool's description, annotations or schema,
- * any prior "don't ask again" approval automatically expires (A99). */
+ * any prior "don't ask again" approval automatically expires (A102). */
 export function toolDefinitionHash(tool: ConnectorTool): string {
   const payload = canonical({
     name: tool.name,

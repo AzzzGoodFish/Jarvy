@@ -171,7 +171,7 @@ export const api = {
   /** Answers a request card: the value goes here, never into a message. */
   fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once" }) =>
     request<ChatMessage>(`/secrets/requests/${chatId}/${messageId}`, { method: "POST", body: body(input) }),
-  /** External service connectors (A99). */
+  /** External service connectors (A102). */
   connectors: () => request<{ connectors: Connector[]; presets: ConnectorPreset[]; publicUrl: string | null }>("/connectors"),
   startPresetOAuth: (provider: ConnectorProvider, redirectUri?: string) =>
     request<ConnectorOAuthState>(`/connectors/presets/${provider}/oauth/start`, { method: "POST", body: body({ redirectUri }) }),

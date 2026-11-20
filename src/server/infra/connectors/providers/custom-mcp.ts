@@ -1,7 +1,7 @@
 import type { RemoteMcpTransport } from "../../pi/mcp.js";
 import type { ConnectorAdapter } from "../adapter.js";
 
-/** Custom Remote HTTP MCP connector (A99): supports OAuth, static headers, or unauthenticated servers. */
+/** Custom Remote HTTP MCP connector (A102): supports OAuth, static headers, or unauthenticated servers. */
 export function createCustomMcpAdapter(mcp: RemoteMcpTransport): ConnectorAdapter {
   return {
     id: "custom_mcp",

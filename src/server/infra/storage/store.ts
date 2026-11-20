@@ -42,7 +42,7 @@ export class Store {
   /** Ports Bots published from their sandboxes (A74). */
   readonly ports: PortRepository;
   readonly secrets: SecretRepository;
-  /** External service connectors (A99). */
+  /** External service connectors (A102). */
   readonly connectors: ConnectorRepository;
   /** Seals secrets and model credentials under the master key (A52). */
   readonly cipher: Cipher;

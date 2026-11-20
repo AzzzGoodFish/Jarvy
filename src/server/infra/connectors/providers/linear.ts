@@ -1,7 +1,7 @@
 import type { RemoteMcpTransport } from "../../pi/mcp.js";
 import type { ConnectorAdapter } from "../adapter.js";
 
-/** Curated Linear connector (A99): Linear's official Streamable HTTP MCP server with dynamic OAuth registration. */
+/** Curated Linear connector (A102): Linear's official Streamable HTTP MCP server with dynamic OAuth registration. */
 export function createLinearAdapter(mcp: RemoteMcpTransport): ConnectorAdapter {
   return {
     id: "linear",

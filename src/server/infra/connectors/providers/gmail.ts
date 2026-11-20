@@ -327,7 +327,7 @@ async function completeOAuth(input: AdapterCompleteOAuthInput): Promise<McpOAuth
   };
 }
 
-/** Built-in Gmail vendor adapter (A99): Google Cloud OAuth (deployment env) with automatic refresh-token renewal. */
+/** Built-in Gmail vendor adapter (A102): Google Cloud OAuth (deployment env) with automatic refresh-token renewal. */
 export const gmailAdapter: ConnectorAdapter = {
   id: "gmail",
   name: "Gmail",

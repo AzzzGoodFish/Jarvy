@@ -13,7 +13,7 @@ import { ConnectorMark } from "./ConnectorMark";
 const SEARCH_TOOL_THRESHOLD = 8;
 const when = (at: number) => formatDate(at, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-/** One configured connector row in Settings → Connectors (A99).
+/** One configured connector row in Settings → Connectors (A102).
  * Keeps the default view calm: Bot access + any auto-approved write exceptions; tools, logs and custom MCP
  * connection fields stay tucked inside secondary collapsible disclosures. */
 export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, onChanged, onDeleted }: {

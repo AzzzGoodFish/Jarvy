@@ -33,7 +33,7 @@ export interface AdapterCompleteOAuthInput extends AdapterStartOAuthInput {
   iss?: string;
 }
 
-/** Self-contained vendor adapter contract (A99): each provider module owns its metadata, env requirements,
+/** Self-contained vendor adapter contract (A102): each provider module owns its metadata, env requirements,
  * OAuth handshake and tool execution so adding or maintaining a vendor stays inside its own file. */
 export interface ConnectorAdapter extends ConnectorCatalogMeta {
   readonly id: ConnectorProvider;

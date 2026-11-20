@@ -89,7 +89,7 @@ function createTransport(options: {
   return { transport, store };
 }
 
-/** Generic Streamable HTTP MCP transport built on @earendil-works/pi-mcp (A99). Used by Linear and Custom MCP adapters. */
+/** Generic Streamable HTTP MCP transport built on @earendil-works/pi-mcp (A102). Used by Linear and Custom MCP adapters. */
 export class RemoteMcpTransport {
   async probe(options: {
     url: string; authKind: ConnectorAuthKind; headers?: Record<string, string>;

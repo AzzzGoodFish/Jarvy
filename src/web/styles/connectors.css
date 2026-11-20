@@ -1,4 +1,4 @@
-/* Settings → Connectors and in-chat authorization / write cards (A99). Uses A97 design tokens exclusively. */
+/* Settings → Connectors and in-chat authorization / write cards (A102). Uses A97 design tokens exclusively. */
 .jv-connector-row { display: flex; align-items: center; gap: var(--ui-space-12); width: 100%; }
 .jv-connector-row .jv-row-text { flex: 1; min-width: 0; }
 .jv-connector-preset-row { justify-content: space-between; }
@@ -83,6 +83,13 @@
 .jv-write-subject-static { margin: 0; font-size: var(--ui-text-base); line-height: var(--ui-leading-base); font-weight: 600; color: var(--ui-text-primary); overflow-wrap: anywhere; }
 .jv-write-meta { display: grid; grid-template-columns: minmax(68px, max-content) minmax(0, 1fr); column-gap: var(--ui-space-12); row-gap: var(--ui-space-6); }
 .jv-write-meta-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; font-size: var(--ui-text-md); }
+.jv-write-meta-row[data-multiline] { align-items: start; }
+.jv-write-meta-row[data-multiline] > .jv-write-meta-label { padding-top: var(--ui-space-4); }
+.jv-write-readonly-wrap { display: grid; gap: var(--ui-space-4); min-width: 0; justify-items: start; }
+.jv-write-readonly-block { margin: 0; width: 100%; max-height: 160px; overflow: auto; padding: var(--ui-space-6) var(--ui-space-8); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-sm); background: var(--ui-bg-subtle); color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-text-xs); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.jv-write-readonly-block[data-expanded] { max-height: 480px; }
+.jv-write-readonly-body { max-height: 200px; overflow-y: auto; padding: var(--ui-space-8) var(--ui-space-12); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-subtle); user-select: text; }
+.jv-write-readonly-body[data-expanded] { max-height: 560px; }
 .jv-write-meta-label { max-width: 140px; color: var(--ui-text-secondary); font-size: var(--ui-text-sm); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jv-write-meta-static { padding: var(--ui-space-4) var(--ui-space-8); color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-write-meta-input { width: 100%; min-width: 0; padding: var(--ui-space-4) var(--ui-space-8); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-sm); background: var(--ui-bg-subtle); color: var(--ui-text-primary); font: inherit; font-size: var(--ui-text-md); line-height: var(--ui-leading-md); transition: background-color var(--ui-duration-fast) var(--ui-ease-out), border-color var(--ui-duration-fast) var(--ui-ease-out); }

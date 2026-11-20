@@ -59,7 +59,7 @@ function enterAsk(value: unknown): EnterAsk {
 }
 const CONNECTOR_PROVIDERS = new Set(["github", "gmail", "linear", "custom_mcp"]);
 const CONNECTOR_AUTH_KINDS = new Set(["none", "headers", "oauth"]);
-/** A connector grant/sign-in request (connectors.request, A99). */
+/** A connector grant/sign-in request (connectors.request, A102). */
 function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
   const ask = value as Record<string, unknown> | null;
   if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
@@ -73,20 +73,23 @@ function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
     authKind: ask.authKind as ConnectorAuthAsk["authKind"], needsGrant: ask.needsGrant, needsAuth: ask.needsAuth,
   };
 }
-/** A connector write confirmation request (connectors.call, A99). */
+/** A connector write confirmation request (connectors.call, A102). */
 function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
   const ask = value as Record<string, unknown> | null;
   if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
     || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
     || !text(ask.toolName, 120) || !text(ask.actionLabel, 80)
     || (ask.account !== undefined && !text(ask.account, 120))
-    || !Array.isArray(ask.fields) || ask.fields.length > 12)
+    || !Array.isArray(ask.fields) || ask.fields.length > 64)
     throw new ChatError(400, "Invalid connector write request");
+  let totalChars = 0;
   const fields: ConnectorWriteField[] = ask.fields.map(item => {
     const field = item as Record<string, unknown> | null;
-    if (!field || typeof field !== "object" || !text(field.key, 80) || !text(field.label, 80) || !text(field.value, 16_000)
+    if (!field || typeof field !== "object" || !text(field.key, 80) || !text(field.label, 80) || !text(field.value, 64_000)
       || (field.preview !== undefined && !text(field.preview, 300)))
       throw new ChatError(400, "Invalid connector write field");
+    totalChars += (field.value as string).length;
+    if (totalChars > 100_000) throw new ChatError(400, "Connector write card payload too large");
     return {
       key: (field.key as string).trim(), label: (field.label as string).trim(), value: field.value as string,
       ...(field.preview !== undefined ? { preview: (field.preview as string).trim() } : {}),

@@ -38,7 +38,7 @@ export class Application {
   readonly models: ModelService;
   readonly connection: ConnectionService;
   readonly secrets: SecretService;
-  /** External service connectors (A99). */
+  /** External service connectors (A102). */
   readonly connectors: ConnectorService;
   /** Scheduled tasks and their timer (A58). */
   readonly tasks: TaskService;

@@ -11,7 +11,7 @@ import { Grants } from "../secrets/Grants";
 import { machineAddress } from "../environment/MachineDetail";
 import { ConnectorMark } from "../connectors/ConnectorMark";
 
-/** Bot info's 授权 tab: the owner's secrets (A52), connectors (A99), computers (A96) and SSH machines (A57) this Bot may use, and for the agent Bot other
+/** Bot info's 授权 tab: the owner's secrets (A52), connectors (A102), computers (A96) and SSH machines (A57) this Bot may use, and for the agent Bot other
  * Bots' sandboxes (A93), each removable at once, and
  * Add to pick more. The Bot sees all of them, granted or not, and asks for the rest on a card; this is where the owner
  * sees and changes what it has. The grants are the same ones Settings shows per secret/connector and the Environments page per machine. */

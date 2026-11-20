@@ -6,7 +6,7 @@ export interface ManagedClient { clientId: string; clientSecret: string }
 
 export const CALLBACK_PATH = "/api/connectors/oauth/callback";
 
-/** Deployment settings for connectors (A99), read from the process environment (`.env` in the data directory fills in
+/** Deployment settings for connectors (A102), read from the process environment (`.env` in the data directory fills in
  * what the environment lacks). Variable names come from the registered vendor adapters, never duplicated here. */
 export class ConnectorEnv {
   private readonly vars = new Map<ConnectorProvider, readonly [string, string]>();

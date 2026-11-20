@@ -86,7 +86,7 @@ async function completeOAuth(input: AdapterCompleteOAuthInput): Promise<McpOAuth
   };
 }
 
-/** GitHub vendor adapter (A99): connects to GitHub's official hosted Streamable HTTP MCP server using either
+/** GitHub vendor adapter (A102): connects to GitHub's official hosted Streamable HTTP MCP server using either
  * a Jarvy-managed GitHub OAuth App (deployment env) or a Personal Access Token — identical full MCP toolset. */
 export function createGitHubAdapter(mcp: RemoteMcpTransport): ConnectorAdapter {
   const probe = async (input: AdapterProbeInput): Promise<ConnectorProbeResult> => {

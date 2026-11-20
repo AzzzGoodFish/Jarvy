@@ -52,7 +52,7 @@ export interface BotDependencies {
   deliveries: Deliveries;
   /** The owner's secrets (A52): each Bot's runs fill placeholders and mask values through it. */
   secrets: SecretService;
-  /** External service connectors (A99): each Bot discovers and invokes granted connectors through the chat gateway. */
+  /** External service connectors (A102): each Bot discovers and invokes granted connectors through the chat gateway. */
   connectors: ConnectorService;
   /** Scheduled tasks (A58): each Bot manages its own with the tasks tools. */
   tasks: TaskService;

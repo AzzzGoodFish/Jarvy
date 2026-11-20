@@ -5,7 +5,9 @@ import { ValidationError } from "../shared/errors.js";
 import { ChatError } from "../shared/chat.js";
 
 const MAX_EDITABLE_CHARS = 16_000;
-const MAX_READONLY_CHARS = 2_000;
+const MAX_FIELD_CHARS = 64_000;
+const MAX_TOTAL_CARD_CHARS = 100_000;
+const MAX_WRITE_FIELDS = 64;
 const PREVIEW_CHARS = 120;
 const COMPACT_TOOL_THRESHOLD = 8;
 
@@ -68,40 +70,56 @@ function formatFieldValue(
   masker: { mask(text: string): string },
 ): { text: string; preview?: string; multiline: boolean; editable: boolean } | null {
   const isBody = BODY_KEYS.has(key.toLowerCase());
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined) return null;
+  if (value === null) return { text: "null", multiline: false, editable: false };
   if (typeof value === "string") {
-    if (!value.trim()) return null;
+    if (value === "") return { text: "(empty)", multiline: false, editable: false };
     const masked = masker.mask(value);
+    if (masked.length > MAX_FIELD_CHARS) {
+      throw new ChatError(400, `Field "${key}" is too large (${masked.length} chars) to display in full on a confirmation card. Reduce its size so the owner can review everything before confirming.`);
+    }
     const hasSecret = masked !== value;
-    // Preserve the full unclipped string for editable fields so editing never truncates the tail;
-    // oversized values or values containing masked secrets render read-only.
-    const editable = !hasSecret && masked.length <= MAX_EDITABLE_CHARS;
-    const text = masked.length > MAX_EDITABLE_CHARS ? `${masked.slice(0, MAX_EDITABLE_CHARS - 1)}…` : masked;
-    const preview = previewOf(text);
-    return { text, ...(preview ? { preview } : {}), multiline: isBody || text.includes("\n") || text.length > 36, editable };
+    const editable = !hasSecret && masked.trim().length > 0 && masked.length <= MAX_EDITABLE_CHARS;
+    const display = masked.trim().length > 0 ? masked : "(whitespace)";
+    const preview = previewOf(display);
+    return { text: display, ...(preview ? { preview } : {}), multiline: isBody || display.includes("\n") || display.length > 36, editable };
   }
   if (typeof value === "number") return { text: String(value), multiline: false, editable: true };
   if (typeof value === "boolean") return { text: String(value), multiline: false, editable: false };
   if (Array.isArray(value)) {
-    if (!value.length) return null;
+    if (!value.length) return { text: "[]", multiline: false, editable: false };
     const scalar = value.every(item => typeof item === "string" || typeof item === "number" || typeof item === "boolean");
-    const text = masker.mask(scalar ? value.map(String).join(", ") : JSON.stringify(value));
-    const clipped = text.length > MAX_READONLY_CHARS ? `${text.slice(0, MAX_READONLY_CHARS - 1)}…` : text;
-    const preview = previewOf(clipped);
-    return { text: clipped, ...(preview ? { preview } : {}), multiline: isBody || clipped.length > 36, editable: false };
+    const text = masker.mask(scalar ? value.map(String).join(", ") : JSON.stringify(value, null, 2));
+    if (text.length > MAX_FIELD_CHARS) {
+      throw new ChatError(400, `Field "${key}" is too large (${text.length} chars) to display in full on a confirmation card. Reduce its size so the owner can review everything before confirming.`);
+    }
+    const preview = previewOf(text);
+    return { text, ...(preview ? { preview } : {}), multiline: isBody || text.includes("\n") || text.length > 36, editable: false };
   }
-  const text = masker.mask(JSON.stringify(value));
-  const clipped = text.length > MAX_READONLY_CHARS ? `${text.slice(0, MAX_READONLY_CHARS - 1)}…` : text;
-  const preview = previewOf(clipped);
-  return { text: clipped, ...(preview ? { preview } : {}), multiline: true, editable: false };
+  const text = masker.mask(JSON.stringify(value, null, 2));
+  if (text.length > MAX_FIELD_CHARS) {
+    throw new ChatError(400, `Field "${key}" is too large (${text.length} chars) to display in full on a confirmation card. Reduce its size so the owner can review everything before confirming.`);
+  }
+  const preview = previewOf(text);
+  return { text, ...(preview ? { preview } : {}), multiline: true, editable: false };
 }
 
+/** Formats every submitted argument for a confirmation card without silently dropping fields or truncating tails.
+ * Declines with a 400 ChatError if the payload exceeds the card's complete-representation budget. */
 export function buildWriteFields(args: Record<string, unknown>, masker: { mask(text: string): string }): ConnectorWriteField[] {
   const fields: ConnectorWriteField[] = [];
+  let totalChars = 0;
   for (const [key, val] of Object.entries(args)) {
-    if (fields.length >= 12) break;
+    if (val === undefined) continue;
+    if (fields.length >= MAX_WRITE_FIELDS) {
+      throw new ChatError(400, `Too many arguments (${Object.keys(args).length}) to display in full on a confirmation card (max ${MAX_WRITE_FIELDS}). Split into smaller actions so the owner can review every field.`);
+    }
     const formatted = formatFieldValue(key, val, masker);
     if (!formatted) continue;
+    totalChars += formatted.text.length;
+    if (totalChars > MAX_TOTAL_CARD_CHARS) {
+      throw new ChatError(400, `The combined write payload is too large (${totalChars} chars) to display in full on a confirmation card. Reduce the payload size so the owner can review everything before confirming.`);
+    }
     fields.push({
       key: key.trim().toLowerCase().slice(0, 80),
       label: humanizeKey(key).slice(0, 80),

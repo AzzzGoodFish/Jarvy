@@ -1,7 +1,7 @@
 import type { Part } from "../keys";
 import type { connectors as en } from "../en/connectors";
 
-/** 中文：设置 › 连接器、连接抽屉与聊天内授权/写前确认卡 (A99)。 */
+/** 中文：设置 › 连接器、连接抽屉与聊天内授权/写前确认卡 (A102)。 */
 export const connectors: Part<typeof en> = {
   "connectors.addCustom": "自定义 MCP",
   "connectors.connectedSection": "已连接",
@@ -91,6 +91,8 @@ export const connectors: Part<typeof en> = {
   "connectorCard.expired": "已失效",
   "connectorCard.showMore": "展开全文",
   "connectorCard.showLess": "收起",
+  "connectorCard.showAllFields": "展开全部 {count} 个字段",
+  "connectorCard.showFewerFields": "收起部分字段",
   "connectorCard.toggleDetails": "展开或收起详情",
 
   "connectorAction.create_issue": "创建 Issue",
