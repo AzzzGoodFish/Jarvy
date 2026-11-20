@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronsUpDownIcon, MailIcon } from "lucide-react";
 import { api } from "../api";
-import type { ChatMessage, ConnectorWriteAsk, Question } from "../../contract/chat";
+import type { ChatMessage, ConnectorWriteAsk, ConnectorWriteField, Question } from "../../contract/chat";
 import { t } from "../i18n";
 import { useAction } from "../action";
 import { Markdown } from "../ui";
@@ -52,6 +52,8 @@ const BODY_MIN_PX = 92;
 const BODY_COLLAPSED_MAX_PX = 200;
 const BODY_EXPANDED_MAX_PX = 560;
 
+const isEditable = (field: ConnectorWriteField) => field.editable !== false;
+
 function scrollParent(node: HTMLElement | null): HTMLElement | null {
   let cur = node?.parentElement ?? null;
   while (cur) {
@@ -72,16 +74,19 @@ function resolvedFields(ask: ConnectorWriteAsk, customJson: string | null | unde
       }
     } catch { /* ignore */ }
   }
-  const fields = ask.fields.map(field => ({ ...field, value: overrides[field.key] ?? field.value }));
+  const fields = ask.fields.map(field => ({
+    ...field,
+    value: isEditable(field) && overrides[field.key] !== undefined ? overrides[field.key]! : field.value,
+  }));
   if (overrides.cc?.trim() && !fields.some(f => f.key === "cc")) {
-    fields.push({ key: "cc", label: "Cc", value: overrides.cc.trim() });
+    fields.push({ key: "cc", label: "Cc", value: overrides.cc.trim(), editable: true });
   }
   return fields;
 }
 
 /** Interactive draft & confirmation card for connector write tools (A99):
- * Gmail uses an email-draft layout (From/To/Cc + editable subject & body); other write tools show editable fields;
- * the primary button carries a menu entry to confirm and stop asking for that tool. */
+ * Gmail uses an email-draft layout (From/To/Cc + editable subject & body); other write tools show editable scalar
+ * fields and visibly read-only complex/masked/oversized fields; the primary button carries "don't ask again". */
 export function ConnectorWriteCard({ message, onSettled }: {
   message: ChatMessage & { question: Question & { connectorWrite: ConnectorWriteAsk } };
   onSettled: (message: ChatMessage) => void;
@@ -95,7 +100,7 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const kindTitle = isMail ? t("connectorCard.emailKind") : ask.name;
 
   const [draft, setDraft] = useState<Record<string, string>>(() =>
-    Object.fromEntries(ask.fields.map(field => [field.key, field.value])),
+    Object.fromEntries(ask.fields.filter(isEditable).map(field => [field.key, field.value])),
   );
   const [expandedBody, setExpandedBody] = useState(false);
   const [bodyOverflows, setBodyOverflows] = useState(false);
@@ -108,11 +113,12 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const headingField = ask.fields.find(f => HEADING_KEYS.has(f.key));
   const bodyField = ask.fields.find(f => BODY_KEYS.has(f.key));
   const metaFields = ask.fields.filter(f => f !== headingField && f !== bodyField);
-  const bodyValue = bodyField ? (draft[bodyField.key] ?? "") : "";
+  const bodyEditable = Boolean(bodyField && isEditable(bodyField));
+  const bodyValue = bodyField ? (bodyEditable ? (draft[bodyField.key] ?? "") : bodyField.value) : "";
 
   useLayoutEffect(() => {
     const el = bodyRef.current;
-    if (!el || question.state !== "pending") return;
+    if (!el || question.state !== "pending" || !bodyEditable) return;
     // Measuring via height=0 temporarily shrinks the scroll container and causes the browser to clamp scrollTop
     // upward; capture and restore the scroll position synchronously in the same layout pass.
     const scroller = scrollParent(el);
@@ -126,7 +132,7 @@ export function ConnectorWriteCard({ message, onSettled }: {
     if (scroller) {
       scroller.scrollTop = wasAtBottom ? scroller.scrollHeight - scroller.clientHeight : prevTop;
     }
-  }, [bodyValue, expandedBody, question.state]);
+  }, [bodyValue, bodyEditable, expandedBody, question.state]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -146,9 +152,13 @@ export function ConnectorWriteCard({ message, onSettled }: {
     const finalFields = resolvedFields(ask, question.answer?.custom);
     const picked = question.answer?.selected[0];
     const confirmed = question.state === "answered" && (picked === 0 || picked === 2);
-    const statusWord = confirmed ? t(isMail ? "connectorCard.sent" : "connectorCard.confirmed") : t("connectorCard.discarded");
-    const target = finalFields.find(f => ["to", "repo", "team"].includes(f.key))?.value.split("\n")[0]?.slice(0, 60);
-    const subject = (finalFields.find(f => HEADING_KEYS.has(f.key)) ?? finalFields[0])?.value.split("\n")[0]?.slice(0, 60);
+    const statusWord = confirmed
+      ? t(isMail ? "connectorCard.sent" : "connectorCard.confirmed")
+      : question.state === "ignored" ? t("connectorCard.expired") : t("connectorCard.discarded");
+    const targetField = finalFields.find(f => ["to", "repo", "repository", "team"].includes(f.key));
+    const subjectField = finalFields.find(f => HEADING_KEYS.has(f.key)) ?? finalFields[0];
+    const target = (targetField?.preview ?? targetField?.value)?.split("\n")[0]?.slice(0, 60);
+    const subject = (subjectField?.preview ?? subjectField?.value)?.split("\n")[0]?.slice(0, 60);
     const summaryParts = [statusWord, target, subject && subject !== target ? subject : null].filter(Boolean);
 
     return <div className="jv-write-settled" data-state={question.state}>
@@ -191,6 +201,7 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const editsPayload = (): string | undefined => {
     const changed: Record<string, string> = {};
     for (const field of ask.fields) {
+      if (!isEditable(field)) continue;
       const next = draft[field.key];
       if (next !== undefined && next !== field.value) changed[field.key] = next;
     }
@@ -224,9 +235,10 @@ export function ConnectorWriteCard({ message, onSettled }: {
     </div>
 
     <div className="jv-question-body">
-      {headingField && (
-        <input className="jv-write-subject" value={draft[headingField.key] ?? ""} placeholder={t("connectorCard.subjectPlaceholder")}
-          onChange={event => setDraft(prev => ({ ...prev, [headingField.key]: event.target.value }))}/>
+      {headingField && (isEditable(headingField)
+        ? <input className="jv-write-subject" value={draft[headingField.key] ?? ""} placeholder={t("connectorCard.subjectPlaceholder")}
+            onChange={event => setDraft(prev => ({ ...prev, [headingField.key]: event.target.value }))}/>
+        : <p className="jv-write-subject-static">{headingField.value}</p>
       )}
 
       {(isMail || metaFields.length > 0) && <div className="jv-write-meta">
@@ -236,8 +248,10 @@ export function ConnectorWriteCard({ message, onSettled }: {
         </div>}
         {metaFields.map(field => <div key={field.key} className="jv-write-meta-row">
           <span className="jv-write-meta-label" title={fieldLabel(field.key, field.label)}>{fieldLabel(field.key, field.label)}</span>
-          <input className="jv-write-meta-input" value={draft[field.key] ?? ""}
-            onChange={event => setDraft(prev => ({ ...prev, [field.key]: event.target.value }))}/>
+          {isEditable(field)
+            ? <input className="jv-write-meta-input" value={draft[field.key] ?? ""}
+                onChange={event => setDraft(prev => ({ ...prev, [field.key]: event.target.value }))}/>
+            : <span className="jv-write-meta-static">{field.value}</span>}
         </div>)}
         {isMail && !ask.fields.some(f => f.key === "cc") && <div className="jv-write-meta-row">
           <span className="jv-write-meta-label">{t("connectorCard.cc")}</span>
@@ -246,16 +260,19 @@ export function ConnectorWriteCard({ message, onSettled }: {
         </div>}
       </div>}
 
-      {bodyField && <div className="jv-write-body-wrap">
-        <textarea ref={bodyRef} className="jv-write-body-input"
-          value={bodyValue} placeholder={t("connectorCard.bodyPlaceholder")}
-          onChange={event => setDraft(prev => ({ ...prev, [bodyField.key]: event.target.value }))}/>
-        {(bodyOverflows || expandedBody) && <div className="jv-write-body-toggle">
-          <button type="button" className="jv-connector-link-btn" onClick={() => setExpandedBody(v => !v)}>
-            {t(expandedBody ? "connectorCard.showLess" : "connectorCard.showMore")}
-          </button>
-        </div>}
-      </div>}
+      {bodyField && (bodyEditable
+        ? <div className="jv-write-body-wrap">
+            <textarea ref={bodyRef} className="jv-write-body-input"
+              value={bodyValue} placeholder={t("connectorCard.bodyPlaceholder")}
+              onChange={event => setDraft(prev => ({ ...prev, [bodyField.key]: event.target.value }))}/>
+            {(bodyOverflows || expandedBody) && <div className="jv-write-body-toggle">
+              <button type="button" className="jv-connector-link-btn" onClick={() => setExpandedBody(v => !v)}>
+                {t(expandedBody ? "connectorCard.showLess" : "connectorCard.showMore")}
+              </button>
+            </div>}
+          </div>
+        : <div className="jv-write-body-static"><Markdown text={bodyField.value}/></div>
+      )}
 
       {error && <p className="jv-question-error" role="alert">{error}</p>}
     </div>

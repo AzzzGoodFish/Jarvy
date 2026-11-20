@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
   Connector, ConnectorAuthKind, ConnectorGrant, ConnectorKind, ConnectorProvider,
@@ -219,6 +219,26 @@ export class ConnectorRepository {
     if (!row) return {};
     const plain = this.cipher.open(row.json, `connector:${id}`);
     return plain === null ? null : this.parseJson<StoredConnectorCredentials>(plain, {});
+  }
+
+  /** Stable hash of the connector's credential identity (headers, OAuth client/refresh or access token) so pending
+   * write confirmations are invalidated if credentials or accounts change before dispatch. */
+  credentialFingerprint(id: string): string {
+    const row = this.db.prepare("SELECT cred.auth_type AS authType, cred.credential_json AS json FROM connector_credentials cred JOIN connectors c ON c.id=cred.connector_id WHERE c.id=? AND c.owner_id=?")
+      .get(id, this.ownerId()) as { authType: string; json: string } | undefined;
+    if (!row) return "none";
+    const plain = this.cipher.open(row.json, `connector:${id}`);
+    if (plain === null) return "unreadable";
+    const creds = this.parseJson<StoredConnectorCredentials>(plain, {});
+    const headerEntries = Object.entries(creds.headers ?? {}).sort(([a], [b]) => a.localeCompare(b));
+    const tokenKey = creds.oauth?.tokens?.refresh_token || creds.oauth?.tokens?.access_token || "";
+    return createHash("sha256").update(JSON.stringify({
+      authType: row.authType,
+      headers: headerEntries,
+      clientId: creds.clientId ?? "",
+      oauthClientId: creds.oauth?.clientInformation?.client_id ?? "",
+      tokenKey,
+    })).digest("hex");
   }
 
   saveCredentials(id: string, authKind: ConnectorAuthKind, credentials: StoredConnectorCredentials): void {

@@ -88,6 +88,7 @@ export const connectors: Part<typeof en> = {
   "connectorCard.sent": "已发送",
   "connectorCard.confirmed": "已确认",
   "connectorCard.discarded": "已丢弃",
+  "connectorCard.expired": "已失效",
   "connectorCard.showMore": "展开全文",
   "connectorCard.showLess": "收起",
   "connectorCard.toggleDetails": "展开或收起详情",

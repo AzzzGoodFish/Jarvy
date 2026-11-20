@@ -84,11 +84,14 @@ function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
     throw new ChatError(400, "Invalid connector write request");
   const fields: ConnectorWriteField[] = ask.fields.map(item => {
     const field = item as Record<string, unknown> | null;
-    if (!field || typeof field !== "object" || !text(field.key, 80) || !text(field.label, 80) || !text(field.value, 1000))
+    if (!field || typeof field !== "object" || !text(field.key, 80) || !text(field.label, 80) || !text(field.value, 16_000)
+      || (field.preview !== undefined && !text(field.preview, 300)))
       throw new ChatError(400, "Invalid connector write field");
     return {
-      key: (field.key as string).trim(), label: (field.label as string).trim(), value: (field.value as string).trim(),
+      key: (field.key as string).trim(), label: (field.label as string).trim(), value: field.value as string,
+      ...(field.preview !== undefined ? { preview: (field.preview as string).trim() } : {}),
       ...(field.multiline === true ? { multiline: true } : {}),
+      ...(field.editable === true ? { editable: true } : field.editable === false ? { editable: false } : {}),
     };
   });
   return {
@@ -103,7 +106,7 @@ function answerOf(question: Question, input: Record<string, unknown>): QuestionA
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;
   if (!Array.isArray(selected) || new Set(selected).size !== selected.length
     || !selected.every(index => Number.isInteger(index) && index >= 0 && index < question.options.length)) throw new ChatError(400, "Invalid selection");
-  const maxCustom = question.connectorWrite ? 20_000 : 2000;
+  const maxCustom = question.connectorWrite ? 32_000 : 2000;
   if (custom !== null && (!question.allowCustom || !text(custom, maxCustom))) throw new ChatError(400, "Invalid custom answer");
   if (question.connectorWrite) {
     if (selected.length !== 1) throw new ChatError(400, "Choose one option");
@@ -144,6 +147,11 @@ export class ChatQuestions {
   }
   /** Whether the asking tool call still waits for this card. */
   waitingFor(messageId: string): boolean { return this.waiting.has(messageId); }
+  /** Marks a card expired/ignored if post-confirmation authorization checks fail before dispatch. */
+  invalidate(chatId: string, messageId: string): void {
+    this.waiting.delete(messageId);
+    if (this.repository.invalidateQuestion(messageId)) this.changed(chatId, messageId);
+  }
   respond(actorId: string, chatId: string, messageId: string, input: Record<string, unknown>): ChatMessage {
     const message = this.repository.message(actorId, messageId);
     if (!message || message.chatId !== chatId || !message.question) throw new ChatError(404, "Question not found");

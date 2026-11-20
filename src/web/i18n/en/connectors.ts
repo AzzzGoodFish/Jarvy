@@ -85,6 +85,7 @@ export const connectors = {
   "connectorCard.sent": "Sent",
   "connectorCard.confirmed": "Confirmed",
   "connectorCard.discarded": "Discarded",
+  "connectorCard.expired": "Expired",
   "connectorCard.showMore": "Show full text",
   "connectorCard.showLess": "Collapse",
   "connectorCard.toggleDetails": "Show or hide details",

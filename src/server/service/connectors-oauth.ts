@@ -7,7 +7,7 @@ import type { Listening } from "./connection.js";
 import { RuntimeFault } from "../shared/runtime.js";
 
 type PendingTarget =
-  | { kind: "existing"; connectorId: string }
+  | { kind: "existing"; connectorId: string; url: string }
   | { kind: "preset"; flowId: string; provider: ConnectorProvider; url: string; name: string; snapshot: McpOAuthSnapshot };
 
 interface PendingFlow {
@@ -217,8 +217,9 @@ export class ConnectorOAuthCoordinator {
           return done;
         }
         const waiting: ConnectorOAuthState = { phase: "waiting", connectorId: id, authUrl: started.authUrl, redirectUri: resolvedRedirect };
+        this.clear(id);
         this.states.set(id, waiting);
-        this.pending.set(started.state, { target: { kind: "existing", connectorId: id }, redirectUri: resolvedRedirect, expiresAt: Date.now() + FLOW_TTL_MS });
+        this.pending.set(started.state, { target: { kind: "existing", connectorId: id, url: connector.url }, redirectUri: resolvedRedirect, expiresAt: Date.now() + FLOW_TTL_MS });
         return waiting;
       } catch (error) {
         const message = this.mask(extractOAuthDetail(error));
@@ -272,7 +273,7 @@ export class ConnectorOAuthCoordinator {
       return { ok: false, name: connector.name, message: msg };
     }
     try {
-      await this.finishExistingCode(connector.id, connector.url, flow.redirectUri, query.code, query.iss);
+      await this.finishExistingCode(connector.id, flow.target.url, flow.redirectUri, query.code, query.iss);
       return { ok: true, name: connector.name, message: "Connected. You can close this window and return to Jarvy." };
     } catch (error) {
       const msg = this.mask(error instanceof Error ? error.message : String(error));
@@ -280,31 +281,59 @@ export class ConnectorOAuthCoordinator {
     }
   }
 
-  private parseManualInput(input: { callbackUrl?: unknown; code?: unknown }): { code: string; state?: string; iss?: string } {
-    let code = typeof input.code === "string" ? input.code.trim() : "";
-    let state: string | undefined;
-    let iss: string | undefined;
-    if (typeof input.callbackUrl === "string" && input.callbackUrl.trim()) {
+  private parseManualInput(input: { callbackUrl?: unknown; code?: unknown }): { hasCallbackUrl: boolean; code: string; state?: string; iss?: string } {
+    const rawUrl = typeof input.callbackUrl === "string" ? input.callbackUrl.trim() : "";
+    if (rawUrl) {
       let parsed: URL;
-      try { parsed = new URL(input.callbackUrl.trim()); }
+      try { parsed = new URL(rawUrl); }
       catch { this.failOAuth("Enter the full callback URL from your browser", 400); }
       const err = parsed.searchParams.get("error_description") || parsed.searchParams.get("error");
       if (err) this.failOAuth(err, 400);
-      code = parsed.searchParams.get("code") ?? "";
-      state = parsed.searchParams.get("state") ?? undefined;
-      iss = parsed.searchParams.get("iss") ?? undefined;
+      const code = parsed.searchParams.get("code")?.trim() ?? "";
+      const state = parsed.searchParams.get("state")?.trim() ?? "";
+      const iss = parsed.searchParams.get("iss")?.trim() || undefined;
+      if (!code) this.failOAuth("Authorization code is required", 400);
+      if (!state) this.failOAuth("Callback URL is missing its OAuth state parameter", 400);
+      return { hasCallbackUrl: true, code, state, iss };
     }
+    const code = typeof input.code === "string" ? input.code.trim() : "";
     if (!code) this.failOAuth("Authorization code is required", 400);
-    return { code, state, iss };
+    return { hasCallbackUrl: false, code };
+  }
+
+  private consumePending(
+    parsed: { hasCallbackUrl: boolean; state?: string },
+    matchesTarget: (target: PendingTarget) => boolean,
+  ): PendingFlow {
+    const now = Date.now();
+    if (parsed.hasCallbackUrl) {
+      const state = parsed.state!;
+      const flow = this.pending.get(state);
+      // Validate ownership and freshness BEFORE consuming so a mismatched/expired callback never disturbs another flow.
+      if (!flow || flow.expiresAt < now || !matchesTarget(flow.target)) {
+        this.failOAuth("Callback does not match an active authorization session for this connector", 400);
+      }
+      this.pending.delete(state);
+      return flow;
+    }
+    const live = [...this.pending.entries()].filter(([, flow]) => flow.expiresAt >= now && matchesTarget(flow.target));
+    if (live.length !== 1) {
+      this.failOAuth("No active authorization session for this connector. Start sign-in again.", 409);
+    }
+    const [state, flow] = live[0]!;
+    this.pending.delete(state);
+    return flow;
   }
 
   async completePresetManual(flowId: string, input: { callbackUrl?: unknown; code?: unknown }): Promise<{ oauth: ConnectorOAuthState; connector?: Connector }> {
     this.prune();
     const record = this.presetFlows.get(flowId);
-    if (!record) this.failOAuth("Authorization session expired. Start again.", 409);
-    const { code, state, iss } = this.parseManualInput(input);
-    if (state) this.pending.delete(state);
-    await this.finishPresetCode(flowId, code, iss);
+    if (!record || record.state.phase !== "waiting" || record.expiresAt < Date.now()) {
+      this.failOAuth("Authorization session expired. Start again.", 409);
+    }
+    const parsed = this.parseManualInput(input);
+    this.consumePending(parsed, target => target.kind === "preset" && target.flowId === flowId);
+    await this.finishPresetCode(flowId, parsed.code, parsed.iss);
     return this.presetStatus(flowId);
   }
 
@@ -312,12 +341,10 @@ export class ConnectorOAuthCoordinator {
     this.prune();
     const connector = this.store.connectors.get(id);
     if (!connector) throw new RuntimeFault("connector_missing", "Connector not found", 404);
-    const { code, state, iss } = this.parseManualInput(input);
-    const flow = state ? this.pending.get(state) : [...this.pending.values()].find(entry => entry.target.kind === "existing" && entry.target.connectorId === id);
-    const currentState = this.states.get(id);
-    const redirectUri = flow?.redirectUri ?? currentState?.redirectUri ?? this.defaultRedirectUri();
-    if (state) this.pending.delete(state);
-    await this.finishExistingCode(id, connector.url, redirectUri, code, iss);
+    const parsed = this.parseManualInput(input);
+    const flow = this.consumePending(parsed, target => target.kind === "existing" && target.connectorId === id);
+    const expectedUrl = flow.target.kind === "existing" ? flow.target.url : connector.url;
+    await this.finishExistingCode(id, expectedUrl, flow.redirectUri, parsed.code, parsed.iss);
     return this.status(id);
   }
 
@@ -344,16 +371,17 @@ export class ConnectorOAuthCoordinator {
     }
   }
 
-  private async finishExistingCode(id: string, url: string, redirectUri: string, code: string, iss?: string): Promise<void> {
+  private async finishExistingCode(id: string, expectedUrl: string, redirectUri: string, code: string, iss?: string): Promise<void> {
     await this.withLock(id, async () => {
       const connector = this.store.connectors.get(id);
       if (!connector) throw new RuntimeFault("connector_missing", "Connector not found", 404);
+      if (connector.url !== expectedUrl) this.failOAuth("Connector destination changed during authorization. Start again.", 409);
       const creds = this.store.connectors.credentials(id);
       if (creds === null) throw new RuntimeFault("credential_unreadable", "Connector credentials cannot be decrypted", 409);
       try {
         const snapshot = await this.driver.completeOAuth({
           provider: connector.provider,
-          url,
+          url: connector.url,
           oauth: creds.oauth,
           ...this.client(connector.provider, creds),
           redirectUrl: redirectUri,

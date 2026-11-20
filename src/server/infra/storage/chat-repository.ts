@@ -331,6 +331,11 @@ export class ChatRepository {
     return Number(this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state',?,'$.answer',json(?),'$.settledAt',?)
       WHERE id=? AND json_extract(question,'$.state')='pending'`).run(state, JSON.stringify(answer), Date.now(), messageId).changes) > 0;
   }
+  /** Invalidates a question card (even if just answered) when post-confirmation authorization checks fail. */
+  invalidateQuestion(messageId: string): boolean {
+    return Number(this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state','ignored','$.answer',json('null'),'$.settledAt',?)
+      WHERE id=? AND question IS NOT NULL`).run(Date.now(), messageId).changes) > 0;
+  }
   /** No tool call outlives the process, so questions still pending at startup can no longer be answered. */
   expirePendingQuestions(): void {
     this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state','ignored','$.settledAt',?) WHERE json_extract(question,'$.state')='pending'`).run(Date.now());

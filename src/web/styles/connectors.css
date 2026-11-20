@@ -80,6 +80,7 @@
 .jv-write-subject:hover { border-color: var(--ui-border-strong); }
 .jv-write-subject:focus { outline: none; background: var(--ui-bg-base); border-color: var(--ui-border-focus); }
 .jv-write-subject::placeholder { color: var(--ui-text-tertiary); font-weight: 500; }
+.jv-write-subject-static { margin: 0; font-size: var(--ui-text-base); line-height: var(--ui-leading-base); font-weight: 600; color: var(--ui-text-primary); overflow-wrap: anywhere; }
 .jv-write-meta { display: grid; grid-template-columns: minmax(68px, max-content) minmax(0, 1fr); column-gap: var(--ui-space-12); row-gap: var(--ui-space-6); }
 .jv-write-meta-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; font-size: var(--ui-text-md); }
 .jv-write-meta-label { max-width: 140px; color: var(--ui-text-secondary); font-size: var(--ui-text-sm); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

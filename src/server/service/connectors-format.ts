@@ -1,7 +1,13 @@
-import type { ConnectorWriteField } from "../../contract/chat.js";
-import { CONNECTOR_SLUG } from "../shared/connector.js";
+import type { Connector, ConnectorTool } from "../../contract/connectors.js";
+import type { ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
+import { CONNECTOR_SLUG, isWriteTool, toolDefinitionHash } from "../shared/connector.js";
 import { ValidationError } from "../shared/errors.js";
 import { ChatError } from "../shared/chat.js";
+
+const MAX_EDITABLE_CHARS = 16_000;
+const MAX_READONLY_CHARS = 2_000;
+const PREVIEW_CHARS = 120;
+const COMPACT_TOOL_THRESHOLD = 8;
 
 export function cleanSlug(raw: unknown): string {
   if (typeof raw !== "string") throw new ValidationError("Connector identifier must be lowercase letters, digits, hyphens or underscores", "connector_slug_invalid");
@@ -50,26 +56,44 @@ export function humanizeKey(raw: string): string {
 
 const BODY_KEYS = new Set(["description", "body", "content", "message", "text", "comment", "notes", "markdown", "html"]);
 
-function formatFieldValue(key: string, value: unknown, masker: { mask(text: string): string }): { text: string; multiline: boolean } | null {
+function previewOf(text: string): string | undefined {
+  const firstLine = (text.split("\n").find(line => line.trim()) ?? text).trim();
+  if (firstLine.length <= PREVIEW_CHARS && !text.includes("\n")) return undefined;
+  return firstLine.length > PREVIEW_CHARS ? `${firstLine.slice(0, PREVIEW_CHARS - 1)}…` : firstLine;
+}
+
+function formatFieldValue(
+  key: string,
+  value: unknown,
+  masker: { mask(text: string): string },
+): { text: string; preview?: string; multiline: boolean; editable: boolean } | null {
   const isBody = BODY_KEYS.has(key.toLowerCase());
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "string") {
-    const masked = masker.mask(value).trim();
-    if (!masked) return null;
-    const clipped = masked.length > 800 ? `${masked.slice(0, 797)}…` : masked;
-    return { text: clipped, multiline: isBody || clipped.includes("\n") || clipped.length > 36 };
+    if (!value.trim()) return null;
+    const masked = masker.mask(value);
+    const hasSecret = masked !== value;
+    // Preserve the full unclipped string for editable fields so editing never truncates the tail;
+    // oversized values or values containing masked secrets render read-only.
+    const editable = !hasSecret && masked.length <= MAX_EDITABLE_CHARS;
+    const text = masked.length > MAX_EDITABLE_CHARS ? `${masked.slice(0, MAX_EDITABLE_CHARS - 1)}…` : masked;
+    const preview = previewOf(text);
+    return { text, ...(preview ? { preview } : {}), multiline: isBody || text.includes("\n") || text.length > 36, editable };
   }
-  if (typeof value === "number" || typeof value === "boolean") return { text: String(value), multiline: false };
+  if (typeof value === "number") return { text: String(value), multiline: false, editable: true };
+  if (typeof value === "boolean") return { text: String(value), multiline: false, editable: false };
   if (Array.isArray(value)) {
     if (!value.length) return null;
     const scalar = value.every(item => typeof item === "string" || typeof item === "number" || typeof item === "boolean");
     const text = masker.mask(scalar ? value.map(String).join(", ") : JSON.stringify(value));
-    const clipped = text.length > 500 ? `${text.slice(0, 497)}…` : text;
-    return { text: clipped, multiline: isBody || clipped.length > 36 };
+    const clipped = text.length > MAX_READONLY_CHARS ? `${text.slice(0, MAX_READONLY_CHARS - 1)}…` : text;
+    const preview = previewOf(clipped);
+    return { text: clipped, ...(preview ? { preview } : {}), multiline: isBody || clipped.length > 36, editable: false };
   }
   const text = masker.mask(JSON.stringify(value));
-  const clipped = text.length > 500 ? `${text.slice(0, 497)}…` : text;
-  return { text: clipped, multiline: true };
+  const clipped = text.length > MAX_READONLY_CHARS ? `${text.slice(0, MAX_READONLY_CHARS - 1)}…` : text;
+  const preview = previewOf(clipped);
+  return { text: clipped, ...(preview ? { preview } : {}), multiline: true, editable: false };
 }
 
 export function buildWriteFields(args: Record<string, unknown>, masker: { mask(text: string): string }): ConnectorWriteField[] {
@@ -82,15 +106,23 @@ export function buildWriteFields(args: Record<string, unknown>, masker: { mask(t
       key: key.trim().toLowerCase().slice(0, 80),
       label: humanizeKey(key).slice(0, 80),
       value: formatted.text,
+      ...(formatted.preview ? { preview: formatted.preview } : {}),
       ...(formatted.multiline ? { multiline: true } : {}),
+      editable: formatted.editable,
     });
   }
   return fields;
 }
 
 /** Applies the owner's card edits (JSON object keyed by lower-case field name) over the Bot's arguments.
- * Validates string and number fields against the tool's inputSchema (including optional fields the Bot omitted). */
-export function applyEdits(args: Record<string, unknown>, custom: string, schema: Record<string, unknown>): Record<string, unknown> {
+ * Only keys marked editable on the card (plus omitted scalar schema properties like `cc`) may be modified;
+ * read-only arrays, booleans, objects, masked values and oversized fields stay untouched. */
+export function applyEdits(
+  args: Record<string, unknown>,
+  custom: string,
+  schema: Record<string, unknown>,
+  editableKeys?: ReadonlySet<string>,
+): Record<string, unknown> {
   let edited: unknown;
   try { edited = JSON.parse(custom); } catch { return args; }
   if (!edited || typeof edited !== "object" || Array.isArray(edited)) return args;
@@ -120,6 +152,7 @@ export function applyEdits(args: Record<string, unknown>, custom: string, schema
     if (typeof raw !== "string") continue;
     const existingKey = argKeyByLower.get(lower);
     if (existingKey !== undefined) {
+      if (editableKeys && !editableKeys.has(lower)) continue;
       const original = args[existingKey];
       if (typeof original === "string" || typeof original === "number") apply(existingKey, raw, original);
       continue;
@@ -133,4 +166,97 @@ export function applyEdits(args: Record<string, unknown>, custom: string, schema
     }
   }
   return next;
+}
+
+export function buildWriteConfirmQuestion(
+  connector: Connector,
+  tool: ConnectorTool,
+  args: Record<string, unknown>,
+  masker: { mask(text: string): string },
+): { question: QuestionSpec; editableKeys: ReadonlySet<string> } {
+  const fields = buildWriteFields(args, masker);
+  const editableKeys = new Set(fields.filter(f => f.editable === true).map(f => f.key));
+  const actionLabel = (tool.title?.trim() || humanizeKey(tool.name)).slice(0, 80);
+  const headField = fields.find(f => ["subject", "title", "to", "channel"].includes(f.key)) ?? fields[0];
+  const headline = (headField?.preview ?? headField?.value ?? actionLabel).split("\n")[0]!.slice(0, 80);
+  return {
+    editableKeys,
+    question: {
+      question: `${connector.name} · ${headline}`,
+      options: [
+        { label: "Confirm", value: "confirm", style: "primary" },
+        { label: "Discard", value: "discard" },
+        { label: "ConfirmAlways", value: "confirm_always" },
+      ],
+      multiple: false,
+      allowCustom: true,
+      connectorWrite: {
+        connectorId: connector.id, slug: connector.slug, name: connector.name, provider: connector.provider,
+        toolName: tool.name, actionLabel, ...(connector.statusDetail ? { account: connector.statusDetail } : {}), fields,
+      },
+    },
+  };
+}
+
+export function filterUnconfirmedEntries(raw: unknown[], tools: readonly ConnectorTool[]): { name: string; hash: string }[] {
+  const byName = new Map(tools.map(tool => [tool.name, tool]));
+  const entries: { name: string; hash: string }[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const tool = byName.get(item.trim());
+    if (tool && isWriteTool(tool)) entries.push({ name: tool.name, hash: toolDefinitionHash(tool) });
+  }
+  return entries;
+}
+
+export function formatConnectorList(all: readonly Connector[], granted: ReadonlySet<string>, query?: string) {
+  const needle = query?.trim().toLowerCase() || "";
+  const connectors = all.filter(c => c.enabled).map(c => {
+    const matched = needle
+      ? c.tools.filter(tool => tool.name.toLowerCase().includes(needle) || (tool.description ?? "").toLowerCase().includes(needle))
+      : c.tools;
+    const compact = !needle && matched.length > COMPACT_TOOL_THRESHOLD;
+    return {
+      slug: c.slug, name: c.name, provider: c.provider, granted: granted.has(c.id), status: c.status, toolCount: c.tools.length,
+      tools: matched.map(tool => {
+        const write = isWriteTool(tool);
+        return {
+          name: tool.name,
+          ...(!compact && tool.description ? { description: tool.description.slice(0, 140) } : {}),
+          write,
+          ...(write ? { asksOwner: !c.unconfirmed.includes(tool.name) } : {}),
+        };
+      }),
+    };
+  });
+  const note = !connectors.length
+    ? "No connectors configured yet. Ask your owner to add one in Settings → Connectors."
+    : connectors.some(c => !c.granted || c.status !== "connected")
+      ? "Use connectors.request to ask your owner for access or sign-in when granted=false or status!=connected."
+      : undefined;
+  return { connectors, ...(note ? { note } : {}) };
+}
+
+export function formatConnectorDescribe(connector: Connector, toolName?: string, query?: string) {
+  const needle = query?.trim().toLowerCase() || "";
+  const tools = toolName
+    ? connector.tools.filter(tool => tool.name === toolName)
+    : needle
+      ? connector.tools.filter(tool => tool.name.toLowerCase().includes(needle) || (tool.description ?? "").toLowerCase().includes(needle))
+      : connector.tools;
+  if (toolName && !tools.length) throw new ChatError(404, `Connector "${connector.slug}" has no tool named "${toolName}"`);
+  return {
+    slug: connector.slug, name: connector.name, status: connector.status,
+    tools: tools.map(tool => {
+      const write = isWriteTool(tool);
+      return {
+        name: tool.name,
+        ...(tool.title ? { title: tool.title } : {}),
+        ...(tool.description ? { description: tool.description } : {}),
+        write,
+        ...(write ? { asksOwner: !connector.unconfirmed.includes(tool.name) } : {}),
+        inputSchema: tool.inputSchema,
+      };
+    }),
+  };
 }

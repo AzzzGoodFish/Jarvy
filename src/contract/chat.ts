@@ -54,7 +54,16 @@ export interface ConnectorAuthAsk {
   authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
 }
 /** One human-readable field displayed (and optionally edited) on a write confirmation card (A99). */
-export interface ConnectorWriteField { key: string; label: string; value: string; multiline?: boolean; }
+export interface ConnectorWriteField {
+  key: string;
+  label: string;
+  value: string;
+  /** Optional single-line preview used in collapsed summaries when `value` is long. */
+  preview?: string;
+  multiline?: boolean;
+  /** True only when editing this field in the card safely updates the effective tool argument. */
+  editable?: boolean;
+}
 /** A write tool confirmation card posted before an external mutation runs (A99). */
 export interface ConnectorWriteAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider;
