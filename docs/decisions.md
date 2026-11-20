@@ -874,3 +874,14 @@ When a new message interrupted a Bot mid-turn (A05), Pi's abort signal propagate
 Why: separating turn cancellation from process termination lets people talk to a Bot freely without destroying minutes of build or test progress, and automatic completion delivery eliminates blind polling loops.
 
 Amends: A05 (an interrupt aborts the model turn and detaches any active `bash` command into the background rather than killing it).
+## A100 Only content copies
+
+Everything in the window selected: a drag across the chat list picked up channel names and timestamps on the way, Ctrl+A took the whole shell — sidebar, headers, badges, avatars, buttons — and a press on a label left a caret where typing did nothing, which read as a text box that was not one. Discord, whose interface this follows, lets a person select what has meaning: a message, a file's text, what they typed themselves.
+
+- **The shell does not select** (`user-select: none` on `body`): a drag across it turns nothing blue, a press leaves no caret, and the pointer stays an arrow.
+- **Content selects for itself** (`user-select: text`): a message and the boxes that share it (a channel's notice, a thread's summary), a file's source or text, a Bot's log and a tool call's input, and every field a person types in. A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
+- **Copy and quote from a selection** reads it from a message's box and from nowhere else, so it keeps working unchanged.
+
+Why: a blue run of text and a caret both promise copying and typing. Where neither works they misstate what the interface does, and both were everywhere because no rule said otherwise.
+
+Consequences: selecting a passage in a message still offers copy and quote; selecting anything else offers nothing. A textarea's placeholder takes the highlight on Ctrl+A, as the browser paints it, though nothing of it is copied. Anything new that a person must be able to copy has to say so in its own stylesheet.

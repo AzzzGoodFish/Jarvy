@@ -9,6 +9,10 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body {
   font: var(--ui-font-size) / var(--ui-line-height) var(--ui-font-sans);
   color: var(--ui-text-primary); background: var(--ui-bg-base);
+  /* The shell itself does not select (A100, docs/design.md "Copying"): a drag across it must not pick up rows, times or
+     buttons, and a press on one must not leave a caret where typing does nothing. What reads as content says
+     `user-select: text` for itself. */
+  user-select: none; -webkit-user-select: none;
 }
 button, input, textarea { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
 button { padding: 0; border: 0; background: none; cursor: pointer; }
@@ -137,6 +141,10 @@ button.ui-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline
   scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent;
 }
 .ui-unloaded { max-width: 420px; margin: 0 auto; padding: 38px var(--ui-space-20); text-align: center; font-size: var(--ui-text-sm); color: var(--ui-text-secondary); }
+
+/* What a person reads and may copy: a message, and the notice and thread summary that use the same box (so does the
+   quote-by-selection menu, which reads its selection from there and nowhere else); plus every field they type in. */
+.ui-bubble, input, textarea, [contenteditable] { user-select: text; -webkit-user-select: text; }
 
 /* ── Messages ─────────────────────────────────────────────────── */
 .ui-message-row { position: relative; display: flex; align-items: flex-start; margin: 0 0 var(--ui-space-20); }
