@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { ATTACHMENT_MAX_BYTES, type Member } from "../../contract/chat";
@@ -181,6 +181,18 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
   });
   useEffect(() => () => cancelAnimationFrame(slide.current ?? 0), []);
 
+  /* The box is the input, so a press anywhere in it that is not on a button or the file trigger puts the caret in the
+     text, at its end. Without this only the line the words sit on takes a press: the box's own padding and the row the
+     buttons share are dead, and the box reads as an input that does not answer. */
+  const pressBox = (event: MouseEvent<HTMLDivElement>) => {
+    const field = textarea.current;
+    if (!field || disabled || event.target === field) return;
+    if ((event.target as Element).closest("button, input, textarea, label")) return;
+    event.preventDefault();
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  };
+
   return <form ref={formRef} className={`ui-compose-wrap${dropping ? " jarvy-dropping" : ""}`} onSubmit={event => void send(event)} onDragEnter={dragOver} onDragOver={dragOver}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false); }} onDrop={drop}>
     {files.length + pending.length > 0 && <div className="jarvy-pending-files">{files.map(file => <span className="jarvy-file-chip" key={file.id}><Icon name="paperclip"/><span title={file.name}>{file.name}</span>
@@ -193,11 +205,11 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     {quote && <div className="jv-compose-quote"><span className="jv-compose-quote-label">{t("composer.replying")}</span><span className="jv-reply-author">{quote.name}</span><span className="jv-reply-text">{quote.text || t("common.attachment")}</span>
       <button type="button" aria-label={t("composer.cancelReply")} onClick={() => drafts.update(chatId, { quote: null })}>×</button></div>}
     <QuoteTags quotes={saved.passages} onRemove={index => drafts.update(chatId, draft => ({ passages: draft.passages.filter((_, at) => at !== index) }))}/>
-    <div ref={box} className="ui-composer jv-composer" data-tall={tall || undefined}>
+    <div ref={box} className="ui-composer jv-composer" data-tall={tall || undefined} onMouseDown={pressBox}>
       {mention && menu.menu}
       {dropping && <span className="jarvy-drop-hint" role="status">{t("composer.drop")}</span>}
-      <label className="jarvy-attach-trigger" title={t("composer.attach")}><Icon name="add"/><input type="file" multiple aria-label={t("composer.attach")} disabled={sending || uploading || disabled || files.length >= 5}
-        onChange={(event: ChangeEvent<HTMLInputElement>) => { const list = [...(event.target.files ?? [])]; event.target.value = ""; void attach(list); }}/></label>
+      <label className="jarvy-attach-trigger" title={t("composer.attach")} onMouseDown={event => event.preventDefault()}><Icon name="add"/><input type="file" multiple aria-label={t("composer.attach")} disabled={sending || uploading || disabled || files.length >= 5}
+        onChange={(event: ChangeEvent<HTMLInputElement>) => { const list = [...(event.target.files ?? [])]; event.target.value = ""; void attach(list); textarea.current?.focus(); }}/></label>
       <textarea ref={textarea} id={id} rows={1} maxLength={32000} value={draft} onPaste={paste} placeholder={placeholder} disabled={disabled} aria-label={t("composer.input")}
         onChange={event => { setDraft(event.target.value); if (mention) menu.track(event.target.value); }}
         onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => { if (mention && menu.onKeyDown(event)) return; if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}

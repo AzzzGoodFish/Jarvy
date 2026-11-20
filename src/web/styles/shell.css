@@ -172,6 +172,8 @@ button.ui-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline
   display: flex; align-items: center; gap: var(--ui-space-8); min-height: 46px; padding: var(--ui-space-8) var(--ui-space-8);
   border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-full); background: var(--ui-bg-base); box-shadow: var(--ui-shadow-sm);
   transition: border-color var(--ui-duration-fast), border-radius 160ms var(--ui-ease-out);
+  /* The box is the input, so it is the input's pointer too, and a press anywhere in it puts the caret in the text. */
+  cursor: text;
 }
 /* Sliding to a new height: clipped, so the buttons come out from under the text rather than appear below it. */
 .ui-composer[data-sliding] { overflow: hidden; }
