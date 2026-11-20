@@ -169,11 +169,11 @@ export class BotEnvironments {
     environments.setCurrent(botId, home.id);
     return { changed, moved: { from, to: this.here(botId, workspacePath) }, name };
   }
-  async release(botId: string): Promise<void> {
+  async release(botId: string, keepFiles = false): Promise<void> {
     const open = this.open.get(botId);
     this.open.delete(botId);
     await open?.env.close();
-    await this.computers.remove(botId);
+    await this.computers.remove(botId, keepFiles);
   }
   async close(): Promise<void> {
     const all = [...this.open.values()];

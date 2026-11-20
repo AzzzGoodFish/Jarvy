@@ -26,6 +26,7 @@ export function SandboxType({ bot, disabled, onSaved }: { bot: Bot; disabled: bo
     return () => { alive = false; clearTimeout(timer); };
   }, [support]);
   const canVm = computer.type === "vm" || support?.state === "available";
+  const canContainer = computer.type === "container" || bot.environment.docker;
   const note = support?.state === "checking" || support?.state === "unknown" ? t("environment.type.checking")
     : support?.state === "unavailable" && computer.type !== "vm" ? t("environment.type.unavailable", { why: t(`environment.type.why.${support.reason ?? "failed"}`) }) : null;
   const choose = (type: ComputerType) => void run("switch", async () => { onSaved(await api.setComputerType(bot.id, type)); setAsking(null); }, "common.failed");
@@ -33,7 +34,7 @@ export function SandboxType({ bot, disabled, onSaved }: { bot: Bot; disabled: bo
     <div className="jv-list-row jv-static-row jv-env-fact jv-env-type"><span>{t("environment.type")}</span>
       <div className="jv-seg" role="radiogroup" aria-label={t("environment.type")}>
         {TYPES.map(type => <button key={type} type="button" role="radio" aria-checked={computer.type === type}
-          disabled={disabled || !!doing || (type === "vm" && !canVm)} onClick={() => { if (type !== computer.type) setAsking(type); }}>{t(`environment.type.${type}`)}</button>)}
+          disabled={disabled || !!doing || (type === "vm" && !canVm) || (type === "container" && !canContainer)} onClick={() => { if (type !== computer.type) setAsking(type); }}>{t(`environment.type.${type}`)}</button>)}
       </div>
     </div>
     {(note || asking || error) && <div className="jv-list-row jv-static-row jv-env-details">

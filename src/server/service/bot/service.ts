@@ -105,7 +105,7 @@ export class BotService {
     // Skills are read with skills.read (A55): the copies earlier versions kept in the workspace go.
     if (skills.length) void removeSkillCopies(record.workspacePath, skills).catch(() => {});
     const here = () => {
-      const place = this.environments.here(id, record.workspacePath), problem = place.kind === "sandbox" ? this.computers.dockerProblem : null;
+      const place = this.environments.here(id, record.workspacePath), problem = place.kind === "sandbox" ? this.computers.sandboxProblem(id) : null;
       return { name: place.name, directory: place.directory, ...(problem ? { problem: `${problem}, so your file and command tools don't work here` } : {}) };
     };
     const jobs = new BotJobs(payload => {
@@ -371,7 +371,7 @@ export class BotService {
     this.bots.delete(id);
     this.jobs.delete(id);
     this.lives.get(id)?.close(); this.lives.delete(id);
-    await this.environments.release(id);
+    await this.environments.release(id, keepFiles);
     await this.environments.releaseComputer(id);
     if (!this.deps.store.bots.delete(id)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
     this.ports.changed();

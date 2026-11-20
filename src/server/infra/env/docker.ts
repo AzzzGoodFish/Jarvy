@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { Connection, RemoteExecutionEnv, packagedDaemon } from "@earendil-works/pi-env";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import type { DockerProblemReason } from "../../../contract/environment.js";
-import { COMPUTER_DOCKERFILE, DOCKER_UP, VM_DISK, vmDockerfile } from "./computer-image.js";
+import { COMPUTER_DOCKERFILE } from "./computer-image.js";
 import { overDurable } from "./durable.js";
 
 /** Bots' sandboxes (A50): Docker containers from an image built on this machine, driven with the docker command
@@ -26,10 +26,8 @@ export interface ContainerSpec {
   labels: Record<string, string>;
   /** The network it joins instead of Docker's default bridge (A74), and names it resolves, such as the host's. */
   network?: string; hosts?: Record<string, string>;
-  /** What it may use at most (A75); none when absent. A VM's size (A85). */
+  /** What it may use at most (A75); none when absent. */
   limits?: ResourceLimits;
-  /** A VM sandbox (A85): run by Kata, with the Bot's Docker disk, a file of this machine. */
-  vm?: { disk: string };
 }
 /** Memory in bytes and CPUs in cores; null is no limit. */
 export interface ResourceLimits { memory: number | null; cpus: number | null }
@@ -66,14 +64,9 @@ export function dockerProblem(): Promise<DockerProblem | null> {
 export function computerImage(uid: number, gid: number): string {
   return `jarvy-computer:${createHash("sha256").update(`${COMPUTER_DOCKERFILE}\n${uid}:${gid}`).digest("hex").slice(0, 12)}`;
 }
-/** A VM sandbox's image (A85), named after the sandbox image it is built on and what it adds. */
-export function vmImage(base: string): string {
-  return `jarvy-computer:vm-${createHash("sha256").update(`${vmDockerfile(base)}\n${DOCKER_UP}`).digest("hex").slice(0, 12)}`;
-}
 /** What a sandbox image is built from: its Dockerfile, the files it copies, and its build arguments. */
 export interface ImageRecipe { dockerfile: string; files?: Record<string, string>; args?: Record<string, string> }
 export const computerRecipe = (uid: number, gid: number): ImageRecipe => ({ dockerfile: COMPUTER_DOCKERFILE, args: { UID: String(uid), GID: String(gid) } });
-export const vmRecipe = (base: string): ImageRecipe => ({ dockerfile: vmDockerfile(base), files: { "jarvy-docker-up": DOCKER_UP } });
 
 /** Removes the other images of Bots' computers that no container uses; Docker refuses those still in use. */
 export async function pruneImages(keep: readonly string[]): Promise<string[]> {
@@ -136,19 +129,9 @@ export async function runContainer(spec: ContainerSpec): Promise<void> {
     ...Object.entries(spec.labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
     ...(spec.network ? ["--network", spec.network] : []), ...Object.entries(spec.hosts ?? {}).flatMap(([name, address]) => ["--add-host", `${name}:${address}`]),
     ...(spec.limits?.memory ? memoryFlags(spec.limits.memory, spec.limits.memory) : []), ...(spec.limits?.cpus ? ["--cpus", String(spec.limits.cpus)] : []),
-    ...(spec.vm ? vmFlags(spec.vm.disk) : []),
     "-v", `${spec.workspace}:${COMPUTER_CWD}`, "-v", `${spec.daemonDir}:${DAEMON_DIR}:ro`, "-w", COMPUTER_CWD,
     spec.image, "sleep", "infinity"], 120_000);
 }
-/** The runtime for VM sandboxes (A85): Kata's shim for containerd, found on the PATH of Docker's containerd. */
-export const KATA_RUNTIME = "io.containerd.kata.v2";
-/** A VM sandbox's flags (A85). The VM is the boundary, so what the container may do inside it is opened up — every
- * capability, no seccomp, AppArmor or masked system paths, loop devices — for Docker to run there; never
- * `--privileged`, which would hand it this machine's devices. Its user is in the docker group, and its disk is
- * mounted where DOCKER_UP looks. */
-const vmFlags = (disk: string) => ["--runtime", KATA_RUNTIME, "--group-add", "docker", "--cap-add", "ALL",
-  "--security-opt", "seccomp=unconfined", "--security-opt", "apparmor=unconfined", "--security-opt", "systempaths=unconfined",
-  "--device-cgroup-rule", "b 7:* rmw", "--device-cgroup-rule", "c 10:237 rmw", "-v", `${disk}:${VM_DISK}`];
 /** Memory and swap together: swap equal to memory leaves the container none, so a limit can't be got around. */
 const memoryFlags = (memory: number, withSwap: number) => ["--memory", String(memory), "--memory-swap", String(withSwap)];
 /** Changes the limits given, of a container running or not, at once (A75). Docker can't take a limit off a container,
@@ -248,7 +231,10 @@ export async function addHost(container: string, name: string, address: string):
 /** The TCP ports something listens on in a running container, each with whether every listener is on loopback only
  * (127.0.0.0/8, ::1), which nothing outside the container reaches. Read from /proc, as the image may lack `ss`. */
 export async function listeningPorts(container: string): Promise<Map<number, { loopbackOnly: boolean }>> {
-  const out = await docker(["exec", container, "sh", "-c", "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null"], 30_000);
+  return parseListeningPorts(await docker(["exec", container, "sh", "-c", "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null"], 30_000));
+}
+/** Parses `/proc/net/tcp` and `/proc/net/tcp6` lines into listening ports and whether every listener is loopback-only. */
+export function parseListeningPorts(out: string): Map<number, { loopbackOnly: boolean }> {
   const ports = new Map<number, { loopbackOnly: boolean }>();
   for (const line of out.split("\n")) {
     const fields = line.trim().split(/\s+/);

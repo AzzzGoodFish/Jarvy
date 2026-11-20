@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
-import type { DockerProblemReason } from "../../contract/environment";
+import type { DockerProblemReason, VmProblemReason } from "../../contract/environment";
 import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
 import { useAction } from "../action";
@@ -16,13 +16,16 @@ export const STATE = {
 } as const;
 
 /** Why Docker can't be used, as the server tells it; an older server says nothing. */
-const unusable = (error: string | undefined): DockerProblemReason =>
+const unusableDocker = (error: string | undefined): DockerProblemReason =>
   error === "missing" || error === "stopped" || error === "denied" ? error : "failed";
+/** Why libvirt VMs can't be used, as the server tells it. */
+const unusableVm = (error: string | undefined): VmProblemReason =>
+  error === "no_libvirt" || error === "stopped" || error === "denied" || error === "no_tools" || error === "no_kvm" || error === "busy" ? error : "failed";
 
-/** Bot info's section (A50, A68): its Docker sandbox, the only default there is: its state, its type (container or VM,
- * A85), the container, image and mount it is made of, its resource limits or a VM's size and usage (A75), Start or Stop
- * and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it switched to a machine. The
- * machines it may use are on the 授权 tab (BotAccess). */
+/** Bot info's section (A50, A68, A101): its sandbox (a Docker container or a full Linux VM via libvirt + QEMU), the only
+ * default there is: its state, its type, its container or VM name, image and mount, its resource limits or VM size and
+ * usage (A75), Start or Stop and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it
+ * switched to a machine. The machines it may use are on the 授权 tab (BotAccess). */
 export function BotEnvironment({ bot, onSaved, heading = true }: { bot: Bot; onSaved: (bot: Bot) => void;
   /** Off on the Environments page, whose header already names the sandbox (A89). */
   heading?: boolean;
@@ -35,23 +38,24 @@ export function BotEnvironment({ bot, onSaved, heading = true }: { bot: Bot; onS
   const run = (what: "start" | "stop" | "reset" | "restart") => void act(what, () => api.computer(bot.id, what), "common.failed");
   const state = computer?.state, vm = computer?.type === "vm";
   const label = state ? STATE[state] : null;
+  const unavailableWhy = vm ? t(`environment.type.why.${unusableVm(computer?.error)}`) : t(`environment.unavailable.${unusableDocker(computer?.error)}`);
   return <section className="jv-section" aria-label={t("environment.title")}>{heading && <h3 className="jv-section-title">{t("environment.title")}</h3>}
     {computer && state && label && <div className="jv-list jv-env-sandbox">
       <div className="jv-list-row jv-static-row">
-        <span className="jv-row-text"><strong>{t("environment.own")}</strong>
+        <span className="jv-row-text"><strong>{t(vm ? "environment.ownVm" : "environment.own")}</strong>
           {current !== "computer" && currentName && <span className="jv-env-away">{t("environment.awayMachine", { name: currentName ?? "" })}</span>}</span>
         <span className="jv-status" data-ok={state === "running" || undefined} data-busy={state === "preparing" || undefined}>{t(label)}</span>
       </div>
-      {state !== "unavailable" && <SandboxType bot={bot} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>}
-      <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.container")}</span><code>{computer.container}</code></div>
+      <SandboxType bot={bot} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>
+      <div className="jv-list-row jv-static-row jv-env-fact"><span>{t(vm ? "environment.vm" : "environment.container")}</span><code>{computer.container}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>
       <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
       {state !== "unavailable" && <SandboxLimits bot={bot} onSaved={onSaved}/>}
       <div className="jv-list-row jv-static-row jv-env-details">
-        {/* The state says the rest; only Docker that can't be used needs words: why, and what that stops. The agent Bot
-          * helps fix it (its setup skill). */}
+        {/* The state says the rest; only Docker or libvirt that can't be used needs words: why, and what that stops.
+          * The agent Bot helps fix it (its setup skill). */}
         {computer.restartNeeded && state === "running" && !confirming && <p>{t("environment.restartNote")}</p>}
-        {state === "unavailable" ? <p>{t("environment.unavailable", { why: t(`environment.unavailable.${unusable(computer.error)}`) })}</p> : !confirming && <div className="jv-env-actions">
+        {state === "unavailable" ? <p>{t("environment.unavailable", { why: unavailableWhy })}</p> : !confirming && <div className="jv-env-actions">
           {computer.restartNeeded && state === "running" && <Button type="button" className="jv-primary" size="sm" disabled={!!busy} onClick={() => setConfirming("restart")}>{t("environment.restart")}</Button>}
           <Button type="button" variant="outline" size="sm" disabled={!!busy || state === "preparing"} onClick={() => state === "running" ? setConfirming("stop") : run("start")}>
             {t(busy === "start" ? "environment.starting" : busy === "stop" ? "environment.stopping" : state === "running" ? "environment.stop" : "environment.start")}</Button>
