@@ -83,15 +83,19 @@ function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
     || !Array.isArray(ask.fields) || ask.fields.length > 64)
     throw new ChatError(400, "Invalid connector write request");
   let totalChars = 0;
+  const seenKeys = new Set<string>();
   const fields: ConnectorWriteField[] = ask.fields.map(item => {
     const field = item as Record<string, unknown> | null;
-    if (!field || typeof field !== "object" || !text(field.key, 80) || !text(field.label, 80) || !text(field.value, 64_000)
+    const validKey = typeof field?.key === "string" && field.key.length > 0 && field.key.length <= 256 && !/[\x00-\x08\x0b\x0c\x0e-\x1f]/u.test(field.key);
+    if (!field || typeof field !== "object" || !validKey || seenKeys.has(field.key as string)
+      || !text(field.label, 80) || !text(field.value, 64_000)
       || (field.preview !== undefined && !text(field.preview, 300)))
       throw new ChatError(400, "Invalid connector write field");
+    seenKeys.add(field.key as string);
     totalChars += (field.value as string).length;
     if (totalChars > 100_000) throw new ChatError(400, "Connector write card payload too large");
     return {
-      key: (field.key as string).trim(), label: (field.label as string).trim(), value: field.value as string,
+      key: field.key as string, label: (field.label as string).trim(), value: field.value as string,
       ...(field.preview !== undefined ? { preview: (field.preview as string).trim() } : {}),
       ...(field.multiline === true ? { multiline: true } : {}),
       ...(field.editable === true ? { editable: true } : field.editable === false ? { editable: false } : {}),

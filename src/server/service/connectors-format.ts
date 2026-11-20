@@ -8,6 +8,8 @@ const MAX_EDITABLE_CHARS = 16_000;
 const MAX_FIELD_CHARS = 64_000;
 const MAX_TOTAL_CARD_CHARS = 100_000;
 const MAX_WRITE_FIELDS = 64;
+const MAX_KEY_CHARS = 256;
+const CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f]/u;
 const PREVIEW_CHARS = 120;
 const COMPACT_TOOL_THRESHOLD = 8;
 
@@ -104,25 +106,35 @@ function formatFieldValue(
   return { text, ...(preview ? { preview } : {}), multiline: true, editable: false };
 }
 
-/** Formats every submitted argument for a confirmation card without silently dropping fields or truncating tails.
- * Declines with a 400 ChatError if the payload exceeds the card's complete-representation budget. */
+/** Formats every submitted argument for a confirmation card without silently dropping fields, truncating tails,
+ * or lossy key normalization. Declines with a 400 ChatError if any key or value cannot be represented losslessly. */
 export function buildWriteFields(args: Record<string, unknown>, masker: { mask(text: string): string }): ConnectorWriteField[] {
+  const entries = Object.entries(args).filter(([, val]) => val !== undefined);
+  if (entries.length > MAX_WRITE_FIELDS) {
+    throw new ChatError(400, `Too many arguments (${entries.length}) to display in full on a confirmation card (max ${MAX_WRITE_FIELDS}). Split into smaller actions so the owner can review every field.`);
+  }
+  const lowerCounts = new Map<string, number>();
+  for (const [key] of entries) {
+    if (!key.trim().length || key.length > MAX_KEY_CHARS || CONTROL_CHARS.test(key)) {
+      throw new ChatError(400, `Argument name "${key.slice(0, 40)}" cannot be represented cleanly on a confirmation card (must be 1–${MAX_KEY_CHARS} printable characters).`);
+    }
+    const lower = key.toLowerCase();
+    lowerCounts.set(lower, (lowerCounts.get(lower) ?? 0) + 1);
+  }
   const fields: ConnectorWriteField[] = [];
   let totalChars = 0;
-  for (const [key, val] of Object.entries(args)) {
-    if (val === undefined) continue;
-    if (fields.length >= MAX_WRITE_FIELDS) {
-      throw new ChatError(400, `Too many arguments (${Object.keys(args).length}) to display in full on a confirmation card (max ${MAX_WRITE_FIELDS}). Split into smaller actions so the owner can review every field.`);
-    }
+  for (const [key, val] of entries) {
     const formatted = formatFieldValue(key, val, masker);
     if (!formatted) continue;
     totalChars += formatted.text.length;
     if (totalChars > MAX_TOTAL_CARD_CHARS) {
       throw new ChatError(400, `The combined write payload is too large (${totalChars} chars) to display in full on a confirmation card. Reduce the payload size so the owner can review everything before confirming.`);
     }
+    const collides = (lowerCounts.get(key.toLowerCase()) ?? 0) > 1;
+    const label = (collides ? key : (humanizeKey(key) || key)).slice(0, 80);
     fields.push({
-      key: key.trim().toLowerCase().slice(0, 80),
-      label: humanizeKey(key).slice(0, 80),
+      key,
+      label,
       value: formatted.text,
       ...(formatted.preview ? { preview: formatted.preview } : {}),
       ...(formatted.multiline ? { multiline: true } : {}),
@@ -132,7 +144,7 @@ export function buildWriteFields(args: Record<string, unknown>, masker: { mask(t
   return fields;
 }
 
-/** Applies the owner's card edits (JSON object keyed by lower-case field name) over the Bot's arguments.
+/** Applies the owner's card edits (JSON object keyed by exact argument name) over the Bot's arguments.
  * Only keys marked editable on the card (plus omitted scalar schema properties like `cc`) may be modified;
  * read-only arrays, booleans, objects, masked values and oversized fields stay untouched. */
 export function applyEdits(
@@ -146,13 +158,9 @@ export function applyEdits(
   if (!edited || typeof edited !== "object" || Array.isArray(edited)) return args;
   const props = (schema.properties && typeof schema.properties === "object" ? schema.properties : {}) as Record<string, Record<string, unknown> | undefined>;
   const next: Record<string, unknown> = { ...args };
-  const schemaKeyByLower = new Map<string, string>();
-  for (const key of Object.keys(props)) schemaKeyByLower.set(key.trim().toLowerCase(), key);
-  const argKeyByLower = new Map<string, string>();
-  for (const key of Object.keys(args)) argKeyByLower.set(key.trim().toLowerCase(), key);
 
   const apply = (key: string, raw: string, original: unknown) => {
-    const rule = props[key] ?? {};
+    const rule = (Object.prototype.hasOwnProperty.call(props, key) ? props[key] : undefined) ?? {};
     let value: string | number = raw;
     if (typeof original === "number" || rule.type === "number" || rule.type === "integer") {
       value = Number(raw);
@@ -166,20 +174,18 @@ export function applyEdits(
     next[key] = value;
   };
 
-  for (const [lower, raw] of Object.entries(edited as Record<string, unknown>)) {
+  for (const [key, raw] of Object.entries(edited as Record<string, unknown>)) {
     if (typeof raw !== "string") continue;
-    const existingKey = argKeyByLower.get(lower);
-    if (existingKey !== undefined) {
-      if (editableKeys && !editableKeys.has(lower)) continue;
-      const original = args[existingKey];
-      if (typeof original === "string" || typeof original === "number") apply(existingKey, raw, original);
+    if (Object.prototype.hasOwnProperty.call(args, key)) {
+      if (editableKeys && !editableKeys.has(key)) continue;
+      const original = args[key];
+      if (typeof original === "string" || typeof original === "number") apply(key, raw, original);
       continue;
     }
-    const schemaKey = schemaKeyByLower.get(lower);
-    if (schemaKey && raw.trim()) {
-      const rule = props[schemaKey] ?? {};
+    if (Object.prototype.hasOwnProperty.call(props, key) && raw.trim()) {
+      const rule = props[key] ?? {};
       if (rule.type === "string" || rule.type === "number" || rule.type === "integer" || rule.type === undefined) {
-        apply(schemaKey, raw.trim(), "");
+        apply(key, raw.trim(), "");
       }
     }
   }
@@ -195,7 +201,7 @@ export function buildWriteConfirmQuestion(
   const fields = buildWriteFields(args, masker);
   const editableKeys = new Set(fields.filter(f => f.editable === true).map(f => f.key));
   const actionLabel = (tool.title?.trim() || humanizeKey(tool.name)).slice(0, 80);
-  const headField = fields.find(f => ["subject", "title", "to", "channel"].includes(f.key)) ?? fields[0];
+  const headField = fields.find(f => ["subject", "title", "to", "channel"].includes(f.key.toLowerCase())) ?? fields[0];
   const headline = (headField?.preview ?? headField?.value ?? actionLabel).split("\n")[0]!.slice(0, 80);
   return {
     editableKeys,

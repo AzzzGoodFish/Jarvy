@@ -112,11 +112,16 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const { busy, error, run } = useAction();
 
-  const headingField = ask.fields.find(f => HEADING_KEYS.has(f.key));
-  const bodyField = ask.fields.find(f => BODY_KEYS.has(f.key));
+  const headingField = ask.fields.find(f => HEADING_KEYS.has(f.key.toLowerCase()));
+  const bodyField = ask.fields.find(f => BODY_KEYS.has(f.key.toLowerCase()));
   const metaFields = ask.fields.filter(f => f !== headingField && f !== bodyField);
   const bodyEditable = Boolean(bodyField && isEditable(bodyField));
   const bodyValue = bodyField ? (bodyEditable ? (draft[bodyField.key] ?? "") : bodyField.value) : "";
+  const lowerCounts = new Map<string, number>();
+  for (const field of ask.fields) {
+    const lower = field.key.toLowerCase();
+    lowerCounts.set(lower, (lowerCounts.get(lower) ?? 0) + 1);
+  }
 
   useLayoutEffect(() => {
     const el = bodyRef.current;
@@ -146,7 +151,9 @@ export function ConnectorWriteCard({ message, onSettled }: {
   }, [menuOpen]);
 
   const fieldLabel = (key: string, fallback: string) => {
-    const k = FIELD_KEYS[key];
+    const lower = key.toLowerCase();
+    if ((lowerCounts.get(lower) ?? 0) > 1) return fallback;
+    const k = FIELD_KEYS[lower];
     return k ? t(k) : fallback;
   };
 
@@ -157,8 +164,8 @@ export function ConnectorWriteCard({ message, onSettled }: {
     const statusWord = confirmed
       ? t(isMail ? "connectorCard.sent" : "connectorCard.confirmed")
       : question.state === "ignored" ? t("connectorCard.expired") : t("connectorCard.discarded");
-    const targetField = finalFields.find(f => ["to", "repo", "repository", "team"].includes(f.key));
-    const subjectField = finalFields.find(f => HEADING_KEYS.has(f.key)) ?? finalFields[0];
+    const targetField = finalFields.find(f => ["to", "repo", "repository", "team"].includes(f.key.toLowerCase()));
+    const subjectField = finalFields.find(f => HEADING_KEYS.has(f.key.toLowerCase())) ?? finalFields[0];
     const target = (targetField?.preview ?? targetField?.value)?.split("\n")[0]?.slice(0, 60);
     const subject = (subjectField?.preview ?? subjectField?.value)?.split("\n")[0]?.slice(0, 60);
     const summaryParts = [statusWord, target, subject && subject !== target ? subject : null].filter(Boolean);
@@ -171,9 +178,9 @@ export function ConnectorWriteCard({ message, onSettled }: {
         <ChevronsUpDownIcon className="jv-write-pill-chevron" aria-hidden="true"/>
       </button>
       {settledOpen && (() => {
-        const settledHeading = finalFields.find(f => HEADING_KEYS.has(f.key));
-        const settledBodies = finalFields.filter(f => BODY_KEYS.has(f.key));
-        const settledMeta = finalFields.filter(f => f !== settledHeading && !BODY_KEYS.has(f.key));
+        const settledHeading = finalFields.find(f => HEADING_KEYS.has(f.key.toLowerCase()));
+        const settledBodies = finalFields.filter(f => BODY_KEYS.has(f.key.toLowerCase()));
+        const settledMeta = finalFields.filter(f => f !== settledHeading && !BODY_KEYS.has(f.key.toLowerCase()));
         const hasMeta = (isMail && Boolean(ask.account)) || settledMeta.length > 0;
         const hasContent = Boolean(settledHeading) || settledBodies.length > 0;
         return <div className="jv-write-settled-body">
