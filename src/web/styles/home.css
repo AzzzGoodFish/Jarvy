@@ -81,7 +81,8 @@
 .jv-dock .jv-dock-input .ui-composer[data-tall] .ui-send { grid-area: go; justify-self: end; margin: 0; }
 .jv-dock[data-state="open"] .jv-dock-bar:has(.ui-composer[data-tall]) { overflow: visible; border-radius: var(--ui-radius-lg); }
 .jv-dock .jv-dock-input .ui-composer.jv-composer[data-tall] { padding: var(--ui-space-8); }
-.jv-dock .jv-dock-input .ui-composer[data-tall] textarea { padding: 0 var(--ui-space-4) var(--ui-space-6) 0; }
+/* The box keeps its 8 px; the input adds none, so the text sits 8 from each edge as it does in a chat. */
+.jv-dock .jv-dock-input .ui-composer[data-tall] textarea { padding: 0 0 var(--ui-space-6) 0; }
 .jv-dock .jv-dock-input .jarvy-pending-files, .jv-dock .jv-dock-input .jv-compose-quote { margin: var(--ui-space-8) var(--ui-space-8) 0; }
 .jv-dock-go { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--ui-radius-xl); cursor: pointer;
   background: none; color: var(--ui-text-tertiary); }
