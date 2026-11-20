@@ -37,11 +37,12 @@ Every Bot works in a sandbox of its own, a Docker container on the computer runn
 
 **Afterwards.** Jarvy looks for Docker again every 30 seconds, so after installing or starting it nothing needs restarting, except for the group change above. The first sandbox to start builds the sandboxes' image, which takes a few minutes and about 3 GB of disk. `docker version` failing in another way: ask for its whole output and read it with them.
 
-**Virtual machine sandboxes (optional, Linux only).** A Bot's sandbox can instead be a small virtual machine, run by Kata Containers, in which the Bot can use Docker and Docker Compose itself. Bot info › Environment (环境) › Type (类型) offers it once Jarvy finds that the computer can run one, and says why not otherwise.
+**Virtual machine sandboxes (optional, Linux only).** A Bot's sandbox can instead be a full Linux virtual machine (Ubuntu 24.04 with systemd, full Linux kernel, dedicated `/workspace` disk, swap, Docker and Docker Compose), managed by libvirt and QEMU (`qemu:///system`). Bot info › Environment (环境) › Type (类型) offers it once Jarvy finds that the computer can run KVM VMs, and says why not otherwise. VM sandboxes work even without Docker on the host.
 - It needs KVM: `ls -l /dev/kvm` exists, and `grep -cwE 'vmx|svm' /proc/cpuinfo` is above 0 (virtualization turned on in the firmware). Not on macOS or Windows.
-- Installing Kata: download `kata-static-<version>-amd64.tar.zst` from https://github.com/kata-containers/kata-containers/releases, then `sudo tar --zstd -xf kata-static-<version>-amd64.tar.zst -C /` (it unpacks to /opt/kata) and `sudo ln -sf /opt/kata/runtime-rs/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2`. Docker's own settings stay as they are, and nothing needs restarting.
+- Installing libvirt and QEMU (Ubuntu/Debian): `sudo apt-get update && sudo apt-get install -y libvirt-daemon-system qemu-system-x86 qemu-utils cloud-image-utils` and `sudo systemctl enable --now libvirtd`.
+- Allowing the user Jarvy runs as: `sudo usermod -aG libvirt "$USER"`, then log out and in again (or restart the computer) and restart Jarvy from that new login (`jarvy off`, then `jarvy`).
 - "Taken by other virtual machine software": while a VirtualBox machine runs, KVM can't, and the other way round. Stop that machine, or move it to KVM (virt-manager or libvirt).
-- Then Check again (重新检查) in Bot info. Each VM takes the memory and CPUs it is given (4 GB and 2 by default), changed with its size, which takes effect at its next start. Switching type makes the sandbox afresh: the workspace stays, installed software goes.
+- Then Check again (重新检查) in Bot info. Each VM takes the memory and CPUs it is given (4 GB and 2 vCPUs by default), changed with its size, which takes effect at its next start. Switching type preserves `/workspace` files in both directions (imported into the VM disk when switching to VM, exported back to the host workspace when switching back to container); the first VM start builds a shared Ubuntu 24.04 base template, which takes a few minutes.
 
 ## 3. Phones and other devices
 
