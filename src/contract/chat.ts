@@ -1,5 +1,6 @@
 /** Chats, messages and members as the interface sees them (A37, A41, A44, A60). */
 import type { HostKeys } from "./environment.js";
+import type { ConnectorAuthKind, ConnectorProvider } from "./connectors.js";
 
 /** A person or a Bot. `deleted`: a deleted Bot, still shown as the author of its old messages (v15). */
 export interface Member { id: string; kind: "user" | "bot"; name: string; deleted?: boolean; }
@@ -33,7 +34,11 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   /** A request for an SSH machine (environments.request, A57): the card takes the password through its own endpoint. */
   machine?: MachineAsk;
   /** A request by the agent Bot to enter another Bot's sandbox or an ungranted SSH machine (environments.enter, A93). */
-  enter?: EnterAsk; }
+  enter?: EnterAsk;
+  /** A request for a connector (connectors.request, A102): grants access or opens OAuth in place. */
+  connectorAuth?: ConnectorAuthAsk;
+  /** A confirmation card before a connector runs a write tool (connectors.call, A102). */
+  connectorWrite?: ConnectorWriteAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */
 export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
@@ -43,6 +48,27 @@ export interface MachineAsk { name: string; host: string; port: number; user: st
   hostKeys: HostKeys; existing: { id: string; name: string } | null }
 /** The environment the agent Bot asks to enter, with a system-fixed target name and free-form purpose (A93). */
 export interface EnterAsk { kind: "sandbox" | "machine"; name: string; address?: string; purpose: string; }
+/** A connector access / sign-in request (A102). */
+export interface ConnectorAuthAsk {
+  connectorId: string; slug: string; name: string; provider: ConnectorProvider; purpose: string;
+  authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
+}
+/** One human-readable field displayed (and optionally edited) on a write confirmation card (A102). */
+export interface ConnectorWriteField {
+  key: string;
+  label: string;
+  value: string;
+  /** Optional single-line preview used in collapsed summaries when `value` is long. */
+  preview?: string;
+  multiline?: boolean;
+  /** True only when editing this field in the card safely updates the effective tool argument. */
+  editable?: boolean;
+}
+/** A write tool confirmation card posted before an external mutation runs (A102). */
+export interface ConnectorWriteAsk {
+  connectorId: string; slug: string; name: string; provider: ConnectorProvider;
+  toolName: string; actionLabel: string; account?: string; fields: ConnectorWriteField[];
+}
 /** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
 export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";
 export interface QuestionAnswer { selected: number[]; custom: string | null; }

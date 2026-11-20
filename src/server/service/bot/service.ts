@@ -41,6 +41,7 @@ import type { Deliveries } from "../delivery/delivery.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 import type { SecretService } from "../secrets.js";
+import type { ConnectorService } from "../connectors.js";
 import type { TaskService } from "../tasks.js";
 import type { Listening } from "../connection.js";
 import { PublishedPorts } from "./ports.js";
@@ -51,6 +52,8 @@ export interface BotDependencies {
   deliveries: Deliveries;
   /** The owner's secrets (A52): each Bot's runs fill placeholders and mask values through it. */
   secrets: SecretService;
+  /** External service connectors (A102): each Bot discovers and invokes granted connectors through the chat gateway. */
+  connectors: ConnectorService;
   /** Scheduled tasks (A58): each Bot manages its own with the tasks tools. */
   tasks: TaskService;
   /** The model catalog (A49), for the models a session installs (A62). */
@@ -135,6 +138,13 @@ export class BotService {
           ...(id === AGENT_BOT_ID ? { waiting: (environmentId: string) => this.environments.enterTarget(id, environmentId),
             allow: (environmentId: string, once: boolean) => { this.environments.allow(id, environmentId, store.account.userMemberId(), once ? runtime.activeRunId ?? "no-run" : undefined); this.listChanged(); } } : {}) },
         secrets: { list: () => this.deps.secrets.listFor(id), prepare: (name, purpose) => this.deps.secrets.prepareRequest(id, name, purpose) },
+        connectors: {
+          list: query => this.deps.connectors.listFor(id, query),
+          describe: (slug, toolName, query) => this.deps.connectors.describeFor(id, slug, toolName, query),
+          prepare: (slug, purpose) => this.deps.connectors.prepareRequest(id, slug, purpose),
+          call: (chatId, slug, toolName, args, ask, hasPerson, signal) =>
+            this.deps.connectors.callTool(id, chatId, slug, toolName, args, ask, hasPerson, signal),
+        },
         tasks: this.deps.tasks, ports: this.ports,
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => {

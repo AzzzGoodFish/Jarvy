@@ -1,0 +1,151 @@
+/* Settings → Connectors and in-chat authorization / write cards (A102). Uses A97 design tokens exclusively. */
+.jv-connector-row { display: flex; align-items: center; gap: var(--ui-space-12); width: 100%; }
+.jv-connector-row .jv-row-text { flex: 1; min-width: 0; }
+.jv-connector-preset-row { justify-content: space-between; }
+
+/* Ephemeral connect drawer right beneath an unconnected preset row. */
+.jv-connector-drawer { display: grid; gap: var(--ui-space-12); padding: var(--ui-space-12) var(--ui-space-16) var(--ui-space-16); border-top: 1px solid var(--ui-border-weak); background: var(--ui-bg-elevated); }
+.jv-connector-drawer-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-space-8); }
+.jv-connector-drawer-row > input { flex: 1; min-width: 180px; }
+.jv-connector-drawer-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-8); flex-wrap: wrap; }
+.jv-connector-env-note { margin: 0; font-size: var(--ui-text-sm); line-height: 1.5; color: var(--ui-text-secondary); overflow-wrap: anywhere; user-select: text; }
+.jv-connector-env-note code { font-family: var(--ui-font-mono); font-size: var(--ui-text-xs); padding: var(--ui-space-2) var(--ui-space-4); border-radius: var(--ui-radius-xs); background: var(--ui-fill-secondary); color: var(--ui-text-primary); }
+.jv-connector-link-btn { padding: 0; border: 0; background: transparent; color: var(--ui-text-secondary); font: inherit; font-size: var(--ui-text-sm); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.jv-connector-link-btn:hover { color: var(--ui-text-primary); }
+.jv-connector-waiting { display: flex; align-items: center; gap: var(--ui-space-8); font-size: var(--ui-text-md); color: var(--ui-text-secondary); }
+.jv-connector-waiting-dot { width: 8px; height: 8px; border-radius: var(--ui-radius-full); background: var(--ui-fill-accent); flex: none; }
+
+/* Status pills inside connected rows (only shown when attention is needed). */
+.jv-connector-status { display: inline-flex; align-items: center; gap: var(--ui-space-6); padding: var(--ui-space-2) var(--ui-space-8); border-radius: var(--ui-radius-full); font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); font-weight: 500; white-space: nowrap; }
+.jv-connector-status::before { content: ""; width: 6px; height: 6px; border-radius: var(--ui-radius-full); background: currentColor; }
+.jv-connector-status[data-state="needs_auth"] { background: var(--ui-fill-warning-subtle); color: var(--ui-text-warning); }
+.jv-connector-status[data-state="error"] { background: var(--ui-fill-secondary); color: var(--ui-text-danger); }
+
+/* Reconnect bar inside an expanded connector when auth expired or errored. */
+.jv-connector-alert { display: grid; gap: var(--ui-space-8); padding: var(--ui-space-12); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-elevated); }
+.jv-connector-alert-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-8); flex-wrap: wrap; }
+.jv-connector-alert-msg { margin: 0; font-size: var(--ui-text-sm); color: var(--ui-text-secondary); overflow-wrap: anywhere; user-select: text; }
+
+/* Auto-approved write exceptions (only shown when non-empty). */
+.jv-connector-exceptions { display: grid; gap: var(--ui-space-6); }
+.jv-connector-exception-list { display: grid; gap: var(--ui-space-4); margin: 0; padding: 0; list-style: none; }
+.jv-connector-exception-item { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-8); padding: var(--ui-space-6) var(--ui-space-8); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-elevated); }
+.jv-connector-exception-item code { font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); color: var(--ui-text-primary); }
+
+/* Secondary collapsible disclosures (Tools, Recent activity, Custom MCP settings). */
+.jv-connector-disclosure { border-top: 1px solid var(--ui-border-weak); padding-top: var(--ui-space-8); }
+.jv-connector-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-8); list-style: none; cursor: pointer; font-size: var(--ui-text-md); font-weight: 500; color: var(--ui-text-secondary); user-select: none; }
+.jv-connector-disclosure > summary::-webkit-details-marker { display: none; }
+.jv-connector-disclosure > summary:hover { color: var(--ui-text-primary); }
+.jv-connector-disclosure-title { display: inline-flex; align-items: center; gap: var(--ui-space-6); }
+.jv-connector-disclosure-title svg { width: 14px; height: 14px; transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-connector-disclosure[open] > summary .jv-connector-disclosure-title svg { transform: rotate(90deg); }
+.jv-connector-disclosure-body { display: grid; gap: var(--ui-space-8); padding-top: var(--ui-space-8); }
+
+/* Compact tool explorer inside the collapsed Tools disclosure. */
+.jv-connector-tools-bar { display: flex; align-items: center; gap: var(--ui-space-8); }
+.jv-connector-tools-bar > input { flex: 1; min-width: 0; }
+.jv-connector-tools { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-elevated); overflow: hidden; }
+.jv-connector-tool { display: flex; align-items: center; gap: var(--ui-space-8); min-width: 0; padding: var(--ui-space-6) var(--ui-space-12); font-size: var(--ui-text-sm); }
+.jv-connector-tool + .jv-connector-tool { border-top: 1px solid var(--ui-border-weak); }
+.jv-connector-tool-info { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--ui-space-6); overflow: hidden; }
+.jv-connector-tool-info code { flex: none; font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); color: var(--ui-text-primary); user-select: text; }
+.jv-connector-tool-desc { flex: 1; min-width: 0; color: var(--ui-text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-connector-tag { flex: none; padding: var(--ui-space-2) var(--ui-space-6); border-radius: var(--ui-radius-xs); font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); font-weight: 500; }
+.jv-connector-tag[data-kind="read"] { background: var(--ui-fill-secondary); color: var(--ui-text-secondary); }
+.jv-connector-tag[data-kind="write"] { background: var(--ui-fill-warning-subtle); color: var(--ui-text-warning); }
+.jv-connector-toggle { flex: none; display: inline-flex; align-items: center; gap: var(--ui-space-6); font-size: var(--ui-text-xs); color: var(--ui-text-secondary); cursor: pointer; }
+.jv-connector-switch { position: relative; width: 28px; height: 16px; border: 0; border-radius: var(--ui-radius-full); background: var(--ui-fill-control-track); cursor: pointer; transition: background var(--ui-duration-fast) var(--ui-ease-out); padding: 0; }
+.jv-connector-switch[aria-checked="true"] { background: var(--ui-fill-control-checked); }
+.jv-connector-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: var(--ui-radius-full); background: var(--ui-fill-control-knob); box-shadow: var(--ui-shadow-sm); transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-connector-switch[aria-checked="true"]::after { transform: translateX(12px); }
+
+/* Custom MCP form */
+.jv-connector-form { display: grid; gap: var(--ui-space-12); }
+.jv-connector-setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-12); flex-wrap: wrap; }
+.jv-connector-headers { display: grid; gap: var(--ui-space-8); }
+.jv-header-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--ui-space-6); align-items: center; }
+
+/* Manual OAuth callback paste inside drawers and cards. */
+.jv-connector-manual { display: grid; gap: var(--ui-space-6); }
+.jv-connector-manual > summary { font-size: var(--ui-text-xs); color: var(--ui-text-tertiary); cursor: pointer; }
+.jv-connector-manual-row { display: flex; gap: var(--ui-space-6); align-items: center; padding-top: var(--ui-space-6); }
+.jv-connector-manual-row > input { flex: 1; min-width: 0; }
+
+/* In-chat write confirmation & email draft card (extends .jv-question). */
+.jv-write-card { position: relative; z-index: 1; overflow: visible; }
+.jv-write-card > .jv-question-head { border-radius: var(--ui-radius-xl) var(--ui-radius-xl) 0 0; }
+.jv-write-card > .jv-question-foot { border-radius: 0 0 var(--ui-radius-xl) var(--ui-radius-xl); }
+.jv-write-subject { width: 100%; padding: var(--ui-space-6) var(--ui-space-8); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-bg-subtle); color: var(--ui-text-primary); font: inherit; font-size: var(--ui-text-base); line-height: var(--ui-leading-base); font-weight: 600; transition: background-color var(--ui-duration-fast) var(--ui-ease-out), border-color var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-write-subject:hover { border-color: var(--ui-border-strong); }
+.jv-write-subject:focus { outline: none; background: var(--ui-bg-base); border-color: var(--ui-border-focus); }
+.jv-write-subject::placeholder { color: var(--ui-text-tertiary); font-weight: 500; }
+.jv-write-subject-static { margin: 0; font-size: var(--ui-text-base); line-height: var(--ui-leading-base); font-weight: 600; color: var(--ui-text-primary); overflow-wrap: anywhere; }
+.jv-write-meta { display: grid; grid-template-columns: minmax(68px, max-content) minmax(0, 1fr); column-gap: var(--ui-space-12); row-gap: var(--ui-space-6); }
+.jv-write-meta-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; font-size: var(--ui-text-md); }
+.jv-write-meta-row[data-multiline] { align-items: start; }
+.jv-write-meta-row[data-multiline] > .jv-write-meta-label { padding-top: var(--ui-space-4); }
+.jv-write-readonly-wrap { display: grid; gap: var(--ui-space-4); min-width: 0; justify-items: start; }
+.jv-write-readonly-block { margin: 0; width: 100%; max-height: 160px; overflow: auto; padding: var(--ui-space-6) var(--ui-space-8); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-sm); background: var(--ui-bg-subtle); color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-text-xs); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.jv-write-readonly-block[data-expanded] { max-height: 480px; }
+.jv-write-readonly-body { max-height: 200px; overflow-y: auto; padding: var(--ui-space-8) var(--ui-space-12); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-subtle); user-select: text; }
+.jv-write-readonly-body[data-expanded] { max-height: 560px; }
+.jv-write-meta-label { max-width: 140px; color: var(--ui-text-secondary); font-size: var(--ui-text-sm); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jv-write-meta-static { padding: var(--ui-space-4) var(--ui-space-8); color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-write-meta-input { width: 100%; min-width: 0; padding: var(--ui-space-4) var(--ui-space-8); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-sm); background: var(--ui-bg-subtle); color: var(--ui-text-primary); font: inherit; font-size: var(--ui-text-md); line-height: var(--ui-leading-md); transition: background-color var(--ui-duration-fast) var(--ui-ease-out), border-color var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-write-meta-input:hover { border-color: var(--ui-border-strong); }
+.jv-write-meta-input:focus { outline: none; background: var(--ui-bg-base); border-color: var(--ui-border-focus); }
+.jv-write-meta-input::placeholder { color: var(--ui-text-tertiary); }
+.jv-write-body-wrap { display: grid; gap: var(--ui-space-4); }
+.jv-write-body-input { display: block; width: 100%; min-height: 92px; padding: var(--ui-space-8) var(--ui-space-12); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-bg-subtle); color: var(--ui-text-primary); font: inherit; font-size: var(--ui-text-base); line-height: 1.55; resize: none; overflow-y: auto; transition: background-color var(--ui-duration-fast) var(--ui-ease-out), border-color var(--ui-duration-fast) var(--ui-ease-out); }
+.jv-write-body-input:hover { border-color: var(--ui-border-strong); }
+.jv-write-body-input:focus { outline: none; background: var(--ui-bg-base); border-color: var(--ui-border-focus); }
+.jv-write-body-input::placeholder { color: var(--ui-text-tertiary); }
+.jv-write-body-toggle { display: flex; justify-content: flex-end; }
+.jv-write-body-static { font-size: var(--ui-text-base); line-height: 1.65; color: var(--ui-text-primary); overflow-wrap: anywhere; }
+.jv-write-body-static > :first-child { margin-top: 0; }
+.jv-write-body-static > :last-child { margin-bottom: 0; }
+.jv-write-body-static p { margin: 0 0 var(--ui-space-8); }
+.jv-write-body-static :is(h1, h2, h3, h4, h5, h6) { margin: var(--ui-space-12) 0 var(--ui-space-6); font-size: var(--ui-text-base); line-height: var(--ui-leading-base); font-weight: 600; color: var(--ui-text-primary); }
+.jv-write-body-static :is(ul, ol) { margin: 0 0 var(--ui-space-8); padding-left: var(--ui-space-20); }
+.jv-write-body-static li + li { margin-top: var(--ui-space-4); }
+.jv-write-body-static blockquote { margin: 0 0 var(--ui-space-8); padding: var(--ui-space-4) var(--ui-space-12); border-left: 2px solid var(--ui-border-strong); color: var(--ui-text-secondary); }
+.jv-write-body-static code { font-family: var(--ui-font-mono); font-size: var(--ui-text-xs); padding: var(--ui-space-2) var(--ui-space-4); border-radius: var(--ui-radius-xs); background: var(--ui-fill-secondary); }
+.jv-write-body-static a { color: var(--ui-text-accent); text-decoration: underline; text-underline-offset: 2px; }
+.jv-write-body-static hr { border: 0; border-top: 1px solid var(--ui-border-weak); margin: var(--ui-space-12) 0; }
+
+/* Split primary button (Confirm / Send + "Don't ask again" menu). */
+.jv-split-action { position: relative; display: inline-flex; align-items: stretch; }
+.jv-split-action > .jv-split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-right: var(--ui-space-8); }
+.jv-split-action > .jv-split-caret { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 1px solid color-mix(in srgb, currentColor 22%, transparent); padding: 0 var(--ui-space-6); min-width: var(--ui-control-sm); display: inline-flex; align-items: center; justify-content: center; }
+.jv-split-action > .jv-split-caret svg { width: 14px; height: 14px; }
+.jv-split-menu { position: absolute; right: 0; bottom: calc(100% + var(--ui-space-6)); z-index: 20; min-width: max-content; padding: var(--ui-space-4); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg); background: var(--ui-bg-elevated); box-shadow: var(--ui-shadow-md); }
+.jv-split-menu button { display: block; width: 100%; padding: var(--ui-space-6) var(--ui-space-12); border: 0; border-radius: var(--ui-radius-sm); background: transparent; color: var(--ui-text-primary); font: inherit; font-size: var(--ui-text-md); text-align: left; white-space: nowrap; cursor: pointer; }
+.jv-split-menu button:hover { background: var(--ui-fill-ghost-hover); }
+
+/* Settled write card collapsed pill, expandable to inspect what was sent or discarded. */
+.jv-write-settled { width: min(520px, 100%); display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg); background: var(--ui-bg-subtle); overflow: hidden; }
+.jv-write-pill { display: flex; align-items: center; gap: var(--ui-space-8); width: 100%; min-width: 0; padding: var(--ui-space-8) var(--ui-space-12); border: 0; background: transparent; color: var(--ui-text-primary); font: inherit; font-size: var(--ui-text-md); text-align: left; cursor: pointer; }
+.jv-write-pill:hover { background: var(--ui-fill-ghost-hover); }
+.jv-write-pill-icon { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--ui-radius-sm); background: var(--ui-bg-elevated); border: 1px solid var(--ui-border-weak); color: var(--ui-text-secondary); }
+.jv-write-pill-icon svg { width: 13px; height: 13px; }
+.jv-write-pill-kind { flex: none; font-weight: 600; color: var(--ui-text-primary); }
+.jv-write-pill-summary { flex: 1; min-width: 0; color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-write-pill-chevron { flex: none; width: 14px; height: 14px; color: var(--ui-text-tertiary); }
+.jv-write-settled-body { display: grid; border-top: 1px solid var(--ui-border-weak); background: var(--ui-bg-elevated); user-select: text; }
+.jv-write-settled-meta { padding: var(--ui-space-8) var(--ui-space-16); background: var(--ui-bg-subtle); border-bottom: 1px solid var(--ui-border-weak); }
+.jv-write-settled-meta .jv-write-meta-static { padding: var(--ui-space-2) 0; color: var(--ui-text-primary); }
+.jv-write-settled-content { display: grid; gap: var(--ui-space-8); padding: var(--ui-space-12) var(--ui-space-16); background: var(--ui-bg-elevated); }
+.jv-write-settled-title { margin: 0; padding-bottom: var(--ui-space-8); border-bottom: 1px solid var(--ui-border-weak); font-size: var(--ui-text-base); line-height: var(--ui-leading-base); font-weight: 600; color: var(--ui-text-primary); overflow-wrap: anywhere; }
+.jv-write-settled-title:last-child { padding-bottom: 0; border-bottom: 0; }
+
+@media (max-width: 620px) {
+  .jv-header-row { grid-template-columns: 1fr; }
+  .jv-connector-tool-desc { display: none; }
+  .jv-write-meta { grid-template-columns: minmax(56px, max-content) minmax(0, 1fr); column-gap: var(--ui-space-8); }
+  .jv-write-meta-label { max-width: 112px; }
+  .jv-write-subject, .jv-write-meta-input, .jv-write-body-input { font-size: 16px; }
+  .ui-message-row:has(.jv-write-card, .jv-write-settled) .jarvy-bubble-avatar { visibility: hidden; }
+  .ui-message-row:has(.jv-write-settled) > .jv-dm-stack { width: 100%; max-width: none; }
+  .ui-message-row > .jv-dm-stack > .jv-write-settled, .jv-row-body > .jv-write-settled { width: auto; align-self: stretch; margin-left: calc(-1 * var(--ui-space-32)); }
+}

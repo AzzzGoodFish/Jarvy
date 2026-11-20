@@ -73,5 +73,11 @@ export const secrets = {
   "access.noSecretsYet": "No secrets yet.",
   "access.newSecret": "New secret",
   "access.noMachinesYet": "No external environments yet.",
+  "access.connectors": "Connectors",
+  "access.searchConnectors": "Search connectors",
+  "access.noConnectors": "No connectors granted.",
+  "access.allConnectors": "Every connector is granted.",
+  "access.noConnectorsYet": "No connectors yet.",
+  "access.manageConnectors": "Manage connectors",
   "access.loadFailed": "Couldn't load access.",
 } as const;

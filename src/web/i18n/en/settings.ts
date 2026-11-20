@@ -7,6 +7,7 @@ export const settings = {
   "settings.usage": "Usage",
   "settings.network": "Network",
   "settings.secrets": "Secrets",
+  "settings.connectors": "Connectors",
   "settings.about": "About",
 
   "group.custom": "Custom API",

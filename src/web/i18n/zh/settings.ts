@@ -10,6 +10,7 @@ export const settings: Part<typeof en> = {
   "settings.usage": "用量",
   "settings.network": "网络",
   "settings.secrets": "密钥",
+  "settings.connectors": "连接器",
   "settings.about": "关于",
 
   "group.custom": "自定义 API",

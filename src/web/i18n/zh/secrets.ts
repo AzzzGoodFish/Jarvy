@@ -76,5 +76,11 @@ export const secrets: Part<typeof en> = {
   "access.noSecretsYet": "还没有密钥。",
   "access.newSecret": "新建密钥",
   "access.noMachinesYet": "还没有外部环境。",
+  "access.connectors": "连接器",
+  "access.searchConnectors": "搜索连接器",
+  "access.noConnectors": "未授权任何连接器。",
+  "access.allConnectors": "所有连接器都已授权。",
+  "access.noConnectorsYet": "还没有连接器。",
+  "access.manageConnectors": "管理连接器",
   "access.loadFailed": "无法读取授权情况。",
 };

@@ -4,6 +4,7 @@ import type { EnvironmentRecord } from "../../../shared/environment.js";
 import type { ChatService } from "../../chat/service.js";
 import type { ChatFiles } from "../../chat/files.js";
 import type { TaskService } from "../../tasks.js";
+import type { QuestionResult } from "../../chat/questions.js";
 import type { PublishedPorts } from "../ports.js";
 import type { OutgoingMessage, SentMessage, Memory, Workspace } from "../contracts.js";
 import type { RosterEntry } from "../roster.js";
@@ -24,6 +25,17 @@ export interface ToolScope {
   botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
   /** The secrets this Bot may use (A52), never their values, and the card that asks the owner for one. */
   secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
+  /** External service connectors (A102): discover, inspect, authorize and call tools through the chat gateway. */
+  connectors: {
+    list(query?: string): unknown;
+    describe(slug: string, toolName?: string, query?: string): unknown;
+    prepare(slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }>;
+    call(
+      chatId: string, slug: string, toolName: string, args: Record<string, unknown>,
+      ask: (question: QuestionSpec) => Promise<QuestionResult & { messageId: string }>,
+      hasPerson: () => boolean, signal?: AbortSignal,
+    ): Promise<unknown>;
+  };
   /** Scheduled tasks (A58): the Bot manages its own. */
   tasks: TaskService;
   /** Ports published from sandboxes (A74): the Bot publishes its own. */
@@ -74,6 +86,10 @@ export class ToolContext {
     return matches[0]!.id;
   }
   /** Only people answer cards; in a chat of Bots alone a card would wait forever. */
+  hasPerson(chatId: string): boolean {
+    const chat = this.chats.get(this.bot, chatId);
+    return Boolean(chat && chat.memberIds.some(id => this.chats.member(id)?.kind === "user"));
+  }
   withPerson(chatId: string, otherwise: string): Chat {
     const chat = this.chat(chatId);
     if (!chat.memberIds.some(id => this.chats.member(id)?.kind === "user")) throw new ChatError(400, `No person in this chat to answer; ${otherwise}`);

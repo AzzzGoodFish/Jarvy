@@ -900,3 +900,16 @@ Kata Containers (A85) provided VM-level isolation around an OCI container, which
 Why: giving Bots a full Linux OS eliminates container-quirk friction across arbitrary development stacks while preserving Jarvy's single-machine ergonomics, isolation guarantees and lossless workspace semantics.
 
 Supersedes: A85.
+
+## A102 External service connectors
+
+Bots needed structured access to external services (such as GitHub, Gmail, Linear and arbitrary remote HTTP MCP servers) without stuffing credentials into chat or dumping dozens of third-party tool schemas into every prompt.
+
+- **Shared base + per-vendor modules**: `ConnectorService`, storage (v34), `Masker` redaction, OAuth coordination and `chat` gateway tools (`connectors.list / describe / call / request`) are vendor-agnostic. Each provider (`github`, `gmail`, `linear`, `custom_mcp`) lives in its own module under `infra/connectors/providers/` behind `ConnectorAdapter` and registers in `registry.ts`; remote MCP servers share `infra/pi/mcp.ts` (`@earendil-works/pi-mcp`).
+- **Deployment OAuth clients + token fallback where practical**: GitHub and Gmail OAuth clients come from `process.env` or `<data dir>/.env` (`JARVY_<PROVIDER>_CLIENT_ID` / `_CLIENT_SECRET`, plus optional `JARVY_PUBLIC_URL`), keeping client secrets out of the database and UI. GitHub connects to GitHub's official remote MCP server (`https://api.githubcopilot.com/mcp/`) and also retains a Personal Access Token path using the exact same MCP toolset; Gmail is OAuth only (no IMAP/SMTP). Linear uses MCP dynamic client registration.
+- **Per-tool write confirmation with definition fingerprinting**: there is no connector-wide safety mode. Any tool not explicitly annotated `readOnly: true` (and non-destructive) is treated as a write tool and pauses on an editable in-chat confirmation card. Every submitted argument is rendered (read-only when non-scalar, masked or >16k chars) or the card is declined if it cannot be shown in full. Choosing "Confirm / Send & don't ask again" records `(tool_name, definition_hash)` in `connector_unconfirmed_tools`, and live authorization, destination/account fingerprint and tool hash are revalidated inside the connector lock before dispatch.
+- **Calm, ephemeral Settings UI**: unconnected curated presets show one row with a Connect button and open an ephemeral inline drawer; no database row is created until OAuth finishes or a token probes successfully. Connected details show Bot grants and active exemptions first, tucking the full tool list (searchable above 8 tools), usage log and Custom MCP fields into secondary disclosures.
+
+Why: separating per-vendor adapters from the shared connector runtime keeps each integration independently maintainable; ephemeral preset connection prevents half-authorized orphan rows; default-write + definition-hashed exemptions + generation-fenced writes stay safe even on remote MCP servers with dozens of unannotated tools.
+
+Consequences: schema moves to v34; `@earendil-works/pi-mcp` is declared in `package.json`. Local sandbox stdio MCP and webhook triggers remain out of scope for now.
