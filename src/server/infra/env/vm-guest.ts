@@ -5,7 +5,7 @@ import { COMPUTER_CWD, parseListeningPorts } from "./docker.js";
 import { execSsh, pipeFromSsh, pipeToSsh, sshEnvironment, type SshAccess } from "./ssh.js";
 import { makeSeedIso } from "./vm-template.js";
 
-/** Thin-provisioned disk capacities for each VM sandbox (A99): 64 GB OS disk + 64 GB `/workspace` disk. */
+/** Thin-provisioned disk capacities for each VM sandbox (A101): 64 GB OS disk + 64 GB `/workspace` disk. */
 export const VM_OS_DISK_BYTES = 64 * 2 ** 30;
 export const VM_WORKSPACE_DISK_BYTES = 64 * 2 ** 30;
 const VM_SWAP_MB = 2048;

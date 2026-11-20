@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import type { VmProblemReason } from "../../../contract/environment.js";
 import type { Capacity, ContainerState } from "./docker.js";
 
-/** System VM sandboxes (A99): full Linux virtual machines managed through libvirt (`qemu:///system`), each with a
+/** System VM sandboxes (A101): full Linux virtual machines managed through libvirt (`qemu:///system`), each with a
  * thin-provisioned qcow2 OS disk (backed by a shared template), a dedicated qcow2 `/workspace` disk, and an isolated
  * NAT network with nwfilter rules. Runs as a non-root user in the `libvirt` group with zero root setup scripts. */
 export const VIRSH_URI = "qemu:///system";

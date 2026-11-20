@@ -875,7 +875,19 @@ Why: separating turn cancellation from process termination lets people talk to a
 
 Amends: A05 (an interrupt aborts the model turn and detaches any active `bash` command into the background rather than killing it).
 
-## A99 System virtual machine sandboxes (libvirt + QEMU)
+## A100 Only content copies
+
+Everything in the window selected: a drag across the chat list picked up channel names and timestamps on the way, Ctrl+A took the whole shell — sidebar, headers, badges, avatars, buttons — and a press on a label left a caret where typing did nothing, which read as a text box that was not one. Discord, whose interface this follows, lets a person select what has meaning: a message, a file's text, what they typed themselves.
+
+- **The shell does not select** (`user-select: none` on `body`): a drag across it turns nothing blue, a press leaves no caret, and the pointer stays an arrow.
+- **Content selects for itself** (`user-select: text`): a message and the boxes that share it (a channel's notice, a thread's summary), a file's source or text, a Bot's log and a tool call's input, and every field a person types in. A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
+- **Copy and quote from a selection** reads it from a message's box and from nowhere else, so it keeps working unchanged.
+
+Why: a blue run of text and a caret both promise copying and typing. Where neither works they misstate what the interface does, and both were everywhere because no rule said otherwise.
+
+Consequences: selecting a passage in a message still offers copy and quote; selecting anything else offers nothing. A textarea's placeholder takes the highlight on Ctrl+A, as the browser paints it, though nothing of it is copied. Anything new that a person must be able to copy has to say so in its own stylesheet.
+
+## A101 System virtual machine sandboxes (libvirt + QEMU)
 
 Kata Containers (A85) provided VM-level isolation around an OCI container, which left Bots facing container-shaped limitations in real development work: no `systemd`, a stripped static kernel without loadable modules, slow `virtiofs` small-file I/O across `/` and `/workspace`, no `overlayfs` on `virtiofs`, narrow `/dev` device whitelists (no `/dev/net/tun` or `/dev/fuse`), read-only `/sys`, no swap, and private cgroup v2 namespace nesting issues (breaking nested `docker run --memory`). Bots working across diverse stacks need a sandbox that behaves like a real Linux machine.
 
@@ -888,15 +900,3 @@ Kata Containers (A85) provided VM-level isolation around an OCI container, which
 Why: giving Bots a full Linux OS eliminates container-quirk friction across arbitrary development stacks while preserving Jarvy's single-machine ergonomics, isolation guarantees and lossless workspace semantics.
 
 Supersedes: A85.
-
-## A100 Only content copies
-
-Everything in the window selected: a drag across the chat list picked up channel names and timestamps on the way, Ctrl+A took the whole shell — sidebar, headers, badges, avatars, buttons — and a press on a label left a caret where typing did nothing, which read as a text box that was not one. Discord, whose interface this follows, lets a person select what has meaning: a message, a file's text, what they typed themselves.
-
-- **The shell does not select** (`user-select: none` on `body`): a drag across it turns nothing blue, a press leaves no caret, and the pointer stays an arrow.
-- **Content selects for itself** (`user-select: text`): a message and the boxes that share it (a channel's notice, a thread's summary), a file's source or text, a Bot's log and a tool call's input, and every field a person types in. A value meant to be copied whole, such as a machine's public key, uses `user-select: all`.
-- **Copy and quote from a selection** reads it from a message's box and from nowhere else, so it keeps working unchanged.
-
-Why: a blue run of text and a caret both promise copying and typing. Where neither works they misstate what the interface does, and both were everywhere because no rule said otherwise.
-
-Consequences: selecting a passage in a message still offers copy and quote; selecting anything else offers nothing. A textarea's placeholder takes the highlight on Ctrl+A, as the browser paints it, though nothing of it is copied. Anything new that a person must be able to copy has to say so in its own stylesheet.

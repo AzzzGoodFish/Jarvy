@@ -52,7 +52,7 @@ export class EnvironmentRepository {
     this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
       ...(limits.memory !== null ? { memory: String(limits.memory) } : {}), ...(limits.cpus !== null ? { cpus: String(limits.cpus) } : {}) }), id);
   }
-  /** Keeps what a computer is (A85, A99): a VM, or left out for a container. Switching to container clears any VM
+  /** Keeps what a computer is (A85, A101): a VM, or left out for a container. Switching to container clears any VM
    * workspace-import completion marker so a later switch back to VM imports fresh host files. */
   setType(id: string, type: "container" | "vm"): void {
     const computer = this.get(id);
@@ -61,14 +61,14 @@ export class EnvironmentRepository {
     this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
       ...(type === "vm" ? { type, ...(computer.spec.workspaceImported ? { workspaceImported: computer.spec.workspaceImported } : {}) } : {}) }), id);
   }
-  /** Records whether a VM sandbox's initial host-to-VM `/workspace` import completed (A99). */
+  /** Records whether a VM sandbox's initial host-to-VM `/workspace` import completed (A101). */
   setComputerWorkspaceImported(id: string, imported: boolean): void {
     const computer = this.get(id);
     if (computer?.kind !== "computer") return;
     const { workspaceImported: _prev, ...spec } = computer.spec;
     this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec, ...(imported ? { workspaceImported: "1" } : {}) }), id);
   }
-  /** Stores a VM sandbox's SSH credentials (A99): its sealed client private key and accepted SSH host public key. */
+  /** Stores a VM sandbox's SSH credentials (A101): its sealed client private key and accepted SSH host public key. */
   setComputerAuth(id: string, auth: { privateKey: string; hostKey: string }): void {
     this.db.prepare("UPDATE environments SET key=?, host_keys=? WHERE id=? AND kind='computer'")
       .run(this.cipher.seal(auth.privateKey, `environment:${id}`), JSON.stringify({ keys: [auth.hostKey], fingerprints: [] }), id);

@@ -17,9 +17,9 @@ import {
   trimVmDisks, vmEnvironment, vmListeningPorts, vmSshAccess, vmUsage, waitForVmReady,
 } from "../../infra/env/vm-guest.js";
 
-/** A VM sandbox's size when the owner set none (A85, A99): 4 GB of memory and 2 vCPUs. */
+/** A VM sandbox's size when the owner set none (A85, A101): 4 GB of memory and 2 vCPUs. */
 export const VM_SIZE = { memory: 4 * 2 ** 30, cpus: 2 } as const;
-/** What a Bot's sandbox is (A85, A99), as kept with it; a container unless made a VM. */
+/** What a Bot's sandbox is (A85, A101), as kept with it; a container unless made a VM. */
 export const computerType = (record: EnvironmentRecord): ComputerType => record.spec.type === "vm" ? "vm" : "container";
 
 /** Container sandbox image builder (A50). Built on first use and shared across all container sandboxes. */
@@ -40,7 +40,7 @@ export class ComputerImages {
   }
 }
 
-/** Whether this machine can run libvirt + QEMU VM sandboxes (A99); checked on demand and cached. */
+/** Whether this machine can run libvirt + QEMU VM sandboxes (A101); checked on demand and cached. */
 export class VmSupportCheck {
   private known: VmSupport = { state: "unknown" };
   private running: Promise<VmSupport> | null = null;
@@ -66,7 +66,7 @@ export class VmSupportCheck {
 interface VmVolumes { os: string; workspace: string; seed: string }
 const vmVolumes = (name: string): VmVolumes => ({ os: `${name}-os.qcow2`, workspace: `${name}-workspace.qcow2`, seed: `${name}-seed.iso` });
 
-/** Manages libvirt + QEMU system VM sandboxes for a Jarvy installation (A99): shared backing template, per-Bot
+/** Manages libvirt + QEMU system VM sandboxes for a Jarvy installation (A101): shared backing template, per-Bot
  * thin OS and `/workspace` qcow2 disks, bidirectional lossless workspace sync, isolated NAT network, SSH `pi-env`
  * connections, live usage and published-port resolution. */
 export class VmSandboxes {
@@ -181,7 +181,7 @@ export class VmSandboxes {
   }
 
   /** Resets the VM: shuts down cleanly so `/workspace` flushes to disk, wipes OS disk and seed ISO, and preserves
-   * `workspace.qcow2` (A99). */
+   * `workspace.qcow2` (A101). */
   async reset(record: EnvironmentRecord): Promise<void> {
     const name = record.spec.container!, vols = vmVolumes(name);
     await shutdownDomain(name);

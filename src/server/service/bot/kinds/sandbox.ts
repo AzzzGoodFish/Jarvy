@@ -13,11 +13,11 @@ function limits(record: EnvironmentRecord): string | null {
 
 const sentence = (text: string) => `${text[0]!.toUpperCase()}${text.slice(1)}`;
 
-/** What a VM sandbox (A99) has that a container doesn't, in the Bot's words. */
+/** What a VM sandbox (A101) has that a container doesn't, in the Bot's words. */
 const VM = "A full Linux virtual machine only you use (systemd, full Linux kernel, swap, dedicated /workspace disk), with Node, Python, git, build tools, Playwright with its browsers, and Docker with Docker Compose: docker works there without sudo, and a port a service or container of yours publishes is a port of your sandbox. Installed software and Docker data stay until the owner resets your sandbox.";
 const CONTAINER = "A Linux container only you use, with Node, Python, git, build tools, and Playwright with its browsers.";
 
-/** A Bot's own container, the code's `computer` (A50), or its own VM (A99): only it uses it, it starts when the Bot
+/** A Bot's own container, the code's `computer` (A50), or its own VM (A101): only it uses it, it starts when the Bot
  * switches or works there, and its files are under /workspace. It is the Bot's home even when Docker or libvirt isn't
  * available (A68), so a switch back there always moves the Bot; its file and command tools then say why. */
 export const sandbox: EnvironmentKindEntry = {

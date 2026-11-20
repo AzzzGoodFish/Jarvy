@@ -22,7 +22,7 @@ const unusableDocker = (error: string | undefined): DockerProblemReason =>
 const unusableVm = (error: string | undefined): VmProblemReason =>
   error === "no_libvirt" || error === "stopped" || error === "denied" || error === "no_tools" || error === "no_kvm" || error === "busy" ? error : "failed";
 
-/** Bot info's section (A50, A68, A99): its sandbox (a Docker container or a full Linux VM via libvirt + QEMU), the only
+/** Bot info's section (A50, A68, A101): its sandbox (a Docker container or a full Linux VM via libvirt + QEMU), the only
  * default there is: its state, its type, its container or VM name, image and mount, its resource limits or VM size and
  * usage (A75), Start or Stop and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it
  * switched to a machine. The machines it may use are on the 授权 tab (BotAccess). */

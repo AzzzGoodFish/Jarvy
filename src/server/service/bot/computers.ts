@@ -19,10 +19,10 @@ const SWEEP_MS = 60_000;
 const RECHECK_MS = 30_000;
 /** The name sandboxes reach this machine by (A74), as Docker Desktop calls it. */
 export const HOST_NAME = "host.docker.internal";
-/** The least a limit may be (A75): less leaves too little for the tools' own daemon, or in a VM (A99) for its OS. */
+/** The least a limit may be (A75): less leaves too little for the tools' own daemon, or in a VM (A101) for its OS. */
 const MIN = { container: { memory: 256 * 2 ** 20, cpus: 0.1 }, vm: { memory: 2 ** 30, cpus: 1 } } as const;
 
-/** A computer's limits as kept with it (A75); none when absent. A VM (A99) always has a size, its default when unset. */
+/** A computer's limits as kept with it (A75); none when absent. A VM (A101) always has a size, its default when unset. */
 export function computerLimits(record: EnvironmentRecord): ComputerLimits {
   const read = (value: string | undefined) => value && Number(value) > 0 ? Number(value) : null;
   const memory = read(record.spec.memory), cpus = read(record.spec.cpus);
@@ -36,7 +36,7 @@ export interface ComputerDependencies {
   log?: (text: string) => void;
 }
 
-/** Bots' sandboxes (A50, A99): Docker containers (default) or full Linux virtual machines (libvirt + QEMU), each with
+/** Bots' sandboxes (A50, A101): Docker containers (default) or full Linux virtual machines (libvirt + QEMU), each with
  * its own `/workspace`. Containers and VMs have independent host checks (Docker vs libvirt/KVM), so VMs still run even
  * without Docker on the host. Sandboxes keep running when Jarvy stops so background work survives restarts. */
 export class Computers {
@@ -159,7 +159,7 @@ export class Computers {
   get vmSupport(): VmSupport { return this.vms.current; }
   checkVms(again = false): Promise<VmSupport> { return this.vms.check(again); }
 
-  /** Switches a Bot's sandbox between container and system VM (A99): preserves `/workspace` losslessly in both
+  /** Switches a Bot's sandbox between container and system VM (A101): preserves `/workspace` losslessly in both
    * directions (importing into `workspace.qcow2` on container→VM, exporting back to host before destroying on VM→container). */
   async setType(botId: string, type: ComputerType): Promise<void> {
     const computer = this.record(botId), current = computerType(computer);

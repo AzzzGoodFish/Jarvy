@@ -19,7 +19,7 @@ const BUILD_MEMORY_MIB = 4096;
 const BUILD_VCPUS = 2;
 
 /** Provisioning script run inside an ephemeral Ubuntu 24.04 builder VM to produce the shared read-only backing image
- * (A99). Matches the container sandbox's toolchain (Node, Python, git, build tools, CJK fonts, Playwright + Chromium)
+ * (A101). Matches the container sandbox's toolchain (Node, Python, git, build tools, CJK fonts, Playwright + Chromium)
  * plus Docker Engine, Docker Compose, systemd, and standard networking utilities. */
 export const TEMPLATE_PROVISION = `#!/usr/bin/env bash
 set -euxo pipefail

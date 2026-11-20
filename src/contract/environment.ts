@@ -51,14 +51,14 @@ export type ComputerState = "preparing" | "running" | "stopped" | "failed" | "un
 export type DockerProblemReason = "missing" | "stopped" | "denied" | "failed";
 /** `error` is the reason it failed, or for `unavailable` why Docker can't be used (`DockerProblemReason`). */
 export interface ComputerStatus { state: ComputerState; error?: string }
-/** What a sandbox is (A85, A99): a Docker container (the default), or a full Linux virtual machine (libvirt + QEMU). */
+/** What a sandbox is (A85, A101): a Docker container (the default), or a full Linux virtual machine (libvirt + QEMU). */
 export type ComputerType = "container" | "vm";
 /** A Bot's sandbox in Bot info: its state, and what it is: its type, the container or VM's name, the image it is made
  * from, and the folder on this machine mounted as its workspace. `restartNeeded`: a VM's size was changed while it
  * ran, which takes effect at its next start. */
 export interface ComputerInfo extends ComputerStatus { type: ComputerType; container: string; image: string; workspace: string; mount: string; limits: ComputerLimits;
   restartNeeded?: boolean }
-/** Why this machine can't run VM sandboxes (A99): libvirt/QEMU isn't installed, libvirtd isn't running, this user lacks
+/** Why this machine can't run VM sandboxes (A101): libvirt/QEMU isn't installed, libvirtd isn't running, this user lacks
  * permission to use libvirt, helper tools (qemu-img / cloud-localds) are missing, there is no KVM, KVM is held by
  * another hypervisor (such as VirtualBox), or something else. */
 export type VmProblemReason = "no_libvirt" | "stopped" | "denied" | "no_tools" | "no_kvm" | "busy" | "failed";
@@ -69,7 +69,7 @@ export interface VmSupport { state: "unknown" | "checking" | "available" | "unav
  * nothing, so a sandbox under it takes only what it uses. A VM always has a size: 4 GB and 2 CPUs unless set. */
 export interface ComputerLimits { memory: number | null; cpus: number | null }
 /** What a running sandbox uses now: memory in bytes, and CPU in percent of one core, so over 100 with several. A VM's
- * (A99) is the whole VM's, read inside it, with its disks' use and `host`: what it takes of this machine, its QEMU
+ * (A101) is the whole VM's, read inside it, with its disks' use and `host`: what it takes of this machine, its QEMU
  * process's memory and its qcow2 disks' allocated blocks, null where unknown. */
 export interface ComputerUsage { memory: number; cpu: number; disk?: { used: number; size: number }; host?: { memory: number | null; disk: number | null } }
 /** This machine's CPUs and memory in bytes, as Docker sees them: what limits may go up to. */
