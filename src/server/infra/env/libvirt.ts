@@ -18,13 +18,13 @@ const POOL_ROOT = "/var/lib/libvirt/images";
 export interface VmProblem { reason: VmProblemReason; detail: string }
 
 /** A Jarvy-scoped libvirt NAT network and its VM-isolation nwfilter. */
-export interface VmNetwork { name: string; bridge: string; gateway: string; filter: string | null }
+export interface VmNetwork { name: string; bridge: string; gateway: string; filter: string }
 
 /** Spec for defining a Jarvy KVM domain. */
 export interface VmDomainSpec {
   name: string; memoryMiB: number; vcpus: number;
   osVolPath: string; workspaceVolPath?: string; seedVolPath: string;
-  network: string; filter: string | null; mac: string;
+  network: string; filter: string; mac: string;
 }
 
 /** Runs `virsh -c qemu:///system ...`; throws a concise error on non-zero exit. */
@@ -90,7 +90,8 @@ export function hostCapacity(): Capacity {
 export async function ensurePool(name: string): Promise<void> {
   let info = "";
   try { info = await virsh(["pool-info", name], 15_000); }
-  catch {
+  catch (error) {
+    if (!/storage pool not found|no storage pool|failed to get pool\b/i.test((error as Error).message)) throw error;
     await virsh(["pool-define-as", name, "dir", "--target", `${POOL_ROOT}/${name}`], 30_000);
     await virsh(["pool-build", name], 30_000).catch(() => {});
     info = await virsh(["pool-info", name], 15_000);
@@ -101,9 +102,16 @@ export async function ensurePool(name: string): Promise<void> {
 
 export async function poolRefresh(pool: string): Promise<void> { await virsh(["pool-refresh", pool], 30_000); }
 
+const VOL_ABSENT = /storage volume not found|no storage vol|failed to get vol\b/i;
+
+/** Checks whether `vol` exists in `pool`. Returns false only on confirmed volume absence; rethrows RPC, permission,
+ * pool or daemon errors so callers never mistake a lookup failure for an absent volume. */
 export async function volExists(pool: string, vol: string): Promise<boolean> {
   try { await virsh(["vol-info", "--pool", pool, vol], 15_000); return true; }
-  catch { return false; }
+  catch (error) {
+    if (VOL_ABSENT.test((error as Error).message)) return false;
+    throw error;
+  }
 }
 
 export async function volPath(pool: string, vol: string): Promise<string> {
@@ -166,7 +174,7 @@ export async function volClone(pool: string, src: string, dst: string): Promise<
 
 export async function volDelete(pool: string, vol: string): Promise<void> {
   try { await virsh(["vol-delete", "--pool", pool, vol], 60_000); }
-  catch (error) { if (!/not found|no storage vol|failed to get vol/i.test((error as Error).message)) throw error; }
+  catch (error) { if (!VOL_ABSENT.test((error as Error).message)) throw error; }
 }
 
 /** Ensures this Jarvy's isolated NAT network (`jarvy-<tag>`) and VM-isolation nwfilter exist and are active. */
@@ -176,7 +184,9 @@ export async function ensureVmNetwork(tag: string): Promise<VmNetwork> {
   try {
     const xml = await virsh(["net-dumpxml", name], 15_000);
     gateway = /<ip\s+address=['"]([^'"]+)['"]/.exec(xml)?.[1] ?? null;
-  } catch { /* network does not exist yet */ }
+  } catch (error) {
+    if (!/network not found|no network|failed to get network\b/i.test((error as Error).message)) throw error;
+  }
   if (!gateway) {
     const octet = await pickSubnetOctet(tag);
     gateway = `10.200.${octet}.1`;
@@ -224,10 +234,11 @@ async function pickSubnetOctet(tag: string): Promise<number> {
   throw new Error("No free 10.200.x.0/24 subnet available for Jarvy VM network");
 }
 
-/** Defines a libvirt nwfilter that allows VM↔gateway and VM↔internet while blocking VM↔VM traffic on the subnet. */
-async function ensureIsolationFilter(name: string, gateway: string): Promise<string | null> {
+/** Defines a libvirt nwfilter that allows VM↔gateway and VM↔internet while blocking VM↔VM traffic on the subnet.
+ * Throws on failure so a VM is never defined or started without isolation. */
+async function ensureIsolationFilter(name: string, gateway: string): Promise<string> {
   const subnet = gateway.replace(/\.\d+$/, ".0");
-  const filters = await virsh(["nwfilter-list"], 15_000).catch(() => "");
+  const filters = await virsh(["nwfilter-list"], 15_000);
   const hasCleanTraffic = /\bclean-traffic\b/.test(filters);
   const xml = [
     `<filter name='${xmlEscape(name)}' chain='root'>`,
@@ -249,7 +260,9 @@ async function ensureIsolationFilter(name: string, gateway: string): Promise<str
   try {
     await withXmlFile(xml, file => virsh(["nwfilter-define", file], 30_000));
     return name;
-  } catch { return null; }
+  } catch (error) {
+    throw new Error(`Failed to install VM isolation filter ${name}: ${(error as Error).message}`);
+  }
 }
 
 /** Random locally-administered unicast MAC (`52:54:00:xx:yy:zz`) in libvirt's range. Assigned once per domain
@@ -301,7 +314,7 @@ export function domainXml(spec: VmDomainSpec): string {
     `      <mac address='${spec.mac}'/>`,
     `      <source network='${xmlEscape(spec.network)}'/>`,
     "      <model type='virtio'/>",
-    ...(spec.filter ? [`      <filterref filter='${xmlEscape(spec.filter)}'/>`] : []),
+    `      <filterref filter='${xmlEscape(spec.filter)}'/>`,
     "    </interface>",
     "    <serial type='pty'/>",
     "    <console type='pty'/>",

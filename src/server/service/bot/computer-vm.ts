@@ -112,6 +112,7 @@ export class VmSandboxes {
 
     const wsExists = await volExists(this.pool, vols.workspace);
     const workspaceVolPath = wsExists ? await volPath(this.pool, vols.workspace) : await volCreateQcow2(this.pool, vols.workspace, VM_WORKSPACE_DISK_BYTES);
+    if (!wsExists) this.deps.store.environments.setComputerWorkspaceImported(record.id, false);
     const osExists = await volExists(this.pool, vols.os);
     const osVolPath = osExists ? await volPath(this.pool, vols.os) : await volCreateQcow2(this.pool, vols.os, VM_OS_DISK_BYTES, baseVol);
 
@@ -151,7 +152,11 @@ export class VmSandboxes {
     const access = vmSshAccess(this.runtimeDir, name, ip, auth!.hostKey, auth!.privateKey);
     await waitForVmReady(access, 180_000);
     await ensureVmHostEntry(access, this.deps.hostName, network.gateway).catch(() => {});
-    if (!wsExists) await importWorkspace(access, hostWorkspace);
+    const needsImport = !wsExists || this.deps.store.environments.get(record.id)?.spec.workspaceImported !== "1";
+    if (needsImport) {
+      await importWorkspace(access, hostWorkspace);
+      this.deps.store.environments.setComputerWorkspaceImported(record.id, true);
+    }
     void trimVmDisks(access).catch(() => {});
     return access;
   }
@@ -187,14 +192,21 @@ export class VmSandboxes {
     this.ips.delete(name);
   }
 
-  /** Removes a VM sandbox; when `keepFiles` is true and `workspace.qcow2` exists, exports `/workspace` back to
-   * `hostWorkspace` losslessly before deleting any disk volume. */
+  /** Removes a VM sandbox; when `keepFiles` is true, confirms whether `workspace.qcow2` exists (failing without any
+   * destructive calls on lookup, infra, or export errors) and exports `/workspace` back to `hostWorkspace` losslessly
+   * before tearing down the domain, volumes, and credentials. */
   async remove(record: EnvironmentRecord, limits: ComputerLimits, hostWorkspace: string, keepFiles: boolean): Promise<void> {
     const name = record.spec.container!, vols = vmVolumes(name);
-    const poolReady = await this.ensureInfra().then(() => true, () => false);
-    if (poolReady && keepFiles && await volExists(this.pool, vols.workspace)) {
-      const access = await this.ensure(record, limits, hostWorkspace);
-      await exportWorkspace(access, hostWorkspace);
+    let poolReady: boolean;
+    if (keepFiles) {
+      await this.ensureInfra();
+      poolReady = true;
+      if (await volExists(this.pool, vols.workspace)) {
+        const access = await this.ensure(record, limits, hostWorkspace);
+        await exportWorkspace(access, hostWorkspace);
+      }
+    } else {
+      poolReady = await this.ensureInfra().then(() => true, () => false);
     }
     await undefineDomain(name).catch(() => {});
     if (poolReady) {
@@ -203,6 +215,7 @@ export class VmSandboxes {
       await volDelete(this.pool, vols.seed).catch(() => {});
     }
     this.deps.store.environments.clearComputerAuth(record.id);
+    this.deps.store.environments.setComputerWorkspaceImported(record.id, false);
     this.ips.delete(name);
   }
 
