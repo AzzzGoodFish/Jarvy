@@ -1,5 +1,6 @@
 import type { Member } from "../../../contract/chat.js";
 import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../../shared/agent.js";
+import type { JobNoticePayload, RunningJobSummary } from "../../shared/jobs.js";
 import type { PromptChange } from "../../shared/prompt.js";
 
 export interface EnvelopeMessage {
@@ -35,6 +36,7 @@ export interface BatchDigest {
   unread: readonly { chatId: string; title: string; type: string; count: number }[];
   unreadNotes?: readonly UnreadNote[];
   environment?: BatchEnvironment;
+  runningJobs?: readonly RunningJobSummary[];
 }
 /** A notice the Bot was told of but has not read (A67); a thread's carries its channel's too. */
 export interface UnreadNote { chatId: string; title: string; type: string; version: number }
@@ -49,6 +51,9 @@ const unreadNoteLine = (notes: readonly UnreadNote[]) => notes.length ? `<notice
 export interface BatchEnvironment { name: string; directory: string; problem?: string }
 const environmentLine = (place?: BatchEnvironment) => place
   ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}${place.problem ? attribute("problem", place.problem) : ""}/>` : "";
+const runningJobsLine = (jobs?: readonly RunningJobSummary[]) => jobs?.length
+  ? `<running_jobs>${jobs.map(job => `<running_job${attribute("id", job.id)}${attribute("env", job.env)}${attribute("since", iso(job.startedAt))}>${escape(job.command)}</running_job>`).join("")}</running_jobs>` : "";
+const formatDuration = (ms: number) => `${(Math.max(0, ms) / 1000).toFixed(1)}s`;
 const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z");
 
 /** A delivery that is not a message (A39, A41): chat activity — a mark on the Bot's message, or a new notice / summary
@@ -62,7 +67,9 @@ export type EnvelopeNotice =
   /** One of the Bot's scheduled tasks is due (A58): what to do, and when it was meant to run. */
   | { kind: "task"; id: number; task: { id: string; name: string; instruction: string; schedule: string }; due: number; createdAt: number }
   /** Its conversation was compacted (A73): the open threads it follows, most recently active first, and how many there are. */
-  | { kind: "followed"; id: number; total: number; threads: readonly FollowedThread[]; createdAt: number };
+  | { kind: "followed"; id: number; total: number; threads: readonly FollowedThread[]; createdAt: number }
+  /** A background bash command finished (A98): status, exit code, and tail output. */
+  | { kind: "job"; id: number; job: JobNoticePayload; createdAt: number };
 type FollowedThread = { id: string; title: string; channel: { id: string; title: string }; lastReplyAt: number; unread: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model; it writes to them itself (A61). */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
@@ -71,12 +78,12 @@ const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just
   + "If the environment at the end of this batch names a problem, also tell them in a sentence what it means for the Bots and offer to help set it up, as your setup skill describes.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
 export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null,
-  unreadNotes?: readonly UnreadNote[]): string {
+  unreadNotes?: readonly UnreadNote[], runningJobs?: readonly RunningJobSummary[]): string {
   if (!notices.length && !prompt) throw new Error("Empty notice batch");
   const chats = new Map<string, string>(), members = new Map<string, string>();
   const list = noticeTail(notices, chats, members);
   return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${instructionsLine(prompt)}`
-    + `${unreadNoteLine(unreadNotes ?? [])}${environmentLine(environment)}</notice_batch>`;
+    + `${unreadNoteLine(unreadNotes ?? [])}${runningJobsLine(runningJobs)}${environmentLine(environment)}</notice_batch>`;
 }
 /** Your instructions changed (A56): the system prompt stays as the session has it, so that the conversation stays
  * cached; what changed comes with the batch, once. */
@@ -93,7 +100,7 @@ function instructionsLine(change?: PromptChange | null): string {
  * described by a message keeps that (fuller) definition. */
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
-    if (notice.kind === "task") continue;
+    if (notice.kind === "task" || notice.kind === "job") continue;
     // The threads it follows, and their channels, are chats of this batch; one a message or another notice already
     // defined keeps that definition, as for the other notices.
     if (notice.kind === "followed") {
@@ -131,8 +138,19 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + "with threads.follow; one that is done leaves this list by itself.</note></followed>"]).slice(-1);
   const tasks = notices.flatMap(notice => notice.kind !== "task" ? [] : [`<task${attribute("id", notice.task.id)}`
     + `${attribute("name", notice.task.name)}${attribute("schedule", notice.task.schedule)}${attribute("due", iso(notice.due))}>${escape(notice.task.instruction)}</task>`]);
+  const jobs = notices.flatMap(notice => notice.kind !== "job" ? [] : [
+    `<job${attribute("id", notice.job.id)}${attribute("status", notice.job.status)}`
+    + `${notice.job.exitCode !== null ? attribute("exit", String(notice.job.exitCode)) : ""}`
+    + `${attribute("duration", formatDuration(notice.job.durationMs))}${attribute("env", notice.job.env)}`
+    + `${attribute("at", iso(notice.createdAt))}${attribute("lines", String(notice.job.totalLines))}`
+    + `${notice.job.fullOutputPath ? attribute("full_output", notice.job.fullOutputPath) : ""}>`
+    + `<command>${escape(notice.job.command)}</command>`
+    + `${notice.job.error ? `<error>${escape(notice.job.error)}</error>` : ""}`
+    + `${notice.job.output ? `<output>${escape(notice.job.output)}</output>` : ""}</job>`,
+  ]);
   return (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
     + "then send what is worth sending, to your owner unless the task says where; if nothing is, do nothing.</note></tasks>" : "")
+    + (jobs.length ? `<jobs>${jobs.join("")}<note>Background commands above ended. Use bash_job(action="read") if you need more of their output, or read full_output when provided.</note></jobs>` : "")
     + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`
@@ -172,6 +190,7 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
   if (digest?.unread.length) tail += `<unread${attribute("total", String(digest.unread.reduce((sum, item) => sum + item.count, 0)))}>`
     + `${digest.unread.map(item => `<chat${ref("id", item)}${attribute("count", String(item.count))}/>`).join("")}</unread>`;
   tail += unreadNoteLine(digest?.unreadNotes ?? []);
+  tail += runningJobsLine(digest?.runningJobs);
   tail += environmentLine(digest?.environment);
   return `<chat_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${encoded.join("")}${tail}</chat_batch>`;
 }
