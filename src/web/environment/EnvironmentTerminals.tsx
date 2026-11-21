@@ -30,7 +30,7 @@ export function EnvironmentTerminals({ environmentId, sessions, availability, ma
   const [confirmClose, setConfirmClose] = useState<TerminalSession | null>(null);
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const canvasRef = useRef<TerminalCanvasHandle>(null);
 
   // Pick a valid active tab whenever the environment or its session list changes.
@@ -48,10 +48,10 @@ export function EnvironmentTerminals({ environmentId, sessions, availability, ma
   }, [active?.id, selectedId]);
 
   useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1800);
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 2200);
     return () => window.clearTimeout(timer);
-  }, [copied]);
+  }, [notice]);
 
   async function createNew() {
     if (creating) return;
@@ -194,7 +194,7 @@ export function EnvironmentTerminals({ environmentId, sessions, availability, ma
         </button>}
       </div>
       <div className="jv-term-actions">
-        {copied && <span className="jv-term-copied" role="status">{t("terminal.copied")}</span>}
+        {notice && <span className="jv-term-copied" role="status">{notice}</span>}
         <button type="button" className="jv-term-tool" aria-label={t("terminal.copy")} title={t("terminal.copy")} onClick={() => void canvasRef.current?.copy()}>
           <ClipboardCopyIcon aria-hidden="true"/>
         </button>
@@ -228,7 +228,7 @@ export function EnvironmentTerminals({ environmentId, sessions, availability, ma
       onExit={() => void onRefresh()}
       onForeground={() => void onRefresh()}
       onStateSync={() => void onRefresh()}
-      onCopied={() => setCopied(true)}/>}
+      onNotice={setNotice}/>}
 
     {active && exitMessage && <div className="jv-term-exit-bar" role="status">
       <span>{exitMessage}</span>
