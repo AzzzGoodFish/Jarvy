@@ -5,38 +5,40 @@
 <h1 align="center">Jarvy</h1>
 
 <p align="center">
-  <b>A local chat workspace where you and your AI Bots work as a team.</b>
+  <b>A local chat workspace where you and your AI Bots work side by side.</b>
 </p>
 
 <p align="center">English · <a href="README.zh-CN.md">中文</a></p>
 
-Give a Bot a job in a channel, discuss one decision in a thread, then open the machine where it did the work. In the example project, Robin and two Bots are making a walking guide: the channel holds the draft map, and the thread records why Riverside went on the cover.
+Jarvy looks like team chat, except the other members are long-running AI Bots with real workspaces and tools. Hand a Bot a task in a channel, settle a decision in a thread, then step straight into the machine where it did the work.
 
 <!-- Screenshot: docs/images/en/channel.png -->
 
 ## Work with Bots in chat
 
-- **Build a team.** Tell Jarvy, your first Bot, what you want to do. It can create other Bots, give each a role and set its model. Bring your own model connections (API key or OAuth), and choose the model and thinking level per Bot.
-- **Give each conversation a place.** DM a Bot for a quick question, mention it in a channel for shared work, or follow a thread to keep a decision with its replies. Bots can send files, ask for a choice on a card and schedule a follow-up. Maps, documents and recordings can be previewed in chat.
-- **Pick up where you left off.** Each Bot has one context across the chats it participates in. Moving from a channel to a DM does not start it over. Its cat avatar shows what it is doing; open History to inspect the tool calls and results behind a reply.
+- **Build a team.** Tell Jarvy, your first Bot, what you want to get done—it can create other Bots, define their roles and pick their models. Connect your own providers via API key or OAuth, and set the model and thinking level per Bot.
+- **Keep conversations organized.** DM a Bot for quick questions, mention it in a channel for shared work, or follow a thread to keep a decision with its replies. Bots can send files, ask you to choose on a card, and schedule follow-ups. Images, documents, HTML, audio and video preview right in chat.
+- **Pick up where you left off.** Each Bot keeps one context across every chat it joins, so moving from a channel to a DM never starts over. Its cat avatar shows what it is doing live; open History to inspect the tool calls and results behind any reply.
 
-## Open the environment where the work happened
+## Work directly inside each environment
 
-Bots can work in their own Docker container or Linux VM, on a machine reached over SSH, or on a computer paired with the desktop client. You choose which Bots may use each environment. When a Bot runs a web app in its sandbox, it can share a signed-in preview link.
+Bots can run in their own Docker container or Linux VM, on a remote host over SSH, or on a computer paired through the desktop client. You decide which Bots may use each environment. When a Bot runs a web app in its sandbox, it can share a signed-in preview link.
 
-In **Environments → Terminal**, open multiple named shells in separate tabs. Close the browser and come back to the same running shell and scrollback; restarting the Jarvy server ends those sessions. In the guide project, the route notes and print proof have their own terminals on the connected computer *Studio*.
+In **Environments → Terminal**, open multiple named shells in separate tabs. Close the tab or drop offline and come back to the same running process and scrollback—sessions end only if the Jarvy server restarts.
 
 <!-- Screenshot: docs/images/en/terminal.png -->
 
-Use **Files** to browse the same directory, upload or download a print proof, rename a draft or create a folder. Transfers go directly to or from the environment, not into chat history. To share a file with the team instead, attach it to a message.
+Switch to **Files** to browse directories, upload or download files directly, rename items or create folders. Transfers go straight to and from the environment without cluttering chat history; attach a file to a message only when you want the team to see it.
 
 <!-- Screenshots: mobile chat and environment files -->
 
 ## Connect your accounts on your terms
 
-Add GitHub, Gmail, Linear or a custom MCP server in **Settings → Connectors**. A Bot can request one named connection, such as a particular GitHub account. Grant it for the current run or on an ongoing basis. A grant lets the Bot use that connection; **each write still needs your confirmation**.
+Add GitHub, Gmail, Linear or a custom MCP server in **Settings → Connectors**. A Bot requests access to a specific account (such as one GitHub connection), and you can grant it for a single run or ongoing use. Granting access does not mean silent changes: **every write action still pauses for your confirmation**.
 
-Jarvy is single-user and runs on your machine. Chats are stored in a local SQLite database; attachments, Bot workspaces and session files are stored separately. Model calls go to your configured providers. Use the English or Chinese web interface from a desktop or phone, or download the [Windows or Linux desktop client](https://github.com/AzzzGoodFish/Jarvy/releases/latest).
+## Local-first, on your own machine
+
+Jarvy is single-user and runs locally. Conversations live in a local SQLite database; attachments, Bot workspaces and session files are stored separately on disk. Model requests go directly to your configured providers. Use the English or Chinese web app from desktop or mobile, or install the [Windows or Linux desktop client](https://github.com/AzzzGoodFish/Jarvy/releases/latest).
 
 ## Quick start
 
