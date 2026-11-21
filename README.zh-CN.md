@@ -12,7 +12,7 @@
 
 Jarvy 用起来像熟悉的团队群聊，区别在于群里的成员是拥有真实工作环境的常驻 AI Bot。在频道里把任务交给 Bot，在线程里敲定细节，再直接打开它干活的机器查看和操作成果。
 
-<!-- Screenshot: docs/images/zh/channel.png -->
+![Pip 发来地图，团队在右侧线程里敲定封面。](docs/images/zh/channel.png)
 
 ## 在聊天里和 Bot 协作
 
@@ -26,11 +26,14 @@ Bot 可以在专属的 Docker 容器或 Linux 虚拟机里工作，也能通过 
 
 打开**环境 → 终端**，可以在不同页签里同时运行并命名多个 shell。关闭网页或断网重连后，正在运行的进程和终端输出依然保留（仅在重启 Jarvy 服务时结束）。
 
-<!-- Screenshot: docs/images/zh/terminal.png -->
+![Studio 的两个终端页签：当前 shell 运行路线汇总脚本，列出了三条步行路线的用时。](docs/images/zh/terminal.png)
 
 切到**文件**页签，就能直接浏览目录、流式上传或下载文件、重命名和新建文件夹。传输直连工作环境，不会混进聊天记录；需要和团队一起看时，再作为消息附件发到聊天里。
 
-<!-- Screenshots: mobile chat and environment files -->
+<p align="center">
+  <img src="docs/images/zh/mobile.png" width="270" alt="窄屏上的频道，显示 Pip 分享的地图">
+  <img src="docs/images/zh/mobile-files.png" width="270" alt="窄屏上的 Studio 文件页，列出路线、地图和 PDF 清样">
+</p>
 
 ## 接入外部账号，由你授权
 

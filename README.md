@@ -12,7 +12,7 @@
 
 Jarvy looks like team chat, except the other members are long-running AI Bots with real workspaces and tools. Hand a Bot a task in a channel, settle a decision in a thread, then step straight into the machine where it did the work.
 
-<!-- Screenshot: docs/images/en/channel.png -->
+![A field guide taking shape: Pip shares the map and the team chooses the cover in a thread.](docs/images/en/channel.png)
 
 ## Work with Bots in chat
 
@@ -26,11 +26,14 @@ Bots can run in their own Docker container or Linux VM, on a remote host over SS
 
 In **Environments → Terminal**, open multiple named shells in separate tabs. Close the tab or drop offline and come back to the same running process and scrollback—sessions end only if the Jarvy server restarts.
 
-<!-- Screenshot: docs/images/en/terminal.png -->
+![Studio's terminal tabs, with a shell running the guide's route summary and printing the three walking times.](docs/images/en/terminal.png)
 
 Switch to **Files** to browse directories, upload or download files directly, rename items or create folders. Transfers go straight to and from the environment without cluttering chat history; attach a file to a message only when you want the team to see it.
 
-<!-- Screenshots: mobile chat and environment files -->
+<p align="center">
+  <img src="docs/images/en/mobile.png" width="270" alt="Narrow chat view showing the map Pip shared">
+  <img src="docs/images/en/mobile-files.png" width="270" alt="Narrow Files view on Studio showing routes, maps and the PDF print proof">
+</p>
 
 ## Connect your accounts on your terms
 
