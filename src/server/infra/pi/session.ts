@@ -50,6 +50,9 @@ export interface SessionOptions {
   catalog?: ModelCatalog;
   /** A model reply's headers, with the connection it came through: some carry the subscription's limits (A94). */
   onReply?: (connectionId: string, provider: string, headers: Record<string, string>) => void;
+  /** Returns true when a tool (such as `context.handoff`, A99) has closed the current context stage and the turn
+   * should end immediately after the current tool batch's results are recorded. */
+  shouldEndTurn?: () => boolean;
 }
 /** The longest we wait for one provider request (Pi's default is five minutes). */
 const HTTP_IDLE_TIMEOUT_MS = 900_000;
@@ -78,6 +81,8 @@ export interface BotSession {
   promptChange(): PromptChange | null;
   /** That change went to the model with a batch. */
   promptTold(change: PromptChange): void;
+  /** Appends a self-authored compaction checkpoint directly to the session file (A99), dropping all prior context. */
+  handoff(summary: string, tokensBefore: number): void;
   dispose(): Promise<void>;
 }
 export type SessionFactory = (options: SessionOptions) => Promise<BotSession>;
@@ -193,6 +198,15 @@ export class PiSession implements BotSession {
     adapter.session = result.session; adapter.settings = settingsManager;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
       adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");
+    }
+    if (options.shouldEndTurn) {
+      const innerFinishTurn = adapter.session.agent.finishTurn;
+      adapter.session.agent.finishTurn = async (turn, signal) => {
+        const decision = await innerFinishTurn?.(turn, signal);
+        if (decision && decision.action === "end") return decision;
+        if (options.shouldEndTurn?.()) return { action: "end" };
+        return decision ?? undefined;
+      };
     }
     adapter.unsubscribe = adapter.session.subscribe(event => adapter.onEvent(event));
     if (options.onHistory) {
@@ -316,6 +330,10 @@ export class PiSession implements BotSession {
   }
   promptChange(): PromptChange | null { return this.prompts.pending(this.options.systemPrompt); }
   promptTold(change: PromptChange): void { this.prompts.sent(change); }
+  handoff(summary: string, tokensBefore: number): void {
+    this.session.sessionManager.appendCompaction(summary, null, tokensBefore, { handoff: true }, true);
+    this.prompts.take(this.options.systemPrompt);
+  }
   async dispose(): Promise<void> {
     this.requestAbort();
     await this.abortTask;

@@ -37,7 +37,8 @@ import type { Skill } from "../../shared/skill.js";
 import type { RosterEntry } from "./roster.js";
 import { LiveTurns } from "./live.js";
 import { AgentOps } from "./agent.js";
-import type { Deliveries } from "../delivery/delivery.js";
+import { plan, type Deliveries } from "../delivery/delivery.js";
+import type { InboxEntry } from "../../infra/storage/inbox-repository.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 import type { SecretService } from "../secrets.js";
@@ -114,17 +115,33 @@ export class BotService {
       if (to) this.deps.deliveries.notify({ to, kind: "job", reason: "finish", actorId: null, payloads: [payload] });
     });
     this.jobs.set(id, jobs);
-    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here, () => jobs.running()), (setup, model, reference, activity) =>
+    let runtime!: AgentRuntime;
+    const inbox = new BotInbox(id, store.runtime, chats, files, store.tasks, here, () => jobs.running(), () => runtime.contextUsage());
+    runtime = new AgentRuntime(inbox, (setup, model, reference, activity, shouldEndTurn) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), environmentName: () => this.environments.here(id, record.workspacePath).name,
-        jobs, secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog, onReply: this.deps.onReply,
+        jobs, secrets: this.deps.secrets.forBot(id), catalog: this.deps.catalog, onReply: this.deps.onReply, shouldEndTurn,
         onCompacted: () => {
           chats.channels.clearNotesSeen(id);
           // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).
           const to = chats.member(id);
           if (to) this.deps.deliveries.notify({ to, kind: "followed", reason: "compaction", actorId: null, payloads: [null] });
-        } }), () => this.stopBotJobs(id, jobs));
+        } }), () => this.stopBotJobs(id, jobs), (continued, continues) => {
+          // Commit A67 + A73 + optional durable continue wake-up in one SQLite transaction before session disposal (A99).
+          const to = chats.member(id), now = Date.now(), entries: InboxEntry[] = [];
+          if (to) {
+            for (const delivery of plan("followed", [{ member: to, reason: "handoff" }])) {
+              entries.push({ delivery, chatId: null, messageId: null, actorId: null, payload: null, createdAt: now });
+            }
+            if (continued) {
+              for (const delivery of plan("handoff", [{ member: to, reason: "continue" }])) {
+                entries.push({ delivery, chatId: null, messageId: null, actorId: null, payload: { kind: "continue", continues }, createdAt: now });
+              }
+            }
+          }
+          store.chats.inbox.commitHandoff(id, entries);
+        });
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; });
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
@@ -145,7 +162,7 @@ export class BotService {
           call: (chatId, slug, toolName, args, ask, hasPerson, signal) =>
             this.deps.connectors.callTool(id, chatId, slug, toolName, args, ask, hasPerson, signal),
         },
-        tasks: this.deps.tasks, ports: this.ports,
+        tasks: this.deps.tasks, ports: this.ports, handoff: runtime.handoffPort(),
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => {
         if (id === AGENT_BOT_ID && bot?.status().status !== "running" && this.environments.expireOnce(id)) this.listChanged();

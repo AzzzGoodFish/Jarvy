@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { CATEGORY, type Delivery, type DeliveryKind, type DeliveryPayloads, type Urgency } from "../../shared/delivery.js";
 import type { ChatHint, Member } from "../../../contract/chat.js";
 import type { ChatRepository } from "./chat-repository.js";
+import { transaction } from "./transaction.js";
 
 /** One row to write: a planned delivery, where it is (a chat and message for the chat categories, none for a system
  * notice, A61), who caused it and what its kind carries. */
@@ -45,6 +46,14 @@ export class InboxRepository {
    * run, and the row would otherwise be carried into every later run. */
   cancelTaskNotice(taskId: string): void {
     this.db.prepare(`DELETE FROM inbox WHERE category='system' AND kind='task' AND state='pending' AND json_extract(payload,'$.task')=?`).run(taskId);
+  }
+  /** Atomically commits a handoff's durable database state (A67, A73, A99): resets seen chat notices and writes
+   * post-handoff notices (`followed`, plus `handoff/continue` when auto-continuing) in a single transaction. */
+  commitHandoff(botId: string, entries: readonly InboxEntry[]): void {
+    transaction(this.db, () => {
+      this.chats.channels.clearNotesSeen(botId);
+      if (entries.length) this.write(entries);
+    });
   }
   /** A deleted member's rows go with it. */
   forget(memberId: string): void { this.db.prepare("DELETE FROM inbox WHERE member_id=?").run(memberId); }

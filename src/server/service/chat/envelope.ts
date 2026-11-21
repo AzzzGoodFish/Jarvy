@@ -31,12 +31,14 @@ function remember(map: Map<string, string>, id: string, definition: string): voi
 }
 
 /** Batch tail for channels (A37): the Bot's unread counts, the notices it hasn't read where it is about to act
- * (A67); and where its file and command tools run now (A50). */
+ * (A67); where its file and command tools run now (A50); running background jobs (A98); and context watermark (A99). */
 export interface BatchDigest {
   unread: readonly { chatId: string; title: string; type: string; count: number }[];
   unreadNotes?: readonly UnreadNote[];
   environment?: BatchEnvironment;
   runningJobs?: readonly RunningJobSummary[];
+  /** Context watermark shown once usage reaches the autonomous handoff threshold (A99). */
+  context?: { tokens: number; window: number };
 }
 /** A notice the Bot was told of but has not read (A67); a thread's carries its channel's too. */
 export interface UnreadNote { chatId: string; title: string; type: string; version: number }
@@ -53,6 +55,8 @@ const environmentLine = (place?: BatchEnvironment) => place
   ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}${place.problem ? attribute("problem", place.problem) : ""}/>` : "";
 const runningJobsLine = (jobs?: readonly RunningJobSummary[]) => jobs?.length
   ? `<running_jobs>${jobs.map(job => `<running_job${attribute("id", job.id)}${attribute("env", job.env)}${attribute("since", iso(job.startedAt))}>${escape(job.command)}</running_job>`).join("")}</running_jobs>` : "";
+const contextLine = (usage?: { tokens: number; window: number }) => usage
+  ? `<context${attribute("tokens", String(usage.tokens))}${attribute("window", String(usage.window))}><note>Context is at ${usage.tokens.toLocaleString("en-US")} / ${usage.window.toLocaleString("en-US")} tokens. When you reach a clean boundary, you can call context.handoff to carry your high-level active state into a fresh context stage.</note></context>` : "";
 const formatDuration = (ms: number) => `${(Math.max(0, ms) / 1000).toFixed(1)}s`;
 const iso = (time: number) => new Date(time).toISOString().replace(".000Z", "Z");
 
@@ -69,7 +73,9 @@ export type EnvelopeNotice =
   /** Its conversation was compacted (A73): the open threads it follows, most recently active first, and how many there are. */
   | { kind: "followed"; id: number; total: number; threads: readonly FollowedThread[]; createdAt: number }
   /** A background bash command finished (A98): status, exit code, and tail output. */
-  | { kind: "job"; id: number; job: JobNoticePayload; createdAt: number };
+  | { kind: "job"; id: number; job: JobNoticePayload; createdAt: number }
+  /** Context handoff continuation (A99): automatically wakes the fresh context stage. */
+  | { kind: "handoff"; id: number; continues: number; createdAt: number };
 type FollowedThread = { id: string; title: string; channel: { id: string; title: string }; lastReplyAt: number; unread: number };
 /** The agent Bot's first turn (A48): the owner has just given it a model; it writes to them itself (A61). */
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
@@ -78,12 +84,12 @@ const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just
   + "If the environment at the end of this batch names a problem, also tell them in a sentence what it means for the Bots and offer to help set it up, as your setup skill describes.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
 export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null,
-  unreadNotes?: readonly UnreadNote[], runningJobs?: readonly RunningJobSummary[]): string {
+  unreadNotes?: readonly UnreadNote[], runningJobs?: readonly RunningJobSummary[], context?: { tokens: number; window: number }): string {
   if (!notices.length && !prompt) throw new Error("Empty notice batch");
   const chats = new Map<string, string>(), members = new Map<string, string>();
   const list = noticeTail(notices, chats, members);
   return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${instructionsLine(prompt)}`
-    + `${unreadNoteLine(unreadNotes ?? [])}${runningJobsLine(runningJobs)}${environmentLine(environment)}</notice_batch>`;
+    + `${unreadNoteLine(unreadNotes ?? [])}${runningJobsLine(runningJobs)}${contextLine(context)}${environmentLine(environment)}</notice_batch>`;
 }
 /** Your instructions changed (A56): the system prompt stays as the session has it, so that the conversation stays
  * cached; what changed comes with the batch, once. */
@@ -100,7 +106,7 @@ function instructionsLine(change?: PromptChange | null): string {
  * described by a message keeps that (fuller) definition. */
 function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, string>, members: Map<string, string>): string {
   for (const notice of notices) {
-    if (notice.kind === "task" || notice.kind === "job") continue;
+    if (notice.kind === "task" || notice.kind === "job" || notice.kind === "handoff") continue;
     // The threads it follows, and their channels, are chats of this batch; one a message or another notice already
     // defined keeps that definition, as for the other notices.
     if (notice.kind === "followed") {
@@ -148,7 +154,11 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + `${notice.job.error ? `<error>${escape(notice.job.error)}</error>` : ""}`
     + `${notice.job.output ? `<output>${escape(notice.job.output)}</output>` : ""}</job>`,
   ]);
-  return (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
+  const handoffContinues = notices.flatMap(notice => notice.kind !== "handoff" ? [] : [
+    `<handoff_continue${attribute("at", iso(notice.createdAt))}><note>You entered a fresh context stage with continue=true. Resume your ongoing work from the handoff summary above without waiting for a new message.</note></handoff_continue>`,
+  ]).slice(-1);
+  return handoffContinues.join("")
+    + (tasks.length ? `<tasks>${tasks.join("")}<note>These are your scheduled tasks, not messages from anyone. Do what each says, `
     + "then send what is worth sending, to your owner unless the task says where; if nothing is, do nothing.</note></tasks>" : "")
     + (jobs.length ? `<jobs>${jobs.join("")}<note>Background commands above ended. Use bash_job(action="read") if you need more of their output, or read full_output when provided.</note></jobs>` : "")
     + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
@@ -191,6 +201,7 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
     + `${digest.unread.map(item => `<chat${ref("id", item)}${attribute("count", String(item.count))}/>`).join("")}</unread>`;
   tail += unreadNoteLine(digest?.unreadNotes ?? []);
   tail += runningJobsLine(digest?.runningJobs);
+  tail += contextLine(digest?.context);
   tail += environmentLine(digest?.environment);
   return `<chat_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${encoded.join("")}${tail}</chat_batch>`;
 }

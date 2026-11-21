@@ -42,4 +42,6 @@ export const inputs: Part<typeof en> = {
   "inputs.jobStatus.stopped": "已停止",
   "inputs.jobStatus.timed_out": "已超时",
   "inputs.runningJobs": { one: "后台运行中（{count}）：{list}", other: "后台运行中（{count}）：{list}" },
+  "inputs.handoffContinue": "上下文交接后自动继续",
+  "inputs.context": "上下文水位：{used} / {window} tokens",
 };

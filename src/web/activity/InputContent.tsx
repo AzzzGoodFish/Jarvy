@@ -1,7 +1,7 @@
 import { PaperclipIcon } from "lucide-react";
 import type { ParsedInput, ParsedItem } from "../../contract/inputs";
 import { shortTime } from "../channel/days";
-import { t } from "../i18n";
+import { formatNumber, t } from "../i18n";
 import { Markdown } from "../ui";
 import { chatName, itemLine, personName, whatName, type Names } from "./inputs";
 
@@ -49,13 +49,14 @@ function Item({ item, names }: { item: ParsedItem; names: Names }) {
 /** An input record as it reads (A22): what its batch says, then what the Bot was told alongside — what it hadn't read,
  * and where it worked, said in the interface's words rather than the Bot's. */
 export function InputContent({ input }: { input: ParsedInput }) {
-  const { unread, unreadNotes, place, runningJobs } = input;
+  const { unread, unreadNotes, place, runningJobs, context } = input;
   return <div className="jv-input">
     {input.items.map((item, index) => <Item key={index} item={item} names={input}/>)}
-    {(unread || unreadNotes || place || (runningJobs && runningJobs.length > 0)) && <footer className="jv-input-tail">
+    {(unread || unreadNotes || place || context || (runningJobs && runningJobs.length > 0)) && <footer className="jv-input-tail">
       {unread && <p>{t("inputs.unread", { count: unread.total, list: unread.chats.map(chat => `${chat.title ?? chatName(input, chat.id)} ${chat.count}`).join(" · ") })}</p>}
       {unreadNotes && <p>{t("inputs.unreadNotes", { list: unreadNotes.map(note => t("inputs.version", { title: note.title ?? chatName(input, note.id), version: note.version })).join(" · ") })}</p>}
       {runningJobs && runningJobs.length > 0 && <p>{t("inputs.runningJobs", { count: runningJobs.length, list: runningJobs.map(job => `${job.id} ${job.command}`).join(" · ") })}</p>}
+      {context && <p>{t("inputs.context", { used: formatNumber(context.tokens), window: formatNumber(context.window) })}</p>}
       {place && <p>{t("inputs.place", { name: place.kind === "sandbox" ? t("inputs.sandbox") : place.name, directory: place.directory })}</p>}
       {place?.unavailable && <p className="jv-input-problem">{t("inputs.unavailable")}</p>}
     </footer>}

@@ -2,9 +2,11 @@ import { RuntimeFault, publicFault, type BotPhase, type SessionRef } from "../..
 import type { BotSession, PromptResult } from "../../infra/pi/session.js";
 import type { AgentRuntime as RuntimePort, RuntimeSetup, PreparedModel, BotStatus } from "./contracts.js";
 import type { Urgency } from "../../shared/delivery.js";
+import { HANDOFF_MAX_CONTINUES, handoffThreshold, type StagedHandoff } from "../../shared/handoff.js";
+import type { HandoffPort } from "./tools/context.js";
 import { BotInbox } from "./inbox.js";
 
-export type CreateSession = (setup: RuntimeSetup, model: PreparedModel, reference: SessionRef, activity: (phase: BotPhase) => void) => Promise<BotSession>;
+export type CreateSession = (setup: RuntimeSetup, model: PreparedModel, reference: SessionRef, activity: (phase: BotPhase) => void, shouldEndTurn: () => boolean) => Promise<BotSession>;
 
 /** Execution component: one SDK session and one input pump, not an Actor. */
 export class AgentRuntime implements RuntimePort {
@@ -22,9 +24,36 @@ export class AgentRuntime implements RuntimePort {
   private promptTask?: Promise<PromptResult>;
   private notices: Promise<unknown> = Promise.resolve();
   private runId: string | null = null;
+  private stagedHandoff: StagedHandoff | null = null;
+  private consecutiveContinues = 0;
   private status: BotStatus = { status: "stop", activity: null, context: null, error: null };
-  constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession, private readonly onStop?: () => Promise<void>) {}
+  constructor(private readonly inbox: BotInbox, private readonly createSession: CreateSession,
+    private readonly onStop?: () => Promise<void>, private readonly onHandoffCommit?: (continued: boolean, continues: number) => void) {}
   get activeRunId() { return this.runId; }
+  /** Current session context usage, used by `BotInbox` to attach a watermark when at/above threshold (A99). */
+  contextUsage(): { tokens: number | null; limit: number } | null {
+    const context = this.session?.context;
+    return context ? { tokens: context.tokens, limit: context.contextWindow } : null;
+  }
+  /** Tool port for `context.handoff` (A99): validates threshold/caps and stages the handoff for immediate turn cutover. */
+  handoffPort(): HandoffPort {
+    return {
+      check: wantContinue => {
+        const usage = this.contextUsage();
+        const tokens = usage?.tokens ?? null, limit = usage?.limit ?? 0;
+        const threshold = handoffThreshold(limit);
+        if (this.stagedHandoff) return { ok: false, code: "twice", tokens, limit, threshold, maxContinues: HANDOFF_MAX_CONTINUES };
+        if (wantContinue && this.consecutiveContinues >= HANDOFF_MAX_CONTINUES) {
+          return { ok: false, code: "continue_limit", tokens, limit, threshold, maxContinues: HANDOFF_MAX_CONTINUES };
+        }
+        if (tokens === null || tokens < threshold) {
+          return { ok: false, code: "too_early", tokens, limit, threshold, maxContinues: HANDOFF_MAX_CONTINUES };
+        }
+        return { ok: true };
+      },
+      stage: staged => { this.stagedHandoff = staged; },
+    };
+  }
   private update(patch: Partial<BotStatus>) {
     const context = this.session?.context;
     this.status = { ...this.status, ...patch, context: context ? { tokens: context.tokens, limit: context.contextWindow, stale: context.stale } : null };
@@ -57,7 +86,7 @@ export class AgentRuntime implements RuntimePort {
       try { await this.exclusive(() => this.session!.configure(this.model!.selection)); return this.session; }
       catch (error) { await this.session.dispose(); this.session = undefined; throw error; }
     }
-    this.session = await this.createSession(this.setup!, this.model!, reference, phase => this.activity(phase));
+    this.session = await this.createSession(this.setup!, this.model!, reference, phase => this.activity(phase), () => this.stagedHandoff !== null);
     return this.session;
   }
   /** Something was delivered (A41); the runtime only looks at how urgent it is. Interrupt: abort the running
@@ -106,6 +135,8 @@ export class AgentRuntime implements RuntimePort {
       this.runId = batch.run.id;
       this.update({ error: null });
       let submitted = false;
+      let staged: StagedHandoff | null = null;
+      let outcome: PromptResult["outcome"] = "failed";
       try {
         // A changed system prompt is told with the batch, not swapped in (A56).
         const change = session.promptChange();
@@ -113,11 +144,16 @@ export class AgentRuntime implements RuntimePort {
         if (!prepared) { repository.releaseUnsubmitted(batch.run.id); continue; }
         const { xml, notices } = prepared;
         if (this.stopping || this.pauses || version !== this.inputVersion) { repository.releaseUnsubmitted(batch.run.id); continue; }
+        this.stagedHandoff = null;
+        if (prepared.hasExternalWork) this.consecutiveContinues = 0;
+        else if (prepared.continueCount !== undefined) this.consecutiveContinues = prepared.continueCount;
         repository.submitted(batch.run.id); submitted = true; this.prompting = true;
         this.inbox.acknowledge(notices);
         if (change) session.promptTold(change);
         this.promptTask = session.prompt(xml);
         const result = await this.promptTask;
+        outcome = result.outcome;
+        staged = this.stagedHandoff;
         repository.finish(batch.run.id, result.outcome, result.outcome === "failed" ? "model_request_failed" : null);
         // Show the provider's reason (e.g. a 400 body) instead of a generic hint; one line, bounded.
         if (result.outcome === "failed") { const detail = result.error.replace(/\s+/g, " ").slice(0, 300); throw new RuntimeFault("model_request_failed", `Model request failed: ${detail}`, 502, { detail }); }
@@ -125,10 +161,25 @@ export class AgentRuntime implements RuntimePort {
         const run = repository.run(batch.run.id);
         if (run?.state === "claimed" || run?.state === "submitted") repository.finish(batch.run.id, submitted ? "unknown" : "failed", publicFault(error).code);
         throw error;
-      } finally { this.prompting = false; this.promptTask = undefined; }
+      } finally { this.prompting = false; this.promptTask = undefined; this.stagedHandoff = null; }
       this.runId = null;
+      if (staged && outcome !== "failed") await this.performHandoff(staged);
       this.update({ status: "idle", activity: null });
     }
+  }
+  /** Appends a compaction checkpoint into the Bot's single session file, commits durable post-handoff notices in one
+   * SQLite transaction before disposal, then reopens the session on the fresh context stage (A99). */
+  private async performHandoff(staged: StagedHandoff): Promise<void> {
+    const tokensBefore = this.session?.context?.tokens ?? 0;
+    const nextContinues = staged.continue ? this.consecutiveContinues + 1 : 0;
+    this.consecutiveContinues = nextContinues;
+    this.session?.handoff(staged.text, tokensBefore);
+    this.onHandoffCommit?.(staged.continue, nextContinues);
+    const old = this.session;
+    this.session = undefined;
+    await old?.dispose();
+    console.log("[bot] context handoff completed", { botId: this.inbox.botId, tokensBefore, continued: staged.continue, continues: nextContinues });
+    if (!this.stopping) await this.ensureSession();
   }
   /** Serialises session.configure between the pump and model changes. */
   private exclusive<T>(work: () => Promise<T>): Promise<T> {

@@ -31,6 +31,7 @@ function gateway(values: Args, chat: (chatId: string) => LiveChat | null): LiveI
   if (action === "messages.send") return { action, chat: where, text: field(inner.message, LIVE_MESSAGE) };
   if (action === "messages.ask") return { action, chat: where, text: field(inner.question, LIVE_MESSAGE),
     options: Array.isArray(inner.options) ? inner.options.map(option => field(record(option).label) ?? "").filter(Boolean) : undefined };
+  if (action === "context.handoff") return { action, text: field(inner.text, LIVE_MESSAGE) };
   return where ? { action, chat: where } : { action };
 }
 /** Where a message goes: a DM by name (its chat is known once sent), or a chat by ID. */

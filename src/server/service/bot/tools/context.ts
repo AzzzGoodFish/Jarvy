@@ -9,7 +9,16 @@ import type { PublishedPorts } from "../ports.js";
 import type { OutgoingMessage, SentMessage, Memory, Workspace } from "../contracts.js";
 import type { RosterEntry } from "../roster.js";
 import type { AgentOps } from "../agent.js";
+import type { StagedHandoff } from "../../../shared/handoff.js";
 import type { ToolCall } from "./registry.js";
+
+/** Runtime check and staging hook for `context.handoff` (A99). */
+export interface HandoffPort {
+  check(wantContinue: boolean):
+    | { ok: true }
+    | { ok: false; code: "twice" | "too_early" | "continue_limit"; tokens: number | null; limit: number; threshold: number; maxContinues: number };
+  stage(staged: StagedHandoff): void;
+}
 
 /** The Bot's work environments (A50), for environments.list and environments.switch, and any Bot's for bots.list;
  * environments.request asks the owner for an SSH machine (A57) on a card, by its address or, for one of the owner's,
@@ -40,6 +49,8 @@ export interface ToolScope {
   tasks: TaskService;
   /** Ports published from sandboxes (A74): the Bot publishes its own. */
   ports: PublishedPorts;
+  /** Active context handoff into a fresh session (A99). */
+  handoff: HandoffPort;
   asking?: (waiting: boolean) => void; roster: () => RosterEntry[]; agent?: AgentOps;
 }
 type Send = (chatId: string, message: OutgoingMessage) => Promise<SentMessage>;
