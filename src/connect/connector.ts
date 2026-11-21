@@ -8,6 +8,7 @@ import { homedir, hostname } from "node:os";
 import { delimiter, join } from "node:path";
 import WebSocket from "ws";
 import { DEVICE_DAEMON_PATH, DEVICE_PATH, DEVICE_PROTOCOL, type DeviceToJarvy, type JarvyToDevice } from "../contract/device.js";
+import { spawnWinPty, type WinPtyProcess } from "./win-pty.js";
 
 /** The part of the desktop client that connects a computer to Jarvy (A96), with no window: the Electron app runs it in
  * its main process, and `connector.mjs` runs it from a terminal. It keeps one WebSocket open to Jarvy, reconnecting
@@ -105,6 +106,7 @@ export interface ConnectorOptions {
 export class Connector {
   private socket: WebSocket | null = null;
   private readonly daemons = new Map<number, { child: ChildProcess; bot: string }>();
+  private readonly ptys = new Map<number, WinPtyProcess>();
   private stopped = false;
   private paused = false;
   private wait = 1000;
@@ -142,16 +144,26 @@ export class Connector {
     this.socket = socket;
     socket.on("open", () => {
       this.wait = 1000;
+      const capabilities = [...new Set([...(this.options.capabilities ?? []), ...(process.platform === "win32" ? ["pty"] : [])])];
       this.send({ t: "hello", protocol: DEVICE_PROTOCOL, platform: process.platform, arch: process.arch, home: homedir(), hostname: hostname(),
-        shells: findShells(), client: this.options.client, capabilities: this.options.capabilities ?? [], paused: this.paused });
+        shells: findShells(), client: this.options.client, capabilities, paused: this.paused });
     });
     socket.on("message", (data: Buffer, binary: boolean) => {
-      if (binary) { const entry = data.length >= 4 ? this.daemons.get(data.readUInt32BE(0)) : undefined; entry?.child.stdin?.write(data.subarray(4)); return; }
+      if (binary) {
+        if (data.length < 4) return;
+        const ch = data.readUInt32BE(0), body = data.subarray(4);
+        const entry = this.daemons.get(ch);
+        if (entry) { entry.child.stdin?.write(body); return; }
+        this.ptys.get(ch)?.write(body);
+        return;
+      }
       let message: JarvyToDevice;
       try { message = JSON.parse(data.toString("utf8")) as JarvyToDevice; } catch { return; }
       if (message.t === "welcome") { this.name = message.name; this.report(); }
       else if (message.t === "error" && message.code === "protocol") { this.stopped = true; this.options.onStatus?.({ state: "outdated", protocol: message.protocol }); }
       else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "");
+      else if (message.t === "pty_open") void this.runPty(message);
+      else if (message.t === "pty_resize") this.ptys.get(message.ch)?.resize(message.cols, message.rows);
       else if (message.t === "close") this.kill(message.ch);
     });
     socket.on("unexpected-response", (_request, response) => {
@@ -191,8 +203,47 @@ export class Connector {
     child.on("exit", code => done(code));
     child.on("error", error => done(null, error.message));
   }
-  private kill(ch: number): void { const entry = this.daemons.get(ch); if (entry) { entry.child.stdin?.end(); entry.child.kill(); } }
-  private killAll(): void { for (const ch of [...this.daemons.keys()]) this.kill(ch); }
+  /** Opens an interactive ConPTY shell on Windows (A103), piped directly over its WebSocket channel. */
+  private async runPty(message: Extract<JarvyToDevice, { t: "pty_open" }>): Promise<void> {
+    if (this.paused) { this.send({ t: "exit", ch: message.ch, code: null, error: "paused" }); return; }
+    if (process.platform !== "win32") { this.send({ t: "exit", ch: message.ch, code: null, error: "unsupported" }); return; }
+    const shells = findShells();
+    const argv = message.argv?.length ? message.argv : shells.powershell ? [shells.powershell, "-NoLogo"] : shells.bash ? [shells.bash, "--login", "-i"] : ["cmd.exe"];
+    try {
+      const pty = await spawnWinPty({
+        cache: this.options.cache,
+        cwd: message.cwd || homedir(),
+        argv,
+        cols: message.cols,
+        rows: message.rows,
+        env: message.env,
+        onData: chunk => {
+          if (this.socket?.readyState !== WebSocket.OPEN) return;
+          const head = Buffer.alloc(4); head.writeUInt32BE(message.ch);
+          this.socket.send(Buffer.concat([head, chunk]));
+        },
+        onExit: (code, error) => {
+          if (!this.ptys.delete(message.ch)) return;
+          this.send({ t: "exit", ch: message.ch, code, ...(error ? { error } : {}) });
+        },
+        onLog: text => this.options.log?.(text),
+      });
+      if (this.stopped || this.paused || this.socket?.readyState !== WebSocket.OPEN) { pty.kill(); return; }
+      this.ptys.set(message.ch, pty);
+    } catch (error) {
+      this.send({ t: "exit", ch: message.ch, code: null, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  private kill(ch: number): void {
+    const entry = this.daemons.get(ch);
+    if (entry) { entry.child.stdin?.end(); entry.child.kill(); }
+    const pty = this.ptys.get(ch);
+    if (pty) { this.ptys.delete(ch); pty.kill(); }
+  }
+  private killAll(): void {
+    for (const ch of [...this.daemons.keys()]) this.kill(ch);
+    for (const ch of [...this.ptys.keys()]) this.kill(ch);
+  }
   private send(message: DeviceToJarvy): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private report(): void {
     if (this.socket?.readyState !== WebSocket.OPEN || !this.name) return;

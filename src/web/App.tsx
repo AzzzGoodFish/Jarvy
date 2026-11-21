@@ -80,6 +80,8 @@ export function App() {
   const [view, setView] = useState<View>(() => { const kept = localStorage.getItem("jarvy-view"); return kept === "home" || kept === "envs" ? kept : "chats"; });
   /** The Environments page's form to add a machine is open (A89). */
   const [addingMachine, setAddingMachine] = useState(false);
+  /** Bumped whenever persistent terminals change on the server (A103). */
+  const [terminalVersion, setTerminalVersion] = useState(0);
   useEffect(() => { localStorage.setItem("jarvy-view", view); }, [view]);
   /** The main area shows 「我关注的线程」 instead of a chat. */
   const [followedView, setFollowedView] = useState(false);
@@ -177,6 +179,7 @@ export function App() {
         // What was remembered can't be vouched for: chats are read again when opened, and the open panes (a thread, a
         // Bot's DM with another Bot) now.
         memory.clear(); live.emit({ kind: "reconnected" });
+        setTerminalVersion(v => v + 1);
         setChanges(reconnected); void refreshChats().catch(fail); void refreshOpen().catch(fail); reloadSections();
         // 「我关注的线程」, if open, reads its first page again: what changed while the connection was down.
         threadEvents.emit({ kind: "reconnected" });
@@ -192,6 +195,7 @@ export function App() {
         void api.bots().then(result => { if (alive) setBots(result.bots); }).catch(fail);
         void refreshChats().catch(fail);
       },
+      terminals: () => setTerminalVersion(v => v + 1),
       message: event => heard(JSON.parse(event.data) as LiveMessage, "message"),
       "message.updated": event => heard(JSON.parse(event.data) as LiveMessage, "updated"),
       chat: event => heard(JSON.parse(event.data) as LiveChat),
@@ -228,8 +232,9 @@ export function App() {
   }, [notice]);
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      // Radix owns dialog and nested-picker keyboard handling.
+      // Radix owns dialog and nested-picker keyboard handling; interactive terminals own Escape and Ctrl+K (A103).
       if (event.defaultPrevented || infoBotId || settingsTab) return;
+      if (event.target instanceof Element && event.target.closest(".jv-term-canvas")) return;
       if (event.key === "Escape") { setAccountMenu(false); setCreateMenu(false); setMobileNav(false); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault(); setView("chats");
@@ -475,7 +480,7 @@ export function App() {
       {home && <Home bot={agent} chat={agentDm} status={agentStatus} figure={agentFigure} call={agentCall.call} onSeen={agentCall.seen} meId={meId} members={members} drafts={drafts} live={live} onOpenDm={() => void openBot(agent.id)}
         onBotInfo={() => setInfoBotId(agent.id)} ensureDm={async () => { const chat = await api.createChat(agent.id); chatSaved(chat); return chat; }}
         onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onPreview={(files, index) => setPreview({ files, index })} onNotice={setNotice} onError={handleError}/>}
-      {envs && <Environments bots={bots} statuses={statuses} adding={addingMachine} onAdding={setAddingMachine} onSaved={updateBot}/>}
+      {envs && <Environments bots={bots} statuses={statuses} adding={addingMachine} terminalVersion={terminalVersion} onAdding={setAddingMachine} onSaved={updateBot}/>}
     </div>
     {cardBot && botCard && <BotCard bot={cardBot} status={statuses[cardBot.id]} connections={connections} anchor={botCard.anchor} onClose={closeBotCard} onMessage={() => void openBot(cardBot.id)} onInfo={() => setInfoBotId(cardBot.id)}/>}
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}

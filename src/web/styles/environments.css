@@ -37,6 +37,19 @@
 }
 /* Adding: an SSH machine or a computer (A96). */
 .jv-envs-add-kind { align-self: flex-start; width: fit-content; margin-bottom: var(--ui-space-12); }
+/* Full-screen / focus mode for interactive terminals (A103). */
+.ui-app[data-view]:has(.jv-envs[data-maximized]) { grid-template-columns: minmax(0, 1fr); }
+.ui-app:has(.jv-envs[data-maximized]) .jv-rail { display: none; }
+.jv-envs[data-maximized] { grid-template-columns: minmax(0, 1fr); }
+.jv-envs[data-maximized] .jv-envs-list { display: none; }
+.jv-envs-tabs { flex: none; }
+.jv-envs-tabs > button { display: inline-flex; align-items: center; gap: var(--ui-space-6); padding: var(--ui-space-4) var(--ui-space-12); font-size: var(--ui-text-md); border-radius: var(--ui-radius-sm); }
+.jv-envs-tab-count { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 var(--ui-space-4); border-radius: var(--ui-radius-full);
+  background: var(--ui-fill-accent-subtle); color: var(--ui-text-accent); font-size: var(--ui-text-2xs); line-height: var(--ui-leading-2xs); font-weight: 600; }
+:root[data-theme="dark"] .jv-envs-tabs > button[aria-checked="true"] .jv-envs-tab-count { background: #ffffff24; color: var(--ui-text-on-color); }
+.jv-envs-term-badge { display: inline-flex; align-items: center; gap: var(--ui-space-2); padding: 0 var(--ui-space-6); height: 20px; border-radius: var(--ui-radius-full);
+  background: var(--ui-fill-accent-subtle); color: var(--ui-text-accent); font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); font-weight: 600; }
+.jv-envs-term-badge svg { width: 12px; height: 12px; }
 .jv-device-facts { padding: 0; }
 .jv-device-facts > .jv-hint { margin: var(--ui-space-4) 0 0; }
 .jv-device-connect { display: flex; flex-direction: column; gap: var(--ui-space-8); padding-top: var(--ui-space-12); padding-bottom: var(--ui-space-12); }

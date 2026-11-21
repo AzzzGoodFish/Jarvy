@@ -9,6 +9,7 @@ import type {
   Connector, ConnectorAuthKind, ConnectorOAuthState, ConnectorPreset, ConnectorProvider, ConnectorUse,
 } from "../contract/connectors";
 import type { Task, TaskInput } from "../contract/tasks";
+import type { TerminalSession } from "../contract/terminal";
 import type { FollowedSummary, ThreadFilter, ThreadItem, ThreadPage, ThreadSort } from "../contract/threads";
 import { t } from "./i18n";
 /** A failed request. `code` and `params` (A45) name a failure the interface words itself (errors.ts); the message is
@@ -146,6 +147,12 @@ export const api = {
   updateDevice: (id: string, input: { name?: string; directory?: string; description?: string; shell?: Device["shell"] }) => request<Device>(`/environments/devices/${id}`, { method: "PUT", body: body(input) }),
   deleteDevice: (id: string) => request<{ ok: boolean }>(`/environments/devices/${id}`, { method: "DELETE" }),
   grantDevice: (id: string, botId: string, granted: boolean) => request<Device>(`/environments/devices/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
+  /** Persistent interactive terminals across environments (A103). */
+  terminals: (environmentId?: string) => request<{ terminals: TerminalSession[] }>(`/terminals${environmentId ? `?environmentId=${encodeURIComponent(environmentId)}` : ""}`),
+  createTerminal: (input: { environmentId: string; name?: string; cols?: number; rows?: number }) => request<TerminalSession>("/terminals", { method: "POST", body: body(input) }),
+  renameTerminal: (id: string, name: string) => request<TerminalSession>(`/terminals/${id}`, { method: "PATCH", body: body({ name }) }),
+  restartTerminal: (id: string, input: { cols?: number; rows?: number } = {}) => request<TerminalSession>(`/terminals/${id}/restart`, { method: "POST", body: body(input) }),
+  closeTerminal: (id: string) => request<{ ok: boolean }>(`/terminals/${id}`, { method: "DELETE" }),
   fulfilMachine: (chatId: string, messageId: string, answer: { password: string } | { keyId: string }) =>
     request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body(answer) }),
   computer: (id: string, action: "start" | "stop" | "reset" | "restart") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),

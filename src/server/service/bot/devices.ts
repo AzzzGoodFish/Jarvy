@@ -5,9 +5,11 @@ import type { Duplex } from "node:stream";
 import { randomBytes } from "node:crypto";
 import { DeviceLinks, newToken, tokenHash, type DeviceHello } from "../../infra/env/device-link.js";
 import { daemonFor } from "../../infra/env/device-daemon.js";
+import { openDevicePty } from "../../infra/env/terminal.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError } from "../../shared/chat.js";
 import type { EnvironmentRecord, ExecOptions, WorkEnvironment } from "../../shared/environment.js";
+import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { Device, DeviceShell } from "../../../contract/environment.js";
 import { fromWindows, toWindows, windowsLike } from "./device-paths.js";
 
@@ -67,6 +69,32 @@ export class Devices {
     return { open: () => createReadStream(daemon.path), sha256: daemon.sha256, size: daemon.size };
   }
   online(id: string): boolean { return this.links.online(id) && !this.links.paused(id); }
+  /** Opens an interactive PTY on a connected computer (A103): pi-env PTY on Linux/macOS, ConPTY on Windows. */
+  async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
+    if (!this.online(record.id)) throw new ChatError(409, this.offline(record.id), "device_offline");
+    const platform = record.spec.platform ?? "";
+    const windows = platform === "win32";
+    if (windows && !this.links.hasCapability(record.id, "pty")) {
+      throw new ChatError(409, "Update the Jarvy client on this Windows computer to open interactive terminals", "terminal_unsupported");
+    }
+    const rawDir = this.directory(record);
+    const cwd = windows ? toWindows(rawDir).replaceAll("/", "\\") : rawDir;
+    const chosen = record.spec.shell;
+    const shell = activeShell(record);
+    let argv: string[] | undefined;
+    if (windows) {
+      if (shell === "bash" && record.spec.shellBash) argv = [record.spec.shellBash, "--login", "-i"];
+      else if (shell === "powershell") argv = [record.spec.shellPowershell ?? "powershell.exe", "-NoLogo"];
+      else argv = ["cmd.exe"];
+    } else if (chosen === "powershell" && record.spec.shellPowershell) {
+      argv = [record.spec.shellPowershell, "-NoLogo"];
+    } else if (chosen === "bash" && record.spec.shellBash) {
+      argv = [record.spec.shellBash, "-l"];
+    }
+    const pty = await openDevicePty(this.links, record.id, platform, { ...options, cwd, ...(argv ? { argv } : {}) },
+      text => console.error(`[device-pty ${record.name}] ${text.trim()}`));
+    return { pty, cwd };
+  }
   /** The command-line client (A96), built beside Jarvy's own server bundle; null when running from the sources. */
   connector(): Buffer | null {
     const path = fileURLToPath(new URL("./connector.mjs", import.meta.url));

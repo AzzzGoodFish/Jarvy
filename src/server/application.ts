@@ -20,6 +20,7 @@ import { ConnectorService } from "./service/connectors.js";
 import { createConnectorRegistry } from "./infra/connectors/registry.js";
 import { loadConnectorEnv } from "./infra/connectors/client-env.js";
 import { TaskService } from "./service/tasks.js";
+import { TerminalService } from "./service/terminals.js";
 import { Deliveries } from "./service/delivery/delivery.js";
 import { RuntimeFault } from "./shared/runtime.js";
 import type { SessionFactory } from "./infra/pi/session.js";
@@ -42,6 +43,8 @@ export class Application {
   readonly connectors: ConnectorService;
   /** Scheduled tasks and their timer (A58). */
   readonly tasks: TaskService;
+  /** Persistent interactive terminals across environments (A103). */
+  readonly terminals: TerminalService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
     // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
@@ -67,7 +70,12 @@ export class Application {
     const catalog = new ModelCatalog(dataDir);
     this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, connectors: this.connectors, tasks: this.tasks, catalog,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory,
-      listening: () => this.connection.where(), onReply: (connectionId, provider, headers) => this.models.observeReply(connectionId, provider, headers) });
+      listening: () => this.connection.where(), onReply: (connectionId, provider, headers) => this.models.observeReply(connectionId, provider, headers),
+      onEnvironmentClosed: id => this.terminals.closeForEnvironment(id) });
+    this.terminals = new TerminalService({
+      openPty: (environmentId, options) => this.bots.openPty(environmentId, options),
+      changed: () => this.events.publish({ kind: "terminals" }),
+    });
     this.auth = new CredentialLogins(store, this.credentials, id => this.bots.connectionChanged(id));
     this.connection = new ConnectionService(store, dataDir);
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
@@ -95,7 +103,7 @@ export class Application {
   start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
-      this.tasks.stop(); this.models.stopCatalog(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
+      this.tasks.stop(); this.models.stopCatalog(); this.terminals.closeAll(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
     })();
     return this.closing;
   }

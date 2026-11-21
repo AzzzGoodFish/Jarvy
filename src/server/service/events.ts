@@ -3,7 +3,7 @@ import type { BotService } from "./bot/service.js";
 import type { ChatChange } from "./chat/contracts.js";
 
 export type Change = ChatChange | { kind: "sections"; ownerId: string } | { kind: "bot"; id: string; status: ReturnType<BotService["status"]> }
-  | { kind: "bots" };
+  | { kind: "bots" } | { kind: "terminals" };
 export interface Numbered { seq: number; change: Change }
 /** How long changes are kept for a page that reconnects (A72), and at most how many. */
 const KEEP_MS = 10 * 60_000, KEEP_MAX = 5_000;
