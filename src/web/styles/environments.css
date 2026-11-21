@@ -57,3 +57,9 @@
 .jv-device-connect .jv-machine-key code { font-size: var(--ui-text-sm); }
 .jv-list .jv-device-facts > .jv-list-row.jv-env-fact { padding-left: 0; padding-right: 0; min-height: 36px; }
 .jv-list .jv-list-row.jv-device-connect { padding-top: var(--ui-space-16); padding-bottom: var(--ui-space-16); }
+@media (max-width: 620px) {
+  .jv-envs-detail > .ui-column-header { gap: var(--ui-space-6); padding-left: var(--ui-inset-list); padding-right: var(--ui-inset-list); }
+  .jv-envs-detail > .ui-column-header > .ui-tile { display: none; }
+  .jv-envs-detail > .ui-column-header > .ui-column-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jv-envs-tabs > button { padding: var(--ui-space-4) var(--ui-space-6); font-size: var(--ui-text-sm); gap: var(--ui-space-4); }
+}

@@ -11,6 +11,7 @@ import { connectors } from "./connectors";
 import { machines } from "./machines";
 import { tasks } from "./tasks";
 import { terminals } from "./terminals";
+import { envFiles } from "./env-files";
 import { ports } from "./ports";
 import { inputs } from "./inputs";
 import { botcard } from "./botcard";
@@ -20,4 +21,4 @@ import { botcard } from "./botcard";
  * `count` (Intl.PluralRules). Another language is a folder beside this one with the same parts, each covering exactly
  * the keys of its English part (see scripts/check-i18n.mjs). A key lives in one part only.
  * Wording: Bot, Channel, Thread, DM, Notice, Summary, Follow, Subscribe, Model, Connection, Thinking. */
-export const en = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...connectors, ...machines, ...tasks, ...terminals, ...ports, ...inputs, ...botcard } as const;
+export const en = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...connectors, ...machines, ...tasks, ...terminals, ...envFiles, ...ports, ...inputs, ...botcard } as const;

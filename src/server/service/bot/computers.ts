@@ -7,30 +7,26 @@ import {
   dockerCapacity, dockerProblem, ensureNetwork, homeAtWorkspace, listeningPorts, moveToNetwork, networkAddresses,
   removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
+import { openContainerFs } from "../../infra/env/env-fs.js";
 import { hostCapacity } from "../../infra/env/libvirt.js";
-import { openSshPty } from "../../infra/env/ssh.js";
+import { openSshFs, openSshPty } from "../../infra/env/ssh.js";
 import { openContainerPty } from "../../infra/env/terminal.js";
-import { ComputerImages, VM_SIZE, VmSandboxes, VmSupportCheck, computerType } from "./computer-vm.js";
+import { ComputerImages, MIN_LIMITS, VM_SIZE, VmSandboxes, VmSupportCheck, computerLimits, computerType, dockerProblemMessage, parseComputerLimit, vmProblemMessage } from "./computer-vm.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { ComputerInfo, ComputerLimits, ComputerResources, ComputerStatus, ComputerType, VmSupport } from "../../../contract/environment.js";
+import { ChatError } from "../../shared/chat.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { ValidationError } from "../../shared/errors.js";
+
+export { computerLimits };
 
 const SWEEP_MS = 60_000;
 /** How often Jarvy looks for Docker again while it can't be used, so fixing it needs no restart. */
 const RECHECK_MS = 30_000;
 /** The name sandboxes reach this machine by (A74), as Docker Desktop calls it. */
 export const HOST_NAME = "host.docker.internal";
-/** The least a limit may be (A75): less leaves too little for the tools' own daemon, or in a VM (A101) for its OS. */
-const MIN = { container: { memory: 256 * 2 ** 20, cpus: 0.1 }, vm: { memory: 2 ** 30, cpus: 1 } } as const;
-
-/** A computer's limits as kept with it (A75); none when absent. A VM (A101) always has a size, its default when unset. */
-export function computerLimits(record: EnvironmentRecord): ComputerLimits {
-  const read = (value: string | undefined) => value && Number(value) > 0 ? Number(value) : null;
-  const memory = read(record.spec.memory), cpus = read(record.spec.cpus);
-  return computerType(record) === "vm" ? { memory: memory ?? VM_SIZE.memory, cpus: cpus ?? VM_SIZE.cpus } : { memory, cpus };
-}
 
 export interface ComputerDependencies {
   store: Store;
@@ -121,11 +117,7 @@ export class Computers {
   /** Why Docker can't be used, in a Bot's words; null when it can, or before Jarvy has looked. */
   get dockerProblem(): string | null {
     const problem = this.docker === false ? this.problem : null;
-    if (!problem) return null;
-    if (problem.reason === "missing") return "Docker isn't installed on the computer running Jarvy";
-    if (problem.reason === "stopped") return "Docker is installed on the computer running Jarvy but isn't running";
-    if (problem.reason === "denied") return `Docker on the computer running Jarvy refuses the user Jarvy runs as (${userInfo().username})`;
-    return `Docker on the computer running Jarvy can't be used (${problem.detail})`;
+    return problem ? dockerProblemMessage(problem.reason, problem.detail, userInfo().username) : null;
   }
   /** Why this Bot's sandbox can't be used right now (Docker for containers, libvirt/KVM for VMs); null when ready. */
   sandboxProblem(botId: string): string | null {
@@ -133,14 +125,7 @@ export class Computers {
     if (!computer) return null;
     if (computerType(computer) !== "vm") return this.dockerProblem;
     if (this.vms.current.state !== "unavailable") return null;
-    const reason = this.vms.reason;
-    if (reason === "no_libvirt") return "libvirt or QEMU isn't installed on the computer running Jarvy";
-    if (reason === "stopped") return "The libvirt service isn't running on the computer running Jarvy";
-    if (reason === "denied") return `libvirt on the computer running Jarvy refuses the user Jarvy runs as (${userInfo().username})`;
-    if (reason === "no_tools") return "qemu-img or cloud-localds isn't installed on the computer running Jarvy";
-    if (reason === "no_kvm") return "KVM virtualization isn't available on the computer running Jarvy";
-    if (reason === "busy") return "KVM on the computer running Jarvy is held by another hypervisor";
-    return `Virtual machines on the computer running Jarvy can't be used (${this.vms.current.detail ?? "failed"})`;
+    return vmProblemMessage(this.vms.reason, userInfo().username, this.vms.current.detail);
   }
   /** Whether Docker container sandboxes can run on this host. */
   get available(): boolean { return this.docker === true; }
@@ -201,8 +186,8 @@ export class Computers {
   }
 
   async setLimits(botId: string, input: { memory: unknown; cpus: unknown }): Promise<void> {
-    const computer = this.record(botId), type = computerType(computer), machine = await this.capacity(type), least = MIN[type];
-    const memory = limit(input.memory, least.memory, machine.memory, 2 ** 20), cpus = limit(input.cpus, least.cpus, machine.cpus, type === "vm" ? 1 : 0.01);
+    const computer = this.record(botId), type = computerType(computer), machine = await this.capacity(type), least = MIN_LIMITS[type];
+    const memory = parseComputerLimit(input.memory, least.memory, machine.memory, 2 ** 20), cpus = parseComputerLimit(input.cpus, least.cpus, machine.cpus, type === "vm" ? 1 : 0.01);
     if (memory === undefined || cpus === undefined) throw new ValidationError("Limits are null or a number within this machine's size", type === "vm" ? "vm_size_invalid" : "limits_invalid",
       { memory: Math.floor(machine.memory / 2 ** 30 * 10) / 10, cpus: machine.cpus });
     const next = computerLimits({ ...computer, spec: { ...computer.spec, memory: memory === null ? "" : String(memory), cpus: cpus === null ? "" : String(cpus) } });
@@ -390,6 +375,30 @@ export class Computers {
     this.preparing.set(botId, task);
     return task;
   }
+  /** Checks whether a Bot's sandbox is currently running and reachable for file browsing (A104). */
+  verifyRunning(record: EnvironmentRecord): string {
+    const botId = record.botId;
+    if (!botId) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
+    const current = this.deps.store.environments.computerOf(botId) ?? record, status = this.status(botId);
+    if (!status) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
+    if (status.state === "unavailable") {
+      if (computerType(current) === "vm") throw new RuntimeFault("vm_unavailable", this.sandboxProblem(botId) ?? "Virtual machines are not available on this machine.", 503);
+      throw this.unavailable(503);
+    }
+    if (status.state !== "running") throw new ChatError(409, "Sandbox is not running", "sandbox_stopped");
+    return `${computerType(current)}:${current.spec.container ?? ""}`;
+  }
+  /** Opens a dedicated file-browser `EnvironmentFs` into an already-running container or VM sandbox (A104). */
+  async openFs(record: EnvironmentRecord): Promise<EnvironmentFs> {
+    this.verifyRunning(record);
+    const botId = record.botId!, current = this.deps.store.environments.computerOf(botId) ?? record;
+    if (computerType(current) === "vm") {
+      const access = await this.libvirt.runningAccess(current);
+      if (!access) throw new ChatError(409, "Sandbox is not running", "sandbox_stopped");
+      return openSshFs(current.id, access, COMPUTER_CWD, COMPUTER_CWD, text => this.log(`[fs ${botId.slice(0, 8)}] ${text}`));
+    }
+    return openContainerFs(current.id, current.spec.container!, COMPUTER_CWD, COMPUTER_CWD, text => this.log(`[fs ${botId.slice(0, 8)}] ${text}`));
+  }
   /** Opens an interactive PTY in a Bot's container or VM sandbox, starting it first when stopped (A103). */
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
     const botId = record.botId;
@@ -488,11 +497,4 @@ export class Computers {
     }
   }
   private log(text: string): void { (this.deps.log ?? console.log)(`[computers] ${text}`); }
-}
-
-function limit(value: unknown, min: number, max: number, step: number): number | null | undefined {
-  if (value === null) return null;
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  const rounded = Math.round(value / step) * step;
-  return rounded >= min && rounded <= max ? Number(rounded.toFixed(2)) : undefined;
 }

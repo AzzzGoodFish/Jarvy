@@ -19,8 +19,44 @@ import {
 
 /** A VM sandbox's size when the owner set none (A85, A101): 4 GB of memory and 2 vCPUs. */
 export const VM_SIZE = { memory: 4 * 2 ** 30, cpus: 2 } as const;
+/** The least a limit may be (A75): less leaves too little for the tools' own daemon, or in a VM (A101) for its OS. */
+export const MIN_LIMITS = { container: { memory: 256 * 2 ** 20, cpus: 0.1 }, vm: { memory: 2 ** 30, cpus: 1 } } as const;
 /** What a Bot's sandbox is (A85, A101), as kept with it; a container unless made a VM. */
 export const computerType = (record: EnvironmentRecord): ComputerType => record.spec.type === "vm" ? "vm" : "container";
+
+/** A computer's limits as kept with it (A75); none when absent. A VM (A101) always has a size, its default when unset. */
+export function computerLimits(record: EnvironmentRecord): ComputerLimits {
+  const read = (value: string | undefined) => value && Number(value) > 0 ? Number(value) : null;
+  const memory = read(record.spec.memory), cpus = read(record.spec.cpus);
+  return computerType(record) === "vm" ? { memory: memory ?? VM_SIZE.memory, cpus: cpus ?? VM_SIZE.cpus } : { memory, cpus };
+}
+
+/** Human-readable explanation when Docker cannot be used on this host. */
+export function dockerProblemMessage(reason: string, detail: string, username: string): string {
+  if (reason === "missing") return "Docker isn't installed on the computer running Jarvy";
+  if (reason === "stopped") return "Docker is installed on the computer running Jarvy but isn't running";
+  if (reason === "denied") return `Docker on the computer running Jarvy refuses the user Jarvy runs as (${username})`;
+  return `Docker on the computer running Jarvy can't be used (${detail})`;
+}
+
+/** Human-readable explanation when VM sandboxes are unavailable on this host. */
+export function vmProblemMessage(reason: VmProblemReason | undefined, username: string, detail?: string): string {
+  if (reason === "no_libvirt") return "libvirt or QEMU isn't installed on the computer running Jarvy";
+  if (reason === "stopped") return "The libvirt service isn't running on the computer running Jarvy";
+  if (reason === "denied") return `libvirt on the computer running Jarvy refuses the user Jarvy runs as (${username})`;
+  if (reason === "no_tools") return "qemu-img or cloud-localds isn't installed on the computer running Jarvy";
+  if (reason === "no_kvm") return "KVM virtualization isn't available on the computer running Jarvy";
+  if (reason === "busy") return "KVM on the computer running Jarvy is held by another hypervisor";
+  return `Virtual machines on the computer running Jarvy can't be used (${detail ?? "failed"})`;
+}
+
+/** Validates and rounds a memory or CPU limit input against machine bounds. */
+export function parseComputerLimit(value: unknown, min: number, max: number, step: number): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  const rounded = Math.round(value / step) * step;
+  return rounded >= min && rounded <= max ? Number(rounded.toFixed(2)) : undefined;
+}
 
 /** Container sandbox image builder (A50). Built on first use and shared across all container sandboxes. */
 export class ComputerImages {
@@ -249,6 +285,9 @@ export class VmSandboxes {
     const match = (map: Map<string, string>) => macs.find(([, mac]) => mac && map.get(mac) === address)?.[0] ?? null;
     return match(byMac) ?? match(await this.leaseMap(true));
   }
+
+  /** Returns SSH access for an already-running VM without starting it (A104). */
+  runningAccess(record: EnvironmentRecord): Promise<SshAccess | null> { return this.accessOf(record); }
 
   private async accessOf(record: EnvironmentRecord): Promise<SshAccess | null> {
     const auth = this.deps.store.environments.computerAuth(record.id);

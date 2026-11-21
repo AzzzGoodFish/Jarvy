@@ -15,6 +15,7 @@ import { connectionRoutes, rootCertificateRoute } from "./routes/connection.js";
 import { secretRoutes } from "./routes/secrets.js";
 import { connectorCallbackRoute, connectorRoutes } from "./routes/connectors.js";
 import { deviceDaemonRoute, environmentRoutes } from "./routes/environments.js";
+import { envFileRoutes } from "./routes/env-files.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { terminalRoutes } from "./routes/terminals.js";
 import { portRoutes } from "./routes/ports.js";
@@ -45,6 +46,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   api.route("/secrets", secretRoutes(services.secrets));
   api.route("/connectors", connectorRoutes(services.connectors));
   api.route("/environments", environmentRoutes(services.bots));
+  api.route("/environments", envFileRoutes(services.envFiles));
   api.route("/terminals", terminalRoutes(services.terminals));
   api.all("*", () => { throw new HTTPException(404, { message: "API route not found" }); });
   app.route("/api", api);

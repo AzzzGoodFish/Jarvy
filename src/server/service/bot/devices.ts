@@ -5,10 +5,12 @@ import type { Duplex } from "node:stream";
 import { randomBytes } from "node:crypto";
 import { DeviceLinks, newToken, tokenHash, type DeviceHello } from "../../infra/env/device-link.js";
 import { daemonFor } from "../../infra/env/device-daemon.js";
+import { openDeviceFs } from "../../infra/env/env-fs.js";
 import { openDevicePty } from "../../infra/env/terminal.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError } from "../../shared/chat.js";
 import type { EnvironmentRecord, ExecOptions, WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { Device, DeviceShell } from "../../../contract/environment.js";
 import { fromWindows, toWindows, windowsLike } from "./device-paths.js";
@@ -69,6 +71,19 @@ export class Devices {
     return { open: () => createReadStream(daemon.path), sha256: daemon.sha256, size: daemon.size };
   }
   online(id: string): boolean { return this.links.online(id) && !this.links.paused(id); }
+  /** Verifies that a connected computer is online and not paused (A104). */
+  verifyOnline(id: string): void {
+    if (!this.online(id)) throw new ChatError(409, this.offline(id), "device_offline");
+  }
+  /** Opens a dedicated file-browser `EnvironmentFs` on a connected computer (A104). */
+  openFs(record: EnvironmentRecord): EnvironmentFs {
+    this.verifyOnline(record.id);
+    const windows = record.spec.platform === "win32";
+    const norm = (value: string) => windows ? toWindows(value).replaceAll("/", "\\") : value;
+    const home = norm(this.home(record));
+    const cwd = norm(this.directory(record));
+    return openDeviceFs(this.links, record.id, cwd, home, windows ? "\\" : "/", text => console.error(`[device-fs ${record.name}] ${text.trim()}`));
+  }
   /** Opens an interactive PTY on a connected computer (A103): pi-env PTY on Linux/macOS, ConPTY on Windows. */
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
     if (!this.online(record.id)) throw new ChatError(409, this.offline(record.id), "device_offline");
