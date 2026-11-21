@@ -168,7 +168,8 @@ export function ConnectorWriteCard({ message, onSettled }: {
     const subjectField = finalFields.find(f => HEADING_KEYS.has(f.key.toLowerCase())) ?? finalFields[0];
     const target = (targetField?.preview ?? targetField?.value)?.split("\n")[0]?.slice(0, 60);
     const subject = (subjectField?.preview ?? subjectField?.value)?.split("\n")[0]?.slice(0, 60);
-    const summaryParts = [statusWord, target, subject && subject !== target ? subject : null].filter(Boolean);
+    const accountSummary = !isMail && ask.account && !kindTitle.includes(ask.account) ? ask.account : null;
+    const summaryParts = [statusWord, accountSummary, target, subject && subject !== target ? subject : null].filter(Boolean);
 
     return <div className="jv-write-settled" data-state={question.state}>
       <button type="button" className="jv-write-pill" aria-expanded={settledOpen} aria-label={t("connectorCard.toggleDetails")} onClick={() => setSettledOpen(v => !v)}>
@@ -181,13 +182,13 @@ export function ConnectorWriteCard({ message, onSettled }: {
         const settledHeading = finalFields.find(f => HEADING_KEYS.has(f.key.toLowerCase()));
         const settledBodies = finalFields.filter(f => BODY_KEYS.has(f.key.toLowerCase()));
         const settledMeta = finalFields.filter(f => f !== settledHeading && !BODY_KEYS.has(f.key.toLowerCase()));
-        const hasMeta = (isMail && Boolean(ask.account)) || settledMeta.length > 0;
+        const hasMeta = Boolean(ask.account) || settledMeta.length > 0;
         const hasContent = Boolean(settledHeading) || settledBodies.length > 0;
         return <div className="jv-write-settled-body">
           {hasMeta && <div className="jv-write-settled-meta">
             <div className="jv-write-meta">
-              {isMail && ask.account && <div className="jv-write-meta-row">
-                <span className="jv-write-meta-label">{t("connectorCard.from")}</span>
+              {ask.account && <div className="jv-write-meta-row">
+                <span className="jv-write-meta-label">{t(isMail ? "connectorCard.from" : "connectorCard.account")}</span>
                 <span className="jv-write-meta-static">{ask.account}</span>
               </div>}
               {settledMeta.map(field => <div key={field.key} className="jv-write-meta-row">
@@ -234,12 +235,16 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const primaryLabel = isMail && toolLower === "send_email" ? t("connectorCard.send") : actionTitle;
   const alwaysLabel = isMail && toolLower === "send_email" ? t("connectorCard.sendAlways") : t("connectorCard.confirmAlways");
 
+  const pendingDetail = !isMail
+    ? (ask.account && !kindTitle.includes(ask.account) ? `${actionTitle} · ${ask.account}` : actionTitle)
+    : null;
+
   return <div className="jv-question jv-write-card" role="group" aria-busy={busy || undefined}>
     <div className="jv-question-head">
       <span className="jv-question-icon">{isMail ? <MailIcon aria-hidden="true"/> : <ConnectorMark provider={ask.provider}/>}</span>
       <div className="jv-question-heading">
         <p className="jv-question-title">{kindTitle}</p>
-        {!isMail && <p className="jv-question-detail">{actionTitle}</p>}
+        {pendingDetail && <p className="jv-question-detail">{pendingDetail}</p>}
       </div>
     </div>
 

@@ -110,14 +110,30 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
     });
   };
 
+  const savePreset = (event: FormEvent) => {
+    event.preventDefault();
+    const cleanName = name.trim();
+    const cleanToken = token.trim();
+    if (!cleanName && !cleanToken) return;
+    const tokenValue = cleanToken ? (/^Bearer\s+/i.test(cleanToken) ? cleanToken : `Bearer ${cleanToken}`) : undefined;
+    void run("save", async () => {
+      onChanged(await api.updateConnector(connector.id, {
+        ...(cleanName && cleanName !== connector.name ? { name: cleanName } : {}),
+        ...(tokenValue ? { authKind: "headers", headers: { Authorization: tokenValue } } : {}),
+      }));
+      setToken("");
+    });
+  };
+
   const loadUses = () => {
     if (uses !== null) return;
     void api.connectorUses(connector.id).then(res => setUses(res.uses)).catch(() => setUses([]));
   };
 
   const botName = (botId: string) => bots.find(bot => bot.id === botId)?.name ?? t("connectors.deletedBot");
+  const accountShownInName = Boolean(connector.statusDetail && connector.name.includes(connector.statusDetail));
   const subtitle = connector.status === "connected"
-    ? (connector.statusDetail || t("connectors.toolCount", { count: connector.tools.length }))
+    ? (!accountShownInName && connector.statusDetail ? connector.statusDetail : t("connectors.toolCount", { count: connector.tools.length }))
     : connector.statusDetail || t(connector.status === "needs_auth" ? "connectors.statusNeedsAuth" : "connectors.statusError");
 
   const filterNeedle = toolFilter.trim().toLowerCase();
@@ -176,6 +192,7 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
 
       <BotGrants
         grantedIds={connector.grants.map(grant => grant.botId)}
+        onceIds={new Set(connector.grants.filter(grant => grant.scope === "once").map(grant => grant.botId))}
         bots={bots}
         onGrant={async (ids, granted) => {
           let latest = connector;
@@ -248,11 +265,38 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
         </div>
       </details>}
 
+      {!isCustom && <details className="jv-connector-disclosure">
+        <summary>
+          <span className="jv-connector-disclosure-title"><ChevronRightIcon aria-hidden="true"/>{t("connectors.accountSettings")}</span>
+        </summary>
+        <form className="jv-connector-disclosure-body jv-connector-form" onSubmit={savePreset}>
+          <div className="jv-field-grid">
+            <label className="jv-field"><span>{t("connectors.name")}</span>
+              <Input value={name} maxLength={80} onChange={event => setName(event.target.value)}/></label>
+            <div className="jv-field"><span>{t("connectors.identifier")}</span>
+              <code className="jv-connector-slug">{connector.slug}</code></div>
+          </div>
+          {connector.authKind === "headers" && <label className="jv-field">
+            <span>{t("connectors.updateToken")}</span>
+            <Input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder={t("connectors.updateTokenPlaceholder")}/>
+          </label>}
+          <div className="jv-secret-actions">
+            <Button type="submit" variant="outline" size="sm" disabled={busy || (name.trim() === connector.name && !token.trim()) || !name.trim()}>
+              {t("common.save")}
+            </Button>
+          </div>
+        </form>
+      </details>}
+
       {isCustom && <details className="jv-connector-disclosure">
         <summary>
           <span className="jv-connector-disclosure-title"><ChevronRightIcon aria-hidden="true"/>{t("connectors.connectionSettings")}</span>
         </summary>
         <form className="jv-connector-disclosure-body jv-connector-form" onSubmit={saveCustom}>
+          <div className="jv-connector-setting-row">
+            <span className="jv-secret-heading">{t("connectors.identifier")}</span>
+            <code className="jv-connector-slug">{connector.slug}</code>
+          </div>
           <div className="jv-field-grid">
             <label className="jv-field"><span>{t("connectors.name")}</span>
               <Input value={name} maxLength={80} onChange={event => setName(event.target.value)}/></label>

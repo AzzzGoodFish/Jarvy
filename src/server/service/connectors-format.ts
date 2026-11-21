@@ -1,4 +1,5 @@
 import type { Connector, ConnectorTool } from "../../contract/connectors.js";
+import type { GrantScope } from "../../contract/secrets.js";
 import type { ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
 import { CONNECTOR_SLUG, isWriteTool, toolDefinitionHash } from "../shared/connector.js";
 import { ValidationError } from "../shared/errors.js";
@@ -48,6 +49,41 @@ export function cleanName(raw: unknown, fallback: string): string {
   if (typeof raw !== "string") throw new ValidationError("Invalid connector name", "type_invalid");
   const name = raw.trim();
   return name.slice(0, 80) || fallback;
+}
+
+/** Picks a unique slug: first instance keeps `base` (e.g. `github`), additional accounts try a readable
+ * suffix derived from account handle / custom name (`github-work`) before falling back to `github-2`. */
+export function pickConnectorSlug(base: string, existing: ReadonlySet<string>, hint?: string): string {
+  if (!existing.has(base)) return base;
+  if (hint) {
+    const raw = hint.trim().replace(/^@+/, "");
+    const local = raw.includes("@") ? raw.split("@")[0]! : raw;
+    const token = local.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    if (token && token !== base) {
+      const candidate = `${base}-${token}`.slice(0, 48).replace(/-+$/, "");
+      if (CONNECTOR_SLUG.test(candidate) && !existing.has(candidate)) return candidate;
+    }
+  }
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base}-${n}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+  return `${base}-${Date.now()}`;
+}
+
+/** Picks the display name for a curated preset: honors an explicit user name, keeps the calm default for the
+ * first account, and labels additional accounts by handle/email (or sequence number) so multiple accounts stay distinct. */
+export function pickPresetName(
+  defaultName: string,
+  requested: unknown,
+  accountLabel: string | undefined,
+  existingForProvider: number,
+): string {
+  const explicit = typeof requested === "string" ? requested.trim() : "";
+  if (explicit) return cleanName(explicit, defaultName);
+  if (existingForProvider === 0) return defaultName;
+  if (accountLabel?.trim()) return `${defaultName} (${accountLabel.trim()})`.slice(0, 80);
+  return `${defaultName} ${existingForProvider + 1}`;
 }
 
 export function humanizeKey(raw: string): string {
@@ -192,6 +228,29 @@ export function applyEdits(
   return next;
 }
 
+export function buildAuthRequestQuestion(
+  connector: Connector,
+  purpose: string,
+  needsGrant: boolean,
+  needsAuth: boolean,
+): QuestionSpec {
+  return {
+    question: purpose,
+    options: [
+      { label: "Keep allowing", value: "always", style: "primary" },
+      { label: "This time only", value: "once" },
+    ],
+    multiple: false,
+    allowCustom: false,
+    connectorAuth: {
+      connectorId: connector.id, slug: connector.slug, name: connector.name,
+      provider: connector.provider, purpose,
+      ...(connector.status === "connected" && connector.statusDetail ? { account: connector.statusDetail } : {}),
+      authKind: connector.authKind, needsGrant, needsAuth,
+    },
+  };
+}
+
 export function buildWriteConfirmQuestion(
   connector: Connector,
   tool: ConnectorTool,
@@ -233,15 +292,20 @@ export function filterUnconfirmedEntries(raw: unknown[], tools: readonly Connect
   return entries;
 }
 
-export function formatConnectorList(all: readonly Connector[], granted: ReadonlySet<string>, query?: string) {
+export function formatConnectorList(all: readonly Connector[], granted: ReadonlyMap<string, GrantScope>, query?: string) {
   const needle = query?.trim().toLowerCase() || "";
   const connectors = all.filter(c => c.enabled).map(c => {
     const matched = needle
       ? c.tools.filter(tool => tool.name.toLowerCase().includes(needle) || (tool.description ?? "").toLowerCase().includes(needle))
       : c.tools;
     const compact = !needle && matched.length > COMPACT_TOOL_THRESHOLD;
+    const scope = granted.get(c.id);
     return {
-      slug: c.slug, name: c.name, provider: c.provider, granted: granted.has(c.id), status: c.status, toolCount: c.tools.length,
+      slug: c.slug, name: c.name, provider: c.provider,
+      ...(c.status === "connected" && c.statusDetail ? { account: c.statusDetail } : {}),
+      granted: Boolean(scope),
+      ...(scope === "once" ? { until: "this run ends" } : {}),
+      status: c.status, toolCount: c.tools.length,
       tools: matched.map(tool => {
         const write = isWriteTool(tool);
         return {
@@ -256,7 +320,7 @@ export function formatConnectorList(all: readonly Connector[], granted: Readonly
   const note = !connectors.length
     ? "No connectors configured yet. Ask your owner to add one in Settings → Connectors."
     : connectors.some(c => !c.granted || c.status !== "connected")
-      ? "Use connectors.request to ask your owner for access or sign-in when granted=false or status!=connected."
+      ? "Use connectors.request to ask your owner for access (this time only or always) or sign-in when granted=false or status!=connected."
       : undefined;
   return { connectors, ...(note ? { note } : {}) };
 }
@@ -270,7 +334,9 @@ export function formatConnectorDescribe(connector: Connector, toolName?: string,
       : connector.tools;
   if (toolName && !tools.length) throw new ChatError(404, `Connector "${connector.slug}" has no tool named "${toolName}"`);
   return {
-    slug: connector.slug, name: connector.name, status: connector.status,
+    slug: connector.slug, name: connector.name,
+    ...(connector.status === "connected" && connector.statusDetail ? { account: connector.statusDetail } : {}),
+    status: connector.status,
     tools: tools.map(tool => {
       const write = isWriteTool(tool);
       return {

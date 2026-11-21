@@ -64,12 +64,14 @@ function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
   const ask = value as Record<string, unknown> | null;
   if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
     || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
-    || !text(ask.purpose, 300) || typeof ask.authKind !== "string" || !CONNECTOR_AUTH_KINDS.has(ask.authKind)
+    || !text(ask.purpose, 300) || (ask.account !== undefined && !text(ask.account, 120))
+    || typeof ask.authKind !== "string" || !CONNECTOR_AUTH_KINDS.has(ask.authKind)
     || typeof ask.needsGrant !== "boolean" || typeof ask.needsAuth !== "boolean")
     throw new ChatError(400, "Invalid connector auth request");
   return {
     connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
     provider: ask.provider as ConnectorAuthAsk["provider"], purpose: (ask.purpose as string).trim(),
+    ...(ask.account !== undefined ? { account: (ask.account as string).trim() } : {}),
     authKind: ask.authKind as ConnectorAuthAsk["authKind"], needsGrant: ask.needsGrant, needsAuth: ask.needsAuth,
   };
 }

@@ -13,7 +13,8 @@ import { ConnectorPresetRow } from "./ConnectorPresetRow";
 import "../styles/secrets.css";
 import "../styles/connectors.css";
 
-const byName = (a: Connector, b: Connector) => a.name.localeCompare(b.name);
+const byName = (a: Connector, b: Connector) =>
+  a.name.localeCompare(b.name) || a.statusDetail.localeCompare(b.statusDetail) || a.createdAt - b.createdAt;
 const isLoopback = (host: string) => host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
 const defaultOrigin = () => window.location.protocol === "http:" && !isLoopback(window.location.hostname)
   ? `https://${window.location.host}` : window.location.origin;
@@ -39,8 +40,9 @@ export function ConnectorSettings() {
   }, []);
 
   const callbackUrl = `${publicUrl ?? defaultOrigin()}/api/connectors/oauth/callback`;
-  const connectedProviders = new Set((connectors ?? []).map(item => item.provider));
-  const availablePresets = presets.filter(preset => preset.id !== "custom_mcp" && !connectedProviders.has(preset.id));
+  const countByProvider = new Map<string, number>();
+  for (const item of connectors ?? []) countByProvider.set(item.provider, (countByProvider.get(item.provider) ?? 0) + 1);
+  const availablePresets = presets.filter(preset => preset.id !== "custom_mcp");
 
   const onAdded = (created: Connector) => {
     setConnectors(list => [...(list ?? []), created].sort(byName));
@@ -75,7 +77,7 @@ export function ConnectorSettings() {
       {connectors && connectors.length > 0 && <h3 id="connectors-available" className="jv-section-title">{t("connectors.availableSection")}</h3>}
       <div className="jv-list">
         {availablePresets.map(preset => (
-          <ConnectorPresetRow key={preset.id} preset={preset} callbackUrl={callbackUrl} onConnected={onAdded}/>
+          <ConnectorPresetRow key={preset.id} preset={preset} connectedCount={countByProvider.get(preset.id) ?? 0} callbackUrl={callbackUrl} onConnected={onAdded}/>
         ))}
       </div>
     </section>}

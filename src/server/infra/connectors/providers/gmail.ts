@@ -286,7 +286,7 @@ async function startOAuth(input: AdapterStartOAuthInput): Promise<ConnectorStart
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("scope", "https://www.googleapis.com/auth/gmail.modify");
   authUrl.searchParams.set("access_type", "offline");
-  authUrl.searchParams.set("prompt", "consent");
+  authUrl.searchParams.set("prompt", "select_account consent");
   authUrl.searchParams.set("state", state);
   return { outcome: "redirect", authUrl: authUrl.toString(), state, snapshot: { serverUrl: input.url, oauthState: state } };
 }

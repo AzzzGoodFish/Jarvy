@@ -1,6 +1,7 @@
 import type {
   Connector, ConnectorAuthKind, ConnectorPreset, ConnectorProvider, ConnectorUse,
 } from "../../contract/connectors.js";
+import type { GrantScope } from "../../contract/secrets.js";
 import type { QuestionSpec } from "../../contract/chat.js";
 import type { ChatMessage } from "../shared/chat.js";
 import {
@@ -18,8 +19,8 @@ import type { QuestionResult } from "./chat/questions.js";
 import { ConnectorOAuthCoordinator } from "./connectors-oauth.js";
 import type { ConnectorEnv } from "../infra/connectors/client-env.js";
 import {
-  applyEdits, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
-  filterUnconfirmedEntries, formatConnectorDescribe, formatConnectorList,
+  applyEdits, buildAuthRequestQuestion, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
+  filterUnconfirmedEntries, formatConnectorDescribe, formatConnectorList, pickConnectorSlug, pickPresetName,
 } from "./connectors-format.js";
 
 const MAX_TOOL_TEXT = 32_000;
@@ -44,7 +45,7 @@ export class ConnectorService {
       (id, work) => this.withLock(id, work),
       id => this.generation(id),
       id => this.probeLocked(id).then(() => {}),
-      (provider, snapshot) => this.createFromOAuth(provider, snapshot),
+      (provider, snapshot, name) => this.createFromOAuth(provider, snapshot, name),
       () => this.secrets.refreshMask(),
       text => this.secrets.masker().mask(text),
     );
@@ -89,26 +90,41 @@ export class ConnectorService {
       const msg = this.secrets.masker().mask(probe.message).slice(0, 300);
       throw new RuntimeFault(probe.outcome === "needs_auth" ? "connector_auth_required" : "connector_unreachable", msg, 400);
     }
-    const slug = this.freeSlug(meta.id);
-    const name = cleanName(input.name, meta.name);
+    const existing = this.store.connectors.list();
+    const accountLabel = probe.accountLabel?.slice(0, 120);
+    const slug = pickConnectorSlug(meta.id, new Set(existing.map(c => c.slug)), accountLabel ?? (typeof input.name === "string" ? input.name : undefined));
+    const name = pickPresetName(meta.name, input.name, accountLabel, existing.filter(c => c.provider === meta.id).length);
     const created = this.store.connectors.create({
       slug, name, kind: meta.kind, provider: meta.id, url: meta.defaultUrl, authKind: "headers",
-      enabled: true, status: "connected", statusDetail: probe.accountLabel?.slice(0, 120) ?? "",
+      enabled: true, status: "connected", statusDetail: accountLabel ?? "",
       tools: probe.tools, credentials: { headers },
     });
     this.secrets.refreshMask();
     return created;
   }
 
-  private async createFromOAuth(provider: ConnectorProvider, snapshot: McpOAuthSnapshot): Promise<Connector> {
+  private async createFromOAuth(provider: ConnectorProvider, snapshot: McpOAuthSnapshot, requestedName?: string): Promise<Connector> {
     const meta = this.driver.meta(provider);
-    const slug = this.freeSlug(provider);
+    const probed = await this.driver.probe({
+      provider, url: meta.defaultUrl, authKind: "oauth", oauth: snapshot,
+      ...(this.env.isManaged(provider) ? (this.env.client(provider) ?? {}) : {}),
+      redirectUrl: this.oauth.defaultRedirectUri(),
+    });
+    const finalOAuth = "snapshot" in probed && probed.snapshot ? probed.snapshot : snapshot;
+    const existing = this.store.connectors.list();
+    const accountLabel = probed.outcome === "connected" ? probed.accountLabel?.slice(0, 120) : undefined;
+    const slug = pickConnectorSlug(provider, new Set(existing.map(c => c.slug)), accountLabel ?? requestedName);
+    const name = pickPresetName(meta.name, requestedName, accountLabel, existing.filter(c => c.provider === provider).length);
+    const status = probed.outcome === "connected" ? "connected" : probed.outcome === "needs_auth" ? "needs_auth" : "error";
+    const statusDetail = probed.outcome === "connected"
+      ? (accountLabel ?? "")
+      : this.secrets.masker().mask(probed.message).slice(0, 300);
     const created = this.store.connectors.create({
-      slug, name: meta.name, kind: meta.kind, provider, url: meta.defaultUrl, authKind: "oauth",
-      enabled: true, status: "needs_auth", credentials: { oauth: snapshot },
+      slug, name, kind: meta.kind, provider, url: meta.defaultUrl, authKind: "oauth", enabled: true,
+      status, statusDetail, tools: probed.outcome === "connected" ? probed.tools : [], credentials: { oauth: finalOAuth },
     });
     this.secrets.refreshMask();
-    return this.probeLocked(created.id);
+    return created;
   }
 
   async create(input: {
@@ -119,7 +135,8 @@ export class ConnectorService {
       ? input.provider : "custom_mcp";
     const meta = this.driver.meta(provider);
     const slug = input.slug !== undefined && input.slug !== ""
-      ? cleanSlug(input.slug) : this.freeSlug(provider !== "custom_mcp" ? provider : "mcp");
+      ? cleanSlug(input.slug)
+      : pickConnectorSlug(provider !== "custom_mcp" ? provider : "mcp", new Set(this.store.connectors.list().map(c => c.slug)), typeof input.name === "string" ? input.name : undefined);
     const name = cleanName(input.name, meta.name || slug);
     const url = cleanUrl(provider !== "custom_mcp" ? meta.defaultUrl : (input.url ?? meta.defaultUrl));
     const requestedAuth = typeof input.authKind === "string" && meta.authMethods.includes(input.authKind as ConnectorAuthKind)
@@ -285,7 +302,7 @@ export class ConnectorService {
 
   /** connectors.list: compact summary when a connector exposes many tools; supports optional keyword filtering. */
   listFor(botId: string, query?: string) {
-    return formatConnectorList(this.store.connectors.list(), this.store.connectors.grantedIds(botId), query);
+    return formatConnectorList(this.store.connectors.list(), this.store.connectors.grantedTo(botId), query);
   }
 
   /** connectors.describe: full tool schemas for one granted connector, filterable by exact tool name or keyword query. */
@@ -414,23 +431,11 @@ export class ConnectorService {
         ? `Connector "${slug}" is not connected. The owner connects it in Settings → Connectors with a token, or sets ${variables} for Jarvy to sign in on the web. Tell them.`
         : `Connector "${slug}" can't sign in yet: the owner has to set ${variables} for Jarvy and restart it. Tell them.`, "connector_client_missing");
     }
-    return {
-      question: {
-        question: purpose,
-        options: [{ label: "Allow", value: "allow", style: "primary" }],
-        multiple: false,
-        allowCustom: false,
-        connectorAuth: {
-          connectorId: current.id, slug: current.slug, name: current.name,
-          provider: current.provider, purpose, authKind: current.authKind,
-          needsGrant: !granted, needsAuth,
-        },
-      },
-    };
+    return { question: buildAuthRequestQuestion(current, purpose, !granted, needsAuth) };
   }
 
-  /** Settles an in-chat connectorAuth card once authorized and grants access to the Bot. */
-  async fulfilAuth(actorId: string, chatId: string, messageId: string): Promise<ChatMessage> {
+  /** Settles an in-chat connectorAuth card once authorized and grants access (always or this run only) to the Bot. */
+  async fulfilAuth(actorId: string, chatId: string, messageId: string, input?: { scope?: unknown }): Promise<ChatMessage> {
     const message = this.chats.message(actorId, messageId);
     const ask = message?.question?.connectorAuth;
     if (!message || message.chatId !== chatId || !ask || message.question?.state !== "pending")
@@ -438,13 +443,21 @@ export class ConnectorService {
     if (!this.chats.questions.waitingFor(messageId))
       throw new ChatError(409, "The question has expired", "question_expired");
 
+    const scope: GrantScope | null = ask.needsGrant
+      ? (input?.scope === "always" || input?.scope === "once" ? input.scope : null)
+      : null;
+    if (ask.needsGrant && !scope) throw new ChatError(400, "scope must be always or once");
+
     let connector = this.get(ask.connectorId);
     if (connector.status !== "connected") connector = await this.probe(connector.id);
     if (connector.status !== "connected") {
       throw new ChatError(409, connector.statusDetail || "Connector is not connected yet", "connector_auth_required");
     }
-    this.store.connectors.grant(connector.id, message.sender.id);
-    return this.chats.questions.respond(actorId, chatId, messageId, { action: "answer", selected: [0] });
+    if (scope) {
+      const botId = message.sender.id;
+      this.store.connectors.grant(connector.id, botId, scope, scope === "once" ? this.store.connectors.currentRun(botId) : null);
+    }
+    return this.chats.questions.respond(actorId, chatId, messageId, { action: "answer", selected: [scope === "once" ? 1 : 0] });
   }
 
   private requireGranted(botId: string, slug: string): Connector {
@@ -460,16 +473,6 @@ export class ConnectorService {
     const next = prev.catch(() => {}).then(work);
     this.locks.set(id, next);
     try { return await next; } finally { if (this.locks.get(id) === next) this.locks.delete(id); }
-  }
-
-  private freeSlug(base: string): string {
-    const existing = new Set(this.store.connectors.list().map(c => c.slug));
-    if (!existing.has(base)) return base;
-    for (let n = 2; n < 100; n++) {
-      const candidate = `${base}-${n}`;
-      if (!existing.has(candidate)) return candidate;
-    }
-    return `${base}-${Date.now()}`;
   }
 
   private clientOf(connector: Connector, creds: StoredConnectorCredentials): { clientId?: string; clientSecret?: string } {

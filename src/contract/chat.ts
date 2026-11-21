@@ -51,7 +51,7 @@ export interface EnterAsk { kind: "sandbox" | "machine"; name: string; address?:
 /** A connector access / sign-in request (A102). */
 export interface ConnectorAuthAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider; purpose: string;
-  authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
+  account?: string; authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
 }
 /** One human-readable field displayed (and optionally edited) on a write confirmation card (A102). */
 export interface ConnectorWriteField {

@@ -1,4 +1,5 @@
 /** External service connectors (A102): remote MCP servers and built-in vendor adapters exposed uniformly to Bots. */
+import type { GrantScope } from "./secrets.js";
 
 export type ConnectorKind = "remote_mcp" | "builtin";
 export type ConnectorProvider = "github" | "gmail" | "linear" | "custom_mcp";
@@ -18,6 +19,7 @@ export interface ConnectorTool {
 
 export interface ConnectorGrant {
   botId: string;
+  scope: GrantScope;
   grantedAt: number;
 }
 

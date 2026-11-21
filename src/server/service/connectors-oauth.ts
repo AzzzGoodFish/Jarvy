@@ -20,6 +20,7 @@ interface PresetFlowRecord {
   provider: ConnectorProvider;
   url: string;
   name: string;
+  requestedName?: string;
   redirectUri: string;
   snapshot: McpOAuthSnapshot;
   state: ConnectorOAuthState;
@@ -62,7 +63,7 @@ export class ConnectorOAuthCoordinator {
     private readonly withLock: <T>(id: string, work: () => Promise<T>) => Promise<T>,
     private readonly generation: (id: string) => number,
     private readonly afterAuth: (id: string) => Promise<void>,
-    private readonly createFromOAuth: (provider: ConnectorProvider, snapshot: McpOAuthSnapshot) => Promise<Connector>,
+    private readonly createFromOAuth: (provider: ConnectorProvider, snapshot: McpOAuthSnapshot, requestedName?: string) => Promise<Connector>,
     private readonly maskChanged: () => void,
     private readonly mask: (text: string) => string,
   ) {}
@@ -141,7 +142,7 @@ export class ConnectorOAuthCoordinator {
   }
 
   /** Starts OAuth for a curated preset without creating a database row until authorization succeeds. */
-  async startPreset(provider: ConnectorProvider, redirectUri?: unknown): Promise<ConnectorOAuthState> {
+  async startPreset(provider: ConnectorProvider, redirectUri?: unknown, name?: unknown): Promise<ConnectorOAuthState> {
     this.prune();
     if (!this.driver.hasProvider(provider) || provider === "custom_mcp")
       throw new RuntimeFault("connector_missing", "Unknown connector preset", 404);
@@ -152,6 +153,7 @@ export class ConnectorOAuthCoordinator {
       const vars = this.env.variables(provider).join(", ");
       throw new RuntimeFault("connector_client_missing", `Set ${vars} in the environment or .env and restart Jarvy`, 400);
     }
+    const requestedName = typeof name === "string" && name.trim() ? name.trim().slice(0, 80) : undefined;
     const resolvedRedirect = this.resolveRedirectUri(redirectUri);
     const flowId = randomUUID();
     try {
@@ -162,10 +164,10 @@ export class ConnectorOAuthCoordinator {
         redirectUrl: resolvedRedirect,
       });
       if (started.outcome === "authorized") {
-        const created = await this.createFromOAuth(provider, started.snapshot);
+        const created = await this.createFromOAuth(provider, started.snapshot, requestedName);
         const state: ConnectorOAuthState = { phase: "completed", flowId, connectorId: created.id };
         this.presetFlows.set(flowId, {
-          provider, url: meta.defaultUrl, name: meta.name, redirectUri: resolvedRedirect,
+          provider, url: meta.defaultUrl, name: created.name, requestedName, redirectUri: resolvedRedirect,
           snapshot: started.snapshot, state, connectorId: created.id, expiresAt: Date.now() + FLOW_TTL_MS,
         });
         return state;
@@ -173,11 +175,11 @@ export class ConnectorOAuthCoordinator {
       const state: ConnectorOAuthState = { phase: "waiting", flowId, authUrl: started.authUrl, redirectUri: resolvedRedirect };
       const expiresAt = Date.now() + FLOW_TTL_MS;
       this.presetFlows.set(flowId, {
-        provider, url: meta.defaultUrl, name: meta.name, redirectUri: resolvedRedirect,
+        provider, url: meta.defaultUrl, name: requestedName ?? meta.name, requestedName, redirectUri: resolvedRedirect,
         snapshot: started.snapshot, state, expiresAt,
       });
       this.pending.set(started.state, {
-        target: { kind: "preset", flowId, provider, url: meta.defaultUrl, name: meta.name, snapshot: started.snapshot },
+        target: { kind: "preset", flowId, provider, url: meta.defaultUrl, name: requestedName ?? meta.name, snapshot: started.snapshot },
         redirectUri: resolvedRedirect,
         expiresAt,
       });
@@ -369,7 +371,8 @@ export class ConnectorOAuthCoordinator {
         code,
         iss,
       });
-      const created = await this.createFromOAuth(record.provider, snapshot);
+      const created = await this.createFromOAuth(record.provider, snapshot, record.requestedName);
+      record.name = created.name;
       record.connectorId = created.id;
       record.state = { phase: "completed", flowId, connectorId: created.id };
     } catch (error) {

@@ -17,23 +17,23 @@ External service integrations exposed uniformly to Bots through the `chat` gatew
   - `linear.ts` (`remote_mcp`): curated preset for Linear's official remote MCP (`https://mcp.linear.app/mcp`) with dynamic OAuth registration.
   - `custom-mcp.ts` (`remote_mcp`): arbitrary Streamable HTTP MCP server (`oauth`, static `headers`, or `none`).
 
-## Storage and security (v34)
+## Storage and security (v34–v35)
 
-- `connectors`: id, owner, `slug` (unique per owner), display name, `kind`, `provider`, non-secret config (`config_json`), `enabled`, `status` (`disconnected` | `connected` | `needs_auth` | `error`), `status_detail` (account handle/email when connected, masked error otherwise), and cached `tools_json`.
+- `connectors`: id, owner, `slug` (unique per owner), display name, `kind`, `provider`, non-secret config (`config_json`), `enabled`, `status` (`disconnected` | `connected` | `needs_auth` | `error`), `status_detail` (account handle/email when connected, masked error otherwise), and cached `tools_json`. Multiple accounts may be connected for the same preset provider (each gets its own row, unique `slug`, optional display name and independent Bot grants).
 - `connector_unconfirmed_tools`: per-connector write tools exempted from in-chat confirmation, stored with `definition_hash` (`toolDefinitionHash`). If a remote server changes a tool's description, annotations or schema, the approval automatically expires.
 - `connector_credentials`: one row per connector, sealed under the master key with AES-256-GCM (`connector:<id>`).
-- `connector_grants`: per-Bot access grants.
+- `connector_grants`: per-Bot access grants (`scope`: `'always'` until revoked, or `'once'` tied to `run_id` until that Bot run ends, v35). Newly connected connectors start with no Bot grants.
 - `connector_uses`: audit log (`ok` | `error` | `denied`), outliving connector deletion.
 - Every connector secret and deployment client secret is registered in `SecretService`'s `Masker`.
 
-## Bot tools and write confirmation
+## Bot tools and two-layer authorization
 
-- `connectors.list`: returns enabled connectors with `slug`, `status`, `toolCount`, `tools` (compact when a connector has > 8 tools; optional `query` filter) and `granted`.
-- `connectors.describe`: returns full input schemas for a granted connector, filterable by exact `tool` or keyword `query`.
-- `connectors.call`: invokes a tool on a granted connector:
+- `connectors.list`: returns enabled connectors with `slug`, `name`, `account` (when connected), `status`, `toolCount`, `tools` (compact when a connector has > 8 tools; optional `query` filter), `granted` and `until` (for one-run grants).
+- `connectors.describe`: returns full input schemas (and `account`) for a granted connector, filterable by exact `tool` or keyword `query`.
+- **Layer 1 — Connector access (`connectors.request`)**: posts an in-chat `connectorAuth` card (showing target `account` when present) when a connector is not granted or needs sign-in. Once connected, the owner explicitly chooses **Decline**, **This time only** (bound to the current Bot run) or **Always allow** — matching `secrets.request` (A52).
+- **Layer 2 — Write confirmation (`connectors.call`)**: invokes a tool on a granted connector:
   - Read tools (`readOnly === true && destructive !== true`) always run directly.
-  - Any other tool (including remote MCP tools that omit `readOnly`) is treated as a write tool and posts an editable in-chat confirmation card (`connectorWrite`). Edits are validated against `inputSchema` (covering all schema properties, not only fields the Bot passed). The primary button's menu offers "Confirm / Send & don't ask again", recording `(tool_name, definition_hash)` so only explicitly exempted tools bypass future confirmation.
-- `connectors.request`: posts an in-chat `connectorAuth` card when a connector is not granted or needs sign-in; OAuth completion settles the card automatically and grants access to the Bot.
+  - Any other tool (including remote MCP tools that omit `readOnly`) is treated as a write tool and posts an editable in-chat confirmation card (`connectorWrite`, showing target `account`). Edits are validated against `inputSchema` (covering all schema properties, not only fields the Bot passed). The primary button's menu offers "Confirm / Send & don't ask again", recording `(tool_name, definition_hash)` so only explicitly exempted tools bypass future confirmation.
 
 ## Deployment OAuth settings
 
@@ -47,5 +47,5 @@ Built-in OAuth clients belong to the deployment, read from `process.env` and `<d
 
 ## Interface (Settings → Connectors)
 
-- Unconnected curated presets (`GitHub`, `Gmail`, `Linear`) appear as clean one-line rows with a `Connect` button. Starting OAuth or entering a token happens in an ephemeral inline drawer and **never creates a database row until authorization or token verification succeeds**.
-- Connected items show only Bot grants and any auto-approved write exceptions by default; the full tool list (searchable above 8 tools), usage log and Custom MCP connection settings stay collapsed inside secondary disclosures.
+- Curated presets (`GitHub`, `Gmail`, `Linear`) stay available in the lower section so multiple accounts (or scoped tokens) can be connected for the same provider. Each row shows `Connect` (or `Add account` with the connected count), opens an ephemeral inline drawer with an optional label for token sign-in, and **never creates a database row until authorization or token verification succeeds**. Gmail requests `prompt=select_account consent` so additional Google accounts can be chosen cleanly.
+- Connected items show only Bot grants (tagging one-run grants as `This time only`) and any auto-approved write exceptions by default; the full tool list (searchable above 8 tools), usage log, preset account settings (rename, identifier and token rotation) and Custom MCP connection settings stay collapsed inside secondary disclosures.

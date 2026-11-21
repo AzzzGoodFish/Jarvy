@@ -53,7 +53,7 @@ export function connectorRoutes(connectors: ApiServices["connectors"]) {
   // Ephemeral preset connection flows: nothing is persisted until OAuth completes or the token verifies.
   routes.post("/presets/:provider/oauth/start", jsonBody, async c => {
     const input = await readJson(c).catch(() => ({} as Record<string, unknown>));
-    return c.json(await connectors.oauth.startPreset(c.req.param("provider") as ConnectorProvider, input.redirectUri));
+    return c.json(await connectors.oauth.startPreset(c.req.param("provider") as ConnectorProvider, input.redirectUri, input.name));
   });
   routes.post("/presets/:provider/token", jsonBody, async c => {
     const input = await readJson(c);
@@ -104,7 +104,8 @@ export function connectorRoutes(connectors: ApiServices["connectors"]) {
   });
   routes.get("/:id/uses", c => c.json({ uses: connectors.uses(c.req.param("id")) }));
   routes.post("/requests/:chatId/:messageId", async c => {
-    return c.json(messageView(await connectors.fulfilAuth(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"))));
+    const input = await readJson(c).catch(() => ({} as Record<string, unknown>));
+    return c.json(messageView(await connectors.fulfilAuth(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), { scope: input.scope })));
   });
   return routes;
 }

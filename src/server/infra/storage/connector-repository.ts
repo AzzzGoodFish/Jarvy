@@ -4,6 +4,7 @@ import type {
   Connector, ConnectorAuthKind, ConnectorGrant, ConnectorKind, ConnectorProvider,
   ConnectorStatus, ConnectorTool, ConnectorUse,
 } from "../../../contract/connectors.js";
+import type { GrantScope } from "../../../contract/secrets.js";
 import {
   isWriteTool, toolDefinitionHash,
   type ConnectorRuntimeInfo, type StoredConnectorCredentials,
@@ -72,8 +73,9 @@ export class ConnectorRepository {
         hasClientSecret = Boolean(creds.clientSecret);
       }
     }
-    const grants = (this.db.prepare("SELECT bot_id AS botId, granted_at AS grantedAt FROM connector_grants WHERE connector_id=? ORDER BY granted_at ASC")
-      .all(row.id) as unknown as ConnectorGrant[]).map(grant => ({ ...grant }));
+    const grants = (this.db.prepare(`SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM connector_grants g
+      WHERE connector_id=? AND (scope='always' OR EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=g.run_id AND r.ended_at IS NULL))
+      ORDER BY granted_at ASC`).all(row.id) as unknown as ConnectorGrant[]).map(grant => ({ ...grant }));
     const stats = this.db.prepare("SELECT COUNT(*) AS count, MAX(at) AS lastAt FROM connector_uses WHERE connector_id=?")
       .get(row.id) as { count: number; lastAt: number | null };
     const managedClient = this.runtime?.managedClient(row.provider) ?? null;
@@ -122,6 +124,7 @@ export class ConnectorRepository {
   }
 
   list(): Connector[] {
+    this.purge();
     const rows = this.db.prepare("SELECT * FROM connectors WHERE owner_id=? ORDER BY created_at ASC").all(this.ownerId()) as unknown as ConnectorRow[];
     return rows.map(row => this.toView(row));
   }
@@ -248,19 +251,36 @@ export class ConnectorRepository {
       .run(id, authKind, sealed, Date.now());
   }
 
-  grant(id: string, botId: string): void {
-    this.db.prepare(`INSERT INTO connector_grants(connector_id,bot_id,granted_by,granted_at) VALUES(?,?,?,?)
-      ON CONFLICT(connector_id,bot_id) DO NOTHING`).run(id, botId, this.ownerId(), Date.now());
+  grant(id: string, botId: string, scope: GrantScope = "always", runId: string | null = null): void {
+    this.db.prepare(`INSERT INTO connector_grants(connector_id,bot_id,scope,run_id,granted_by,granted_at) VALUES(?,?,?,?,?,?)
+      ON CONFLICT(connector_id,bot_id) DO UPDATE SET scope=excluded.scope, run_id=excluded.run_id, granted_at=excluded.granted_at`)
+      .run(id, botId, scope, runId, this.ownerId(), Date.now());
   }
 
   revoke(id: string, botId: string): boolean {
     return Number(this.db.prepare("DELETE FROM connector_grants WHERE connector_id=? AND bot_id=?").run(id, botId).changes) > 0;
   }
 
+  /** Active grants for one Bot: permanent grants plus "this time only" grants whose run is still live. */
+  grantedTo(botId: string): Map<string, GrantScope> {
+    const rows = this.db.prepare(`SELECT g.connector_id AS id, g.scope FROM connector_grants g JOIN connectors c ON c.id=g.connector_id
+      WHERE g.bot_id=? AND c.owner_id=? AND (g.scope='always' OR EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=g.run_id AND r.ended_at IS NULL))`)
+      .all(botId, this.ownerId()) as { id: string; scope: GrantScope }[];
+    return new Map(rows.map(row => [row.id, row.scope]));
+  }
+
   grantedIds(botId: string): Set<string> {
-    const rows = this.db.prepare("SELECT g.connector_id AS id FROM connector_grants g JOIN connectors c ON c.id=g.connector_id WHERE g.bot_id=? AND c.owner_id=?")
-      .all(botId, this.ownerId()) as { id: string }[];
-    return new Set(rows.map(row => row.id));
+    return new Set(this.grantedTo(botId).keys());
+  }
+
+  /** The Bot's run in progress, which a "this time only" grant lasts for. */
+  currentRun(botId: string): string | null {
+    return (this.db.prepare("SELECT id FROM bot_runs WHERE bot_id=? AND ended_at IS NULL ORDER BY created_at DESC LIMIT 1").get(botId) as { id: string } | undefined)?.id ?? null;
+  }
+
+  /** Removes expired "this time only" grants whose run has ended. */
+  private purge(): void {
+    this.db.prepare("DELETE FROM connector_grants WHERE scope='once' AND NOT EXISTS(SELECT 1 FROM bot_runs r WHERE r.id=connector_grants.run_id AND r.ended_at IS NULL)").run();
   }
 
   recordUse(use: { connectorId: string; slug: string; botId: string; toolName: string; outcome: "ok" | "error" | "denied"; detail: string }): void {

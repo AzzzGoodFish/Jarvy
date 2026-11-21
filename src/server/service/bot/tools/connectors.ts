@@ -5,7 +5,7 @@ import { tool } from "./registry.js";
 export const connectorTools = [
   tool(
     "connectors.list",
-    "List external connectors (such as GitHub, Gmail, Linear or custom remote MCPs): slug, name, status, tools (a write tool says whether it asks the owner first) and granted. Pass query to filter tools by keyword.",
+    "List external connectors (such as GitHub, Gmail, Linear or custom remote MCPs): slug, name, account (when connected), status, tools (a write tool says whether it asks the owner first) and granted. Pass query to filter tools by keyword.",
     Type.Object({
       query: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "Optional keyword to filter tools by name or description" })),
     }, { additionalProperties: false }),
@@ -56,7 +56,11 @@ export const connectorTools = [
       if (result.status !== "answered") {
         return { messageId: result.messageId, status: "declined", note: "Your owner declined. Proceed without this connector, or ask what they prefer." };
       }
-      return { messageId: result.messageId, status: "connected", connector: input.connector };
+      const picked = result.selected[0]?.value;
+      return {
+        messageId: result.messageId, status: "connected", connector: input.connector,
+        ...(picked === "once" ? { until: "this run ends" } : {}),
+      };
     },
   ),
 ];

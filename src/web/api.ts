@@ -173,8 +173,8 @@ export const api = {
     request<ChatMessage>(`/secrets/requests/${chatId}/${messageId}`, { method: "POST", body: body(input) }),
   /** External service connectors (A102). */
   connectors: () => request<{ connectors: Connector[]; presets: ConnectorPreset[]; publicUrl: string | null }>("/connectors"),
-  startPresetOAuth: (provider: ConnectorProvider, redirectUri?: string) =>
-    request<ConnectorOAuthState>(`/connectors/presets/${provider}/oauth/start`, { method: "POST", body: body({ redirectUri }) }),
+  startPresetOAuth: (provider: ConnectorProvider, redirectUri?: string, name?: string) =>
+    request<ConnectorOAuthState>(`/connectors/presets/${provider}/oauth/start`, { method: "POST", body: body({ redirectUri, ...(name ? { name } : {}) }) }),
   presetOAuthStatus: (flowId: string) =>
     request<{ oauth: ConnectorOAuthState; connector?: Connector }>(`/connectors/oauth/flows/${flowId}`),
   completePresetOAuth: (flowId: string, input: { callbackUrl?: string; code?: string }) =>
@@ -203,8 +203,8 @@ export const api = {
   grantConnector: (id: string, botId: string, granted: boolean) =>
     request<Connector>(`/connectors/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   connectorUses: (id: string) => request<{ uses: ConnectorUse[] }>(`/connectors/${id}/uses`),
-  fulfilConnectorAuth: (chatId: string, messageId: string) =>
-    request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, { method: "POST" }),
+  fulfilConnectorAuth: (chatId: string, messageId: string, scope?: "always" | "once") =>
+    request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, { method: "POST", ...(scope ? { body: body({ scope }) } : {}) }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),

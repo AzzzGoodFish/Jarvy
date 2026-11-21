@@ -60,8 +60,9 @@
 .jv-connector-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: var(--ui-radius-full); background: var(--ui-fill-control-knob); box-shadow: var(--ui-shadow-sm); transition: transform var(--ui-duration-fast) var(--ui-ease-out); }
 .jv-connector-switch[aria-checked="true"]::after { transform: translateX(12px); }
 
-/* Custom MCP form */
+/* Custom MCP and preset account settings */
 .jv-connector-form { display: grid; gap: var(--ui-space-12); }
+.jv-connector-slug { display: inline-flex; align-items: center; align-self: flex-start; min-height: var(--ui-control-md); padding: 0 var(--ui-space-8); border: 1px solid var(--ui-border-weak); border-radius: var(--ui-radius-md); background: var(--ui-bg-subtle); color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); user-select: all; }
 .jv-connector-setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-12); flex-wrap: wrap; }
 .jv-connector-headers { display: grid; gap: var(--ui-space-8); }
 .jv-header-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--ui-space-6); align-items: center; }

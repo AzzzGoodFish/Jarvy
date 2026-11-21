@@ -10,16 +10,19 @@ import { ConnectorMark } from "./ConnectorMark";
 
 type DrawerMode = "closed" | "oauth" | "token" | "env_guide";
 
-/** One unconnected curated connector row (GitHub, Gmail, Linear) (A102):
- * stays a single calm row until clicked, and never creates a database record until sign-in or token check succeeds. */
-export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
-  preset: ConnectorPreset; callbackUrl: string; onConnected: (connector: Connector) => void;
+/** One curated connector row (GitHub, Gmail, Linear) (A102):
+ * stays a single calm row until clicked, supports adding multiple accounts for the same provider,
+ * and never creates a database record until sign-in or token check succeeds. */
+export function ConnectorPresetRow({ preset, connectedCount, callbackUrl, onConnected }: {
+  preset: ConnectorPreset; connectedCount: number; callbackUrl: string; onConnected: (connector: Connector) => void;
 }) {
   const [mode, setMode] = useState<DrawerMode>("closed");
   const [oauth, setOAuth] = useState<ConnectorOAuthState | null>(null);
+  const [label, setLabel] = useState("");
   const [token, setToken] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedAuth, setCopiedAuth] = useState(false);
   const flowIdRef = useRef<string | null>(null);
   const { busy, error, run, setError } = useAction();
 
@@ -35,6 +38,7 @@ export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
       void api.cancelPresetOAuth(id).catch(() => {});
     }
     setOAuth(null);
+    setLabel("");
     setManualUrl("");
     setError("");
     setMode("closed");
@@ -91,8 +95,9 @@ export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
     event.preventDefault();
     if (!token.trim()) return;
     void run("token", async () => {
-      const created = await api.connectPresetToken(preset.id, token.trim());
+      const created = await api.connectPresetToken(preset.id, token.trim(), label.trim() || undefined);
       setToken("");
+      setLabel("");
       setMode("closed");
       onConnected(created);
     });
@@ -122,15 +127,27 @@ export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
     }).catch(() => {});
   };
 
+  const copyAuthUrl = () => {
+    if (!oauth?.authUrl) return;
+    void navigator.clipboard?.writeText(oauth.authUrl).then(() => {
+      setCopiedAuth(true);
+      window.setTimeout(() => setCopiedAuth(false), 1800);
+    }).catch(() => {});
+  };
+
   const envVars = managed?.variables.join(" / ") ?? "";
+  const connectLabel = connectedCount > 0 ? t("connectors.addAccount") : t("connectors.connect");
 
   return <>
     <div className="jv-list-row jv-static-row jv-connector-preset-row">
       <span className="jv-connector-row">
         <ConnectorMark provider={preset.id} badge/>
-        <span className="jv-row-text"><strong>{preset.name}</strong></span>
+        <span className="jv-row-text">
+          <strong>{preset.name}</strong>
+          {connectedCount > 0 && <span>{t("connectors.connectedAccounts", { count: connectedCount })}</span>}
+        </span>
         <Button type="button" variant={mode === "closed" ? "outline" : "ghost"} size="sm" disabled={busy} onClick={openConnect}>
-          {mode === "closed" ? t("connectors.connect") : t("common.cancel")}
+          {mode === "closed" ? connectLabel : t("common.cancel")}
         </Button>
       </span>
     </div>
@@ -140,10 +157,17 @@ export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
         <span className="jv-connector-waiting-dot" aria-hidden="true"/>
         <span>{t("connectors.oauthWaiting")}</span>
       </div>}
+      {connectedCount > 0 && preset.id === "github" && (
+        <p className="jv-connector-env-note">{t("connectors.multiAccountOAuthHint", { name: preset.name })}</p>
+      )}
       <div className="jv-connector-drawer-foot">
         <div className="jv-connector-drawer-row">
           {oauth?.authUrl && <Button type="button" variant="outline" size="sm" onClick={() => window.open(oauth.authUrl, "_blank", "noopener,noreferrer")}>
             <ExternalLinkIcon/>{t("connectors.openBrowser")}
+          </Button>}
+          {connectedCount > 0 && oauth?.authUrl && <Button type="button" variant="outline" size="sm" onClick={copyAuthUrl}>
+            {copiedAuth ? <CheckIcon/> : <CopyIcon/>}
+            {copiedAuth ? t("connectors.copied") : t("connectors.copyAuthUrl")}
           </Button>}
           {!oauth && !busy && error && <Button type="button" variant="outline" size="sm" onClick={startOAuth}>
             {t("connectors.reconnect")}
@@ -164,6 +188,10 @@ export function ConnectorPresetRow({ preset, callbackUrl, onConnected }: {
     </div>}
 
     {mode === "token" && <form className="jv-connector-drawer" onSubmit={submitToken}>
+      <label className="jv-field">
+        <span>{t("connectors.optionalName")}</span>
+        <Input maxLength={80} value={label} onChange={event => setLabel(event.target.value)} placeholder={t("connectors.accountNamePlaceholder", { name: preset.name })}/>
+      </label>
       <label className="jv-field">
         <span>{t("connectors.tokenLabel")}</span>
         <div className="jv-connector-drawer-row">

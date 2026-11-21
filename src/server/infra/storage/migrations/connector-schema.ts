@@ -54,4 +54,11 @@ export function migrateConnectors(db: DatabaseSync): void {
       CREATE INDEX connector_uses_connector ON connector_uses(connector_id, at);
     `);
   });
+  /** v35 (A102): per-run ("once") connector grants matching secrets (A52). Downgrading needs a v34 backup. */
+  migration(db, 35, () => {
+    db.exec(`
+      ALTER TABLE connector_grants ADD COLUMN scope TEXT NOT NULL DEFAULT 'always' CHECK(scope IN ('always','once'));
+      ALTER TABLE connector_grants ADD COLUMN run_id TEXT;
+    `);
+  });
 }
