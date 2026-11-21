@@ -64,6 +64,20 @@ export function formatFileTime(mtimeMs: number): string {
   });
 }
 
+/** Formats a full localized timestamp (including year and seconds) for the file details dialog. */
+export function formatFullFileTime(mtimeMs: number): string {
+  if (!Number.isFinite(mtimeMs) || mtimeMs <= 0) return "—";
+  return new Date(mtimeMs).toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 /** Sorts directory entries with directories always listed before files and symlinks. */
 export function sortEntries(entries: readonly EnvFileEntry[], key: SortKey, dir: SortDir): EnvFileEntry[] {
   const factor = dir === "asc" ? 1 : -1;

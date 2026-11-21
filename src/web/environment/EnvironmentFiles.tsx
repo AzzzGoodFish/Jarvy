@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUpIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, FolderPlusIcon, HomeIcon, Maximize2Icon,
-  Minimize2Icon, PencilIcon, RefreshCwIcon, SearchIcon, UploadIcon, XIcon,
+  ArrowLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, FolderPlusIcon, HomeIcon, Maximize2Icon,
+  Minimize2Icon, PencilIcon, RefreshCwIcon, SearchIcon, UploadIcon,
 } from "lucide-react";
 import { ApiError, api } from "../api";
 import type { EnvDirListing, EnvFileEntry } from "../../contract/env-files";
@@ -10,15 +10,10 @@ import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import type { TerminalAvailability } from "./EnvironmentTerminals";
 import {
-  FileEntryRow, FilesTransferTray, FilesUnavailableState, SortArrow, triggerFileDownload, type UploadItem,
+  FileEntryRow, FileInfoModal, FilesInlineBanners, FilesTransferTray, FilesUnavailableState, SortArrow,
+  type ConflictPrompt, type UploadItem,
 } from "./EnvironmentFileParts";
 import { copyToClipboard, renameSelectionEnd, sortEntries, splitBreadcrumbs, type SortDir, type SortKey } from "./file-helpers";
-
-interface ConflictPrompt {
-  name: string;
-  remaining: number;
-  resolve: (choice: "overwrite" | "overwrite_all" | "skip") => void;
-}
 
 /** Direct file browser & streaming transfer pane for one work environment (A104). */
 export function EnvironmentFiles({ environmentId, botId, availability, maximized, onToggleMaximize, onSandboxStarted }: {
@@ -44,6 +39,8 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   const [newDirName, setNewDirName] = useState("");
   const [renaming, setRenaming] = useState<{ path: string; value: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<EnvFileEntry | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [inspectEntry, setInspectEntry] = useState<EnvFileEntry | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [conflict, setConflict] = useState<ConflictPrompt | null>(null);
@@ -56,7 +53,7 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   const listingRef = useRef<EnvDirListing | null>(null);
   listingRef.current = listing;
 
-  const loadDir = useCallback(async (targetPath?: string, opts?: { fallbackDownload?: boolean }) => {
+  const loadDir = useCallback(async (targetPath?: string, opts?: { fallbackInspect?: EnvFileEntry }) => {
     loadAbortRef.current?.abort();
     const controller = new AbortController();
     loadAbortRef.current = controller;
@@ -70,10 +67,12 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       setFilter("");
       setConfirmDelete(null);
       setRenaming(null);
+      setSelectedPath(null);
+      setInspectEntry(null);
     } catch (reason) {
       if (controller.signal.aborted) return;
-      if (opts?.fallbackDownload && targetPath && reason instanceof ApiError && reason.code === "file_not_directory") {
-        triggerFileDownload(api.envFileDownloadUrl(environmentId, targetPath));
+      if (opts?.fallbackInspect && reason instanceof ApiError && reason.code === "file_not_directory") {
+        setInspectEntry(opts.fallbackInspect);
         return;
       }
       setError(errorText(reason));
@@ -90,6 +89,8 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     setCreatingDir(false);
     setRenaming(null);
     setConfirmDelete(null);
+    setSelectedPath(null);
+    setInspectEntry(null);
     setConflict(null);
     setDragging(false);
     dragDepthRef.current = 0;
@@ -199,10 +200,21 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     if (await copyToClipboard(path)) setNotice(t("envFiles.copiedPath"));
   }
 
-  function handleOpenEntry(entry: EnvFileEntry) {
+  function handleSelectEntry(entry: EnvFileEntry) {
+    setSelectedPath(entry.path);
+    if (entry.kind === "directory") {
+      // Touch devices have no double-click; open folders directly on tap.
+      if (window.matchMedia("(hover: none)").matches) void loadDir(entry.path);
+      return;
+    }
+    setInspectEntry(entry);
+  }
+
+  function handleActivateEntry(entry: EnvFileEntry) {
+    setSelectedPath(entry.path);
     if (entry.kind === "directory") void loadDir(entry.path);
-    else if (entry.kind === "symlink") void loadDir(entry.path, { fallbackDownload: true });
-    else triggerFileDownload(api.envFileDownloadUrl(environmentId, entry.path));
+    else if (entry.kind === "symlink") void loadDir(entry.path, { fallbackInspect: entry });
+    else setInspectEntry(entry);
   }
 
   const askOverwrite = (name: string, remaining: number) => new Promise<"overwrite" | "overwrite_all" | "skip">(resolve => {
@@ -330,7 +342,7 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       <div className="jv-files-nav">
         <button type="button" className="jv-term-tool" aria-label={t("envFiles.up")} title={t("envFiles.up")}
           disabled={!listing?.parent || loading} onClick={() => listing?.parent && void loadDir(listing.parent)}>
-          <ArrowUpIcon aria-hidden="true"/>
+          <ArrowLeftIcon aria-hidden="true"/>
         </button>
         <button type="button" className="jv-term-tool" aria-label={t("envFiles.home")} title={t("envFiles.home")}
           disabled={!listing || listing.path === listing.root || loading} onClick={() => listing && void loadDir(listing.root)}>
@@ -388,45 +400,12 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       </div>
     </div>
 
-    {creatingDir && <form className="jv-files-inline-bar" onSubmit={event => { event.preventDefault(); void commitCreateDir(); }}>
-      <FolderPlusIcon aria-hidden="true"/>
-      <input className="jv-files-inline-input" value={newDirName} autoFocus maxLength={255}
-        placeholder={t("envFiles.newFolderPlaceholder")} aria-label={t("envFiles.newFolderPlaceholder")}
-        onChange={event => setNewDirName(event.target.value)}
-        onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); setCreatingDir(false); } }}/>
-      <div className="jv-term-confirm-actions">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setCreatingDir(false)}>{t("common.cancel")}</Button>
-        <Button type="submit" className="jv-primary" size="sm" disabled={!newDirName.trim()}>{t("common.create")}</Button>
-      </div>
-    </form>}
-
-    {conflict && <div className="jv-term-confirm" role="alertdialog" aria-label={t("envFiles.conflictTitle", { name: conflict.name })}>
-      <div className="jv-term-confirm-text">
-        <strong>{t("envFiles.conflictTitle", { name: conflict.name })}</strong>
-        <span>{t("envFiles.conflictBody")}</span>
-      </div>
-      <div className="jv-term-confirm-actions">
-        <Button type="button" variant="ghost" size="sm" onClick={() => conflict.resolve("skip")}>{t("envFiles.skip")}</Button>
-        {conflict.remaining > 0 && <Button type="button" variant="outline" size="sm" onClick={() => conflict.resolve("overwrite_all")}>{t("envFiles.overwriteAll")}</Button>}
-        <Button type="button" className="jv-primary" size="sm" onClick={() => conflict.resolve("overwrite")}>{t("envFiles.overwrite")}</Button>
-      </div>
-    </div>}
-
-    {confirmDelete && <div className="jv-term-confirm" role="alertdialog" aria-label={t("envFiles.delete")}>
-      <div className="jv-term-confirm-text">
-        <strong>{t(confirmDelete.kind === "directory" ? "envFiles.deleteDirTitle" : confirmDelete.kind === "symlink" ? "envFiles.deleteSymlinkTitle" : "envFiles.deleteFileTitle", { name: confirmDelete.name })}</strong>
-        <span>{t(confirmDelete.kind === "directory" ? "envFiles.deleteDirBody" : confirmDelete.kind === "symlink" ? "envFiles.deleteSymlinkBody" : "envFiles.deleteFileBody")}</span>
-      </div>
-      <div className="jv-term-confirm-actions">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(null)}>{t("common.cancel")}</Button>
-        <Button type="button" variant="destructive" size="sm" onClick={() => void commitDelete(confirmDelete)}>{t("common.delete")}</Button>
-      </div>
-    </div>}
-
-    {error && <div className="jv-term-error" role="alert">
-      <span>{error}</span>
-      <button type="button" className="jv-term-tab-close" aria-label={t("common.close")} onClick={() => setError(null)}><XIcon aria-hidden="true"/></button>
-    </div>}
+    <FilesInlineBanners
+      creatingDir={creatingDir} newDirName={newDirName} onNewDirChange={setNewDirName}
+      onNewDirSubmit={() => void commitCreateDir()} onNewDirCancel={() => setCreatingDir(false)}
+      conflict={conflict} confirmDelete={confirmDelete}
+      onConfirmDelete={entry => void commitDelete(entry)} onCancelDelete={() => setConfirmDelete(null)}
+      error={error} onDismissError={() => setError(null)}/>
 
     <FilesTransferTray uploads={envUploads}
       onCancel={id => activeUploadAbortsRef.current.get(id)?.abort()}
@@ -454,8 +433,10 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
           {!filter.trim() && <p className="jv-files-empty-hint">{t("envFiles.emptyHint")}</p>}
         </div>}
         {visibleEntries.map(entry => <FileEntryRow key={entry.path} environmentId={environmentId} entry={entry}
+          selected={selectedPath === entry.path}
           renamingValue={renaming?.path === entry.path ? renaming.value : null} renameInputRef={renameInputRef}
-          onOpen={handleOpenEntry}
+          onSelect={handleSelectEntry}
+          onActivate={handleActivateEntry}
           onRenameChange={value => setRenaming({ path: entry.path, value })}
           onRenameCommit={() => void commitRename()}
           onRenameCancel={() => setRenaming(null)}
@@ -472,6 +453,13 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
         </div>
       </div>}
     </div>
+
+    {inspectEntry && <FileInfoModal environmentId={environmentId} entry={inspectEntry}
+      onClose={() => setInspectEntry(null)}
+      onOpenSymlink={entry => void loadDir(entry.path, { fallbackInspect: entry })}
+      onCopyPath={path => void handleCopyPath(path)}
+      onRename={startRename}
+      onDelete={setConfirmDelete}/>}
 
     {listing && <div className="jv-files-foot">
       <span>
