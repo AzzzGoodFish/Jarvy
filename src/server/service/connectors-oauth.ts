@@ -5,7 +5,6 @@ import type { Store } from "../infra/storage/store.js";
 import { CALLBACK_PATH, type ConnectorEnv } from "../infra/connectors/client-env.js";
 import type { Listening } from "./connection.js";
 import { RuntimeFault } from "../shared/runtime.js";
-import { assertSameAccount } from "./connectors-format.js";
 
 type PendingTarget =
   | { kind: "existing"; connectorId: string; url: string; gen: number; snapshot: McpOAuthSnapshot }
@@ -64,6 +63,7 @@ export class ConnectorOAuthCoordinator {
     private readonly withLock: <T>(id: string, work: () => Promise<T>) => Promise<T>,
     private readonly generation: (id: string) => number,
     private readonly createFromOAuth: (provider: ConnectorProvider, snapshot: McpOAuthSnapshot, requestedName?: string) => Promise<Connector>,
+    private readonly onConnectorChanged: (id: string, reason: string) => void,
     private readonly maskChanged: () => void,
     private readonly mask: (text: string) => string,
   ) {}
@@ -189,11 +189,12 @@ export class ConnectorOAuthCoordinator {
     }
   }
 
-  /** Starts OAuth for an already-created connector (Custom MCP, re-authentication, or in-chat request cards). */
+  /** Starts OAuth for a Custom MCP connector (presets use immutable ephemeral flows: disconnect & add fresh to sign in again). */
   async start(id: string, redirectUri?: unknown): Promise<ConnectorOAuthState> {
     this.prune();
     const connector = this.store.connectors.get(id);
     if (!connector) throw new RuntimeFault("connector_missing", "Connector not found", 404);
+    if (connector.provider !== "custom_mcp") this.failOAuth("Disconnect this connector and add it again to sign in", 400);
     if (connector.authKind !== "oauth") this.failOAuth("Connector does not use OAuth", 400);
     if (this.env.isManaged(connector.provider) && !this.env.client(connector.provider)) {
       const vars = this.env.variables(connector.provider).join(", ");
@@ -233,10 +234,6 @@ export class ConnectorOAuthCoordinator {
         return waiting;
       } catch (error) {
         if (this.generation(id) !== startGen) this.failOAuth("Connector settings changed during sign-in. Start again.", 409);
-        if (error instanceof RuntimeFault && error.code === "connector_account_mismatch") {
-          this.states.set(id, { phase: "error", connectorId: id, error: error.message });
-          throw error;
-        }
         const message = this.mask(extractOAuthDetail(error));
         this.states.set(id, { phase: "error", connectorId: id, error: message });
         this.failOAuth(message, 400);
@@ -417,10 +414,6 @@ export class ConnectorOAuthCoordinator {
         this.states.set(id, { phase: "completed", connectorId: id });
       } catch (error) {
         if (this.generation(id) !== expectedGen) this.failOAuth("Connector settings changed during authorization. Start again.", 409);
-        if (error instanceof RuntimeFault && error.code === "connector_account_mismatch") {
-          this.states.set(id, { phase: "error", connectorId: id, error: error.message });
-          throw error;
-        }
         const msg = this.mask(extractOAuthDetail(error));
         this.states.set(id, { phase: "error", connectorId: id, error: msg });
         this.failOAuth(msg, 400);
@@ -428,7 +421,7 @@ export class ConnectorOAuthCoordinator {
     });
   }
 
-  /** Probes a newly exchanged OAuth snapshot BEFORE saving credentials so failed probes or another account leave the existing connection untouched. */
+  /** Probes a newly exchanged OAuth snapshot for Custom MCP BEFORE saving; clears any prior Bot grants & pending cards so permissions never transfer across accounts. */
   private async commitExistingOAuth(
     id: string, expectedGen: number, expectedUrl: string, creds: StoredConnectorCredentials, snapshot: McpOAuthSnapshot,
   ): Promise<void> {
@@ -442,13 +435,14 @@ export class ConnectorOAuthCoordinator {
       this.failOAuth("Connector settings changed during authorization. Start again.", 409);
     }
     if (probed.outcome !== "connected") this.failOAuth(probed.message, 400);
-    if (live.provider !== "custom_mcp") assertSameAccount(live.account, probed.accountLabel);
     const finalOAuth = "snapshot" in probed && probed.snapshot ? probed.snapshot : snapshot;
-    const label = probed.accountLabel?.trim().slice(0, 120) || live.account;
+    const label = probed.accountLabel?.trim().slice(0, 120) ?? "";
+    this.store.connectors.revokeAll(id);
+    this.onConnectorChanged(id, "Connector credentials changed.");
     this.store.connectors.saveCredentials(id, "oauth", { ...creds, oauth: finalOAuth });
     this.maskChanged();
     this.store.connectors.update(id, {
-      status: "connected", statusDetail: label, ...(label ? { accountLabel: label } : {}), tools: probed.tools,
+      status: "connected", statusDetail: label, accountLabel: label || null, tools: probed.tools,
     });
   }
 }

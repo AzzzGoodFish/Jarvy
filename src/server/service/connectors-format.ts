@@ -1,10 +1,9 @@
 import type { Connector, ConnectorTool } from "../../contract/connectors.js";
 import type { GrantScope } from "../../contract/secrets.js";
 import type { ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
-import { CONNECTOR_SLUG, isWriteTool, toolDefinitionHash } from "../shared/connector.js";
+import { CONNECTOR_SLUG, isWriteTool } from "../shared/connector.js";
 import { ValidationError } from "../shared/errors.js";
 import { ChatError } from "../shared/chat.js";
-import { RuntimeFault } from "../shared/runtime.js";
 
 const MAX_EDITABLE_CHARS = 16_000;
 const MAX_FIELD_CHARS = 64_000;
@@ -229,34 +228,9 @@ export function applyEdits(
   return next;
 }
 
-/** Prevents rotating or reconnecting a preset connector onto a different account (which would transfer Bot grants
- * and write-confirmation exemptions from account A to account B). Fails closed when A's account is known. */
-export function assertSameAccount(expected: string, actual: string | undefined): void {
-  const want = expected.trim();
-  if (!want) return;
-  const got = actual?.trim() ?? "";
-  if (!got) {
-    throw new RuntimeFault(
-      "connector_auth_required",
-      `Could not verify that this credential belongs to ${want}; existing credentials were kept.`,
-      409,
-    );
-  }
-  if (got.toLowerCase() !== want.toLowerCase()) {
-    throw new RuntimeFault(
-      "connector_account_mismatch",
-      `This credential belongs to ${got}, not ${want}. Add it as a separate connection instead.`,
-      409,
-      { expected: want, actual: got },
-    );
-  }
-}
-
 export function buildAuthRequestQuestion(
   connector: Connector,
   purpose: string,
-  needsGrant: boolean,
-  needsAuth: boolean,
   binding?: { credFp?: string; runId?: string },
 ): QuestionSpec {
   const account = connector.account || (connector.status === "connected" ? connector.statusDetail : "");
@@ -274,7 +248,6 @@ export function buildAuthRequestQuestion(
       ...(account ? { account } : {}),
       ...(binding?.credFp ? { credFp: binding.credFp } : {}),
       ...(binding?.runId ? { runId: binding.runId } : {}),
-      authKind: connector.authKind, needsGrant, needsAuth,
     },
   };
 }
@@ -297,27 +270,15 @@ export function buildWriteConfirmQuestion(
       options: [
         { label: "Confirm", value: "confirm", style: "primary" },
         { label: "Discard", value: "discard" },
-        { label: "ConfirmAlways", value: "confirm_always" },
       ],
       multiple: false,
       allowCustom: true,
       connectorWrite: {
         connectorId: connector.id, slug: connector.slug, name: connector.name, provider: connector.provider,
-        toolName: tool.name, actionLabel, ...(connector.statusDetail ? { account: connector.statusDetail } : {}), fields,
+        toolName: tool.name, actionLabel, ...(connector.account || connector.statusDetail ? { account: connector.account || connector.statusDetail } : {}), fields,
       },
     },
   };
-}
-
-export function filterUnconfirmedEntries(raw: unknown[], tools: readonly ConnectorTool[]): { name: string; hash: string }[] {
-  const byName = new Map(tools.map(tool => [tool.name, tool]));
-  const entries: { name: string; hash: string }[] = [];
-  for (const item of raw) {
-    if (typeof item !== "string") continue;
-    const tool = byName.get(item.trim());
-    if (tool && isWriteTool(tool)) entries.push({ name: tool.name, hash: toolDefinitionHash(tool) });
-  }
-  return entries;
 }
 
 export function formatConnectorList(all: readonly Connector[], granted: ReadonlyMap<string, GrantScope>, query?: string) {
@@ -328,28 +289,31 @@ export function formatConnectorList(all: readonly Connector[], granted: Readonly
       : c.tools;
     const compact = !needle && matched.length > COMPACT_TOOL_THRESHOLD;
     const scope = granted.get(c.id);
+    const account = c.status === "connected" ? (c.account || c.statusDetail) : "";
     return {
       slug: c.slug, name: c.name, provider: c.provider,
-      ...(c.status === "connected" && c.statusDetail ? { account: c.statusDetail } : {}),
+      ...(account ? { account } : {}),
       granted: Boolean(scope),
       ...(scope === "once" ? { until: "this run ends" } : {}),
       status: c.status, toolCount: c.tools.length,
-      tools: matched.map(tool => {
-        const write = isWriteTool(tool);
-        return {
-          name: tool.name,
-          ...(!compact && tool.description ? { description: tool.description.slice(0, 140) } : {}),
-          write,
-          ...(write ? { asksOwner: !c.unconfirmed.includes(tool.name) } : {}),
-        };
-      }),
+      tools: matched.map(tool => ({
+        name: tool.name,
+        ...(!compact && tool.description ? { description: tool.description.slice(0, 140) } : {}),
+        write: isWriteTool(tool),
+      })),
     };
   });
+  const hasDisconnected = connectors.some(c => c.status !== "connected");
+  const hasUngranted = connectors.some(c => c.status === "connected" && !c.granted);
   const note = !connectors.length
     ? "No connectors configured yet. Ask your owner to add one in Settings → Connectors."
-    : connectors.some(c => !c.granted || c.status !== "connected")
-      ? "Use connectors.request to ask your owner for access (this time only or always) or sign-in when granted=false or status!=connected."
-      : undefined;
+    : hasUngranted && hasDisconnected
+      ? "Use connectors.request to ask your owner for access when granted=false on a connected connector. For disconnected connectors, ask your owner to reconnect them in Settings → Connectors."
+      : hasUngranted
+        ? "Use connectors.request to ask your owner for access (this time only or always) when granted=false."
+        : hasDisconnected
+          ? "Some connectors are not connected. Ask your owner to connect them in Settings → Connectors."
+          : undefined;
   return { connectors, ...(note ? { note } : {}) };
 }
 
@@ -361,20 +325,17 @@ export function formatConnectorDescribe(connector: Connector, toolName?: string,
       ? connector.tools.filter(tool => tool.name.toLowerCase().includes(needle) || (tool.description ?? "").toLowerCase().includes(needle))
       : connector.tools;
   if (toolName && !tools.length) throw new ChatError(404, `Connector "${connector.slug}" has no tool named "${toolName}"`);
+  const account = connector.status === "connected" ? (connector.account || connector.statusDetail) : "";
   return {
     slug: connector.slug, name: connector.name,
-    ...(connector.status === "connected" && connector.statusDetail ? { account: connector.statusDetail } : {}),
+    ...(account ? { account } : {}),
     status: connector.status,
-    tools: tools.map(tool => {
-      const write = isWriteTool(tool);
-      return {
-        name: tool.name,
-        ...(tool.title ? { title: tool.title } : {}),
-        ...(tool.description ? { description: tool.description } : {}),
-        write,
-        ...(write ? { asksOwner: !connector.unconfirmed.includes(tool.name) } : {}),
-        inputSchema: tool.inputSchema,
-      };
-    }),
+    tools: tools.map(tool => ({
+      name: tool.name,
+      ...(tool.title ? { title: tool.title } : {}),
+      ...(tool.description ? { description: tool.description } : {}),
+      write: isWriteTool(tool),
+      inputSchema: tool.inputSchema,
+    })),
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
-import { api, ApiError } from "../api";
+import { api } from "../api";
 import type { Bot } from "../../contract/bots";
 import type { Connector, ConnectorAuthKind, ConnectorOAuthState, ConnectorUse } from "../../contract/connectors";
 import { formatDate, t } from "../i18n";
@@ -14,11 +14,11 @@ const SEARCH_TOOL_THRESHOLD = 8;
 const when = (at: number) => formatDate(at, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** One configured connector row in Settings → Connectors (A102).
- * Keeps the default view calm: Bot access + any auto-approved write exceptions; tools, logs and custom MCP
- * connection fields stay tucked inside secondary collapsible disclosures. */
-export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, onChanged, onCreated, onDeleted }: {
+ * Preset connectors have immutable credentials (disconnect & add fresh to switch accounts or rotate tokens);
+ * tools, usage logs and settings stay tucked inside secondary collapsible disclosures. */
+export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, onChanged, onDeleted }: {
   connector: Connector; bots: Bot[]; open: boolean; callbackUrl: string;
-  onToggle: () => void; onChanged: (connector: Connector) => void; onCreated: (connector: Connector) => void; onDeleted: () => void;
+  onToggle: () => void; onChanged: (connector: Connector) => void; onDeleted: () => void;
 }) {
   const detailsId = useId();
   const isCustom = connector.provider === "custom_mcp";
@@ -28,8 +28,6 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
   const [clientId, setClientId] = useState(connector.oauthClientId ?? "");
   const [clientSecret, setClientSecret] = useState("");
   const [headerRows, setHeaderRows] = useState<{ key: string; value: string }[]>([]);
-  const [token, setToken] = useState("");
-  const [mismatch, setMismatch] = useState<{ token: string; actual: string } | null>(null);
   const [toolFilter, setToolFilter] = useState("");
   const [uses, setUses] = useState<ConnectorUse[] | null>(null);
   const [oauth, setOAuth] = useState<ConnectorOAuthState | null>(null);
@@ -45,18 +43,16 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
   }, [connector.id, connector.name, connector.url, connector.authKind, connector.oauthClientId]);
 
   useEffect(() => {
-    if (oauth?.phase !== "waiting") return;
+    if (!isCustom || oauth?.phase !== "waiting") return;
     const timer = window.setInterval(() => {
       void api.connectorOAuthStatus(connector.id).then(res => {
         setOAuth(res.oauth);
         onChanged(res.connector);
-        if (res.oauth.phase === "completed" || res.oauth.phase === "error") {
-          if (res.oauth.phase === "error" && res.oauth.error) setError(res.oauth.error);
-        }
+        if (res.oauth.phase === "error" && res.oauth.error) setError(res.oauth.error);
       }).catch(() => {});
     }, 1500);
     return () => window.clearInterval(timer);
-  }, [oauth?.phase, connector.id, onChanged, setError]);
+  }, [isCustom, oauth?.phase, connector.id, onChanged, setError]);
 
   const startOAuth = () => void run("oauth", async () => {
     const state = await api.startConnectorOAuth(connector.id, callbackUrl);
@@ -77,32 +73,6 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
     });
   };
 
-  const saveToken = (event: FormEvent) => {
-    event.preventDefault();
-    const clean = token.trim();
-    if (!clean) return;
-    setMismatch(null);
-    const value = /^Bearer\s+/i.test(clean) ? clean : `Bearer ${clean}`;
-    void run("token", async () => {
-      try {
-        onChanged(await api.updateConnector(connector.id, { authKind: "headers", headers: { Authorization: value } }));
-        setToken("");
-      } catch (err) {
-        if (err instanceof ApiError && err.code === "connector_account_mismatch" && typeof err.params?.actual === "string") {
-          setMismatch({ token: clean, actual: err.params.actual });
-        }
-        throw err;
-      }
-    });
-  };
-
-  const toggleUnconfirmed = (toolName: string, nextSkip: boolean) => void run(`tool:${toolName}`, async () => {
-    const next = nextSkip
-      ? [...new Set([...connector.unconfirmed, toolName])]
-      : connector.unconfirmed.filter(item => item !== toolName);
-    onChanged(await api.updateConnector(connector.id, { unconfirmed: next }));
-  });
-
   const saveCustom = (event: FormEvent) => {
     event.preventDefault();
     void run("save", async () => {
@@ -119,38 +89,12 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
     });
   };
 
-  const savePreset = (event: FormEvent) => {
+  const savePresetName = (event: FormEvent) => {
     event.preventDefault();
     const cleanName = name.trim();
-    const cleanToken = token.trim();
-    if (!cleanName && !cleanToken) return;
-    setMismatch(null);
-    const tokenValue = cleanToken ? (/^Bearer\s+/i.test(cleanToken) ? cleanToken : `Bearer ${cleanToken}`) : undefined;
+    if (!cleanName || cleanName === connector.name) return;
     void run("save", async () => {
-      try {
-        onChanged(await api.updateConnector(connector.id, {
-          ...(cleanName && cleanName !== connector.name ? { name: cleanName } : {}),
-          ...(tokenValue ? { authKind: "headers", headers: { Authorization: tokenValue } } : {}),
-        }));
-        setToken("");
-      } catch (err) {
-        if (cleanToken && err instanceof ApiError && err.code === "connector_account_mismatch" && typeof err.params?.actual === "string") {
-          setMismatch({ token: cleanToken, actual: err.params.actual });
-        }
-        throw err;
-      }
-    });
-  };
-
-  const addMismatchAsNew = () => {
-    if (!mismatch) return;
-    const pendingToken = mismatch.token;
-    void run("addMismatch", async () => {
-      const created = await api.connectPresetToken(connector.provider, pendingToken);
-      setToken("");
-      setMismatch(null);
-      setError("");
-      onCreated(created);
+      onChanged(await api.updateConnector(connector.id, { name: cleanName }));
     });
   };
 
@@ -160,18 +104,16 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
   };
 
   const botName = (botId: string) => bots.find(bot => bot.id === botId)?.name ?? t("connectors.deletedBot");
-  const accountShownInName = Boolean(connector.statusDetail && connector.name.includes(connector.statusDetail));
+  const accountLabel = connector.account || (connector.status === "connected" ? connector.statusDetail : "");
+  const accountShownInName = Boolean(accountLabel && connector.name.includes(accountLabel));
   const subtitle = connector.status === "connected"
-    ? (!accountShownInName && connector.statusDetail ? connector.statusDetail : t("connectors.toolCount", { count: connector.tools.length }))
+    ? (!accountShownInName && accountLabel ? accountLabel : t("connectors.toolCount", { count: connector.tools.length }))
     : connector.statusDetail || t(connector.status === "needs_auth" ? "connectors.statusNeedsAuth" : "connectors.statusError");
 
   const filterNeedle = toolFilter.trim().toLowerCase();
   const visibleTools = filterNeedle
     ? connector.tools.filter(tool => tool.name.toLowerCase().includes(filterNeedle) || (tool.description ?? "").toLowerCase().includes(filterNeedle))
     : connector.tools;
-  const toolsSummary = connector.unconfirmed.length > 0
-    ? t("connectors.toolsSummaryWithAuto", { count: connector.tools.length, auto: connector.unconfirmed.length })
-    : t("connectors.toolsSummary", { count: connector.tools.length });
 
   return <>
     <button type="button" className="jv-list-row jv-secret-row" aria-expanded={open} aria-controls={detailsId} onClick={onToggle}>
@@ -194,11 +136,12 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
       {connector.status !== "connected" && <div className="jv-connector-alert">
         <div className="jv-connector-alert-head">
           <p className="jv-connector-alert-msg">{connector.statusDetail || t("connectors.statusNeedsAuth")}</p>
-          {connector.authKind === "oauth" && (!connector.managedClient || connector.managedClient.ready) && (
+          {isCustom && connector.authKind === "oauth" && (
             <Button type="button" className="jv-primary" size="sm" disabled={busy} onClick={startOAuth}>{t("connectors.reconnect")}</Button>
           )}
         </div>
-        {oauth?.phase === "waiting" && <>
+        {!isCustom && <p className="jv-connector-env-note">{t("connectors.presetReconnectHint")}</p>}
+        {isCustom && oauth?.phase === "waiting" && <>
           <div className="jv-connector-drawer-row">
             <span className="jv-connector-waiting"><span className="jv-connector-waiting-dot"/>{t("connectors.oauthWaiting")}</span>
             {oauth.authUrl && <Button type="button" variant="outline" size="sm" onClick={() => window.open(oauth.authUrl, "_blank", "noopener,noreferrer")}>
@@ -213,10 +156,6 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
             </form>
           </details>
         </>}
-        {connector.authKind === "headers" && !isCustom && <form className="jv-connector-drawer-row" onSubmit={saveToken}>
-          <Input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder={t("connectors.tokenPlaceholder")}/>
-          <Button type="submit" className="jv-primary" size="sm" disabled={busy || !token.trim()}>{t("connectors.reconnect")}</Button>
-        </form>}
       </div>}
 
       <BotGrants
@@ -230,21 +169,9 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
         }}
       />
 
-      {connector.unconfirmed.length > 0 && <div className="jv-connector-exceptions">
-        <h4 className="jv-secret-heading">{t("connectors.unconfirmedHeading")}</h4>
-        <ul className="jv-connector-exception-list">
-          {connector.unconfirmed.map(toolName => <li key={toolName} className="jv-connector-exception-item">
-            <code>{toolName}</code>
-            <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => toggleUnconfirmed(toolName, false)}>
-              {t("connectors.restoreAsk")}
-            </Button>
-          </li>)}
-        </ul>
-      </div>}
-
       <details className="jv-connector-disclosure">
         <summary>
-          <span className="jv-connector-disclosure-title"><ChevronRightIcon aria-hidden="true"/>{toolsSummary}</span>
+          <span className="jv-connector-disclosure-title"><ChevronRightIcon aria-hidden="true"/>{t("connectors.toolsSummary", { count: connector.tools.length })}</span>
         </summary>
         <div className="jv-connector-disclosure-body">
           <div className="jv-connector-tools-bar">
@@ -260,7 +187,6 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
             : <div className="jv-connector-tools">
                 {visibleTools.map(tool => {
                   const isWrite = tool.write !== false;
-                  const skip = connector.unconfirmed.includes(tool.name);
                   return <div key={tool.name} className="jv-connector-tool">
                     <div className="jv-connector-tool-info">
                       <code>{tool.name}</code>
@@ -269,11 +195,6 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
                       </span>
                       {tool.description && <span className="jv-connector-tool-desc" title={tool.description}>{tool.description}</span>}
                     </div>
-                    {isWrite && <label className="jv-connector-toggle">
-                      <span>{t("connectors.skipConfirm")}</span>
-                      <button type="button" role="switch" className="jv-connector-switch" aria-checked={skip} disabled={busy}
-                        onClick={() => toggleUnconfirmed(tool.name, !skip)}/>
-                    </label>}
                   </div>;
                 })}
               </div>}
@@ -298,19 +219,15 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
         <summary>
           <span className="jv-connector-disclosure-title"><ChevronRightIcon aria-hidden="true"/>{t("connectors.accountSettings")}</span>
         </summary>
-        <form className="jv-connector-disclosure-body jv-connector-form" onSubmit={savePreset}>
+        <form className="jv-connector-disclosure-body jv-connector-form" onSubmit={savePresetName}>
           <div className="jv-field-grid">
             <label className="jv-field"><span>{t("connectors.name")}</span>
               <Input value={name} maxLength={80} onChange={event => setName(event.target.value)}/></label>
             <div className="jv-field"><span>{t("connectors.identifier")}</span>
               <code className="jv-connector-slug">{connector.slug}</code></div>
           </div>
-          {connector.authKind === "headers" && <label className="jv-field">
-            <span>{t("connectors.updateToken")}</span>
-            <Input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder={t("connectors.updateTokenPlaceholder")}/>
-          </label>}
           <div className="jv-secret-actions">
-            <Button type="submit" variant="outline" size="sm" disabled={busy || (name.trim() === connector.name && !token.trim()) || !name.trim()}>
+            <Button type="submit" variant="outline" size="sm" disabled={busy || !name.trim() || name.trim() === connector.name}>
               {t("common.save")}
             </Button>
           </div>
@@ -379,11 +296,6 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
       </div>}
 
       {error && <p className="jv-note-error" role="alert">{error}</p>}
-      {mismatch && <div className="jv-connector-drawer-row">
-        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={addMismatchAsNew}>
-          {t("connectors.addAsNewAccount", { account: mismatch.actual })}
-        </Button>
-      </div>}
     </div>}
   </>;
 }

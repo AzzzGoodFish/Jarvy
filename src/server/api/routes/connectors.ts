@@ -79,7 +79,7 @@ export function connectorRoutes(connectors: ApiServices["connectors"]) {
     return c.json(await connectors.update(c.req.param("id"), {
       name: input.name, url: input.url, authKind: input.authKind,
       headers: input.headers, clientId: input.clientId, clientSecret: input.clientSecret,
-      unconfirmed: input.unconfirmed, enabled: input.enabled,
+      enabled: input.enabled,
     }));
   });
   routes.delete("/:id", c => { connectors.delete(c.req.param("id")); return c.json({ ok: true }); });
@@ -105,9 +105,7 @@ export function connectorRoutes(connectors: ApiServices["connectors"]) {
   routes.get("/:id/uses", c => c.json({ uses: connectors.uses(c.req.param("id")) }));
   routes.post("/requests/:chatId/:messageId", async c => {
     const input = await readJson(c).catch(() => ({} as Record<string, unknown>));
-    return c.json(messageView(await connectors.fulfilAuth(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), {
-      scope: input.scope, expectedAccount: input.expectedAccount, expectedCredFp: input.expectedCredFp,
-    })));
+    return c.json(messageView(connectors.fulfilAuth(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), { scope: input.scope })));
   });
   return routes;
 }

@@ -3,7 +3,7 @@
 export type ErrorCode =
   | "agent_undeletable" | "autoconfig_model" | "autoconfig_source" | "bot_missing" | "chat_access_changed"
   | "computer_failed" | "computer_missing" | "connection_in_use" | "connection_missing"
-  | "connector_account_mismatch" | "connector_auth_required" | "connector_client_missing" | "connector_headers_invalid" | "connector_missing"
+  | "connector_auth_required" | "connector_client_missing" | "connector_headers_invalid" | "connector_missing"
   | "connector_oauth_failed" | "connector_slug_invalid" | "connector_unreachable" | "connector_url_invalid" | "credential_changed"
   | "credential_scope" | "credential_unreadable" | "credentials_missing" | "data_locked" | "device_missing" | "discovery_format"
   | "discovery_http" | "discovery_key" | "discovery_protocol" | "discovery_unreachable" | "discovery_url"

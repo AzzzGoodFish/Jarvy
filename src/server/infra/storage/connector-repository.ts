@@ -6,7 +6,7 @@ import type {
 } from "../../../contract/connectors.js";
 import type { GrantScope } from "../../../contract/secrets.js";
 import {
-  isWriteTool, toolDefinitionHash,
+  isWriteTool,
   type ConnectorRuntimeInfo, type StoredConnectorCredentials,
 } from "../../shared/connector.js";
 import type { Cipher } from "../vault/cipher.js";
@@ -96,7 +96,6 @@ export class ConnectorRepository {
       .get(row.id) as { count: number; lastAt: number | null };
     const managedClient = this.runtime?.managedClient(row.provider) ?? null;
     const authMethods = this.runtime?.authMethods(row.provider) ?? ["oauth", "headers", "none"];
-    const unconfirmed = this.activeUnconfirmed(row.id, tools);
     const account = config.accountLabel || (row.status === "connected" ? row.status_detail : "");
     return {
       id: row.id,
@@ -111,7 +110,6 @@ export class ConnectorRepository {
       oauthClientId: managedClient ? null : oauthClientId,
       hasClientSecret: managedClient ? false : hasClientSecret,
       managedClient,
-      unconfirmed,
       enabled: row.enabled === 1,
       status: row.status,
       statusDetail: row.status_detail,
@@ -125,21 +123,6 @@ export class ConnectorRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
-  }
-
-  /** Only approvals whose stored definition hash still matches the current tool definition remain active (A102). */
-  private activeUnconfirmed(id: string, tools: ConnectorTool[]): string[] {
-    const rows = this.db.prepare("SELECT tool_name AS name, definition_hash AS hash FROM connector_unconfirmed_tools WHERE connector_id=? ORDER BY tool_name")
-      .all(id) as { name: string; hash: string }[];
-    if (!rows.length) return [];
-    const byName = new Map(tools.map(tool => [tool.name, tool]));
-    const active: string[] = [];
-    for (const row of rows) {
-      const tool = byName.get(row.name);
-      if (!tool || !isWriteTool(tool)) continue;
-      if (row.hash && row.hash === toolDefinitionHash(tool)) active.push(row.name);
-    }
-    return active;
   }
 
   list(): Connector[] {
@@ -208,33 +191,6 @@ export class ConnectorRepository {
     return this.get(id);
   }
 
-  /** Replaces the set of write tools that bypass confirmation, binding each to its current definition hash. */
-  setUnconfirmed(id: string, entries: { name: string; hash: string }[]): void {
-    transaction(this.db, () => {
-      this.db.prepare("DELETE FROM connector_unconfirmed_tools WHERE connector_id=?").run(id);
-      const insert = this.db.prepare("INSERT INTO connector_unconfirmed_tools(connector_id,tool_name,definition_hash) VALUES(?,?,?)");
-      const seen = new Set<string>();
-      for (const entry of entries) {
-        if (seen.has(entry.name)) continue;
-        seen.add(entry.name);
-        insert.run(id, entry.name, entry.hash);
-      }
-    });
-  }
-
-  /** Grants "don't ask again" for one write tool, fingerprinted by its current definition hash. */
-  allowUnconfirmed(id: string, toolName: string, hash: string): void {
-    this.db.prepare(`INSERT INTO connector_unconfirmed_tools(connector_id,tool_name,definition_hash) VALUES(?,?,?)
-      ON CONFLICT(connector_id,tool_name) DO UPDATE SET definition_hash=excluded.definition_hash`).run(id, toolName, hash);
-  }
-
-  /** Checks whether a write tool's approval is present AND still matches its current definition hash. */
-  isUnconfirmed(id: string, tool: ConnectorTool): boolean {
-    const row = this.db.prepare("SELECT definition_hash AS hash FROM connector_unconfirmed_tools WHERE connector_id=? AND tool_name=?")
-      .get(id, tool.name) as { hash: string } | undefined;
-    return Boolean(row && row.hash && row.hash === toolDefinitionHash(tool));
-  }
-
   delete(id: string): boolean {
     return Number(this.db.prepare("DELETE FROM connectors WHERE id=? AND owner_id=?").run(id, this.ownerId()).changes) > 0;
   }
@@ -273,6 +229,10 @@ export class ConnectorRepository {
 
   revoke(id: string, botId: string): boolean {
     return Number(this.db.prepare("DELETE FROM connector_grants WHERE connector_id=? AND bot_id=?").run(id, botId).changes) > 0;
+  }
+
+  revokeAll(id: string): void {
+    this.db.prepare("DELETE FROM connector_grants WHERE connector_id=?").run(id);
   }
 
   /** Active grants for one Bot: permanent grants plus "this time only" grants whose run is still live. */

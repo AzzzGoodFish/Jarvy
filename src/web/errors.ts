@@ -10,7 +10,7 @@ const ERROR_KEYS: Record<ErrorCode, Key> = {
   bot_missing: "error.botMissing", chat_access_changed: "error.chatAccessChanged",
   computer_failed: "error.computerFailed", computer_missing: "error.computerMissing", docker_unavailable: "error.dockerUnavailable", file_too_large: "error.fileTooLarge",
   connection_in_use: "error.connectionInUse", connection_missing: "error.connectionMissing",
-  connector_account_mismatch: "error.connectorAccountMismatch", connector_auth_required: "error.connectorAuthRequired", connector_client_missing: "error.connectorClientMissing",
+  connector_auth_required: "error.connectorAuthRequired", connector_client_missing: "error.connectorClientMissing",
   connector_headers_invalid: "error.connectorHeadersInvalid", connector_missing: "error.connectorMissing",
   connector_oauth_failed: "error.connectorOAuthFailed", connector_slug_invalid: "error.connectorSlugInvalid",
   connector_unreachable: "error.connectorUnreachable", connector_url_invalid: "error.connectorUrlInvalid",

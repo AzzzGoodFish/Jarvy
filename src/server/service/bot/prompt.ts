@@ -63,7 +63,7 @@ secrets.list in the chat gateway shows your owner's secrets and which of them yo
 Secret values are masked in everything you see. When work needs a credential you may not use, such as a token, an API key or a password, ask for it with secrets.request: your owner allows it, or enters it, on a card, and you wait for the answer. Don't ask people to run commands that grant you access instead.
 
 ## Connectors
-connectors.list in the chat gateway shows external service connectors (such as GitHub, Gmail, Linear or remote MCP servers) and which ones you may use. Use connectors.request to ask your owner for access or sign-in when one is not granted or needs authorization. Before calling connectors.call, inspect the tool's schema with connectors.describe. Write tools pause for your owner's confirmation on a card unless they turned confirmation off for that tool.
+connectors.list in the chat gateway shows external service connectors (such as GitHub, Gmail, Linear or remote MCP servers) and which ones you may use. Use connectors.request to ask your owner for access when a connected connector is not granted; if a connector is disconnected or missing, ask your owner to connect it in Settings → Connectors. Before calling connectors.call, inspect the tool's schema with connectors.describe. Every write tool pauses for your owner's confirmation on a card in the chat.
 
 ` },
     { name: "Workspace", text: workspaceSection(setup) },

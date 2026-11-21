@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDownIcon, ChevronsUpDownIcon, MailIcon } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { ChevronsUpDownIcon, MailIcon } from "lucide-react";
 import { api } from "../api";
 import type { ChatMessage, ConnectorWriteAsk, ConnectorWriteField, Question } from "../../contract/chat";
 import { t } from "../i18n";
@@ -86,7 +86,7 @@ function resolvedFields(ask: ConnectorWriteAsk, customJson: string | null | unde
 
 /** Interactive draft & confirmation card for connector write tools (A102):
  * Gmail uses an email-draft layout (From/To/Cc + editable subject & body); other write tools show editable scalar
- * fields and visibly read-only complex/masked/oversized fields; the primary button carries "don't ask again". */
+ * fields and visibly read-only complex/masked/oversized fields. Every write action requires explicit confirmation. */
 export function ConnectorWriteCard({ message, onSettled }: {
   message: ChatMessage & { question: Question & { connectorWrite: ConnectorWriteAsk } };
   onSettled: (message: ChatMessage) => void;
@@ -107,8 +107,6 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const [expandedReadonly, setExpandedReadonly] = useState<Record<string, boolean>>({});
   const [bodyOverflows, setBodyOverflows] = useState(false);
   const [settledOpen, setSettledOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const splitRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const { busy, error, run } = useAction();
 
@@ -141,15 +139,6 @@ export function ConnectorWriteCard({ message, onSettled }: {
     }
   }, [bodyValue, bodyEditable, expandedBody, question.state]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (event: Event) => { if (!splitRef.current?.contains(event.target as Node)) setMenuOpen(false); };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [menuOpen]);
-
   const fieldLabel = (key: string, fallback: string) => {
     const lower = key.toLowerCase();
     if ((lowerCounts.get(lower) ?? 0) > 1) return fallback;
@@ -160,10 +149,16 @@ export function ConnectorWriteCard({ message, onSettled }: {
   if (question.state !== "pending") {
     const finalFields = resolvedFields(ask, question.answer?.custom);
     const picked = question.answer?.selected[0];
-    const confirmed = question.state === "answered" && (picked === 0 || picked === 2);
+    const confirmed = question.state === "answered" && picked === 0;
     const statusWord = confirmed
       ? t(isMail ? "connectorCard.sent" : "connectorCard.confirmed")
-      : question.state === "ignored" ? t("connectorCard.expired") : t("connectorCard.discarded");
+      : question.state === "ignored"
+        ? t(question.expiredReason === "connector_disconnected"
+            ? "connectorCard.disconnected"
+            : question.expiredReason === "connector_revoked"
+              ? "connectorCard.revoked"
+              : "connectorCard.expired")
+        : t("connectorCard.discarded");
     const targetField = finalFields.find(f => ["to", "repo", "repository", "team"].includes(f.key.toLowerCase()));
     const subjectField = finalFields.find(f => HEADING_KEYS.has(f.key.toLowerCase())) ?? finalFields[0];
     const target = (targetField?.preview ?? targetField?.value)?.split("\n")[0]?.slice(0, 60);
@@ -219,12 +214,10 @@ export function ConnectorWriteCard({ message, onSettled }: {
     return Object.keys(changed).length ? JSON.stringify(changed) : undefined;
   };
 
-  const confirm = (always: boolean) => {
-    setMenuOpen(false);
+  const confirm = () => {
     const custom = editsPayload();
-    const index = always ? 2 : 0;
-    void run(always ? "confirmAlways" : "confirm", async () => {
-      onSettled(await api.answerQuestion(message.chatId, message.id, { action: "answer", selected: [index], ...(custom ? { custom } : {}) }));
+    void run("confirm", async () => {
+      onSettled(await api.answerQuestion(message.chatId, message.id, { action: "answer", selected: [0], ...(custom ? { custom } : {}) }));
     });
   };
 
@@ -233,7 +226,6 @@ export function ConnectorWriteCard({ message, onSettled }: {
   });
 
   const primaryLabel = isMail && toolLower === "send_email" ? t("connectorCard.send") : actionTitle;
-  const alwaysLabel = isMail && toolLower === "send_email" ? t("connectorCard.sendAlways") : t("connectorCard.confirmAlways");
 
   const pendingDetail = !isMail
     ? (ask.account && !kindTitle.includes(ask.account) ? `${actionTitle} · ${ask.account}` : actionTitle)
@@ -318,17 +310,7 @@ export function ConnectorWriteCard({ message, onSettled }: {
 
     <div className="jv-question-foot">
       <button type="button" className="ui-button" disabled={busy} onClick={discard}>{t("connectorCard.discard")}</button>
-      <div className="jv-split-action" ref={splitRef}>
-        <button type="button" className="ui-button ui-primary jv-split-main" disabled={busy} onClick={() => confirm(false)}>{primaryLabel}</button>
-        <button type="button" className="ui-button ui-primary jv-split-caret" disabled={busy}
-          aria-label={t("connectorCard.moreOptions")} aria-expanded={menuOpen} aria-haspopup="menu"
-          onClick={() => setMenuOpen(v => !v)}>
-          <ChevronDownIcon aria-hidden="true"/>
-        </button>
-        {menuOpen && <div className="jv-split-menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => confirm(true)}>{alwaysLabel}</button>
-        </div>}
-      </div>
+      <button type="button" className="ui-button ui-primary" disabled={busy} onClick={confirm}>{primaryLabel}</button>
     </div>
   </div>;
 }

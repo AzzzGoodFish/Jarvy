@@ -53,8 +53,6 @@ export interface Connector {
   oauthClientId: string | null;
   hasClientSecret: boolean;
   managedClient: ManagedClientInfo | null;
-  /** Write tools that currently bypass in-chat confirmation (invalidated automatically if a tool's definition changes). */
-  unconfirmed: string[];
   enabled: boolean;
   status: ConnectorStatus;
   statusDetail: string;

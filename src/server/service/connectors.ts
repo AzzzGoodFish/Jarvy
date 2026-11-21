@@ -4,7 +4,7 @@ import type {
 import type { QuestionSpec } from "../../contract/chat.js";
 import type { ChatMessage } from "../shared/chat.js";
 import {
-  isWriteTool, toolDefinitionHash,
+  isWriteTool,
   type ConnectorDriver, type McpOAuthSnapshot, type StoredConnectorCredentials,
 } from "../shared/connector.js";
 import type { Store } from "../infra/storage/store.js";
@@ -18,10 +18,10 @@ import type { QuestionResult } from "./chat/questions.js";
 import { ConnectorOAuthCoordinator } from "./connectors-oauth.js";
 import type { ConnectorEnv } from "../infra/connectors/client-env.js";
 import {
-  applyEdits, assertSameAccount, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
-  filterUnconfirmedEntries, formatConnectorDescribe, formatConnectorList, pickConnectorSlug, pickPresetName,
+  applyEdits, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
+  formatConnectorDescribe, formatConnectorList, pickConnectorSlug, pickPresetName,
 } from "./connectors-format.js";
-import { fulfilConnectorAuth, prepareConnectorAuthRequest, type FulfilAuthInput } from "./connectors-requests.js";
+import { fulfilConnectorAuth, prepareConnectorAuthRequest } from "./connectors-requests.js";
 
 const MAX_TOOL_TEXT = 32_000;
 
@@ -45,6 +45,7 @@ export class ConnectorService {
       (id, work) => this.withLock(id, work),
       id => this.generation(id),
       (provider, snapshot, name) => this.createFromOAuth(provider, snapshot, name),
+      (id, reason) => this.chats.questions.expireByConnector(id, reason, "connector_disconnected"),
       () => this.secrets.refreshMask(),
       text => this.secrets.masker().mask(text),
     );
@@ -163,7 +164,7 @@ export class ConnectorService {
 
   async update(id: string, input: {
     name?: unknown; url?: unknown; authKind?: unknown;
-    headers?: unknown; clientId?: unknown; clientSecret?: unknown; unconfirmed?: unknown; enabled?: unknown;
+    headers?: unknown; clientId?: unknown; clientSecret?: unknown; enabled?: unknown;
   }): Promise<Connector> {
     const current = this.get(id);
     const meta = this.driver.meta(current.provider);
@@ -183,20 +184,21 @@ export class ConnectorService {
     const own = !this.env.isManaged(current.provider);
     const credsChanged = urlChanged || authChanged || headers !== undefined || (own && (input.clientId !== undefined || input.clientSecret !== undefined));
 
-    if (current.provider !== "custom_mcp" && !urlChanged && credsChanged && nextAuth === "headers") {
-      return this.rotatePresetHeaders(id, { name, headers, enabled, unconfirmed: input.unconfirmed });
+    // Preset connectors have immutable credentials: disconnect & add fresh to switch tokens or accounts.
+    if (current.provider !== "custom_mcp" && credsChanged) {
+      throw new ValidationError("Preset connector credentials cannot be changed; disconnect and connect again", "connector_auth_required");
     }
 
     if (urlChanged) {
-      // Changing a custom MCP destination is a new trust decision: bump generation first so any in-flight
-      // probe/call/OAuth discards stale writes, then wipe credentials, cached tools and saved exemptions.
       this.bumpGeneration(id);
       this.oauth.clear(id);
+      this.store.connectors.revokeAll(id);
       this.store.connectors.saveCredentials(id, nextAuth, {});
-      this.store.connectors.setUnconfirmed(id, []);
       this.secrets.refreshMask();
+      this.chats.questions.expireByConnector(id, "Connector destination changed.", "connector_disconnected");
     } else if (credsChanged) {
       this.bumpGeneration(id);
+      this.store.connectors.revokeAll(id);
       const prior = this.store.connectors.credentials(id) ?? {};
       const next: StoredConnectorCredentials = { ...prior };
       if (authChanged) {
@@ -214,10 +216,11 @@ export class ConnectorService {
       }
       this.store.connectors.saveCredentials(id, nextAuth, next);
       this.secrets.refreshMask();
+      this.chats.questions.expireByConnector(id, "Connector credentials changed.", "connector_disconnected");
     }
 
-    if (!urlChanged && Array.isArray(input.unconfirmed)) {
-      this.store.connectors.setUnconfirmed(id, filterUnconfirmedEntries(input.unconfirmed, current.tools));
+    if (enabled === false) {
+      this.chats.questions.expireByConnector(id, "Connector was disabled.", "connector_disconnected");
     }
 
     const updated = this.store.connectors.update(id, {
@@ -233,53 +236,23 @@ export class ConnectorService {
     return updated;
   }
 
-  /** Probes a replacement preset token BEFORE saving so failed probes or another account never touch the existing connection. */
-  private rotatePresetHeaders(
-    id: string,
-    input: { name?: string; headers?: Record<string, string>; enabled?: boolean; unconfirmed?: unknown },
-  ): Promise<Connector> {
-    return this.withLock(id, async () => {
-      const live = this.store.connectors.get(id) ?? this.missing();
-      const headers = input.headers ?? {};
-      if (Object.keys(headers).length === 0) throw new RuntimeFault("connector_auth_required", "Enter an access token", 400);
-      const probed = await this.driver.probe({
-        provider: live.provider, url: live.url, authKind: "headers", headers,
-        redirectUrl: this.oauth.defaultRedirectUri(),
-      });
-      if (probed.outcome !== "connected") {
-        const msg = this.secrets.masker().mask(probed.message).slice(0, 300);
-        throw new RuntimeFault(probed.outcome === "needs_auth" ? "connector_auth_required" : "connector_unreachable", msg, 400);
-      }
-      assertSameAccount(live.account, probed.accountLabel);
-      const label = probed.accountLabel?.trim().slice(0, 120) || live.account;
-      this.bumpGeneration(id);
-      this.oauth.clear(id);
-      this.store.connectors.saveCredentials(id, "headers", { headers });
-      this.secrets.refreshMask();
-      if (Array.isArray(input.unconfirmed)) {
-        this.store.connectors.setUnconfirmed(id, filterUnconfirmedEntries(input.unconfirmed, probed.tools));
-      }
-      return this.store.connectors.update(id, {
-        ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
-        authKind: "headers", status: "connected", statusDetail: label,
-        ...(label ? { accountLabel: label } : {}),
-        tools: probed.tools,
-      }) ?? this.missing();
-    });
-  }
-
   delete(id: string): void {
     this.bumpGeneration(id);
     this.oauth.clear(id);
     if (!this.store.connectors.delete(id)) this.missing();
     this.secrets.refreshMask();
+    this.chats.questions.expireByConnector(id, "Connector was disconnected.", "connector_disconnected");
   }
 
   grant(id: string, botId: string, granted: boolean): Connector {
     this.get(id);
     if (!this.store.bots.get(botId)) throw new RuntimeFault("bot_missing", "Bot not found", 404);
-    if (granted) this.store.connectors.grant(id, botId); else this.store.connectors.revoke(id, botId);
+    if (granted) {
+      this.store.connectors.grant(id, botId);
+    } else {
+      this.store.connectors.revoke(id, botId);
+      this.chats.questions.expireByConnector(id, "Connector access was revoked.", "connector_revoked", botId);
+    }
     return this.get(id);
   }
 
@@ -294,6 +267,7 @@ export class ConnectorService {
     const current = this.get(id);
     this.bumpGeneration(id);
     this.oauth.clear(id);
+    this.store.connectors.revokeAll(id);
     const creds = this.store.connectors.credentials(id) ?? {};
     const next: StoredConnectorCredentials = {
       ...(creds.clientId ? { clientId: creds.clientId } : {}),
@@ -301,6 +275,7 @@ export class ConnectorService {
     };
     this.store.connectors.saveCredentials(id, current.authKind, next);
     this.secrets.refreshMask();
+    this.chats.questions.expireByConnector(id, "Connector was disconnected.", "connector_disconnected");
     return this.store.connectors.update(id, {
       status: current.authKind === "oauth" ? "needs_auth" : "disconnected",
       statusDetail: "",
@@ -336,7 +311,9 @@ export class ConnectorService {
       return this.store.connectors.update(id, { status: "connected", statusDetail: result.accountLabel?.slice(0, 120) ?? "", tools: result.tools })!;
     }
     const detail = this.secrets.masker().mask(result.message).slice(0, 300);
-    return this.store.connectors.update(id, { status: result.outcome === "needs_auth" ? "needs_auth" : "error", statusDetail: detail })!;
+    const failed = this.store.connectors.update(id, { status: result.outcome === "needs_auth" ? "needs_auth" : "error", statusDetail: detail })!;
+    this.chats.questions.expireByConnector(id, "Connector is no longer connected.", "connector_disconnected");
+    return failed;
   }
 
   /** connectors.list: compact summary when a connector exposes many tools; supports optional keyword filtering. */
@@ -349,7 +326,7 @@ export class ConnectorService {
     return formatConnectorDescribe(this.requireGranted(botId, slug), toolName, query);
   }
 
-  /** connectors.call: invokes a tool on a granted connector; write tools ask on a card unless fingerprinted as unconfirmed. */
+  /** connectors.call: invokes a tool on a granted connector; every write tool requires owner confirmation on a card. */
   async callTool(
     botId: string, chatId: string, slug: string, toolName: string, args: Record<string, unknown>,
     ask: (question: QuestionSpec) => Promise<QuestionResult & { messageId: string }>,
@@ -357,56 +334,57 @@ export class ConnectorService {
   ) {
     const initial = this.requireGranted(botId, slug);
     if (initial.status !== "connected") {
-      throw new ChatError(409, `Connector "${slug}" is not connected (status: ${initial.status}). Ask your owner with connectors.request.`, "connector_auth_required");
+      throw new ChatError(409, `Connector "${slug}" is not connected (status: ${initial.status}). Ask your owner to connect it in Settings → Connectors.`, "connector_auth_required");
     }
     const initialTool = initial.tools.find(item => item.name === toolName);
     if (!initialTool) throw new ChatError(404, `Connector "${slug}" has no tool named "${toolName}" (check connectors.describe)`);
 
     let confirmed: {
-      messageId: string; always: boolean; custom: string | null; editableKeys: ReadonlySet<string>;
-      url: string; authKind: ConnectorAuthKind; account: string; credFp: string; toolHash: string;
+      messageId: string; custom: string | null; editableKeys: ReadonlySet<string>;
+      url: string; authKind: ConnectorAuthKind; account: string; credFp: string;
     } | null = null;
 
-    if (isWriteTool(initialTool) && !this.store.connectors.isUnconfirmed(initial.id, initialTool)) {
+    if (isWriteTool(initialTool)) {
       if (!hasPerson()) {
         this.store.connectors.recordUse({ connectorId: initial.id, slug: initial.slug, botId, toolName, outcome: "denied", detail: "no person to confirm write" });
-        throw new ChatError(409, `"${toolName}" on "${slug}" asks the owner before running, and no person is in this chat. Ask them in a chat with them, or they can turn confirmation off for this tool in Settings → Connectors.`);
+        throw new ChatError(409, `"${toolName}" on "${slug}" requires the owner's confirmation, and no person is in this chat. Ask them in a chat with them.`);
       }
       const binding = {
-        url: initial.url, authKind: initial.authKind, account: initial.statusDetail,
-        credFp: this.store.connectors.credentialFingerprint(initial.id), toolHash: toolDefinitionHash(initialTool),
+        url: initial.url, authKind: initial.authKind, account: initial.account || initial.statusDetail,
+        credFp: initial.credFp,
       };
       const { question, editableKeys } = buildWriteConfirmQuestion(initial, initialTool, args, this.secrets.masker());
       const result = await ask(question);
       const picked = result.status === "answered" ? result.selected[0]?.value : undefined;
-      if (picked !== "confirm" && picked !== "confirm_always") {
+      if (picked !== "confirm") {
         this.store.connectors.recordUse({ connectorId: initial.id, slug: initial.slug, botId, toolName, outcome: "denied", detail: "declined" });
         return { connector: slug, tool: toolName, status: "declined", note: "Your owner declined this write action." };
       }
-      confirmed = { ...binding, messageId: result.messageId, always: picked === "confirm_always", custom: result.status === "answered" ? result.custom : null, editableKeys };
+      confirmed = { ...binding, messageId: result.messageId, custom: result.status === "answered" ? result.custom : null, editableKeys };
     }
 
     const res = await this.withLock(initial.id, async () => {
-      // Revalidate live authorization, destination, account/credentials and tool definition inside the lock.
+      // Revalidate live authorization, destination, account and credentials inside the lock.
       const live = this.store.connectors.get(initial.id);
       const liveTool = live?.tools.find(item => item.name === toolName);
       const granted = Boolean(live && this.store.connectors.grantedIds(botId).has(live.id));
       const liveValid = Boolean(live && live.enabled && live.status === "connected" && granted && liveTool);
+      const liveAccount = live ? (live.account || live.statusDetail) : "";
       const bindingValid = !confirmed || (
         liveValid
         && live!.url === confirmed.url
         && live!.authKind === confirmed.authKind
-        && live!.statusDetail === confirmed.account
-        && this.store.connectors.credentialFingerprint(live!.id) === confirmed.credFp
-        && toolDefinitionHash(liveTool!) === confirmed.toolHash
+        && liveAccount === confirmed.account
+        && live!.credFp === confirmed.credFp
       );
       if (!liveValid || !bindingValid) {
-        if (confirmed) this.chats.questions.invalidate(chatId, confirmed.messageId);
+        const expiredReason = live && live.enabled && live.status === "connected" && !granted ? "connector_revoked" : "connector_disconnected";
+        if (confirmed) this.chats.questions.invalidate(chatId, confirmed.messageId, expiredReason);
         this.store.connectors.recordUse({ connectorId: initial.id, slug: initial.slug, botId, toolName, outcome: "denied", detail: "confirmation expired: connector changed" });
-        throw new ChatError(409, `Confirmation for "${toolName}" on "${slug}" expired because connector access, settings, account or tool definition changed. Check connectors.list and ask again if still needed.`, "question_expired");
+        throw new ChatError(409, `Confirmation for "${toolName}" on "${slug}" expired because connector access, settings or connection state changed. Check connectors.list and ask again if still needed.`, "question_expired");
       }
-      if (!confirmed && isWriteTool(liveTool!) && !this.store.connectors.isUnconfirmed(live!.id, liveTool!)) {
-        throw new ChatError(409, `"${toolName}" on "${slug}" now requires owner confirmation. Call connectors.call again.`, "question_expired");
+      if (!confirmed && isWriteTool(liveTool!)) {
+        throw new ChatError(409, `"${toolName}" on "${slug}" requires owner confirmation. Call connectors.call again.`, "question_expired");
       }
       let finalArgs = args;
       if (confirmed?.custom) {
@@ -415,11 +393,10 @@ export class ConnectorService {
       }
       const creds = this.store.connectors.credentials(live!.id);
       if (creds === null) {
-        if (confirmed) this.chats.questions.invalidate(chatId, confirmed.messageId);
+        if (confirmed) this.chats.questions.invalidate(chatId, confirmed.messageId, "connector_disconnected");
         throw new ChatError(409, "Connector credentials cannot be decrypted", "credential_unreadable");
       }
       const startGen = this.generation(live!.id);
-      if (confirmed?.always) this.store.connectors.allowUnconfirmed(live!.id, liveTool!.name, confirmed.toolHash);
       const out = await this.driver.callTool({
         provider: live!.provider, url: live!.url, authKind: live!.authKind,
         headers: creds.headers, oauth: creds.oauth, ...this.clientOf(live!, creds),
@@ -436,9 +413,12 @@ export class ConnectorService {
     const { out, stale } = res;
     if (out.outcome === "needs_auth") {
       const masked = this.secrets.masker().mask(out.message);
-      if (!stale) this.store.connectors.update(initial.id, { status: "needs_auth", statusDetail: masked.slice(0, 300) });
+      if (!stale) {
+        this.store.connectors.update(initial.id, { status: "needs_auth", statusDetail: masked.slice(0, 300) });
+        this.chats.questions.expireByConnector(initial.id, "Connector needs re-authorization.", "connector_disconnected");
+      }
       this.store.connectors.recordUse({ connectorId: initial.id, slug: initial.slug, botId, toolName, outcome: "error", detail: masked });
-      throw new ChatError(409, `Connector "${slug}" needs re-authorization (${masked}). Ask your owner with connectors.request.`, "connector_auth_required");
+      throw new ChatError(409, `Connector "${slug}" needs re-authorization (${masked}). Ask your owner to reconnect it in Settings → Connectors.`, "connector_auth_required");
     }
     if (out.outcome === "error") {
       const masked = this.secrets.masker().mask(out.message);
@@ -454,23 +434,14 @@ export class ConnectorService {
     return { connector: slug, tool: toolName, isError: out.isError, text };
   }
 
-  private authRequestDeps() {
-    return {
-      store: this.store, chats: this.chats, driver: this.driver, env: this.env,
-      withLock: <T>(id: string, work: () => Promise<T>) => this.withLock(id, work),
-      probe: (id: string) => this.probe(id),
-      probeLocked: (id: string) => this.probeLocked(id),
-    };
+  /** connectors.request: returns immediately if granted & connected, else prepares an in-chat grant card. */
+  async prepareRequest(botId: string, slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }> {
+    return prepareConnectorAuthRequest({ store: this.store, chats: this.chats }, botId, slug, purpose);
   }
 
-  /** connectors.request: returns immediately if granted & connected, else prepares an in-chat auth/grant card. */
-  prepareRequest(botId: string, slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }> {
-    return prepareConnectorAuthRequest(this.authRequestDeps(), botId, slug, purpose);
-  }
-
-  /** Settles an in-chat connectorAuth card after verifying displayed account, credentials and requesting run. */
-  fulfilAuth(actorId: string, chatId: string, messageId: string, input?: FulfilAuthInput): Promise<ChatMessage> {
-    return fulfilConnectorAuth(this.authRequestDeps(), actorId, chatId, messageId, input);
+  /** Settles an in-chat connectorAuth card after synchronously verifying account, credentials and requesting run. */
+  fulfilAuth(actorId: string, chatId: string, messageId: string, input?: { scope?: unknown }): ChatMessage {
+    return fulfilConnectorAuth({ store: this.store, chats: this.chats }, actorId, chatId, messageId, input);
   }
 
   private requireGranted(botId: string, slug: string): Connector {

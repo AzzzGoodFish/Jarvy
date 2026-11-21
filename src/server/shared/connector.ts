@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type {
   ConnectorAuthKind, ConnectorKind, ConnectorProvider, ConnectorTool, ManagedClientInfo,
 } from "../../contract/connectors.js";
@@ -111,31 +110,4 @@ export interface ConnectorRuntimeInfo {
 /** A tool is treated as a write/mutation unless explicitly annotated readOnly=true and not destructive (MCP safety default, A102). */
 export function isWriteTool(tool: ConnectorTool): boolean {
   return !(tool.readOnly === true && tool.destructive !== true);
-}
-
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      const next = (value as Record<string, unknown>)[key];
-      if (next !== undefined) out[key] = canonical(next);
-    }
-    return out;
-  }
-  return value;
-}
-
-/** Fingerprint of a tool's definition: if a remote server alters a tool's description, annotations or schema,
- * any prior "don't ask again" approval automatically expires (A102). */
-export function toolDefinitionHash(tool: ConnectorTool): string {
-  const payload = canonical({
-    name: tool.name,
-    title: tool.title ?? null,
-    description: tool.description ?? null,
-    readOnly: tool.readOnly ?? null,
-    destructive: tool.destructive ?? null,
-    inputSchema: tool.inputSchema ?? {},
-  });
-  return createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 32);
 }

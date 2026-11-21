@@ -189,7 +189,7 @@ export const api = {
   }) => request<Connector>("/connectors", { method: "POST", body: body(input) }),
   updateConnector: (id: string, input: {
     name?: string; url?: string; authKind?: ConnectorAuthKind;
-    headers?: Record<string, string>; clientId?: string; clientSecret?: string; unconfirmed?: string[]; enabled?: boolean;
+    headers?: Record<string, string>; clientId?: string; clientSecret?: string; enabled?: boolean;
   }) => request<Connector>(`/connectors/${id}`, { method: "PUT", body: body(input) }),
   deleteConnector: (id: string) => request<{ ok: boolean }>(`/connectors/${id}`, { method: "DELETE" }),
   probeConnector: (id: string) => request<Connector>(`/connectors/${id}/probe`, { method: "POST" }),
@@ -203,11 +203,8 @@ export const api = {
   grantConnector: (id: string, botId: string, granted: boolean) =>
     request<Connector>(`/connectors/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   connectorUses: (id: string) => request<{ uses: ConnectorUse[] }>(`/connectors/${id}/uses`),
-  fulfilConnectorAuth: (
-    chatId: string,
-    messageId: string,
-    input?: { scope?: "always" | "once"; expectedAccount?: string; expectedCredFp?: string },
-  ) => request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, { method: "POST", ...(input ? { body: body(input) } : {}) }),
+  fulfilConnectorAuth: (chatId: string, messageId: string, scope: "always" | "once") =>
+    request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, { method: "POST", body: body({ scope }) }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
