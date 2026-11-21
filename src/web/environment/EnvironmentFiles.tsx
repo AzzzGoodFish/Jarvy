@@ -11,9 +11,9 @@ import { Button } from "../components/ui/button";
 import type { TerminalAvailability } from "./EnvironmentTerminals";
 import {
   FileEntryRow, FileInfoModal, FilesInlineBanners, FilesTransferTray, FilesUnavailableState, SortArrow,
-  type ConflictPrompt, type UploadItem,
 } from "./EnvironmentFileParts";
 import { copyToClipboard, renameSelectionEnd, sortEntries, splitBreadcrumbs, type SortDir, type SortKey } from "./file-helpers";
+import { useFileUploads } from "./useFileUploads";
 
 /** Direct file browser & streaming transfer pane for one work environment (A104). */
 export function EnvironmentFiles({ environmentId, botId, availability, maximized, onToggleMaximize, onSandboxStarted }: {
@@ -42,17 +42,11 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [inspectEntry, setInspectEntry] = useState<EnvFileEntry | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
-  const [conflict, setConflict] = useState<ConflictPrompt | null>(null);
 
   const loadAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
-  const activeUploadAbortsRef = useRef(new Map<string, AbortController>());
-  const cancelledUploadsRef = useRef(new Set<string>());
-  const conflictRef = useRef<ConflictPrompt | null>(null);
-  conflictRef.current = conflict;
   const listingRef = useRef<EnvDirListing | null>(null);
   listingRef.current = listing;
 
@@ -79,17 +73,18 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     }
   }, [environmentId]);
 
+  const {
+    uploads: envUploads, conflict, enqueueUploads, retryUpload, cancelUpload, cancelActiveConflict, clearFinished,
+  } = useFileUploads(environmentId, listingRef, dirPath => void loadDir(dirPath));
+
   useEffect(() => {
-    if (conflictRef.current) {
-      cancelledUploadsRef.current.add(conflictRef.current.itemId);
-      conflictRef.current.resolve("cancel");
-    }
+    cancelActiveConflict();
     setListing(null); setError(null); setFilter(""); setEditingPath(false); setCreatingDir(false);
-    setRenaming(null); setConfirmDelete(null); setSelectedPath(null); setInspectEntry(null); setConflict(null);
+    setRenaming(null); setConfirmDelete(null); setSelectedPath(null); setInspectEntry(null);
     setDragging(false); dragDepthRef.current = 0;
     if (availability.kind === "ready") void loadDir();
     return () => { loadAbortRef.current?.abort(); };
-  }, [environmentId, availability.kind, loadDir]);
+  }, [environmentId, availability.kind, loadDir, cancelActiveConflict]);
 
   useEffect(() => {
     if (!notice) return;
@@ -193,7 +188,6 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   function handleSelectEntry(entry: EnvFileEntry) {
     setSelectedPath(entry.path);
     if (entry.kind === "directory") {
-      // Touch devices have no double-click; open folders directly on tap.
       if (window.matchMedia("(hover: none)").matches) void loadDir(entry.path);
       return;
     }
@@ -205,111 +199,6 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     if (entry.kind === "directory") void loadDir(entry.path);
     else if (entry.kind === "symlink") void loadDir(entry.path, { fallbackInspect: entry });
     else setInspectEntry(entry);
-  }
-
-  function cancelUpload(id: string) {
-    cancelledUploadsRef.current.add(id);
-    activeUploadAbortsRef.current.get(id)?.abort();
-    if (conflictRef.current?.itemId === id) {
-      conflictRef.current.resolve("cancel");
-      setConflict(null);
-    }
-    setUploads(prev => prev.map(row => row.id === id && (row.status === "queued" || row.status === "uploading") ? { ...row, status: "cancelled" } : row));
-  }
-
-  const askOverwrite = (itemId: string, name: string, remaining: number) => {
-    if (cancelledUploadsRef.current.has(itemId)) return Promise.resolve<"cancel">("cancel");
-    return new Promise<"overwrite" | "overwrite_all" | "skip" | "cancel">(resolve => {
-      setConflict({ itemId, name, remaining, resolve });
-    });
-  };
-
-  async function enqueueUploads(fileList: FileList | File[]) {
-    const current = listingRef.current;
-    if (!current) return;
-    const files = [...fileList].filter(file => file.name);
-    if (!files.length) return;
-    const dirPath = current.path;
-    const batch: UploadItem[] = files.map(file => ({
-      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-      environmentId,
-      file,
-      dirPath,
-      status: "queued",
-      progress: 0,
-    }));
-    setUploads(prev => [...batch, ...prev].slice(0, 40));
-
-    let overwriteAll = false;
-    let uploadedAny = false;
-    const existingNames = new Set(current.entries.map(item => item.name));
-    const remainingAfter = (index: number) => batch.slice(index + 1).filter(other => !cancelledUploadsRef.current.has(other.id)).length;
-
-    for (let index = 0; index < batch.length; index++) {
-      const item = batch[index]!;
-      if (cancelledUploadsRef.current.has(item.id)) continue;
-      let overwrite = overwriteAll;
-      if (!overwrite && existingNames.has(item.file.name)) {
-        const choice = await askOverwrite(item.id, item.file.name, remainingAfter(index));
-        setConflict(null);
-        if (choice === "cancel" || cancelledUploadsRef.current.has(item.id)) {
-          setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
-          continue;
-        }
-        if (choice === "skip") {
-          setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "skipped" } : row));
-          continue;
-        }
-        if (choice === "overwrite_all") overwriteAll = true;
-        overwrite = true;
-      }
-      if (cancelledUploadsRef.current.has(item.id)) continue;
-      const uploaded = await runOneUpload(item, overwrite, remainingAfter(index), () => { overwriteAll = true; });
-      if (uploaded) { uploadedAny = true; existingNames.add(item.file.name); }
-    }
-    if (uploadedAny && listingRef.current?.path === dirPath) void loadDir(dirPath);
-  }
-
-  async function runOneUpload(item: UploadItem, overwrite: boolean, remaining: number, onOverwriteAll?: () => void): Promise<boolean> {
-    if (cancelledUploadsRef.current.has(item.id)) {
-      setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
-      return false;
-    }
-    const controller = new AbortController();
-    activeUploadAbortsRef.current.set(item.id, controller);
-    setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "uploading", progress: 0, error: undefined } : row));
-    try {
-      await api.uploadEnvFile(environmentId, item.dirPath, item.file, {
-        overwrite,
-        signal: controller.signal,
-        onProgress: done => setUploads(prev => prev.map(row => row.id === item.id ? { ...row, progress: done } : row)),
-      });
-      setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "done", progress: 1 } : row));
-      return true;
-    } catch (reason) {
-      if ((reason instanceof DOMException && reason.name === "AbortError") || cancelledUploadsRef.current.has(item.id)) {
-        setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
-        return false;
-      }
-      if (!overwrite && reason instanceof ApiError && reason.code === "file_already_exists") {
-        const choice = await askOverwrite(item.id, item.file.name, remaining);
-        setConflict(null);
-        if (choice === "cancel" || cancelledUploadsRef.current.has(item.id)) {
-          setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
-          return false;
-        }
-        if (choice === "skip") {
-          setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "skipped" } : row));
-          return false;
-        }
-        if (choice === "overwrite_all") onOverwriteAll?.();
-        return runOneUpload(item, true, remaining);
-      }
-      setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "error", error: errorText(reason) } : row));
-      return false;
-    } finally {
-      activeUploadAbortsRef.current.delete(item.id);
-    }
   }
 
   const visibleEntries = useMemo(() => {
@@ -329,7 +218,6 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     return { folders, files, hidden };
   }, [listing, showHidden]);
 
-  const envUploads = useMemo(() => uploads.filter(item => item.environmentId === environmentId), [uploads, environmentId]);
   const breadcrumbs = useMemo(() => listing ? splitBreadcrumbs(listing.path, listing.separator) : [], [listing]);
 
   if (availability.kind !== "ready") {
@@ -351,10 +239,10 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       event.preventDefault();
       dragDepthRef.current = 0;
       setDragging(false);
-      void enqueueUploads(event.dataTransfer.files);
+      enqueueUploads(event.dataTransfer.files);
     }}>
     <input ref={fileInputRef} type="file" multiple className="sr-only" aria-hidden="true" tabIndex={-1}
-      onChange={event => { if (event.target.files?.length) void enqueueUploads(event.target.files); event.target.value = ""; }}/>
+      onChange={event => { if (event.target.files?.length) enqueueUploads(event.target.files); event.target.value = ""; }}/>
 
     <div className="jv-files-bar">
       <div className="jv-files-nav">
@@ -425,10 +313,7 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       onConfirmDelete={entry => void commitDelete(entry)} onCancelDelete={() => setConfirmDelete(null)}
       error={error} onDismissError={() => setError(null)}/>
 
-    <FilesTransferTray uploads={envUploads}
-      onCancel={cancelUpload}
-      onRetry={item => void runOneUpload(item, false, 0).then(ok => { if (ok && listingRef.current?.path === item.dirPath) void loadDir(item.dirPath); })}
-      onClearDone={() => setUploads(prev => prev.filter(item => item.environmentId !== environmentId || item.status === "queued" || item.status === "uploading"))}/>
+    <FilesTransferTray uploads={envUploads} onCancel={cancelUpload} onRetry={retryUpload} onClearDone={clearFinished}/>
 
     <div className="jv-files-body">
       <div className="jv-files-head" role="row">
