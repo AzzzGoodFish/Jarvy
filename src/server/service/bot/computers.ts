@@ -54,6 +54,9 @@ export class Computers {
   private readonly states = new Map<string, ComputerStatus>();
   private readonly preparing = new Map<string, Promise<string>>();
   private readonly connections = new Map<string, WorkEnvironment>();
+  /** In-flight connect calls per Bot, and a generation bumped on disconnect so stale opens never leak an SSH child. */
+  private readonly connecting = new Map<string, Promise<WorkEnvironment>>();
+  private readonly epoch = new Map<string, number>();
   /** Container sandboxes set up since they last started: home checked and host name added. */
   private readonly homes = new Map<string, Promise<void>>();
   private network: { name: string; gateway: string } | null = null;
@@ -257,25 +260,47 @@ export class Computers {
       close: () => this.disconnect(botId),
     };
   }
-  private async connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
+  private connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
+    const existing = this.connections.get(botId);
+    if (existing) return Promise.resolve(existing);
+    const pending = this.connecting.get(botId);
+    if (pending) return pending;
+    const gen = this.epoch.get(botId) ?? 0;
+    const task = this.openConnection(botId, record, gen).finally(() => {
+      if (this.connecting.get(botId) === task) this.connecting.delete(botId);
+    });
+    this.connecting.set(botId, task);
+    return task;
+  }
+  private async openConnection(botId: string, record: EnvironmentRecord, gen: number): Promise<WorkEnvironment> {
+    const check = () => {
+      if (this.closed) throw new RuntimeFault("stopping", "Shutting down.", 503);
+      if ((this.epoch.get(botId) ?? 0) !== gen) throw new RuntimeFault("computer_failed", "Sandbox connection was interrupted.", 503);
+    };
+    check();
     const type = computerType(record);
     if (type === "vm") {
       await this.ensure(botId);
-      let env = this.connections.get(botId);
-      if (!env) {
-        const access = await this.libvirt.ensure(record, computerLimits(record), this.workspace(botId));
-        env = this.libvirt.environment(record, access, text => this.log(`[${botId.slice(0, 8)}] ${text}`));
-        this.connections.set(botId, env);
-      }
+      check();
+      const cached = this.connections.get(botId);
+      if (cached) return cached;
+      const access = await this.libvirt.ensure(record, computerLimits(record), this.workspace(botId));
+      check();
+      const raced = this.connections.get(botId);
+      if (raced) return raced;
+      const env = this.libvirt.environment(record, access, text => this.log(`[${botId.slice(0, 8)}] ${text}`));
+      this.connections.set(botId, env);
       return env;
     }
     const container = await this.ensure(botId);
+    check();
     let home = this.homes.get(container);
     if (!home) {
       home = this.prepareContainer(container).catch(error => { this.homes.delete(container); this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`); });
       this.homes.set(container, home);
     }
     await home;
+    check();
     let env = this.connections.get(botId);
     if (!env) { env = containerEnvironment(record.id, container, text => this.log(`[${botId.slice(0, 8)}] ${text}`)); this.connections.set(botId, env); }
     return env;
@@ -415,6 +440,8 @@ export class Computers {
   }
   private async settled(botId: string): Promise<void> { await this.preparing.get(botId)?.catch(() => {}); }
   private async disconnect(botId: string): Promise<void> {
+    this.epoch.set(botId, (this.epoch.get(botId) ?? 0) + 1);
+    this.connecting.delete(botId);
     const env = this.connections.get(botId);
     this.connections.delete(botId);
     await env?.close();

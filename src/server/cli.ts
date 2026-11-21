@@ -142,7 +142,10 @@ async function main(): Promise<void> {
       shuttingDown = true;
       server.close(); published.close();
       void app.close().then(() => { removePidFile(dir); console.log("Jarvy stopped."); })
-        .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; });
+        .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; })
+        // Normal shutdown exits as soon as the event loop drains; this unref'd safety timer fires only if a lingering
+        // handle (such as a leaked child socket or keep-alive pool) still keeps the process alive after app.close().
+        .finally(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 500).unref(); });
     };
     process.once("SIGINT", shutdown); process.once("SIGTERM", shutdown);
   } catch (error) { await app.close(); throw error; }
