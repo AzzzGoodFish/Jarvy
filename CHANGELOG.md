@@ -2,6 +2,27 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.16.0 — 2026-11-21
+
+**Before upgrading:** stop active Bot work and back up the data directory and its separate master key. On first start the database moves from v32 (0.15.0) or v33 (development builds) to v34; use the pre-upgrade backup to roll back. If you use Kata VM sandboxes, copy anything you need into `/workspace` first. Jarvy removes the old Kata containers at startup: their processes, installed packages and files outside the host-backed workspace do not migrate. Restoring just the database will not recreate those containers. Ordinary Docker sandboxes do not need to change.
+
+### Added
+
+- **Connect external services.** In Settings → Connectors, connect GitHub, Gmail, Linear or a custom HTTP MCP server and grant access per Bot. A write normally opens a confirmation card that shows the arguments before the call; you can edit supported fields, discard the action or remember an exception for that tool definition. Credentials are stored encrypted. Managed OAuth providers require client configuration on the server.
+- **Work on your own computer.** Pair the desktop app or the command-line connector with Jarvy, then choose which Bots may use the computer. The desktop app provides a chat window, tray controls, pause/resume and notifications for DMs and mentions. Windows installers and Linux AppImages now use the same version as the server and belong to the same GitHub release.
+- **Let shell commands finish in the background.** A new message can interrupt a Bot's turn without killing its running `bash` command. Bots can use `bash_job` to check output, wait or stop a job. This does not keep commands running through a server shutdown.
+
+### Changed
+
+- **VM sandboxes now run Ubuntu 24.04 under libvirt/QEMU instead of Kata.** VM mode needs Linux KVM and access to system libvirt. On first use Jarvy builds a template and imports the existing workspace. The VM has its own system disk and workspace disk: reset replaces the system disk but keeps `/workspace`. Switching back to a container or deleting a Bot with files retained exports the workspace to the host. It is not a continuously mirrored host directory. Docker inside the guest can run containers with CPU and memory limits.
+- The browser tab and chat rail include mentions in followed threads. A chat is not marked read just because it is open in a background window. Navigation headers, list rows and spacing are consistent across chats, environments and settings; text selection stays available for content without selecting the surrounding controls.
+
+### Fixed
+
+- The composer grows from a pill into a multiline card without losing writing space to the buttons. Clicking its empty area focuses the end of the draft without overriding native text selection. Long settings choices stay on one line. On short screens the bottom of a machine's Bot grant picker and lower Settings tabs are reachable.
+- On Windows, connected computers use the selected Git Bash rather than WSL's `bash.exe`, keep the connection during long output, and preserve PowerShell table output. Reconnecting skips an unchanged daemon download. Closing a connected computer during server shutdown no longer logs a closed-database error.
+- Global npm installs declare runtime dependencies directly rather than relying on another package's dependency tree.
+
 ## 0.15.0 — 2026-11-16
 
 The database upgrades to v32 on first start: it adds the agent Bot's action log, and an environment grant that lasts for one run. Going back to 0.14.x needs the database from before the upgrade. Nothing else to do: no new dependency, and every sandbox stays as it was.
