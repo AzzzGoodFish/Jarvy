@@ -267,14 +267,10 @@ export class Computers {
     };
   }
   private connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
-    const existing = this.connections.get(botId);
+    const existing = this.connections.get(botId) ?? this.connecting.get(botId);
     if (existing) return Promise.resolve(existing);
-    const pending = this.connecting.get(botId);
-    if (pending) return pending;
     const gen = this.epoch.get(botId) ?? 0;
-    const task = this.openConnection(botId, record, gen).finally(() => {
-      if (this.connecting.get(botId) === task) this.connecting.delete(botId);
-    });
+    const task = this.openConnection(botId, record, gen).finally(() => { if (this.connecting.get(botId) === task) this.connecting.delete(botId); });
     this.connecting.set(botId, task);
     return task;
   }
@@ -284,32 +280,28 @@ export class Computers {
       if ((this.epoch.get(botId) ?? 0) !== gen) throw new RuntimeFault("computer_failed", "Sandbox connection was interrupted.", 503);
     };
     check();
-    const type = computerType(record);
-    if (type === "vm") {
-      await this.ensure(botId);
-      check();
-      const cached = this.connections.get(botId);
-      if (cached) return cached;
+    if (computerType(record) === "vm") {
+      await this.ensure(botId); check();
+      if (this.connections.has(botId)) return this.connections.get(botId)!;
       const access = await this.libvirt.ensure(record, computerLimits(record), this.workspace(botId));
       check();
-      const raced = this.connections.get(botId);
-      if (raced) return raced;
-      const env = this.libvirt.environment(record, access, text => this.log(`[${botId.slice(0, 8)}] ${text}`));
+      const env = this.connections.get(botId) ?? this.libvirt.environment(record, access, text => this.log(`[${botId.slice(0, 8)}] ${text}`));
       this.connections.set(botId, env);
       return env;
     }
-    const container = await this.ensure(botId);
-    check();
+    const container = await this.ensure(botId); check();
+    await this.ensureHome(botId, container); check();
+    const env = this.connections.get(botId) ?? containerEnvironment(record.id, container, text => this.log(`[${botId.slice(0, 8)}] ${text}`));
+    this.connections.set(botId, env);
+    return env;
+  }
+  private ensureHome(botId: string, container: string): Promise<void> {
     let home = this.homes.get(container);
     if (!home) {
       home = this.prepareContainer(container).catch(error => { this.homes.delete(container); this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`); });
       this.homes.set(container, home);
     }
-    await home;
-    check();
-    let env = this.connections.get(botId);
-    if (!env) { env = containerEnvironment(record.id, container, text => this.log(`[${botId.slice(0, 8)}] ${text}`)); this.connections.set(botId, env); }
-    return env;
+    return home;
   }
   private async prepareContainer(container: string): Promise<void> {
     await homeAtWorkspace(container);
@@ -409,12 +401,7 @@ export class Computers {
       return { pty: await openSshPty(current.id, access, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd };
     }
     const container = await this.ensure(botId);
-    let home = this.homes.get(container);
-    if (!home) {
-      home = this.prepareContainer(container).catch(error => { this.homes.delete(container); this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`); });
-      this.homes.set(container, home);
-    }
-    await home;
+    await this.ensureHome(botId, container);
     return { pty: await openContainerPty(container, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd };
   }
   async stop(botId: string): Promise<void> {
