@@ -241,8 +241,17 @@ async function ensureIsolationFilter(name: string, gateway: string): Promise<str
   const subnet = gateway.replace(/\.\d+$/, ".0");
   const filters = await virsh(["nwfilter-list"], 15_000);
   const hasCleanTraffic = /\bclean-traffic\b/.test(filters);
+  // libvirt requires the existing <uuid> when redefining an nwfilter in place (e.g. after a Jarvy restart).
+  let existingUuid: string | null = null;
+  try {
+    const current = await virsh(["nwfilter-dumpxml", name], 15_000);
+    existingUuid = /<uuid>([^<]+)<\/uuid>/.exec(current)?.[1]?.trim() ?? null;
+  } catch (error) {
+    if (!/network filter not found|nwfilter not found|no nwfilter/i.test((error as Error).message)) throw error;
+  }
   const xml = [
     `<filter name='${xmlEscape(name)}' chain='root'>`,
+    ...(existingUuid ? [`  <uuid>${xmlEscape(existingUuid)}</uuid>`] : []),
     ...(hasCleanTraffic ? ["  <filterref filter='clean-traffic'/>"] : []),
     "  <rule action='accept' direction='out' priority='400'>",
     `    <ip dstipaddr='${gateway}' dstipmask='32'/>`,
