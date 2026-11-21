@@ -4,9 +4,11 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { HostKeyChangedError, HostKeyUnknownError, RemoteExecutionEnv, detectPlatform, openTerminal, scanHostKey, sshArguments, sshConnection, type SshTarget } from "@earendil-works/pi-env";
 import type { WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { HostKeys } from "../../../contract/environment.js";
 import { overDurable } from "./durable.js";
+import { overExecutionEnvFs } from "./env-fs.js";
 import { wrapRemoteTerminal } from "./terminal.js";
 
 /** Machines the owner adds over SSH (A57, A59). Jarvy makes an ed25519 key for each one and logs in with it; the key
@@ -105,6 +107,21 @@ export function sshEnvironment(id: string, access: SshAccess, directory: string,
   const { connection } = sshConnection({ ...target(access, access.alias), ...files, ...(onLog ? { onLog } : {}) });
   return overDurable(id, kind, new RemoteExecutionEnv({ connection, id: `${kind}:${id}`, cwd: directory }), {
     passEnv: false, temp,
+    close: () => { connection.close(); rmSync(folder, { recursive: true, force: true }); },
+  });
+}
+
+/** Opens a dedicated file-browser `EnvironmentFs` over SSH (A104). Ephemeral key/known_hosts files are cleaned up on close. */
+export function openSshFs(id: string, access: SshAccess, cwd: string, home: string, onLog?: (text: string) => void): EnvironmentFs {
+  mkdirSync(access.runtime, { recursive: true, mode: 0o700 });
+  const folder = join(access.runtime, `fs-${id}-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`);
+  const files = writeFilesSync(folder, access);
+  const { connection } = sshConnection({ ...target(access, access.alias), ...files, ...(onLog ? { onLog } : {}) });
+  const env = new RemoteExecutionEnv({ connection, id: `files:ssh:${id}`, cwd });
+  return overExecutionEnvFs(id, env, {
+    cwd,
+    home,
+    separator: "/",
     close: () => { connection.close(); rmSync(folder, { recursive: true, force: true }); },
   });
 }

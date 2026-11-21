@@ -149,9 +149,13 @@ export class DeviceLinks {
   online(id: string): boolean { return this.links.has(id); }
   paused(id: string): boolean { return !!this.links.get(id)?.paused; }
   hasCapability(id: string, capability: string): boolean { return !!this.links.get(id)?.capabilities.has(capability); }
+  /** Opens a dedicated pi-env `Connection` over the device relay (interactive terminals A103, file browser A104). */
+  openConnection(id: string, onLog?: (text: string) => void): Connection {
+    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, ""], ...(onLog ? { onLog } : {}) });
+  }
   /** Opens a dedicated pi-env `Connection` over the device relay for an interactive terminal (Linux/macOS, A103). */
   openTerminalConnection(id: string, onLog?: (text: string) => void): Connection {
-    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, ""], ...(onLog ? { onLog } : {}) });
+    return this.openConnection(id, onLog);
   }
   /** Opens a native connector PTY channel (Windows ConPTY, A103) over the device's WebSocket. */
   openNativePty(id: string, options: PtyOpenOptions): PtyHandle | null {

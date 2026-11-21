@@ -16,16 +16,18 @@ import { BotEnvironment, STATE } from "./BotEnvironment";
 import { MachineDetail, machineAddress } from "./MachineDetail";
 import { MachineForm } from "./MachineForm";
 import { DeviceConnect, DeviceDetail, deviceState, deviceSystem } from "./DeviceDetail";
+import { EnvironmentFiles } from "./EnvironmentFiles";
 import { EnvironmentTerminals, type TerminalAvailability } from "./EnvironmentTerminals";
 import "../styles/model-workbench.css";
 import "../styles/secrets.css";
 import "../styles/machines.css";
 import "../styles/environments.css";
 import "../styles/terminals.css";
+import "../styles/env-files.css";
 
 /** What the page shows on the right: a sandbox (by its Bot), a machine, or the form to add one. */
 type Picked = { kind: "sandbox" | "machine" | "device"; id: string };
-type DetailTab = "overview" | "terminal";
+type DetailTab = "overview" | "terminal" | "files";
 /** The pick and tab, kept while the page is away (the chats, the agent Bot's page) and lost on a reload. */
 let kept: Picked | null = null;
 let keptTab: DetailTab = "overview";
@@ -71,7 +73,7 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
   const machine = adding || device ? undefined : chosenMachine ?? (none ? machines?.[0] : undefined);
   const bot = adding || machine || device ? undefined : chosenSandbox ?? (none && (machines || error) ? sandboxes[0] : undefined);
   const pick = (next: Picked) => { kept = next; setPicked(next); onAdding(false); setOpen(true); };
-  const switchTab = (next: DetailTab) => { keptTab = next; setTab(next); if (next !== "terminal") setMaximized(false); };
+  const switchTab = (next: DetailTab) => { keptTab = next; setTab(next); if (next === "overview") setMaximized(false); };
   const here = device ? at(device) : machine ? on(machine) : bot ? home(bot) : [];
   const status = bot && statuses[bot.id];
   const faces = (list: Bot[]) => <Faces bots={list} statuses={statuses}/>;
@@ -96,6 +98,7 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
       : { kind: "ready" }
     : { kind: "ready" };
   const showTerminal = !adding && !!selectedEnvId && tab === "terminal";
+  const showFiles = !adding && !!selectedEnvId && tab === "files";
   // The search box, as the chat list's: a computer by its name or system, a machine by its name or address, a sandbox by its Bot's name.
   const query = filter.trim().toLocaleLowerCase(), found = (text: string) => text.toLocaleLowerCase().includes(query);
   const shownMachines = machines?.filter(item => found(`${item.name} ${machineAddress(item)}`));
@@ -108,7 +111,7 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
       if (updated) onSaved(updated);
     }).catch(() => {});
   };
-  return <section className="jv-envs" data-open={open || undefined} data-maximized={showTerminal && maximized ? "" : undefined} aria-label={t("rail.environments")}>
+  return <section className="jv-envs" data-open={open || undefined} data-maximized={(showTerminal || showFiles) && maximized ? "" : undefined} aria-label={t("rail.environments")}>
     <aside className="jv-envs-list">
       <ColumnHeader place="sidebar" title={<span className="sr-only">{t("rail.environments")}</span>}
         actions={<IconButton icon="add" label={t("machines.add")} aria-pressed={adding} onClick={() => { onAdding(true); setOpen(true); }}/>}/>
@@ -138,7 +141,7 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
         {error && <p className="jv-note-error" role="alert">{error}</p>}
       </div>
     </aside>
-    <main className="jv-envs-detail jv-ui" data-mode={showTerminal ? "terminal" : "overview"}>
+    <main className="jv-envs-detail jv-ui" data-mode={showTerminal ? "terminal" : showFiles ? "files" : "overview"}>
       <ColumnHeader place="content" as="h2"
         leading={<><button type="button" className="jv-envs-back" aria-label={t("envs.back")} onClick={() => { setOpen(false); setMaximized(false); onAdding(false); }}><ChevronLeftIcon aria-hidden="true"/></button>
           {device ? <Kind type="device"/> : machine ? <Kind type="ssh"/> : bot ? <Kind type={bot.environment.computer!.type}/> : null}</>}
@@ -149,10 +152,14 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
           <button type="button" role="radio" aria-checked={tab === "terminal"} onClick={() => switchTab("terminal")}>
             {t("envs.tabTerminal")}{selectedRunning > 0 && <span className="jv-envs-tab-count">{selectedRunning}</span>}
           </button>
+          <button type="button" role="radio" aria-checked={tab === "files"} onClick={() => switchTab("files")}>{t("envs.tabFiles")}</button>
         </div> : undefined}/>
       {showTerminal ? <EnvironmentTerminals environmentId={selectedEnvId} sessions={selectedSessions} availability={availability}
         maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
         onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>
+        : showFiles ? <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={availability}
+          maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
+          onSandboxStarted={refreshBot}/>
         : <div className="jv-envs-body">
           {!adding && here.length > 0 && <p className="jv-envs-here">{faces(here)}{t("envs.workingHere", { names: here.map(item => item.name).join(t("common.listSeparator")), count: here.length })}</p>}
           {adding && <div className="jv-seg jv-envs-add-kind" role="radiogroup" aria-label={t("machines.add")}>

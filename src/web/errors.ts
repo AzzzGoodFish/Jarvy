@@ -8,7 +8,10 @@ import { t, type Key } from "./i18n";
 const ERROR_KEYS: Record<ErrorCode, Key> = {
   agent_undeletable: "error.agentUndeletable", autoconfig_model: "error.autoconfigModel", autoconfig_source: "error.autoconfigSource",
   bot_missing: "error.botMissing", chat_access_changed: "error.chatAccessChanged",
-  computer_failed: "error.computerFailed", computer_missing: "error.computerMissing", docker_unavailable: "error.dockerUnavailable", file_too_large: "error.fileTooLarge",
+  computer_failed: "error.computerFailed", computer_missing: "error.computerMissing", docker_unavailable: "error.dockerUnavailable",
+  file_already_exists: "error.fileAlreadyExists", file_invalid_path: "error.fileInvalidPath", file_is_directory: "error.fileIsDirectory",
+  file_not_directory: "error.fileNotDirectory", file_not_found: "error.fileNotFound", file_permission_denied: "error.filePermissionDenied",
+  file_too_large: "error.fileTooLarge", sandbox_stopped: "error.sandboxStopped",
   connection_in_use: "error.connectionInUse", connection_missing: "error.connectionMissing",
   connector_auth_required: "error.connectorAuthRequired", connector_client_missing: "error.connectorClientMissing",
   connector_headers_invalid: "error.connectorHeadersInvalid", connector_missing: "error.connectorMissing",

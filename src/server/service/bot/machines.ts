@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join, posix } from "node:path";
-import { SshFault, clearRuntime, generateKey, installKey, openSshPty, probeHost, publicKeyOf, removeKey, scanHost, sshEnvironment, type SshAccess, type SshAddress } from "../../infra/env/ssh.js";
+import { SshFault, clearRuntime, generateKey, installKey, openSshFs, openSshPty, probeHost, publicKeyOf, removeKey, scanHost, sshEnvironment, type SshAccess, type SshAddress } from "../../infra/env/ssh.js";
 import type { Store } from "../../infra/storage/store.js";
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
 import { type MachineAsk, type QuestionSpec } from "../../../contract/chat.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { HostKeys, SshMachine } from "../../../contract/environment.js";
 import type { ChatService } from "../chat/service.js";
@@ -135,6 +136,12 @@ export class SshMachines {
     const home = record.spec.home ?? "/tmp";
     return sshEnvironment(record.id, this.access(record), record.directory ?? home, posix.join(home, ".cache", "jarvy", botId),
       text => console.error(`[ssh ${record.name}] ${text.trim()}`));
+  }
+  /** Opens a dedicated file-browser `EnvironmentFs` on this SSH machine (A104). */
+  openFs(record: EnvironmentRecord): EnvironmentFs {
+    const home = record.spec.home || "/";
+    const cwd = record.directory || home;
+    return openSshFs(record.id, this.access(record), cwd, home, text => console.error(`[ssh-fs ${record.name}] ${text.trim()}`));
   }
   /** Opens an interactive PTY on this SSH machine in its configured directory (A103). */
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {

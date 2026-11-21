@@ -10,6 +10,7 @@ import type {
 } from "../contract/connectors";
 import type { Task, TaskInput } from "../contract/tasks";
 import type { TerminalSession } from "../contract/terminal";
+import type { EnvDirListing, EnvFileEntry, EnvFileUploadResult } from "../contract/env-files";
 import type { FollowedSummary, ThreadFilter, ThreadItem, ThreadPage, ThreadSort } from "../contract/threads";
 import { t } from "./i18n";
 /** A failed request. `code` and `params` (A45) name a failure the interface words itself (errors.ts); the message is
@@ -47,6 +48,33 @@ function upload(chatId: string, file: File, onProgress?: (done: number) => void,
       let body: unknown = {};
       try { body = JSON.parse(xhr.responseText); } catch { /* not JSON: the status speaks */ }
       if (xhr.status >= 200 && xhr.status < 300) resolve(body as Attachment); else reject(failure(xhr.status, body));
+    };
+    xhr.send(file);
+  });
+}
+/** Uploads a file directly into an environment directory (A104) with streaming progress and cancellation. */
+function uploadEnvFile(
+  environmentId: string,
+  dirPath: string,
+  file: File,
+  options: { overwrite?: boolean; onProgress?: (done: number) => void; signal?: AbortSignal } = {},
+) {
+  return new Promise<EnvFileUploadResult>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    if (options.signal?.aborted) { reject(new DOMException("Upload cancelled", "AbortError")); return; }
+    options.signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
+    const params = new URLSearchParams({ path: dirPath });
+    if (options.overwrite) params.set("overwrite", "1");
+    xhr.open("POST", `/api/environments/${encodeURIComponent(environmentId)}/files/upload?${params.toString()}`);
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
+    xhr.upload.onprogress = event => { if (event.lengthComputable && event.total > 0) options.onProgress?.(event.loaded / event.total); };
+    xhr.onerror = () => reject(new Error(t("api.offline")));
+    xhr.onload = () => {
+      let parsed: unknown = {};
+      try { parsed = JSON.parse(xhr.responseText); } catch { /* not JSON: status speaks */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(parsed as EnvFileUploadResult); else reject(failure(xhr.status, parsed));
     };
     xhr.send(file);
   });
@@ -153,6 +181,18 @@ export const api = {
   renameTerminal: (id: string, name: string) => request<TerminalSession>(`/terminals/${id}`, { method: "PATCH", body: body({ name }) }),
   restartTerminal: (id: string, input: { cols?: number; rows?: number } = {}) => request<TerminalSession>(`/terminals/${id}/restart`, { method: "POST", body: body(input) }),
   closeTerminal: (id: string) => request<{ ok: boolean }>(`/terminals/${id}`, { method: "DELETE" }),
+  /** Direct file browser & transfer across environments (A104). */
+  envFiles: (environmentId: string, path?: string, signal?: AbortSignal) =>
+    request<EnvDirListing>(`/environments/${encodeURIComponent(environmentId)}/files${path ? `?path=${encodeURIComponent(path)}` : ""}`, { signal }),
+  envFileDownloadUrl: (environmentId: string, path: string) =>
+    `/api/environments/${encodeURIComponent(environmentId)}/files/download?path=${encodeURIComponent(path)}`,
+  uploadEnvFile,
+  mkdirEnvFile: (environmentId: string, path: string, name: string) =>
+    request<EnvFileEntry>(`/environments/${encodeURIComponent(environmentId)}/files/mkdir`, { method: "POST", body: body({ path, name }) }),
+  renameEnvFile: (environmentId: string, path: string, name: string) =>
+    request<EnvFileEntry>(`/environments/${encodeURIComponent(environmentId)}/files/rename`, { method: "POST", body: body({ path, name }) }),
+  deleteEnvFile: (environmentId: string, path: string) =>
+    request<{ ok: boolean }>(`/environments/${encodeURIComponent(environmentId)}/files?path=${encodeURIComponent(path)}`, { method: "DELETE" }),
   fulfilMachine: (chatId: string, messageId: string, answer: { password: string } | { keyId: string }) =>
     request<ChatMessage>(`/environments/requests/${chatId}/${messageId}`, { method: "POST", body: body(answer) }),
   computer: (id: string, action: "start" | "stop" | "reset" | "restart") => request<Bot>(`/bots/${id}/computer/${action}`, { method: "POST" }),

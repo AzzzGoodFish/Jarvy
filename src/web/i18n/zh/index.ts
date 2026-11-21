@@ -12,9 +12,10 @@ import { connectors } from "./connectors";
 import { machines } from "./machines";
 import { tasks } from "./tasks";
 import { terminals } from "./terminals";
+import { envFiles } from "./env-files";
 import { ports } from "./ports";
 import { inputs } from "./inputs";
 import { botcard } from "./botcard";
 
 /** 中文 (A45): the parts of the English reference, put together the same way. */
-export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...connectors, ...machines, ...tasks, ...terminals, ...ports, ...inputs, ...botcard };
+export const zh: Shape = { ...common, ...settings, ...chat, ...threads, ...bot, ...npc, ...environment, ...connection, ...secrets, ...connectors, ...machines, ...tasks, ...terminals, ...envFiles, ...ports, ...inputs, ...botcard };
