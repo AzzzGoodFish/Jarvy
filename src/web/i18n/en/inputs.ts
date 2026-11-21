@@ -39,8 +39,6 @@ export const inputs = {
   "inputs.jobStatus.stopped": "stopped",
   "inputs.jobStatus.timed_out": "timed out",
   "inputs.runningJobs": { one: "{count} command running: {list}", other: "{count} commands running: {list}" },
-  "inputs.handoff": "Context handoff from previous session",
-  "inputs.handoffRequest": "{person} requested a context handoff",
   "inputs.handoffContinue": "Continued automatically after context handoff",
   "inputs.context": "Context watermark: {used} / {window} tokens",
 } as const;

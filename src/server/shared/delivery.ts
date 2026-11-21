@@ -11,8 +11,8 @@ export type Urgency = "interrupt" | "queue" | "digest";
  * welcome the owner) and `change` (a Bot's settings or work environment changed) go to one Bot from the agent and Bot
  * services (A48, A50); `task` (one of its scheduled tasks is due) goes to one Bot from the scheduler (A58); `followed`
  * (its conversation was compacted or handed off: the open threads it follows) goes to one Bot from its session (A73,
- * A99); `job` (a background bash command finished) goes to one Bot from its job manager (A98); `handoff` (owner
- * requested a context handoff, or a fresh session continuing mid-task) goes to one Bot (A99). */
+ * A99); `job` (a background bash command finished) goes to one Bot from its job manager (A98); `handoff` (a mid-task
+ * handoff auto-continuing in the fresh context stage) goes to one Bot (A99). */
 export type DeliveryKind = "message" | "reaction" | "note" | "onboard" | "change" | "task" | "followed" | "job" | "handoff";
 /** The three categories (A61): a chat message; chat activity (a mark, a new notice or summary version), about a chat;
  * a system notice to one member, about no chat. Only the chat categories carry a chat. */

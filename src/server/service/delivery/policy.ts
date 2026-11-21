@@ -24,8 +24,8 @@ const POLICY: Record<DeliveryKind, Partial<Record<DeliveryReason, Urgency>>> = {
   // A background bash command finished: steers into a running turn or wakes an idle Bot, never interrupts (A98).
   // One stopped by server shutdown rides along as a digest on the Bot's next batch without waking it.
   job: { finish: "queue", shutdown: "digest" },
-  // Context handoff (A99): owner request steers into a running turn or wakes an idle Bot; `continue` wakes the fresh session right away.
-  handoff: { owner: "queue", continue: "queue" },
+  // Context handoff continuation (A99): wakes the fresh context stage immediately without waiting for user input.
+  handoff: { continue: "queue" },
 };
 export function urgencyOf(kind: DeliveryKind, reason: DeliveryReason): Urgency | undefined { return POLICY[kind][reason]; }
 /** 免打扰: what would interrupt is queued instead, except being @-ed or replied to. */

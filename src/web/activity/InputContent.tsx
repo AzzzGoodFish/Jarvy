@@ -38,10 +38,6 @@ function Item({ item, names }: { item: ParsedItem; names: Names }) {
     <h4><strong>{itemLine(item, names)}</strong>{item.duration && <span>{item.duration}</span>}{item.exitCode !== undefined && <span>{t("inputs.jobExit", { code: item.exitCode })}</span>}<When at={item.at}/></h4>
     {(item.error || item.output) && <pre className="jv-input-code">{[item.error, item.output].filter(Boolean).join("\n")}</pre>}
   </section>;
-  if (item.kind === "handoff") return <section className="jv-input-item" data-kind={item.kind}>
-    <h4><strong>{itemLine(item, names)}</strong></h4>
-    <div className="jv-input-body"><Markdown text={item.text}/></div>
-  </section>;
   if (item.kind === "instructions" || item.kind === "other") return <section className="jv-input-item" data-kind={item.kind}>
     <h4><strong>{item.kind === "other" ? `<${item.name}>` : itemLine(item, names)}</strong></h4>
     <pre className="jv-input-code">{item.text}</pre>

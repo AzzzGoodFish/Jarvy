@@ -4,9 +4,9 @@ import { MESSAGE_ID } from "../../contract/message-refs.js";
 export const HANDOFF_MIN_TOKENS = 100_000;
 /** Hard cap on consecutive `continue: true` handoffs without new external input (A99). */
 export const HANDOFF_MAX_CONTINUES = 2;
-/** Upper bound on a handoff note's length: a minimal working set, not a log dump. */
+/** Upper bound on a handoff note's length: a high-level working set, not a log dump. */
 export const HANDOFF_MAX_CHARS = 32_000;
-/** Max distinct chat message IDs resolved and verified per handoff note. */
+/** Max distinct chat message IDs verified per handoff note. */
 export const HANDOFF_MAX_REFS = 50;
 
 /** Autonomous handoff threshold for a model's context window: 100k for >=200k models, 50% for smaller windows. */
@@ -21,34 +21,30 @@ export interface HandoffRef {
   line: string;
 }
 
-/** System notice payload for context handoff deliveries (`kind: "handoff"`, A99). */
+/** System notice payload for a mid-task context handoff continuation (`kind: "handoff"`, A99). */
 export interface HandoffNoticePayload {
-  kind: "request" | "continue";
+  kind: "continue";
+  continues: number;
 }
 
-/** A handoff staged during a turn, applied after the turn finishes. */
+/** A handoff staged during a turn, committed as a compaction checkpoint right after the turn ends. */
 export interface StagedHandoff {
   text: string;
   continue: boolean;
   citedCount: number;
 }
 
-/** Crash-safe pending handoff persisted in `bots/<id>/agent/pi/pending-handoff.json` until the new session submits. */
-export interface PendingHandoff {
-  text: string;
-  continues: number;
-}
-
-/** Distinct chat message IDs cited in a handoff note, using Jarvy's canonical `MESSAGE_ID` boundaries (A82). */
-export function citedIds(text: string): string[] {
+/** Distinct chat message IDs cited in a handoff note, using Jarvy's canonical `MESSAGE_ID` boundaries (A82).
+ * Sets `overflow: true` if more than `HANDOFF_MAX_REFS` distinct IDs appear so no citation escapes verification. */
+export function citedIds(text: string): { ids: string[]; overflow: boolean } {
   const ids: string[] = [];
   for (const [id] of text.matchAll(MESSAGE_ID)) {
     if (!ids.includes(id)) {
+      if (ids.length >= HANDOFF_MAX_REFS) return { ids, overflow: true };
       ids.push(id);
-      if (ids.length >= HANDOFF_MAX_REFS) break;
     }
   }
-  return ids;
+  return { ids, overflow: false };
 }
 
 /** Single-line preview of a chat message for a handoff's verified reference list. */

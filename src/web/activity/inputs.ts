@@ -29,8 +29,6 @@ export function itemLine(item: ParsedItem, names: Names): string {
     case "followed": return t("inputs.followed", { count: item.total });
     case "instructions": return t("inputs.instructions", { parts: item.parts.join(", ") });
     case "job": return t("inputs.job", { id: item.id, status: jobStatusName(item.status), command: item.command });
-    case "handoff": return t("inputs.handoff");
-    case "handoff_request": return t("inputs.handoffRequest", { person: personName(names, item.by) });
     case "handoff_continue": return t("inputs.handoffContinue");
     case "other": return item.text;
   }

@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowRightLeftIcon, CheckIcon, ChevronRightIcon, CopyIcon, HashIcon, MessagesSquareIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, CopyIcon, HashIcon, MessagesSquareIcon } from "lucide-react";
 import { type Bot, type BotStatus } from "../../contract/bots";
 import { type Chat } from "../../contract/chat";
 import { type ModelConnection } from "../../contract/models";
 import { api } from "../api";
 import { BotModelControls } from "../BotModelControls";
 import { Button } from "../components/ui/button";
-import { errorText } from "../errors";
 import { formatNumber, t } from "../i18n";
 import { copyText } from "../ui";
 import { ContextStale } from "./ContextStale";
@@ -16,27 +15,11 @@ export function BotOverview({ bot, status, connections, chats, onSaved, onManage
   bot: Bot; status?: BotStatus; connections: ModelConnection[]; chats: Chat[]; onSaved: (bot: Bot) => void; onManageModels: () => void; onOpenSubscription: (chat: Chat) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [handoffState, setHandoffState] = useState<"idle" | "sending" | "sent">("idle");
-  const [handoffError, setHandoffError] = useState<string | null>(null);
   // What the Bot subscribed to is the Bot's own business, so it shows here.
   const [subscriptions, setSubscriptions] = useState<Chat[] | null>(null);
   useEffect(() => { let alive = true; void api.botSubscriptions(bot.id).then(result => { if (alive) setSubscriptions(result.chats); }).catch(() => {}); return () => { alive = false; }; }, [bot.id]);
-  useEffect(() => { setHandoffState("idle"); setHandoffError(null); }, [bot.id]);
   useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 1500); return () => clearTimeout(timer); }, [copied]);
-  useEffect(() => { if (handoffState !== "sent") return; const timer = setTimeout(() => setHandoffState("idle"), 3000); return () => clearTimeout(timer); }, [handoffState]);
   const context = status?.context;
-  const canHandoff = Boolean(bot.connectionId) && context?.tokens !== null && (context?.tokens ?? 0) > 0 && handoffState !== "sending";
-  async function requestHandoff() {
-    setHandoffState("sending");
-    setHandoffError(null);
-    try {
-      await api.handoffBot(bot.id);
-      setHandoffState("sent");
-    } catch (error) {
-      setHandoffState("idle");
-      setHandoffError(errorText(error, "bot.handoffFailed"));
-    }
-  }
   return <>
     {bot.agent && <section className="jv-section" aria-label={t("agent.title")}><h3 className="jv-section-title">{t("agent.title")}</h3>
       <div className="jv-panel jv-agent-about">
@@ -51,14 +34,6 @@ export function BotOverview({ bot, status, connections, chats, onSaved, onManage
         {context && <div className="jv-context" title={t("bot.contextHint")}>
           <div className="jv-context-label"><span>{t("bot.context")}</span><span data-stale={(context.stale && context.tokens !== null) || undefined}>{context.stale && context.tokens !== null && <ContextStale/>}{context.tokens === null ? t("bot.unknown") : t("bot.tokens", { used: formatNumber(context.tokens), window: formatNumber(context.contextWindow) })}</span></div>
           {context.tokens !== null && <div className="jv-context-bar"><span style={{ width: `${Math.min(100, Math.max(1, (context.tokens / context.contextWindow) * 100))}%` }}/></div>}
-          <div className="jv-context-actions">
-            {handoffError ? <span className="jv-context-error">{handoffError}</span>
-              : handoffState === "sent" ? <span className="jv-context-sent">{t("bot.handoffRequested")}</span>
-              : <span className="jv-context-hint">{t("bot.handoffHint")}</span>}
-            <Button type="button" variant="outline" size="sm" disabled={!canHandoff} onClick={() => void requestHandoff()}>
-              <ArrowRightLeftIcon/>{t(handoffState === "sending" ? "bot.handoffRequesting" : "bot.handoff")}
-            </Button>
-          </div>
         </div>}
       </div>
     </section>

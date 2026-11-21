@@ -69,10 +69,6 @@ export function botRoutes(bots: ApiServices["bots"]) {
     bots.describe(id); bots.retry(id);
     return c.json({ ok: true }, 202);
   });
-  routes.post("/:id/handoff", c => {
-    bots.requestHandoff(c.req.param("id"));
-    return c.json({ ok: true }, 202);
-  });
   routes.post("/:id/start", async c => {
     const id = c.req.param("id"); await bots.get(id).start();
     return c.json(botStatusView(bots.status(id)));

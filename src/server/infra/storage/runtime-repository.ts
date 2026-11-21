@@ -17,18 +17,6 @@ export class RuntimeRepository {
     this.db.prepare("INSERT INTO bot_sessions(bot_id,file,created_at) VALUES(?,?,?) ON CONFLICT(bot_id) DO NOTHING").run(botId, file, Date.now());
     return this.session(botId)!;
   }
-  /** Switches a Bot to a brand-new session file after a context handoff (A99); old session files stay on disk. */
-  rotateSession(botId: string, file: string): SessionRef {
-    this.db.prepare(`INSERT INTO bot_sessions(bot_id,file,runtime_session_id,persisted,created_at) VALUES(?,?,NULL,0,?)
-      ON CONFLICT(bot_id) DO UPDATE SET file=excluded.file,runtime_session_id=NULL,persisted=0,created_at=excluded.created_at`)
-      .run(botId, file, Date.now());
-    return this.session(botId)!;
-  }
-  /** Whether an unknown run happened since the Bot's current session file was assigned (guards against a deleted file). */
-  hasUnknownRunInSession(botId: string): boolean {
-    return !!this.db.prepare(`SELECT 1 FROM bot_runs r JOIN bot_sessions s ON s.bot_id=r.bot_id
-      WHERE r.bot_id=? AND r.state='unknown' AND r.created_at>=s.created_at LIMIT 1`).get(botId);
-  }
   recordSession(botId: string, sessionId: string, persisted: boolean): void {
     this.db.prepare("UPDATE bot_sessions SET runtime_session_id=?,persisted=MAX(persisted,?) WHERE bot_id=?").run(sessionId, persisted ? 1 : 0, botId);
   }

@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { join, dirname } from "node:path";
 import { previewQuotes } from "../../shared/quotes.js";
 import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
@@ -13,15 +12,12 @@ import { welcomeLanguage } from "../../shared/agent.js";
 import type { PromptChange } from "../../shared/prompt.js";
 import type { RunningJobSummary } from "../../shared/jobs.js";
 import { handoffThreshold } from "../../shared/handoff.js";
-import { clearPendingHandoff, readPendingHandoff, writePendingHandoff } from "../../infra/files/handoff.js";
 
 export type InputBatch = NonNullable<ReturnType<RuntimeRepository["claim"]>>;
 export interface PreparedBatch {
   xml: string;
   notices: number[];
-  hasHandoff: boolean;
-  pendingContinues?: number;
-  handoffRequested: boolean;
+  continueCount?: number;
   hasExternalWork: boolean;
 }
 /** How many of the open threads it follows a Bot is shown after a compaction or handoff (A73, A99); the rest are counted. */
@@ -30,7 +26,7 @@ const FOLLOWED_SHOWN = 15;
 export class BotInbox {
   /** `where` is the work environment the Bot is in now, named at the end of each batch (A50). */
   constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles,
-    private readonly tasks: TaskRepository, private readonly workspacePath: string, private readonly where?: () => BatchEnvironment,
+    private readonly tasks: TaskRepository, private readonly where?: () => BatchEnvironment,
     private readonly runningJobs?: () => RunningJobSummary[], private readonly context?: () => { tokens: number | null; limit: number } | null) {}
   /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. A digest delivery
    * (a change the agent Bot made, A48) is not work of its own: it rides along with the next batch. */
@@ -40,20 +36,9 @@ export class BotInbox {
   private hasNotices() { return this.chats.notices(this.botId).some(notice => notice.urgency !== "digest"); }
   reference(workspace: string) {
     if (this.repository.hasUncertainModel(this.botId)) throw new RuntimeFault("model_switch_uncertain", "The model switch didn't finish. Pick the model again.");
-    return this.repository.ensureSession(this.botId, this.newSessionFile(workspace));
+    return this.repository.ensureSession(this.botId, join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`));
   }
-  private newSessionFile(workspace: string) {
-    return join(dirname(workspace), "agent", "pi", "sessions", `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}.jsonl`);
-  }
-  /** Persists the handoff note atomically and rotates `bot_sessions` to a fresh JSONL file (A99). */
-  saveHandoff(text: string, continues: number): void {
-    writePendingHandoff(this.workspacePath, { text, continues });
-    this.repository.rotateSession(this.botId, this.newSessionFile(this.workspacePath));
-  }
-  pendingHandoff() { return readPendingHandoff(this.workspacePath); }
-  clearHandoff() { clearPendingHandoff(this.workspacePath); }
-  private watermark(hasPendingHandoff: boolean): { tokens: number; window: number } | undefined {
-    if (hasPendingHandoff) return undefined;
+  private watermark(): { tokens: number; window: number } | undefined {
     const usage = this.context?.();
     if (!usage || usage.tokens === null || usage.tokens < handoffThreshold(usage.limit)) return undefined;
     return { tokens: usage.tokens, window: usage.limit };
@@ -61,15 +46,11 @@ export class BotInbox {
   /** XML for the claimed messages plus the tail (other deliveries not told yet, how the instructions changed,
    * unread); `notices` are told once the batch is submitted. */
   async prepare(batch: InputBatch, prompt?: PromptChange | null): Promise<PreparedBatch | null> {
-    const pendingHandoff = this.pendingHandoff();
-    const context = this.watermark(Boolean(pendingHandoff));
+    const context = this.watermark();
     // A run for notices alone; null when they were withdrawn since the claim.
     if (!batch.inputs.length) {
-      const pending = this.notices(prompt, undefined, pendingHandoff?.text, context);
-      return pending && {
-        xml: pending.xml, notices: pending.ids, hasHandoff: Boolean(pendingHandoff),
-        pendingContinues: pendingHandoff?.continues, handoffRequested: pending.handoffRequested, hasExternalWork: pending.hasExternalWork,
-      };
+      const pending = this.notices(prompt, undefined, context);
+      return pending && { xml: pending.xml, notices: pending.ids, continueCount: pending.continueCount, hasExternalWork: pending.hasExternalWork };
     }
     const inputs = await this.files.envelope(this.botId, batch.inputs.map(input => input.messageId));
     for (const input of batch.inputs) if (!this.chats.get(this.botId, input.chatId)) throw new RuntimeFault("chat_access_changed", "Chat access has changed.");
@@ -79,17 +60,13 @@ export class BotInbox {
     const running = this.runningJobs?.() ?? [];
     const digest = { ...this.chats.channels.digest(this.botId), ...(unreadNotes.length ? { unreadNotes } : {}),
       ...(running.length ? { runningJobs: running } : {}), ...(context ? { context } : {}),
-      ...(pendingHandoff ? { handoff: pendingHandoff.text } : {}), ...(this.where ? { environment: this.where() } : {}) };
+      ...(this.where ? { environment: this.where() } : {}) };
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const tail = this.convert(this.chats.notices(this.botId));
     this.tell(tail.stale);
-    const handoffRequested = tail.kept.some(notice => notice.kind === "handoff" && notice.mode === "request");
     return {
       xml: encodeChatBatch(this.botId, inputs, digest, tail.kept.length ? tail.kept : undefined, prompt),
       notices: tail.kept.map(notice => notice.id),
-      hasHandoff: Boolean(pendingHandoff),
-      pendingContinues: pendingHandoff?.continues,
-      handoffRequested,
       hasExternalWork: true,
     };
   }
@@ -97,17 +74,15 @@ export class BotInbox {
    * nothing left to say, which are told and dropped — a task deleted before its Bot was told it is due (A58), no open
    * thread to list after a compaction, or an earlier compaction's list, which the latest one stands for (A73). */
   private convert(notices: readonly BotNotice[]): { kept: EnvelopeNotice[]; stale: number[] } {
-    let latestFollowed: number | undefined, latestRequest: number | undefined, latestContinue: number | undefined;
+    let latestFollowed: number | undefined, latestContinue: number | undefined;
     for (const notice of notices) {
       if (notice.kind === "followed") latestFollowed = notice.id;
-      if (notice.kind === "handoff" && notice.payload.kind === "request") latestRequest = notice.id;
-      if (notice.kind === "handoff" && notice.payload.kind === "continue") latestContinue = notice.id;
+      if (notice.kind === "handoff") latestContinue = notice.id;
     }
     const kept: EnvelopeNotice[] = [], stale: number[] = [];
     for (const notice of notices) {
       const superseded = (notice.kind === "followed" && notice.id !== latestFollowed)
-        || (notice.kind === "handoff" && notice.payload.kind === "request" && notice.id !== latestRequest)
-        || (notice.kind === "handoff" && notice.payload.kind === "continue" && notice.id !== latestContinue);
+        || (notice.kind === "handoff" && notice.id !== latestContinue);
       const shaped = superseded ? null : this.shape(notice);
       if (shaped) kept.push(shaped); else stale.push(notice.id);
     }
@@ -138,19 +113,19 @@ export class BotInbox {
         return open.total ? { kind: "followed", id, total: open.total, threads: open.threads, createdAt } : null;
       }
       case "job": return { kind: "job", id, job: notice.payload, createdAt };
-      case "handoff": return { kind: "handoff", id, mode: notice.payload.kind, actor: notice.actor, createdAt };
+      case "handoff": return { kind: "handoff", id, continues: notice.payload.continues, createdAt };
     }
   }
   /** The batch went to the model: each delivery in its tail is told once. */
   acknowledge(notices: readonly number[]) { if (notices.length) this.tell(notices); }
   /** Notices the Bot has not been told (A39), as the XML that goes into a steered message or a run of notices alone.
    * `steer`: what may go into a running turn. A queued delivery takes everything but a task (A58) and a handoff
-   * continuation (which belongs to the next fresh session); a digest (a new notice version) takes only chat activity,
+   * continuation (which belongs to the fresh context stage); a digest (a new notice version) takes only chat activity,
    * so the system notices keep riding with the next batch (A48, A73, A77). */
-  notices(prompt?: PromptChange | null, steer?: "queue" | "digest", handoff?: string, context?: { tokens: number; window: number }):
-    { xml: string; ids: number[]; handoffRequested: boolean; hasExternalWork: boolean } | null {
+  notices(prompt?: PromptChange | null, steer?: "queue" | "digest", context?: { tokens: number; window: number }):
+    { xml: string; ids: number[]; continueCount?: number; hasExternalWork: boolean } | null {
     const pending = this.chats.notices(this.botId).filter(notice => !steer || (steer === "queue"
-      ? notice.kind !== "task" && !(notice.kind === "handoff" && notice.payload.kind === "continue")
+      ? notice.kind !== "task" && notice.kind !== "handoff"
       : notice.chat !== null));
     if (!pending.length) return null;
     const { kept, stale } = this.convert(pending);
@@ -161,12 +136,12 @@ export class BotInbox {
     // A run of notices alone is where a Bot learns of a new version; the ones it still has not read come too (A67).
     const unreadNotes = this.chats.channels.unreadNotes(this.botId, pending.flatMap(notice => notice.chat ? [notice.chat.id] : []));
     const running = this.runningJobs?.() ?? [];
-    const handoffRequested = kept.some(notice => notice.kind === "handoff" && notice.mode === "request");
-    const hasExternalWork = kept.some(notice => !(notice.kind === "followed" || (notice.kind === "handoff" && notice.mode === "continue")));
+    const continuation = kept.find((notice): notice is Extract<EnvelopeNotice, { kind: "handoff" }> => notice.kind === "handoff");
+    const hasExternalWork = kept.some(notice => notice.kind !== "followed" && notice.kind !== "handoff");
     return {
-      xml: encodeNoticeBatch(this.botId, kept, this.where?.(), prompt, unreadNotes, running.length ? running : undefined, handoff, context),
+      xml: encodeNoticeBatch(this.botId, kept, this.where?.(), prompt, unreadNotes, running.length ? running : undefined, context),
       ids: kept.map(notice => notice.id),
-      handoffRequested,
+      continueCount: continuation?.continues,
       hasExternalWork,
     };
   }

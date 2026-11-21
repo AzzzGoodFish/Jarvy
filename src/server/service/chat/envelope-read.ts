@@ -88,8 +88,6 @@ function itemOf(self: Element): ParsedItem | null {
       ...(attrs.duration ? { duration: attrs.duration } : {}), ...(attrs.env ? { env: attrs.env } : {}), at: time(attrs.at), output,
       ...(attrs.full_output ? { fullOutputPath: attrs.full_output } : {}), ...(error ? { error } : {}) };
   }
-  if (name === "handoff") return { kind: "handoff", text: textOf(self) };
-  if (name === "handoff_request") return { kind: "handoff_request", by: attrs.by, at: time(attrs.at) };
   if (name === "handoff_continue") return { kind: "handoff_continue", at: time(attrs.at) };
   return null;
 }
