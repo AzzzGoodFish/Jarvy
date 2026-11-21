@@ -22,9 +22,10 @@ export interface UploadItem {
 }
 
 export interface ConflictPrompt {
+  itemId: string;
   name: string;
   remaining: number;
-  resolve: (choice: "overwrite" | "overwrite_all" | "skip") => void;
+  resolve: (choice: "overwrite" | "overwrite_all" | "skip" | "cancel") => void;
 }
 
 /** Inline action banners above the file list: new folder input, upload conflict, delete confirm, error. */

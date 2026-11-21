@@ -36,7 +36,7 @@ export class EnvFileService {
 
   async list(environmentId: string, rawPath?: string, signal?: AbortSignal): Promise<EnvDirListing> {
     return this.withFs(environmentId, async fs => {
-      const target = rawPath && rawPath.trim() ? normalizePath(rawPath, fs.home, fs.separator) : normalizePath(fs.cwd, fs.home, fs.separator);
+      const target = rawPath ? normalizePath(rawPath, fs.home, fs.separator) : normalizePath(fs.cwd, fs.home, fs.separator);
       const info = await fs.stat(target, signal);
       let dirPath = target;
       if (info.kind === "symlink") {
@@ -67,7 +67,7 @@ export class EnvFileService {
     rawPath: string,
     signal?: AbortSignal,
   ): Promise<{ name: string; size: number; stream: ReadableStream<Uint8Array> }> {
-    if (!rawPath || !rawPath.trim()) throw new ChatError(400, "File path is required", "file_invalid_path");
+    if (!rawPath) throw new ChatError(400, "File path is required", "file_invalid_path");
     const entry = this.acquire(environmentId);
     try {
       const fs = await entry.fsPromise;
@@ -139,9 +139,9 @@ export class EnvFileService {
     chunks: AsyncIterable<Uint8Array>,
     options: { overwrite?: boolean; signal?: AbortSignal } = {},
   ): Promise<EnvFileUploadResult> {
-    const name = validateEntryName(rawName);
     return this.withFs(environmentId, async fs => {
-      const dir = rawDir && rawDir.trim() ? normalizePath(rawDir, fs.home, fs.separator) : normalizePath(fs.cwd, fs.home, fs.separator);
+      const name = validateEntryName(rawName, fs.separator);
+      const dir = rawDir ? normalizePath(rawDir, fs.home, fs.separator) : normalizePath(fs.cwd, fs.home, fs.separator);
       await ensureDirectory(fs, dir, options.signal);
       const destPath = joinPath(dir, name, fs.separator);
       const existing = await tryStat(fs, destPath, options.signal);
@@ -166,9 +166,9 @@ export class EnvFileService {
   }
 
   async mkdir(environmentId: string, rawParent: string, rawName: string, signal?: AbortSignal): Promise<EnvFileEntry> {
-    const name = validateEntryName(rawName);
     return this.withFs(environmentId, async fs => {
-      const parent = rawParent && rawParent.trim() ? normalizePath(rawParent, fs.home, fs.separator) : normalizePath(fs.cwd, fs.home, fs.separator);
+      const name = validateEntryName(rawName, fs.separator);
+      const parent = rawParent ? normalizePath(rawParent, fs.home, fs.separator) : normalizePath(fs.cwd, fs.home, fs.separator);
       await ensureDirectory(fs, parent, signal);
       const target = joinPath(parent, name, fs.separator);
       if (await fs.exists(target, signal)) throw new ChatError(409, "A file or folder with this name already exists", "file_already_exists");
@@ -178,9 +178,9 @@ export class EnvFileService {
   }
 
   async rename(environmentId: string, rawPath: string, rawName: string, signal?: AbortSignal): Promise<EnvFileEntry> {
-    if (!rawPath || !rawPath.trim()) throw new ChatError(400, "Path is required", "file_invalid_path");
-    const name = validateEntryName(rawName);
+    if (!rawPath) throw new ChatError(400, "Path is required", "file_invalid_path");
     return this.withFs(environmentId, async fs => {
+      const name = validateEntryName(rawName, fs.separator);
       const source = normalizePath(rawPath, fs.home, fs.separator);
       const parent = parentOf(source, fs.separator);
       if (parent === null) throw new ChatError(400, "Cannot rename the root directory", "file_invalid_path");
@@ -194,7 +194,7 @@ export class EnvFileService {
   }
 
   async remove(environmentId: string, rawPath: string, signal?: AbortSignal): Promise<void> {
-    if (!rawPath || !rawPath.trim()) throw new ChatError(400, "Path is required", "file_invalid_path");
+    if (!rawPath) throw new ChatError(400, "Path is required", "file_invalid_path");
     return this.withFs(environmentId, async fs => {
       const target = normalizePath(rawPath, fs.home, fs.separator);
       if (parentOf(target, fs.separator) === null) throw new ChatError(400, "Cannot delete the root directory", "file_invalid_path");
@@ -313,20 +313,23 @@ async function tryStat(fs: EnvironmentFs, path: string, signal?: AbortSignal): P
   }
 }
 
-function validateEntryName(raw: unknown): string {
-  if (typeof raw !== "string") throw new ChatError(400, "File name is required", "file_invalid_path");
-  const name = raw.trim();
-  if (!name || name === "." || name === ".." || name.length > 255 || name.includes("/") || name.includes("\\") || CONTROL_CHARS.test(name)) {
+function validateEntryName(raw: unknown, sep: "/" | "\\"): string {
+  if (typeof raw !== "string" || !raw) throw new ChatError(400, "File name is required", "file_invalid_path");
+  // Preserve exact characters instead of trimming, and explicitly reject unsupported names.
+  if (!raw.trim() || raw === "." || raw === ".." || raw.length > 255 || raw.includes("/") || raw.includes("\\") || CONTROL_CHARS.test(raw)) {
     throw new ChatError(400, "Invalid file or folder name", "file_invalid_path");
   }
-  return name;
+  if (sep === "\\" && (/[ .]$/.test(raw) || /[<>:"|?*]/.test(raw))) {
+    throw new ChatError(400, "Invalid Windows file or folder name", "file_invalid_path");
+  }
+  return raw;
 }
 
 function normalizePath(raw: string, home: string, sep: "/" | "\\"): string {
-  const trimmed = raw.trim();
-  if (!trimmed || CONTROL_CHARS.test(trimmed)) throw new ChatError(400, "Invalid file path", "file_invalid_path");
+  // Never trim: leading/trailing spaces are valid POSIX path characters and trimming can retarget a sibling entry.
+  if (!raw || CONTROL_CHARS.test(raw)) throw new ChatError(400, "Invalid file path", "file_invalid_path");
   if (sep === "\\") {
-    let text = trimmed;
+    let text = raw;
     if (text === "~") text = home;
     else if (text.startsWith("~/") || text.startsWith("~\\")) text = `${home}\\${text.slice(2)}`;
     // Accept Git Bash-style `/c/Users/...` paths on Windows devices too.
@@ -338,7 +341,7 @@ function normalizePath(raw: string, home: string, sep: "/" | "\\"): string {
     const norm = win32.normalize(text);
     return norm.length > 3 && norm.endsWith("\\") ? norm.slice(0, -1) : norm;
   }
-  let text = trimmed;
+  let text = raw;
   if (text === "~") text = home;
   else if (text.startsWith("~/")) text = `${home}/${text.slice(2)}`;
   if (!text.startsWith("/")) throw new ChatError(400, "Path must be absolute", "file_invalid_path");

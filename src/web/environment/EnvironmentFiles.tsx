@@ -50,6 +50,9 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   const renameInputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
   const activeUploadAbortsRef = useRef(new Map<string, AbortController>());
+  const cancelledUploadsRef = useRef(new Set<string>());
+  const conflictRef = useRef<ConflictPrompt | null>(null);
+  conflictRef.current = conflict;
   const listingRef = useRef<EnvDirListing | null>(null);
   listingRef.current = listing;
 
@@ -62,13 +65,8 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     try {
       const next = await api.envFiles(environmentId, targetPath, controller.signal);
       if (controller.signal.aborted) return;
-      setListing(next);
-      setEditingPath(false);
-      setFilter("");
-      setConfirmDelete(null);
-      setRenaming(null);
-      setSelectedPath(null);
-      setInspectEntry(null);
+      setListing(next); setEditingPath(false); setFilter("");
+      setConfirmDelete(null); setRenaming(null); setSelectedPath(null); setInspectEntry(null);
     } catch (reason) {
       if (controller.signal.aborted) return;
       if (opts?.fallbackInspect && reason instanceof ApiError && reason.code === "file_not_directory") {
@@ -82,18 +80,13 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   }, [environmentId]);
 
   useEffect(() => {
-    setListing(null);
-    setError(null);
-    setFilter("");
-    setEditingPath(false);
-    setCreatingDir(false);
-    setRenaming(null);
-    setConfirmDelete(null);
-    setSelectedPath(null);
-    setInspectEntry(null);
-    setConflict(null);
-    setDragging(false);
-    dragDepthRef.current = 0;
+    if (conflictRef.current) {
+      cancelledUploadsRef.current.add(conflictRef.current.itemId);
+      conflictRef.current.resolve("cancel");
+    }
+    setListing(null); setError(null); setFilter(""); setEditingPath(false); setCreatingDir(false);
+    setRenaming(null); setConfirmDelete(null); setSelectedPath(null); setInspectEntry(null); setConflict(null);
+    setDragging(false); dragDepthRef.current = 0;
     if (availability.kind === "ready") void loadDir();
     return () => { loadAbortRef.current?.abort(); };
   }, [environmentId, availability.kind, loadDir]);
@@ -133,9 +126,8 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   }
 
   function submitPathEdit() {
-    const trimmed = pathDraft.trim();
-    if (!trimmed) { setEditingPath(false); return; }
-    void loadDir(trimmed);
+    if (!pathDraft) { setEditingPath(false); return; }
+    void loadDir(pathDraft);
   }
 
   function toggleSort(key: SortKey) {
@@ -145,11 +137,10 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
 
   async function commitCreateDir() {
     if (!listing) return;
-    const name = newDirName.trim();
-    if (!name) { setCreatingDir(false); return; }
+    if (!newDirName.trim()) { setCreatingDir(false); return; }
     setError(null);
     try {
-      await api.mkdirEnvFile(environmentId, listing.path, name);
+      await api.mkdirEnvFile(environmentId, listing.path, newDirName);
       setCreatingDir(false);
       setNewDirName("");
       await loadDir(listing.path);
@@ -171,13 +162,12 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   async function commitRename() {
     if (!renaming || !listing) return;
     const { path, value } = renaming;
-    const trimmed = value.trim();
     setRenaming(null);
     const original = listing.entries.find(item => item.path === path);
-    if (!trimmed || !original || trimmed === original.name) return;
+    if (!value.trim() || !original || value === original.name) return;
     setError(null);
     try {
-      await api.renameEnvFile(environmentId, path, trimmed);
+      await api.renameEnvFile(environmentId, path, value);
       await loadDir(listing.path);
     } catch (reason) {
       setError(errorText(reason));
@@ -217,9 +207,22 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     else setInspectEntry(entry);
   }
 
-  const askOverwrite = (name: string, remaining: number) => new Promise<"overwrite" | "overwrite_all" | "skip">(resolve => {
-    setConflict({ name, remaining, resolve });
-  });
+  function cancelUpload(id: string) {
+    cancelledUploadsRef.current.add(id);
+    activeUploadAbortsRef.current.get(id)?.abort();
+    if (conflictRef.current?.itemId === id) {
+      conflictRef.current.resolve("cancel");
+      setConflict(null);
+    }
+    setUploads(prev => prev.map(row => row.id === id && (row.status === "queued" || row.status === "uploading") ? { ...row, status: "cancelled" } : row));
+  }
+
+  const askOverwrite = (itemId: string, name: string, remaining: number) => {
+    if (cancelledUploadsRef.current.has(itemId)) return Promise.resolve<"cancel">("cancel");
+    return new Promise<"overwrite" | "overwrite_all" | "skip" | "cancel">(resolve => {
+      setConflict({ itemId, name, remaining, resolve });
+    });
+  };
 
   async function enqueueUploads(fileList: FileList | File[]) {
     const current = listingRef.current;
@@ -240,13 +243,19 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     let overwriteAll = false;
     let uploadedAny = false;
     const existingNames = new Set(current.entries.map(item => item.name));
+    const remainingAfter = (index: number) => batch.slice(index + 1).filter(other => !cancelledUploadsRef.current.has(other.id)).length;
 
     for (let index = 0; index < batch.length; index++) {
       const item = batch[index]!;
+      if (cancelledUploadsRef.current.has(item.id)) continue;
       let overwrite = overwriteAll;
       if (!overwrite && existingNames.has(item.file.name)) {
-        const choice = await askOverwrite(item.file.name, batch.length - index - 1);
+        const choice = await askOverwrite(item.id, item.file.name, remainingAfter(index));
         setConflict(null);
+        if (choice === "cancel" || cancelledUploadsRef.current.has(item.id)) {
+          setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
+          continue;
+        }
         if (choice === "skip") {
           setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "skipped" } : row));
           continue;
@@ -254,13 +263,18 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
         if (choice === "overwrite_all") overwriteAll = true;
         overwrite = true;
       }
-      const uploaded = await runOneUpload(item, overwrite, batch.length - index - 1, () => { overwriteAll = true; });
+      if (cancelledUploadsRef.current.has(item.id)) continue;
+      const uploaded = await runOneUpload(item, overwrite, remainingAfter(index), () => { overwriteAll = true; });
       if (uploaded) { uploadedAny = true; existingNames.add(item.file.name); }
     }
     if (uploadedAny && listingRef.current?.path === dirPath) void loadDir(dirPath);
   }
 
   async function runOneUpload(item: UploadItem, overwrite: boolean, remaining: number, onOverwriteAll?: () => void): Promise<boolean> {
+    if (cancelledUploadsRef.current.has(item.id)) {
+      setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
+      return false;
+    }
     const controller = new AbortController();
     activeUploadAbortsRef.current.set(item.id, controller);
     setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "uploading", progress: 0, error: undefined } : row));
@@ -273,13 +287,17 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "done", progress: 1 } : row));
       return true;
     } catch (reason) {
-      if (reason instanceof DOMException && reason.name === "AbortError") {
+      if ((reason instanceof DOMException && reason.name === "AbortError") || cancelledUploadsRef.current.has(item.id)) {
         setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
         return false;
       }
       if (!overwrite && reason instanceof ApiError && reason.code === "file_already_exists") {
-        const choice = await askOverwrite(item.file.name, remaining);
+        const choice = await askOverwrite(item.id, item.file.name, remaining);
         setConflict(null);
+        if (choice === "cancel" || cancelledUploadsRef.current.has(item.id)) {
+          setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "cancelled" } : row));
+          return false;
+        }
         if (choice === "skip") {
           setUploads(prev => prev.map(row => row.id === item.id ? { ...row, status: "skipped" } : row));
           return false;
@@ -408,7 +426,7 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
       error={error} onDismissError={() => setError(null)}/>
 
     <FilesTransferTray uploads={envUploads}
-      onCancel={id => activeUploadAbortsRef.current.get(id)?.abort()}
+      onCancel={cancelUpload}
       onRetry={item => void runOneUpload(item, false, 0).then(ok => { if (ok && listingRef.current?.path === item.dirPath) void loadDir(item.dirPath); })}
       onClearDone={() => setUploads(prev => prev.filter(item => item.environmentId !== environmentId || item.status === "queued" || item.status === "uploading"))}/>
 
