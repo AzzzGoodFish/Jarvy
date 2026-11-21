@@ -2,6 +2,23 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.18.0 — 2026-11-21
+
+The database stays at v35 when upgrading from 0.17.0.
+
+### Added
+
+- **Open terminals in Environments.** Run multiple interactive shells in a Bot sandbox, an SSH machine or a connected computer. Switch pages, close the browser or reconnect to pick up where you left off, including the terminal screen and scrollback. The shells run independently of the browser, but do not survive a Jarvy server restart or a lost connection to the target environment.
+- **Manage files without sending them through chat.** From the Files tab, browse folders, show hidden entries, create folders, rename or delete entries, and download files directly. Select or drop multiple files to upload them. You can cancel queued transfers and decide which existing files to overwrite; “Overwrite all” applies only to that batch.
+
+### Changed
+
+- In a terminal, Ctrl+C copies selected text or interrupts the foreground command when nothing is selected. Use the toolbar or context menu for clipboard actions; when browser clipboard access is unavailable on plain HTTP, use the keyboard paste shortcut instead.
+
+### Fixed
+
+- `jarvy off` now closes shared sandbox connections during shutdown and exits even if a leftover handle would otherwise keep the server process alive.
+
 ## 0.17.0 — 2026-11-21
 
 **Before upgrading:** stop active Bot work and back up the data directory and its separate master key. The first start upgrades the database from v34 to v35. Existing Bot grants stay in place as “Always allow”; saved exceptions for write tools are removed. To roll back, use the previous version with its pre-upgrade backup.
