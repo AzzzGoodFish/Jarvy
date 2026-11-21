@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
@@ -17,7 +17,9 @@ export function Grants({ items, grantedIds, texts, rows, onGrant }: {
   items: GrantItem[]; grantedIds: string[]; texts: GrantTexts; rows?: boolean; onGrant: (ids: string[], granted: boolean) => Promise<void>;
 }) {
   const [picking, setPicking] = useState(false), [query, setQuery] = useState(""), [picked, setPicked] = useState<string[]>([]);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const { busy, error, run: perform } = useAction();
+  useEffect(() => { if (picking) pickerRef.current?.scrollIntoView({ block: "nearest" }); }, [picking]);
   const granted = grantedIds.map(id => items.find(item => item.id === id)).filter((item): item is GrantItem => !!item);
   const candidates = items.filter(item => !grantedIds.includes(item.id));
   const needle = query.trim().toLowerCase();
@@ -38,7 +40,7 @@ export function Grants({ items, grantedIds, texts, rows, onGrant }: {
       <Button type="button" variant="ghost" size="icon-sm" className="jv-secret-revoke" disabled={busy} aria-label={t("secrets.revoke", { name: item.name })}
         onClick={() => void run(() => onGrant([item.id], false))}><XIcon/></Button>
     </li>)}</ul> : !picking && <p className="jv-hint">{texts.none}</p>}
-    {picking && <div className="jv-secret-picker">
+    {picking && <div ref={pickerRef} className="jv-secret-picker">
       {items.length > 0 && <label className="jv-search"><SearchIcon aria-hidden="true"/><input type="search" autoFocus value={query} placeholder={texts.search} aria-label={texts.search}
         onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); if (shown.length === 1) toggle(shown[0]!.id); } }}/></label>}
       <div className="jv-secret-options" role="listbox" aria-multiselectable="true" aria-label={texts.add} data-rows={rows || undefined}>
