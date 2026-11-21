@@ -42,11 +42,16 @@ export function BotAccess({ bot, onSaved, onManageSecrets, onManageConnectors, o
         setSecrets(list => list && list.map(secret => saved.get(secret.id) ?? secret));
       }}/>
     <Grants rows grantedIds={connectors.filter(c => c.grants.some(g => g.botId === bot.id)).map(c => c.id)}
-      items={connectors.map(c => ({
-        id: c.id, name: c.name,
-        ...(c.statusDetail ? { detail: c.statusDetail } : { detail: t("connectors.toolCount", { count: c.tools.length }) }),
-        icon: <ConnectorMark provider={c.provider} className="jv-grant-icon"/>,
-      }))}
+      items={connectors.map(c => {
+        const grant = c.grants.find(g => g.botId === bot.id);
+        const detail = c.statusDetail && !c.name.includes(c.statusDetail)
+          ? c.statusDetail : t("connectors.toolCount", { count: c.tools.length });
+        return {
+          id: c.id, name: c.name, detail,
+          once: grant?.scope === "once",
+          icon: <ConnectorMark provider={c.provider} className="jv-grant-icon"/>,
+        };
+      })}
       texts={{
         heading: t("access.connectors"), add: t("common.add"), search: t("access.searchConnectors"),
         none: t("access.noConnectors"), noMatch: t("access.noMatch"), all: t("access.allConnectors"),

@@ -1,7 +1,7 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
 import {
   type ConnectorAuthAsk, type ConnectorWriteAsk, type ConnectorWriteField,
-  type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionSpec, type SecretAsk,
+  type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionExpiredReason, type QuestionSpec, type SecretAsk,
 } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
@@ -58,19 +58,20 @@ function enterAsk(value: unknown): EnterAsk {
     ...(ask.address === undefined ? {} : { address: (ask.address as string).trim() }), purpose: (ask.purpose as string).trim() };
 }
 const CONNECTOR_PROVIDERS = new Set(["github", "gmail", "linear", "custom_mcp"]);
-const CONNECTOR_AUTH_KINDS = new Set(["none", "headers", "oauth"]);
-/** A connector grant/sign-in request (connectors.request, A102). */
+/** A connector access grant request (connectors.request, A102). */
 function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
   const ask = value as Record<string, unknown> | null;
   if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
     || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
-    || !text(ask.purpose, 300) || typeof ask.authKind !== "string" || !CONNECTOR_AUTH_KINDS.has(ask.authKind)
-    || typeof ask.needsGrant !== "boolean" || typeof ask.needsAuth !== "boolean")
+    || !text(ask.purpose, 300) || (ask.account !== undefined && !text(ask.account, 120))
+    || (ask.credFp !== undefined && !text(ask.credFp, 64)) || (ask.runId !== undefined && !text(ask.runId, 80)))
     throw new ChatError(400, "Invalid connector auth request");
   return {
     connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
     provider: ask.provider as ConnectorAuthAsk["provider"], purpose: (ask.purpose as string).trim(),
-    authKind: ask.authKind as ConnectorAuthAsk["authKind"], needsGrant: ask.needsGrant, needsAuth: ask.needsAuth,
+    ...(ask.account !== undefined ? { account: (ask.account as string).trim() } : {}),
+    ...(ask.credFp !== undefined ? { credFp: (ask.credFp as string).trim() } : {}),
+    ...(ask.runId !== undefined ? { runId: (ask.runId as string).trim() } : {}),
   };
 }
 /** A connector write confirmation request (connectors.call, A102). */
@@ -127,10 +128,19 @@ function answerOf(question: Question, input: Record<string, unknown>): QuestionA
 const resultOf = (question: Question, answer: QuestionAnswer): QuestionResult => ({ status: "answered", custom: answer.custom,
   selected: answer.selected.map(index => ({ label: question.options[index]!.label, value: question.options[index]!.value ?? question.options[index]!.label })) });
 
+interface QuestionWaiter {
+  chatId: string;
+  botId: string;
+  connectorId?: string;
+  resolve: (result: QuestionResult) => void;
+  reject: (error: Error) => void;
+}
+
 /** Questions waiting for the user. The asking tool call holds the only waiter; when it stops waiting
- * (abort: a new message, cancel, stop) the card becomes ignored and can no longer be answered. */
+ * (abort: a new message, cancel, stop) or the underlying connector becomes unavailable, the card becomes
+ * ignored and the caller is woken with question_expired so the Bot is never stranded. */
 export class ChatQuestions {
-  private readonly waiting = new Map<string, (result: QuestionResult) => void>();
+  private readonly waiting = new Map<string, QuestionWaiter>();
   constructor(private readonly repository: ChatRepository, private readonly changed: (chatId: string, messageId: string) => void) {
     repository.expirePendingQuestions();
   }
@@ -141,6 +151,7 @@ export class ChatQuestions {
     if (question.state === "answered") return Promise.resolve(resultOf(question, question.answer!));
     if (question.state === "dismissed") return Promise.resolve({ status: "dismissed" });
     if (question.state === "ignored") return Promise.reject(new ChatError(409, "The question is no longer waiting for an answer", "question_expired"));
+    const connectorId = question.connectorAuth?.connectorId ?? question.connectorWrite?.connectorId;
     return new Promise((resolve, reject) => {
       const stop = () => {
         this.waiting.delete(message.id);
@@ -149,17 +160,40 @@ export class ChatQuestions {
       };
       if (signal?.aborted) { stop(); return; }
       signal?.addEventListener("abort", stop, { once: true });
-      this.waiting.set(message.id, result => { signal?.removeEventListener("abort", stop); resolve(result); });
+      this.waiting.set(message.id, {
+        chatId: message.chatId,
+        botId: message.sender.id,
+        ...(connectorId ? { connectorId } : {}),
+        resolve: result => { signal?.removeEventListener("abort", stop); resolve(result); },
+        reject: error => { signal?.removeEventListener("abort", stop); reject(error); },
+      });
     });
   }
   /** Whether the asking tool call still waits for this card. */
   waitingFor(messageId: string): boolean { return this.waiting.has(messageId); }
-  /** Marks a card expired/ignored if post-confirmation authorization checks fail before dispatch. */
-  invalidate(chatId: string, messageId: string): void {
+  /** Expires a pending card AND wakes the waiting caller with question_expired so the Bot can recover cleanly. */
+  expire(chatId: string, messageId: string, reason = "The question is no longer waiting for an answer", expiredReason?: QuestionExpiredReason): void {
+    const waiter = this.waiting.get(messageId);
     this.waiting.delete(messageId);
-    if (this.repository.invalidateQuestion(messageId)) this.changed(chatId, messageId);
+    if (this.repository.settleQuestion(messageId, "ignored", null, expiredReason)) this.changed(chatId, messageId);
+    waiter?.reject(new ChatError(409, reason, "question_expired"));
   }
-  respond(actorId: string, chatId: string, messageId: string, input: Record<string, unknown>): ChatMessage {
+  /** Expires every live pending card bound to a connector (optionally scoped to one Bot on grant revocation). */
+  expireByConnector(connectorId: string, reason: string, expiredReason: QuestionExpiredReason, botId?: string): void {
+    for (const [messageId, entry] of [...this.waiting.entries()]) {
+      if (entry.connectorId !== connectorId) continue;
+      if (botId && entry.botId !== botId) continue;
+      this.expire(entry.chatId, messageId, reason, expiredReason);
+    }
+  }
+  /** Marks a card ignored after it was already answered if post-confirmation authorization checks fail before dispatch. */
+  invalidate(chatId: string, messageId: string, expiredReason?: QuestionExpiredReason): void {
+    const waiter = this.waiting.get(messageId);
+    this.waiting.delete(messageId);
+    if (this.repository.invalidateQuestion(messageId, expiredReason)) this.changed(chatId, messageId);
+    waiter?.reject(new ChatError(409, "The question is no longer waiting for an answer", "question_expired"));
+  }
+  respond(actorId: string, chatId: string, messageId: string, input: Record<string, unknown>, onSettled?: () => void): ChatMessage {
     const message = this.repository.message(actorId, messageId);
     if (!message || message.chatId !== chatId || !message.question) throw new ChatError(404, "Question not found");
     this.repository.assertAccess(actorId, chatId, true);
@@ -171,8 +205,9 @@ export class ChatQuestions {
     if (!dismissed && input.action !== "answer") throw new ChatError(400, "Invalid question action");
     const answer = dismissed ? null : answerOf(question, input);
     if (!this.repository.settleQuestion(messageId, dismissed ? "dismissed" : "answered", answer)) throw new ChatError(409, "The question is already settled", "question_closed");
+    onSettled?.();
     this.waiting.delete(messageId);
-    waiter(answer ? resultOf(question, answer) : { status: "dismissed" });
+    waiter.resolve(answer ? resultOf(question, answer) : { status: "dismissed" });
     this.changed(chatId, messageId);
     return this.repository.message(actorId, messageId)!;
   }

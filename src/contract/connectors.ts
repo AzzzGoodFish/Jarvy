@@ -1,4 +1,5 @@
 /** External service connectors (A102): remote MCP servers and built-in vendor adapters exposed uniformly to Bots. */
+import type { GrantScope } from "./secrets.js";
 
 export type ConnectorKind = "remote_mcp" | "builtin";
 export type ConnectorProvider = "github" | "gmail" | "linear" | "custom_mcp";
@@ -18,6 +19,7 @@ export interface ConnectorTool {
 
 export interface ConnectorGrant {
   botId: string;
+  scope: GrantScope;
   grantedAt: number;
 }
 
@@ -51,11 +53,13 @@ export interface Connector {
   oauthClientId: string | null;
   hasClientSecret: boolean;
   managedClient: ManagedClientInfo | null;
-  /** Write tools that currently bypass in-chat confirmation (invalidated automatically if a tool's definition changes). */
-  unconfirmed: string[];
   enabled: boolean;
   status: ConnectorStatus;
   statusDetail: string;
+  /** Persistent provider-verified account label (e.g. `@handle` or email), kept even if status later becomes `needs_auth`/`error`. */
+  account: string;
+  /** Short non-secret fingerprint of the connector's active credentials, used to bind in-chat approvals. */
+  credFp: string;
   readable: boolean;
   tools: ConnectorTool[];
   grants: ConnectorGrant[];

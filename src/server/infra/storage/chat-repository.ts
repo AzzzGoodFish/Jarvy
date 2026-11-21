@@ -3,7 +3,7 @@ import type { DeliveryMessage } from "../../shared/chat.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { ChatError, type Chat, type ChatMessage } from "../../shared/chat.js";
-import { type Attachment, type ChatNote, type Member, type Question, type QuestionAnswer, type QuestionState } from "../../../contract/chat.js";
+import { type Attachment, type ChatNote, type Member, type Question, type QuestionAnswer, type QuestionExpiredReason, type QuestionState } from "../../../contract/chat.js";
 
 import type { OutgoingFile } from "../../shared/chat.js";
 import type { Delivery } from "../../shared/delivery.js";
@@ -327,12 +327,20 @@ export class ChatRepository {
       ON CONFLICT(chat_id,member_id) DO UPDATE SET read_sequence=MAX(read_sequence,excluded.read_sequence)`).run(chatId, memberId, sequence);
   }
   /** Moves a pending question to its final state; false when it was already settled. */
-  settleQuestion(messageId: string, state: Exclude<QuestionState, "pending">, answer: QuestionAnswer | null): boolean {
+  settleQuestion(messageId: string, state: Exclude<QuestionState, "pending">, answer: QuestionAnswer | null, expiredReason?: QuestionExpiredReason): boolean {
+    if (expiredReason) {
+      return Number(this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state',?,'$.answer',json(?),'$.settledAt',?,'$.expiredReason',?)
+        WHERE id=? AND json_extract(question,'$.state')='pending'`).run(state, JSON.stringify(answer), Date.now(), expiredReason, messageId).changes) > 0;
+    }
     return Number(this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state',?,'$.answer',json(?),'$.settledAt',?)
       WHERE id=? AND json_extract(question,'$.state')='pending'`).run(state, JSON.stringify(answer), Date.now(), messageId).changes) > 0;
   }
   /** Invalidates a question card (even if just answered) when post-confirmation authorization checks fail. */
-  invalidateQuestion(messageId: string): boolean {
+  invalidateQuestion(messageId: string, expiredReason?: QuestionExpiredReason): boolean {
+    if (expiredReason) {
+      return Number(this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state','ignored','$.answer',json('null'),'$.settledAt',?,'$.expiredReason',?)
+        WHERE id=? AND question IS NOT NULL`).run(Date.now(), expiredReason, messageId).changes) > 0;
+    }
     return Number(this.db.prepare(`UPDATE messages SET question=json_set(question,'$.state','ignored','$.answer',json('null'),'$.settledAt',?)
       WHERE id=? AND question IS NOT NULL`).run(Date.now(), messageId).changes) > 0;
   }

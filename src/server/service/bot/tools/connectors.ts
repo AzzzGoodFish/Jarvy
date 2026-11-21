@@ -5,7 +5,7 @@ import { tool } from "./registry.js";
 export const connectorTools = [
   tool(
     "connectors.list",
-    "List external connectors (such as GitHub, Gmail, Linear or custom remote MCPs): slug, name, status, tools (a write tool says whether it asks the owner first) and granted. Pass query to filter tools by keyword.",
+    "List external connectors (such as GitHub, Gmail, Linear or custom remote MCPs): slug, name, account (when connected), status, tools (write tools always ask the owner before running) and granted. Pass query to filter tools by keyword.",
     Type.Object({
       query: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "Optional keyword to filter tools by name or description" })),
     }, { additionalProperties: false }),
@@ -23,7 +23,7 @@ export const connectorTools = [
   ),
   tool(
     "connectors.call",
-    "Call a tool on a granted connector. Inspect its schema with connectors.describe first. Write tools pause for the owner's confirmation on a card in the chat, unless they turned confirmation off for that tool.",
+    "Call a tool on a granted connector. Inspect its schema with connectors.describe first. Every write tool pauses for the owner's confirmation on a card in the chat.",
     Type.Object({
       chatId: Type.String({ description: "Current chat ID (used if write confirmation is required)" }),
       connector: Type.String({ minLength: 1, maxLength: 64, description: "Connector slug from connectors.list" }),
@@ -42,7 +42,7 @@ export const connectorTools = [
   ),
   tool(
     "connectors.request",
-    "Ask your owner on a card in a chat with them to grant or authorize a connector you need. Returns immediately if already granted and connected; otherwise waits until authorized and allowed, or declined.",
+    "Ask your owner on a card in a chat with them to grant access (for this run only or always) to a connected connector you need. Returns immediately if already granted; if the connector is not connected, ask your owner to connect it in Settings → Connectors.",
     Type.Object({
       chatId: Type.String(),
       connector: Type.String({ minLength: 1, maxLength: 64, description: "Connector slug from connectors.list" }),
@@ -56,7 +56,11 @@ export const connectorTools = [
       if (result.status !== "answered") {
         return { messageId: result.messageId, status: "declined", note: "Your owner declined. Proceed without this connector, or ask what they prefer." };
       }
-      return { messageId: result.messageId, status: "connected", connector: input.connector };
+      const picked = result.selected[0]?.value;
+      return {
+        messageId: result.messageId, status: "connected", connector: input.connector,
+        ...(picked === "once" ? { until: "this run ends" } : {}),
+      };
     },
   ),
 ];

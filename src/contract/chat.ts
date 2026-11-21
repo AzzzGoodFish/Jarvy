@@ -1,6 +1,6 @@
 /** Chats, messages and members as the interface sees them (A37, A41, A44, A60). */
 import type { HostKeys } from "./environment.js";
-import type { ConnectorAuthKind, ConnectorProvider } from "./connectors.js";
+import type { ConnectorProvider } from "./connectors.js";
 
 /** A person or a Bot. `deleted`: a deleted Bot, still shown as the author of its old messages (v15). */
 export interface Member { id: string; kind: "user" | "bot"; name: string; deleted?: boolean; }
@@ -48,11 +48,13 @@ export interface MachineAsk { name: string; host: string; port: number; user: st
   hostKeys: HostKeys; existing: { id: string; name: string } | null }
 /** The environment the agent Bot asks to enter, with a system-fixed target name and free-form purpose (A93). */
 export interface EnterAsk { kind: "sandbox" | "machine"; name: string; address?: string; purpose: string; }
-/** A connector access / sign-in request (A102). */
+/** A connector access grant request (A102). */
 export interface ConnectorAuthAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider; purpose: string;
-  authKind: ConnectorAuthKind; needsGrant: boolean; needsAuth: boolean;
+  account?: string; credFp?: string; runId?: string;
 }
+/** Why a pending connector card was expired before the owner answered it. */
+export type QuestionExpiredReason = "connector_disconnected" | "connector_revoked";
 /** One human-readable field displayed (and optionally edited) on a write confirmation card (A102). */
 export interface ConnectorWriteField {
   key: string;
@@ -72,7 +74,7 @@ export interface ConnectorWriteAsk {
 /** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
 export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";
 export interface QuestionAnswer { selected: number[]; custom: string | null; }
-export interface Question extends QuestionSpec { state: QuestionState; answer: QuestionAnswer | null; settledAt: number | null; }
+export interface Question extends QuestionSpec { state: QuestionState; answer: QuestionAnswer | null; settledAt: number | null; expiredReason?: QuestionExpiredReason; }
 /** An emoji mark and who made it. */
 export interface Reaction { emoji: string; memberIds: string[]; }
 /** A message as a sender writes it. */

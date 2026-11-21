@@ -7,7 +7,7 @@ import type { Listening } from "./connection.js";
 import { RuntimeFault } from "../shared/runtime.js";
 
 type PendingTarget =
-  | { kind: "existing"; connectorId: string; url: string; gen: number }
+  | { kind: "existing"; connectorId: string; url: string; gen: number; snapshot: McpOAuthSnapshot }
   | { kind: "preset"; flowId: string; provider: ConnectorProvider; url: string; name: string; snapshot: McpOAuthSnapshot };
 
 interface PendingFlow {
@@ -20,6 +20,7 @@ interface PresetFlowRecord {
   provider: ConnectorProvider;
   url: string;
   name: string;
+  requestedName?: string;
   redirectUri: string;
   snapshot: McpOAuthSnapshot;
   state: ConnectorOAuthState;
@@ -61,8 +62,8 @@ export class ConnectorOAuthCoordinator {
     private readonly env: ConnectorEnv,
     private readonly withLock: <T>(id: string, work: () => Promise<T>) => Promise<T>,
     private readonly generation: (id: string) => number,
-    private readonly afterAuth: (id: string) => Promise<void>,
-    private readonly createFromOAuth: (provider: ConnectorProvider, snapshot: McpOAuthSnapshot) => Promise<Connector>,
+    private readonly createFromOAuth: (provider: ConnectorProvider, snapshot: McpOAuthSnapshot, requestedName?: string) => Promise<Connector>,
+    private readonly onConnectorChanged: (id: string, reason: string) => void,
     private readonly maskChanged: () => void,
     private readonly mask: (text: string) => string,
   ) {}
@@ -141,7 +142,7 @@ export class ConnectorOAuthCoordinator {
   }
 
   /** Starts OAuth for a curated preset without creating a database row until authorization succeeds. */
-  async startPreset(provider: ConnectorProvider, redirectUri?: unknown): Promise<ConnectorOAuthState> {
+  async startPreset(provider: ConnectorProvider, redirectUri?: unknown, name?: unknown): Promise<ConnectorOAuthState> {
     this.prune();
     if (!this.driver.hasProvider(provider) || provider === "custom_mcp")
       throw new RuntimeFault("connector_missing", "Unknown connector preset", 404);
@@ -152,6 +153,7 @@ export class ConnectorOAuthCoordinator {
       const vars = this.env.variables(provider).join(", ");
       throw new RuntimeFault("connector_client_missing", `Set ${vars} in the environment or .env and restart Jarvy`, 400);
     }
+    const requestedName = typeof name === "string" && name.trim() ? name.trim().slice(0, 80) : undefined;
     const resolvedRedirect = this.resolveRedirectUri(redirectUri);
     const flowId = randomUUID();
     try {
@@ -162,10 +164,10 @@ export class ConnectorOAuthCoordinator {
         redirectUrl: resolvedRedirect,
       });
       if (started.outcome === "authorized") {
-        const created = await this.createFromOAuth(provider, started.snapshot);
+        const created = await this.createFromOAuth(provider, started.snapshot, requestedName);
         const state: ConnectorOAuthState = { phase: "completed", flowId, connectorId: created.id };
         this.presetFlows.set(flowId, {
-          provider, url: meta.defaultUrl, name: meta.name, redirectUri: resolvedRedirect,
+          provider, url: meta.defaultUrl, name: created.name, requestedName, redirectUri: resolvedRedirect,
           snapshot: started.snapshot, state, connectorId: created.id, expiresAt: Date.now() + FLOW_TTL_MS,
         });
         return state;
@@ -173,11 +175,11 @@ export class ConnectorOAuthCoordinator {
       const state: ConnectorOAuthState = { phase: "waiting", flowId, authUrl: started.authUrl, redirectUri: resolvedRedirect };
       const expiresAt = Date.now() + FLOW_TTL_MS;
       this.presetFlows.set(flowId, {
-        provider, url: meta.defaultUrl, name: meta.name, redirectUri: resolvedRedirect,
+        provider, url: meta.defaultUrl, name: requestedName ?? meta.name, requestedName, redirectUri: resolvedRedirect,
         snapshot: started.snapshot, state, expiresAt,
       });
       this.pending.set(started.state, {
-        target: { kind: "preset", flowId, provider, url: meta.defaultUrl, name: meta.name, snapshot: started.snapshot },
+        target: { kind: "preset", flowId, provider, url: meta.defaultUrl, name: requestedName ?? meta.name, snapshot: started.snapshot },
         redirectUri: resolvedRedirect,
         expiresAt,
       });
@@ -187,11 +189,12 @@ export class ConnectorOAuthCoordinator {
     }
   }
 
-  /** Starts OAuth for an already-created connector (Custom MCP, re-authentication, or in-chat request cards). */
+  /** Starts OAuth for a Custom MCP connector (presets use immutable ephemeral flows: disconnect & add fresh to sign in again). */
   async start(id: string, redirectUri?: unknown): Promise<ConnectorOAuthState> {
     this.prune();
     const connector = this.store.connectors.get(id);
     if (!connector) throw new RuntimeFault("connector_missing", "Connector not found", 404);
+    if (connector.provider !== "custom_mcp") this.failOAuth("Disconnect this connector and add it again to sign in", 400);
     if (connector.authKind !== "oauth") this.failOAuth("Connector does not use OAuth", 400);
     if (this.env.isManaged(connector.provider) && !this.env.client(connector.provider)) {
       const vars = this.env.variables(connector.provider).join(", ");
@@ -214,10 +217,8 @@ export class ConnectorOAuthCoordinator {
           redirectUrl: resolvedRedirect,
         });
         if (this.generation(id) !== startGen) this.failOAuth("Connector settings changed during sign-in. Start again.", 409);
-        this.saveOAuthSnapshot(id, creds, started.snapshot);
         if (started.outcome === "authorized") {
-          await this.afterAuth(id);
-          if (this.generation(id) !== startGen) this.failOAuth("Connector settings changed during sign-in. Start again.", 409);
+          await this.commitExistingOAuth(id, startGen, live.url, creds, started.snapshot);
           const done: ConnectorOAuthState = { phase: "completed", connectorId: id };
           this.states.set(id, done);
           return done;
@@ -225,13 +226,16 @@ export class ConnectorOAuthCoordinator {
         const waiting: ConnectorOAuthState = { phase: "waiting", connectorId: id, authUrl: started.authUrl, redirectUri: resolvedRedirect };
         this.clear(id);
         this.states.set(id, waiting);
-        this.pending.set(started.state, { target: { kind: "existing", connectorId: id, url: live.url, gen: startGen }, redirectUri: resolvedRedirect, expiresAt: Date.now() + FLOW_TTL_MS });
+        this.pending.set(started.state, {
+          target: { kind: "existing", connectorId: id, url: live.url, gen: startGen, snapshot: started.snapshot },
+          redirectUri: resolvedRedirect,
+          expiresAt: Date.now() + FLOW_TTL_MS,
+        });
         return waiting;
       } catch (error) {
         if (this.generation(id) !== startGen) this.failOAuth("Connector settings changed during sign-in. Start again.", 409);
         const message = this.mask(extractOAuthDetail(error));
         this.states.set(id, { phase: "error", connectorId: id, error: message });
-        this.store.connectors.update(id, { status: "error", statusDetail: message.slice(0, 300) });
         this.failOAuth(message, 400);
       }
     });
@@ -280,7 +284,7 @@ export class ConnectorOAuthCoordinator {
       return { ok: false, name: connector.name, message: msg };
     }
     try {
-      await this.finishExistingCode(connector.id, flow.target.url, flow.target.gen, flow.redirectUri, query.code, query.iss);
+      await this.finishExistingCode(connector.id, flow.target.url, flow.target.gen, flow.redirectUri, flow.target.snapshot, query.code, query.iss);
       return { ok: true, name: connector.name, message: "Connected. You can close this window and return to Jarvy." };
     } catch (error) {
       const msg = this.mask(error instanceof Error ? error.message : String(error));
@@ -352,7 +356,8 @@ export class ConnectorOAuthCoordinator {
     const flow = this.consumePending(parsed, target => target.kind === "existing" && target.connectorId === id);
     const expectedUrl = flow.target.kind === "existing" ? flow.target.url : connector.url;
     const expectedGen = flow.target.kind === "existing" ? flow.target.gen : this.generation(id);
-    await this.finishExistingCode(id, expectedUrl, expectedGen, flow.redirectUri, parsed.code, parsed.iss);
+    const pendingSnapshot = flow.target.kind === "existing" ? flow.target.snapshot : undefined;
+    await this.finishExistingCode(id, expectedUrl, expectedGen, flow.redirectUri, pendingSnapshot, parsed.code, parsed.iss);
     return this.status(id);
   }
 
@@ -369,7 +374,8 @@ export class ConnectorOAuthCoordinator {
         code,
         iss,
       });
-      const created = await this.createFromOAuth(record.provider, snapshot);
+      const created = await this.createFromOAuth(record.provider, snapshot, record.requestedName);
+      record.name = created.name;
       record.connectorId = created.id;
       record.state = { phase: "completed", flowId, connectorId: created.id };
     } catch (error) {
@@ -379,7 +385,10 @@ export class ConnectorOAuthCoordinator {
     }
   }
 
-  private async finishExistingCode(id: string, expectedUrl: string, expectedGen: number, redirectUri: string, code: string, iss?: string): Promise<void> {
+  private async finishExistingCode(
+    id: string, expectedUrl: string, expectedGen: number, redirectUri: string,
+    pendingSnapshot: McpOAuthSnapshot | undefined, code: string, iss?: string,
+  ): Promise<void> {
     await this.withLock(id, async () => {
       if (this.generation(id) !== expectedGen) this.failOAuth("Connector settings changed during authorization. Start again.", 409);
       const connector = this.store.connectors.get(id);
@@ -391,7 +400,7 @@ export class ConnectorOAuthCoordinator {
         const snapshot = await this.driver.completeOAuth({
           provider: connector.provider,
           url: connector.url,
-          oauth: creds.oauth,
+          oauth: pendingSnapshot ?? creds.oauth,
           ...this.client(connector.provider, creds),
           redirectUrl: redirectUri,
           code,
@@ -401,22 +410,39 @@ export class ConnectorOAuthCoordinator {
         if (this.generation(id) !== expectedGen || this.store.connectors.get(id)?.url !== expectedUrl) {
           this.failOAuth("Connector settings changed during authorization. Start again.", 409);
         }
-        this.saveOAuthSnapshot(id, creds, snapshot);
-        await this.afterAuth(id);
-        if (this.generation(id) !== expectedGen) this.failOAuth("Connector settings changed during authorization. Start again.", 409);
+        await this.commitExistingOAuth(id, expectedGen, expectedUrl, creds, snapshot);
         this.states.set(id, { phase: "completed", connectorId: id });
       } catch (error) {
         if (this.generation(id) !== expectedGen) this.failOAuth("Connector settings changed during authorization. Start again.", 409);
         const msg = this.mask(extractOAuthDetail(error));
         this.states.set(id, { phase: "error", connectorId: id, error: msg });
-        this.store.connectors.update(id, { status: "error", statusDetail: msg.slice(0, 300) });
         this.failOAuth(msg, 400);
       }
     });
   }
 
-  private saveOAuthSnapshot(id: string, creds: StoredConnectorCredentials, snapshot: McpOAuthSnapshot): void {
-    this.store.connectors.saveCredentials(id, "oauth", { ...creds, oauth: snapshot });
+  /** Probes a newly exchanged OAuth snapshot for Custom MCP BEFORE saving; clears any prior Bot grants & pending cards so permissions never transfer across accounts. */
+  private async commitExistingOAuth(
+    id: string, expectedGen: number, expectedUrl: string, creds: StoredConnectorCredentials, snapshot: McpOAuthSnapshot,
+  ): Promise<void> {
+    const live = this.store.connectors.get(id);
+    if (!live) throw new RuntimeFault("connector_missing", "Connector not found", 404);
+    const probed = await this.driver.probe({
+      provider: live.provider, url: live.url, authKind: "oauth", oauth: snapshot,
+      ...this.client(live.provider, creds), redirectUrl: this.defaultRedirectUri(),
+    });
+    if (this.generation(id) !== expectedGen || this.store.connectors.get(id)?.url !== expectedUrl) {
+      this.failOAuth("Connector settings changed during authorization. Start again.", 409);
+    }
+    if (probed.outcome !== "connected") this.failOAuth(probed.message, 400);
+    const finalOAuth = "snapshot" in probed && probed.snapshot ? probed.snapshot : snapshot;
+    const label = probed.accountLabel?.trim().slice(0, 120) ?? "";
+    this.store.connectors.revokeAll(id);
+    this.onConnectorChanged(id, "Connector credentials changed.");
+    this.store.connectors.saveCredentials(id, "oauth", { ...creds, oauth: finalOAuth });
     this.maskChanged();
+    this.store.connectors.update(id, {
+      status: "connected", statusDetail: label, accountLabel: label || null, tools: probed.tools,
+    });
   }
 }
