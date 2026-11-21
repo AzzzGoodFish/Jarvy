@@ -25,6 +25,12 @@ import { fulfilConnectorAuth, prepareConnectorAuthRequest } from "./connectors-r
 
 const MAX_TOOL_TEXT = 32_000;
 
+function sameHeaders(a?: Record<string, string>, b?: Record<string, string>): boolean {
+  const entriesA = Object.entries(a ?? {});
+  const entriesB = Object.entries(b ?? {});
+  return entriesA.length === entriesB.length && entriesA.every(([key, value]) => (b ?? {})[key] === value);
+}
+
 /** Connectors service (A102): vendor-agnostic lifecycle, encrypted credentials, per-Bot grants, fingerprinted
  * write confirmations, and usage logs. Vendor specifics live behind `ConnectorDriver` (`infra/connectors/providers/`). */
 export class ConnectorService {
@@ -182,12 +188,28 @@ export class ConnectorService {
     const enabled = typeof input.enabled === "boolean" ? input.enabled : undefined;
     const headers = input.headers !== undefined ? cleanHeaders(input.headers) : undefined;
     const own = !this.env.isManaged(current.provider);
-    const credsChanged = urlChanged || authChanged || headers !== undefined || (own && (input.clientId !== undefined || input.clientSecret !== undefined));
 
     // Preset connectors have immutable credentials: disconnect & add fresh to switch tokens or accounts.
-    if (current.provider !== "custom_mcp" && credsChanged) {
-      throw new ValidationError("Preset connector credentials cannot be changed; disconnect and connect again", "connector_auth_required");
+    if (current.provider !== "custom_mcp") {
+      const presetCredAttempt = urlChanged || authChanged || headers !== undefined
+        || (own && (input.clientId !== undefined || input.clientSecret !== undefined));
+      if (presetCredAttempt) {
+        throw new ValidationError("Preset connector credentials cannot be changed; disconnect and connect again", "connector_auth_required");
+      }
     }
+
+    const prior = current.provider === "custom_mcp" ? (this.store.connectors.credentials(id) ?? {}) : {};
+    const nextClientId = own && input.clientId !== undefined
+      ? (typeof input.clientId === "string" && input.clientId.trim() ? input.clientId.trim() : undefined)
+      : prior.clientId;
+    const nextClientSecret = own && input.clientSecret !== undefined
+      ? (typeof input.clientSecret === "string" && input.clientSecret.trim() ? input.clientSecret.trim() : undefined)
+      : prior.clientSecret;
+    const headersChanged = headers !== undefined && !sameHeaders(headers, prior.headers);
+    const clientIdChanged = own && input.clientId !== undefined && nextClientId !== prior.clientId;
+    const clientSecretChanged = own && input.clientSecret !== undefined && nextClientSecret !== prior.clientSecret;
+    const credsChanged = current.provider === "custom_mcp"
+      && (urlChanged || authChanged || headersChanged || clientIdChanged || clientSecretChanged);
 
     if (urlChanged) {
       this.bumpGeneration(id);
@@ -199,19 +221,21 @@ export class ConnectorService {
     } else if (credsChanged) {
       this.bumpGeneration(id);
       this.store.connectors.revokeAll(id);
-      const prior = this.store.connectors.credentials(id) ?? {};
       const next: StoredConnectorCredentials = { ...prior };
       if (authChanged) {
         if (nextAuth !== "headers") delete next.headers;
         if (nextAuth !== "oauth") { delete next.oauth; this.oauth.clear(id); }
       }
-      if (headers !== undefined && nextAuth === "headers") next.headers = headers;
-      if (own && input.clientId !== undefined) {
-        if (typeof input.clientId === "string" && input.clientId.trim()) next.clientId = input.clientId.trim();
+      if (headers !== undefined && nextAuth === "headers") {
+        if (Object.keys(headers).length) next.headers = headers;
+        else delete next.headers;
+      }
+      if (clientIdChanged) {
+        if (nextClientId) next.clientId = nextClientId;
         else delete next.clientId;
       }
-      if (own && input.clientSecret !== undefined) {
-        if (typeof input.clientSecret === "string" && input.clientSecret.trim()) next.clientSecret = input.clientSecret.trim();
+      if (clientSecretChanged) {
+        if (nextClientSecret) next.clientSecret = nextClientSecret;
         else delete next.clientSecret;
       }
       this.store.connectors.saveCredentials(id, nextAuth, next);

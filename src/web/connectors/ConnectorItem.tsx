@@ -79,10 +79,15 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
       const headers = headerRows.length
         ? Object.fromEntries(headerRows.filter(row => row.key.trim() && row.value).map(row => [row.key.trim(), row.value]))
         : undefined;
+      const trimmedClientId = clientId.trim();
+      const clientIdChanged = trimmedClientId !== (connector.oauthClientId ?? "");
       onChanged(await api.updateConnector(connector.id, {
         name: name.trim(), url: url.trim(), authKind,
-        ...(headers ? { headers } : {}),
-        ...(authKind === "oauth" ? { clientId: clientId.trim(), ...(clientSecret ? { clientSecret } : {}) } : {}),
+        ...(headers && Object.keys(headers).length ? { headers } : {}),
+        ...(authKind === "oauth" ? {
+          ...(clientIdChanged ? { clientId: trimmedClientId } : {}),
+          ...(clientSecret ? { clientSecret } : {}),
+        } : {}),
       }));
       setClientSecret("");
       setHeaderRows([]);
