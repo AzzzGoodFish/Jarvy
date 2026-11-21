@@ -1,7 +1,6 @@
 import type {
   Connector, ConnectorAuthKind, ConnectorPreset, ConnectorProvider, ConnectorUse,
 } from "../../contract/connectors.js";
-import type { GrantScope } from "../../contract/secrets.js";
 import type { QuestionSpec } from "../../contract/chat.js";
 import type { ChatMessage } from "../shared/chat.js";
 import {
@@ -19,9 +18,10 @@ import type { QuestionResult } from "./chat/questions.js";
 import { ConnectorOAuthCoordinator } from "./connectors-oauth.js";
 import type { ConnectorEnv } from "../infra/connectors/client-env.js";
 import {
-  applyEdits, buildAuthRequestQuestion, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
+  applyEdits, assertSameAccount, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
   filterUnconfirmedEntries, formatConnectorDescribe, formatConnectorList, pickConnectorSlug, pickPresetName,
 } from "./connectors-format.js";
+import { fulfilConnectorAuth, prepareConnectorAuthRequest, type FulfilAuthInput } from "./connectors-requests.js";
 
 const MAX_TOOL_TEXT = 32_000;
 
@@ -44,7 +44,6 @@ export class ConnectorService {
       store, driver, listening, env,
       (id, work) => this.withLock(id, work),
       id => this.generation(id),
-      id => this.probeLocked(id).then(() => {}),
       (provider, snapshot, name) => this.createFromOAuth(provider, snapshot, name),
       () => this.secrets.refreshMask(),
       text => this.secrets.masker().mask(text),
@@ -184,6 +183,10 @@ export class ConnectorService {
     const own = !this.env.isManaged(current.provider);
     const credsChanged = urlChanged || authChanged || headers !== undefined || (own && (input.clientId !== undefined || input.clientSecret !== undefined));
 
+    if (current.provider !== "custom_mcp" && !urlChanged && credsChanged && nextAuth === "headers") {
+      return this.rotatePresetHeaders(id, { name, headers, enabled, unconfirmed: input.unconfirmed });
+    }
+
     if (urlChanged) {
       // Changing a custom MCP destination is a new trust decision: bump generation first so any in-flight
       // probe/call/OAuth discards stale writes, then wipe credentials, cached tools and saved exemptions.
@@ -223,11 +226,47 @@ export class ConnectorService {
       ...(authKind !== undefined ? { authKind } : {}),
       ...(enabled !== undefined ? { enabled } : {}),
       ...(urlChanged
-        ? { status: nextAuth === "none" ? "disconnected" : "needs_auth", statusDetail: "", tools: [] }
+        ? { status: nextAuth === "none" ? "disconnected" : "needs_auth", statusDetail: "", accountLabel: null, tools: [] }
         : authChanged && nextAuth === "oauth" ? { status: "needs_auth", statusDetail: "" } : {}),
     }) ?? this.missing();
     if (!urlChanged && credsChanged && updated.authKind !== "oauth") return this.probe(id).catch(() => this.get(id));
     return updated;
+  }
+
+  /** Probes a replacement preset token BEFORE saving so failed probes or another account never touch the existing connection. */
+  private rotatePresetHeaders(
+    id: string,
+    input: { name?: string; headers?: Record<string, string>; enabled?: boolean; unconfirmed?: unknown },
+  ): Promise<Connector> {
+    return this.withLock(id, async () => {
+      const live = this.store.connectors.get(id) ?? this.missing();
+      const headers = input.headers ?? {};
+      if (Object.keys(headers).length === 0) throw new RuntimeFault("connector_auth_required", "Enter an access token", 400);
+      const probed = await this.driver.probe({
+        provider: live.provider, url: live.url, authKind: "headers", headers,
+        redirectUrl: this.oauth.defaultRedirectUri(),
+      });
+      if (probed.outcome !== "connected") {
+        const msg = this.secrets.masker().mask(probed.message).slice(0, 300);
+        throw new RuntimeFault(probed.outcome === "needs_auth" ? "connector_auth_required" : "connector_unreachable", msg, 400);
+      }
+      assertSameAccount(live.account, probed.accountLabel);
+      const label = probed.accountLabel?.trim().slice(0, 120) || live.account;
+      this.bumpGeneration(id);
+      this.oauth.clear(id);
+      this.store.connectors.saveCredentials(id, "headers", { headers });
+      this.secrets.refreshMask();
+      if (Array.isArray(input.unconfirmed)) {
+        this.store.connectors.setUnconfirmed(id, filterUnconfirmedEntries(input.unconfirmed, probed.tools));
+      }
+      return this.store.connectors.update(id, {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        authKind: "headers", status: "connected", statusDetail: label,
+        ...(label ? { accountLabel: label } : {}),
+        tools: probed.tools,
+      }) ?? this.missing();
+    });
   }
 
   delete(id: string): void {
@@ -415,49 +454,23 @@ export class ConnectorService {
     return { connector: slug, tool: toolName, isError: out.isError, text };
   }
 
-  /** connectors.request: returns immediately if granted & connected, else prepares an in-chat auth/grant card. */
-  async prepareRequest(botId: string, slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }> {
-    const connector = this.store.connectors.bySlug(slug);
-    if (!connector || !connector.enabled) throw new ChatError(404, `No enabled connector named "${slug}" (see connectors.list)`);
-    let current = connector;
-    if (current.authKind !== "oauth" && current.status === "disconnected") current = await this.probe(current.id);
-    const granted = this.store.connectors.grantedIds(botId).has(current.id);
-    const needsAuth = current.status !== "connected";
-    if (granted && !needsAuth) return { ready: true };
-    if (needsAuth && current.authKind === "oauth" && this.env.isManaged(current.provider) && !this.env.client(current.provider)) {
-      const variables = this.env.variables(current.provider).join(" and ");
-      const meta = this.driver.meta(current.provider);
-      throw new ChatError(409, meta.authMethods.includes("headers")
-        ? `Connector "${slug}" is not connected. The owner connects it in Settings → Connectors with a token, or sets ${variables} for Jarvy to sign in on the web. Tell them.`
-        : `Connector "${slug}" can't sign in yet: the owner has to set ${variables} for Jarvy and restart it. Tell them.`, "connector_client_missing");
-    }
-    return { question: buildAuthRequestQuestion(current, purpose, !granted, needsAuth) };
+  private authRequestDeps() {
+    return {
+      store: this.store, chats: this.chats, driver: this.driver, env: this.env,
+      withLock: <T>(id: string, work: () => Promise<T>) => this.withLock(id, work),
+      probe: (id: string) => this.probe(id),
+      probeLocked: (id: string) => this.probeLocked(id),
+    };
   }
 
-  /** Settles an in-chat connectorAuth card once authorized and grants access (always or this run only) to the Bot. */
-  async fulfilAuth(actorId: string, chatId: string, messageId: string, input?: { scope?: unknown }): Promise<ChatMessage> {
-    const message = this.chats.message(actorId, messageId);
-    const ask = message?.question?.connectorAuth;
-    if (!message || message.chatId !== chatId || !ask || message.question?.state !== "pending")
-      throw new ChatError(409, "The question is already settled", "question_closed");
-    if (!this.chats.questions.waitingFor(messageId))
-      throw new ChatError(409, "The question has expired", "question_expired");
+  /** connectors.request: returns immediately if granted & connected, else prepares an in-chat auth/grant card. */
+  prepareRequest(botId: string, slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }> {
+    return prepareConnectorAuthRequest(this.authRequestDeps(), botId, slug, purpose);
+  }
 
-    const scope: GrantScope | null = ask.needsGrant
-      ? (input?.scope === "always" || input?.scope === "once" ? input.scope : null)
-      : null;
-    if (ask.needsGrant && !scope) throw new ChatError(400, "scope must be always or once");
-
-    let connector = this.get(ask.connectorId);
-    if (connector.status !== "connected") connector = await this.probe(connector.id);
-    if (connector.status !== "connected") {
-      throw new ChatError(409, connector.statusDetail || "Connector is not connected yet", "connector_auth_required");
-    }
-    if (scope) {
-      const botId = message.sender.id;
-      this.store.connectors.grant(connector.id, botId, scope, scope === "once" ? this.store.connectors.currentRun(botId) : null);
-    }
-    return this.chats.questions.respond(actorId, chatId, messageId, { action: "answer", selected: [scope === "once" ? 1 : 0] });
+  /** Settles an in-chat connectorAuth card after verifying displayed account, credentials and requesting run. */
+  fulfilAuth(actorId: string, chatId: string, messageId: string, input?: FulfilAuthInput): Promise<ChatMessage> {
+    return fulfilConnectorAuth(this.authRequestDeps(), actorId, chatId, messageId, input);
   }
 
   private requireGranted(botId: string, slug: string): Connector {

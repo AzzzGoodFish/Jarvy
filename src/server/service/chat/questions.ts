@@ -65,6 +65,7 @@ function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
   if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
     || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
     || !text(ask.purpose, 300) || (ask.account !== undefined && !text(ask.account, 120))
+    || (ask.credFp !== undefined && !text(ask.credFp, 64)) || (ask.runId !== undefined && !text(ask.runId, 80))
     || typeof ask.authKind !== "string" || !CONNECTOR_AUTH_KINDS.has(ask.authKind)
     || typeof ask.needsGrant !== "boolean" || typeof ask.needsAuth !== "boolean")
     throw new ChatError(400, "Invalid connector auth request");
@@ -72,6 +73,8 @@ function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
     connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
     provider: ask.provider as ConnectorAuthAsk["provider"], purpose: (ask.purpose as string).trim(),
     ...(ask.account !== undefined ? { account: (ask.account as string).trim() } : {}),
+    ...(ask.credFp !== undefined ? { credFp: (ask.credFp as string).trim() } : {}),
+    ...(ask.runId !== undefined ? { runId: (ask.runId as string).trim() } : {}),
     authKind: ask.authKind as ConnectorAuthAsk["authKind"], needsGrant: ask.needsGrant, needsAuth: ask.needsAuth,
   };
 }
@@ -161,7 +164,7 @@ export class ChatQuestions {
     this.waiting.delete(messageId);
     if (this.repository.invalidateQuestion(messageId)) this.changed(chatId, messageId);
   }
-  respond(actorId: string, chatId: string, messageId: string, input: Record<string, unknown>): ChatMessage {
+  respond(actorId: string, chatId: string, messageId: string, input: Record<string, unknown>, onSettled?: () => void): ChatMessage {
     const message = this.repository.message(actorId, messageId);
     if (!message || message.chatId !== chatId || !message.question) throw new ChatError(404, "Question not found");
     this.repository.assertAccess(actorId, chatId, true);
@@ -173,6 +176,7 @@ export class ChatQuestions {
     if (!dismissed && input.action !== "answer") throw new ChatError(400, "Invalid question action");
     const answer = dismissed ? null : answerOf(question, input);
     if (!this.repository.settleQuestion(messageId, dismissed ? "dismissed" : "answered", answer)) throw new ChatError(409, "The question is already settled", "question_closed");
+    onSettled?.();
     this.waiting.delete(messageId);
     waiter(answer ? resultOf(question, answer) : { status: "dismissed" });
     this.changed(chatId, messageId);

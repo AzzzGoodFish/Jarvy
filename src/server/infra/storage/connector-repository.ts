@@ -31,6 +31,19 @@ interface ConnectorRow {
 interface StoredConfig {
   url?: string;
   authKind?: ConnectorAuthKind;
+  accountLabel?: string;
+}
+
+function hashCredentials(authType: string, creds: StoredConnectorCredentials): string {
+  const headerEntries = Object.entries(creds.headers ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  const tokenKey = creds.oauth?.tokens?.refresh_token || creds.oauth?.tokens?.access_token || "";
+  return createHash("sha256").update(JSON.stringify({
+    authType,
+    headers: headerEntries,
+    clientId: creds.clientId ?? "",
+    oauthClientId: creds.oauth?.clientInformation?.client_id ?? "",
+    tokenKey,
+  })).digest("hex");
 }
 
 /** Persistent connectors, sealed credentials, fingerprinted write-tool approvals, per-Bot grants and usage logs (A102). */
@@ -56,21 +69,24 @@ export class ConnectorRepository {
     const tools: ConnectorTool[] = Array.isArray(rawTools)
       ? rawTools.map(tool => ({ ...tool, write: isWriteTool(tool) }))
       : [];
-    const credRow = this.db.prepare("SELECT credential_json AS json FROM connector_credentials WHERE connector_id=?")
-      .get(row.id) as { json: string } | undefined;
+    const credRow = this.db.prepare("SELECT auth_type AS authType, credential_json AS json FROM connector_credentials WHERE connector_id=?")
+      .get(row.id) as { authType: string; json: string } | undefined;
     let readable = true;
     let headerNames: string[] = [];
     let oauthClientId: string | null = null;
     let hasClientSecret = false;
+    let credFp = "none";
     if (credRow) {
       const plain = this.cipher.open(credRow.json, `connector:${row.id}`);
       if (plain === null) {
         readable = false;
+        credFp = "unreadable";
       } else {
         const creds = this.parseJson<StoredConnectorCredentials>(plain, {});
         headerNames = Object.keys(creds.headers ?? {}).sort();
         oauthClientId = creds.clientId ?? null;
         hasClientSecret = Boolean(creds.clientSecret);
+        credFp = hashCredentials(credRow.authType, creds).slice(0, 16);
       }
     }
     const grants = (this.db.prepare(`SELECT bot_id AS botId, scope, granted_at AS grantedAt FROM connector_grants g
@@ -81,6 +97,7 @@ export class ConnectorRepository {
     const managedClient = this.runtime?.managedClient(row.provider) ?? null;
     const authMethods = this.runtime?.authMethods(row.provider) ?? ["oauth", "headers", "none"];
     const unconfirmed = this.activeUnconfirmed(row.id, tools);
+    const account = config.accountLabel || (row.status === "connected" ? row.status_detail : "");
     return {
       id: row.id,
       slug: row.slug,
@@ -98,6 +115,8 @@ export class ConnectorRepository {
       enabled: row.enabled === 1,
       status: row.status,
       statusDetail: row.status_detail,
+      account,
+      credFp,
       readable,
       tools,
       grants,
@@ -142,12 +161,13 @@ export class ConnectorRepository {
   create(input: {
     slug: string; name: string; kind: ConnectorKind; provider: ConnectorProvider;
     url: string; authKind: ConnectorAuthKind; enabled?: boolean;
-    status?: ConnectorStatus; statusDetail?: string; tools?: ConnectorTool[];
+    status?: ConnectorStatus; statusDetail?: string; accountLabel?: string; tools?: ConnectorTool[];
     credentials?: StoredConnectorCredentials;
   }): Connector {
     const id = randomUUID();
     const now = Date.now();
-    const config: StoredConfig = { url: input.url, authKind: input.authKind };
+    const label = input.accountLabel?.trim() || (input.status === "connected" ? input.statusDetail?.trim() : "") || "";
+    const config: StoredConfig = { url: input.url, authKind: input.authKind, ...(label ? { accountLabel: label } : {}) };
     transaction(this.db, () => {
       this.db.prepare(`INSERT INTO connectors(id,owner_id,slug,name,kind,provider,config_json,enabled,status,status_detail,tools_json,created_at,updated_at)
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
@@ -165,7 +185,7 @@ export class ConnectorRepository {
   }
 
   update(id: string, patch: {
-    name?: string; url?: string; authKind?: ConnectorAuthKind;
+    name?: string; url?: string; authKind?: ConnectorAuthKind; accountLabel?: string | null;
     enabled?: boolean; status?: ConnectorStatus; statusDetail?: string; tools?: ConnectorTool[];
   }): Connector | null {
     const row = this.db.prepare("SELECT * FROM connectors WHERE id=? AND owner_id=?").get(id, this.ownerId()) as unknown as ConnectorRow | undefined;
@@ -173,6 +193,9 @@ export class ConnectorRepository {
     const config = this.parseJson<StoredConfig>(row.config_json, {});
     if (patch.url !== undefined) config.url = patch.url;
     if (patch.authKind !== undefined) config.authKind = patch.authKind;
+    if (patch.accountLabel === null) delete config.accountLabel;
+    else if (patch.accountLabel !== undefined && patch.accountLabel.trim()) config.accountLabel = patch.accountLabel.trim();
+    else if (patch.status === "connected" && patch.statusDetail?.trim()) config.accountLabel = patch.statusDetail.trim();
     const sets: string[] = ["config_json=?", "updated_at=?"];
     const params: (string | number)[] = [JSON.stringify(config), Date.now()];
     if (patch.name !== undefined) { sets.push("name=?"); params.push(patch.name); }
@@ -232,16 +255,7 @@ export class ConnectorRepository {
     if (!row) return "none";
     const plain = this.cipher.open(row.json, `connector:${id}`);
     if (plain === null) return "unreadable";
-    const creds = this.parseJson<StoredConnectorCredentials>(plain, {});
-    const headerEntries = Object.entries(creds.headers ?? {}).sort(([a], [b]) => a.localeCompare(b));
-    const tokenKey = creds.oauth?.tokens?.refresh_token || creds.oauth?.tokens?.access_token || "";
-    return createHash("sha256").update(JSON.stringify({
-      authType: row.authType,
-      headers: headerEntries,
-      clientId: creds.clientId ?? "",
-      oauthClientId: creds.oauth?.clientInformation?.client_id ?? "",
-      tokenKey,
-    })).digest("hex");
+    return hashCredentials(row.authType, this.parseJson<StoredConnectorCredentials>(plain, {}));
   }
 
   saveCredentials(id: string, authKind: ConnectorAuthKind, credentials: StoredConnectorCredentials): void {
@@ -276,6 +290,11 @@ export class ConnectorRepository {
   /** The Bot's run in progress, which a "this time only" grant lasts for. */
   currentRun(botId: string): string | null {
     return (this.db.prepare("SELECT id FROM bot_runs WHERE bot_id=? AND ended_at IS NULL ORDER BY created_at DESC LIMIT 1").get(botId) as { id: string } | undefined)?.id ?? null;
+  }
+
+  /** Checks whether a specific captured run ID for this Bot is still live (never falls back to a later run). */
+  isRunLive(runId: string, botId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM bot_runs WHERE id=? AND bot_id=? AND ended_at IS NULL").get(runId, botId));
   }
 
   /** Removes expired "this time only" grants whose run has ended. */

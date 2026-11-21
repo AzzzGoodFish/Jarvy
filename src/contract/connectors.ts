@@ -58,6 +58,10 @@ export interface Connector {
   enabled: boolean;
   status: ConnectorStatus;
   statusDetail: string;
+  /** Persistent provider-verified account label (e.g. `@handle` or email), kept even if status later becomes `needs_auth`/`error`. */
+  account: string;
+  /** Short non-secret fingerprint of the connector's active credentials, used to bind in-chat approvals. */
+  credFp: string;
   readable: boolean;
   tools: ConnectorTool[];
   grants: ConnectorGrant[];

@@ -68,7 +68,7 @@ export function ConnectorSettings() {
         {connectors.map(connector => (
           <ConnectorItem key={connector.id} connector={connector} bots={bots} open={open === connector.id} callbackUrl={callbackUrl}
             onToggle={() => setOpen(open === connector.id ? null : connector.id)}
-            onChanged={onChanged} onDeleted={() => onDeleted(connector.id)}/>
+            onChanged={onChanged} onCreated={onAdded} onDeleted={() => onDeleted(connector.id)}/>
         ))}
       </div>
     </section>}

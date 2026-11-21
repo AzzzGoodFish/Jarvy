@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import type { Bot } from "../../contract/bots";
 import type { Connector, ConnectorAuthKind, ConnectorOAuthState, ConnectorUse } from "../../contract/connectors";
 import { formatDate, t } from "../i18n";
@@ -16,9 +16,9 @@ const when = (at: number) => formatDate(at, { year: "numeric", month: "short", d
 /** One configured connector row in Settings → Connectors (A102).
  * Keeps the default view calm: Bot access + any auto-approved write exceptions; tools, logs and custom MCP
  * connection fields stay tucked inside secondary collapsible disclosures. */
-export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, onChanged, onDeleted }: {
+export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, onChanged, onCreated, onDeleted }: {
   connector: Connector; bots: Bot[]; open: boolean; callbackUrl: string;
-  onToggle: () => void; onChanged: (connector: Connector) => void; onDeleted: () => void;
+  onToggle: () => void; onChanged: (connector: Connector) => void; onCreated: (connector: Connector) => void; onDeleted: () => void;
 }) {
   const detailsId = useId();
   const isCustom = connector.provider === "custom_mcp";
@@ -29,6 +29,7 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
   const [clientSecret, setClientSecret] = useState("");
   const [headerRows, setHeaderRows] = useState<{ key: string; value: string }[]>([]);
   const [token, setToken] = useState("");
+  const [mismatch, setMismatch] = useState<{ token: string; actual: string } | null>(null);
   const [toolFilter, setToolFilter] = useState("");
   const [uses, setUses] = useState<ConnectorUse[] | null>(null);
   const [oauth, setOAuth] = useState<ConnectorOAuthState | null>(null);
@@ -80,10 +81,18 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
     event.preventDefault();
     const clean = token.trim();
     if (!clean) return;
+    setMismatch(null);
     const value = /^Bearer\s+/i.test(clean) ? clean : `Bearer ${clean}`;
     void run("token", async () => {
-      onChanged(await api.updateConnector(connector.id, { authKind: "headers", headers: { Authorization: value } }));
-      setToken("");
+      try {
+        onChanged(await api.updateConnector(connector.id, { authKind: "headers", headers: { Authorization: value } }));
+        setToken("");
+      } catch (err) {
+        if (err instanceof ApiError && err.code === "connector_account_mismatch" && typeof err.params?.actual === "string") {
+          setMismatch({ token: clean, actual: err.params.actual });
+        }
+        throw err;
+      }
     });
   };
 
@@ -115,13 +124,33 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
     const cleanName = name.trim();
     const cleanToken = token.trim();
     if (!cleanName && !cleanToken) return;
+    setMismatch(null);
     const tokenValue = cleanToken ? (/^Bearer\s+/i.test(cleanToken) ? cleanToken : `Bearer ${cleanToken}`) : undefined;
     void run("save", async () => {
-      onChanged(await api.updateConnector(connector.id, {
-        ...(cleanName && cleanName !== connector.name ? { name: cleanName } : {}),
-        ...(tokenValue ? { authKind: "headers", headers: { Authorization: tokenValue } } : {}),
-      }));
+      try {
+        onChanged(await api.updateConnector(connector.id, {
+          ...(cleanName && cleanName !== connector.name ? { name: cleanName } : {}),
+          ...(tokenValue ? { authKind: "headers", headers: { Authorization: tokenValue } } : {}),
+        }));
+        setToken("");
+      } catch (err) {
+        if (cleanToken && err instanceof ApiError && err.code === "connector_account_mismatch" && typeof err.params?.actual === "string") {
+          setMismatch({ token: cleanToken, actual: err.params.actual });
+        }
+        throw err;
+      }
+    });
+  };
+
+  const addMismatchAsNew = () => {
+    if (!mismatch) return;
+    const pendingToken = mismatch.token;
+    void run("addMismatch", async () => {
+      const created = await api.connectPresetToken(connector.provider, pendingToken);
       setToken("");
+      setMismatch(null);
+      setError("");
+      onCreated(created);
     });
   };
 
@@ -350,6 +379,11 @@ export function ConnectorItem({ connector, bots, open, callbackUrl, onToggle, on
       </div>}
 
       {error && <p className="jv-note-error" role="alert">{error}</p>}
+      {mismatch && <div className="jv-connector-drawer-row">
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={addMismatchAsNew}>
+          {t("connectors.addAsNewAccount", { account: mismatch.actual })}
+        </Button>
+      </div>}
     </div>}
   </>;
 }

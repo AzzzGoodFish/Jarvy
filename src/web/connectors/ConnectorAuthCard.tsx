@@ -1,17 +1,23 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { CheckIcon, ExternalLinkIcon, MinusIcon } from "lucide-react";
 import { api } from "../api";
 import type { ChatMessage, ConnectorAuthAsk, Question } from "../../contract/chat";
-import type { ConnectorOAuthState } from "../../contract/connectors";
+import type { Connector, ConnectorOAuthState } from "../../contract/connectors";
 import { t } from "../i18n";
 import { useAction } from "../action";
 import { Input } from "../components/ui/input";
 import { ConnectorMark } from "./ConnectorMark";
 import "../styles/connectors.css";
 
+interface VerifiedIdentity {
+  account: string;
+  credFp: string;
+  name: string;
+}
+
 /** In-chat authorization & grant card for connectors.request (A102):
  * lets the owner allow for this run only or always (matching secrets.request, A52),
- * and runs OAuth in place first when the connector also needs sign-in. */
+ * always showing the verified account before offering grant choices and binding settlement to it. */
 export function ConnectorAuthCard({ message, onSettled }: {
   message: ChatMessage & { question: Question & { connectorAuth: ConnectorAuthAsk } };
   onSettled: (message: ChatMessage) => void;
@@ -19,14 +25,46 @@ export function ConnectorAuthCard({ message, onSettled }: {
   const question = message.question;
   const ask = question.connectorAuth;
   const [oauth, setOAuth] = useState<ConnectorOAuthState | null>(null);
-  const [authDone, setAuthDone] = useState(!ask.needsAuth);
+  const [verified, setVerified] = useState<VerifiedIdentity | null>(() =>
+    !ask.needsAuth ? { account: ask.account ?? "", credFp: ask.credFp ?? "", name: ask.name } : null,
+  );
   const [manualUrl, setManualUrl] = useState("");
   const { busy, error, run, setError } = useAction();
 
-  const displayName = ask.account && !ask.name.includes(ask.account) ? `${ask.name} (${ask.account})` : ask.name;
+  const authDone = verified !== null;
+  const shownName = verified?.name || ask.name;
+  const shownAccount = verified?.account || ask.account || "";
+  const displayName = shownAccount && !shownName.includes(shownAccount) ? `${shownName} (${shownAccount})` : shownName;
+
+  const applyVerified = useCallback(async (connector: Connector) => {
+    const next: VerifiedIdentity = {
+      account: connector.account || connector.statusDetail || "",
+      credFp: connector.credFp,
+      name: connector.name,
+    };
+    setVerified(next);
+    if (!ask.needsGrant) {
+      onSettled(await api.fulfilConnectorAuth(message.chatId, message.id, {
+        expectedAccount: next.account,
+        expectedCredFp: next.credFp,
+      }));
+    }
+  }, [ask.needsGrant, message.chatId, message.id, onSettled]);
 
   const fulfil = (scope?: "always" | "once") => void run(scope ? `fulfil:${scope}` : "fulfil", async () => {
-    onSettled(await api.fulfilConnectorAuth(message.chatId, message.id, scope));
+    onSettled(await api.fulfilConnectorAuth(message.chatId, message.id, {
+      ...(scope ? { scope } : {}),
+      ...(verified ? { expectedAccount: verified.account, expectedCredFp: verified.credFp } : {}),
+    }));
+  });
+
+  const verifyConnection = () => void run("verify", async () => {
+    const latest = await api.probeConnector(ask.connectorId);
+    if (latest.status !== "connected") {
+      setError(latest.statusDetail || t("connectors.statusNeedsAuth"));
+      return;
+    }
+    await applyVerified(latest);
   });
 
   useEffect(() => {
@@ -34,24 +72,23 @@ export function ConnectorAuthCard({ message, onSettled }: {
     const timer = window.setInterval(() => {
       void api.connectorOAuthStatus(ask.connectorId).then(res => {
         setOAuth(res.oauth);
-        if (res.oauth.phase === "completed" || res.connector.status === "connected") {
-          if (ask.needsGrant) setAuthDone(true);
-          else void api.fulfilConnectorAuth(message.chatId, message.id).then(onSettled).catch(err => setError(String(err)));
+        if (res.connector.status === "connected" && (res.oauth.phase === "completed" || res.oauth.phase === "idle")) {
+          void applyVerified(res.connector).catch(err => setError(String(err)));
         } else if (res.oauth.phase === "error" && res.oauth.error) {
           setError(res.oauth.error);
         }
       }).catch(() => {});
     }, 1500);
     return () => window.clearInterval(timer);
-  }, [question.state, authDone, oauth?.phase, ask.connectorId, ask.needsGrant, message.chatId, message.id, onSettled, setError]);
+  }, [question.state, authDone, oauth?.phase, ask.connectorId, applyVerified, setError]);
 
   const startAuth = () => void run("oauth", async () => {
     const redirectUri = `${window.location.origin}/api/connectors/oauth/callback`;
     const state = await api.startConnectorOAuth(ask.connectorId, redirectUri);
     setOAuth(state);
     if (state.phase === "completed") {
-      if (ask.needsGrant) setAuthDone(true);
-      else onSettled(await api.fulfilConnectorAuth(message.chatId, message.id));
+      const latest = await api.connectorOAuthStatus(ask.connectorId);
+      if (latest.connector.status === "connected") await applyVerified(latest.connector);
       return;
     }
     if (state.authUrl) window.open(state.authUrl, "_blank", "noopener,noreferrer");
@@ -63,12 +100,9 @@ export function ConnectorAuthCard({ message, onSettled }: {
     void run("manual", async () => {
       await api.completeConnectorOAuth(ask.connectorId, { callbackUrl: manualUrl.trim() });
       setManualUrl("");
-      if (ask.needsGrant) {
-        setOAuth({ phase: "completed", connectorId: ask.connectorId });
-        setAuthDone(true);
-      } else {
-        onSettled(await api.fulfilConnectorAuth(message.chatId, message.id));
-      }
+      const latest = await api.connectorOAuthStatus(ask.connectorId);
+      setOAuth(latest.oauth);
+      if (latest.connector.status === "connected") await applyVerified(latest.connector);
     });
   };
 
@@ -110,7 +144,11 @@ export function ConnectorAuthCard({ message, onSettled }: {
     </div>
 
     {((!authDone && oauth?.phase === "waiting") || showSignedInNote || error) && <div className="jv-question-body">
-      {showSignedInNote && <p className="jv-connector-env-note">{t("connectorCard.signedInChooseScope")}</p>}
+      {showSignedInNote && <p className="jv-connector-env-note">
+        {shownAccount
+          ? t("connectorCard.signedInAsChooseScope", { account: shownAccount })
+          : t("connectorCard.signedInChooseScope")}
+      </p>}
       {!authDone && oauth?.phase === "waiting" && <>
         <div className="jv-connector-waiting">
           <span className="jv-connector-waiting-dot" aria-hidden="true"/>
@@ -134,8 +172,10 @@ export function ConnectorAuthCard({ message, onSettled }: {
 
     <div className="jv-question-foot">
       <button type="button" className="ui-button" disabled={busy} onClick={decline}>{t("secretCard.decline")}</button>
-      {!authDone && ask.authKind === "oauth"
-        ? <button type="button" className="ui-button ui-primary" disabled={busy} onClick={startAuth}>{t("connectorCard.openAuth")}</button>
+      {!authDone
+        ? (ask.authKind === "oauth"
+            ? <button type="button" className="ui-button ui-primary" disabled={busy} onClick={startAuth}>{t("connectorCard.openAuth")}</button>
+            : <button type="button" className="ui-button ui-primary" disabled={busy} onClick={verifyConnection}>{t("connectorCard.checkConnection")}</button>)
         : ask.needsGrant
           ? <>
               <button type="button" className="ui-button" disabled={busy} onClick={() => fulfil("once")}>{t("secretCard.once")}</button>

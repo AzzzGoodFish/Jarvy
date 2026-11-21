@@ -4,6 +4,7 @@ import type { ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
 import { CONNECTOR_SLUG, isWriteTool, toolDefinitionHash } from "../shared/connector.js";
 import { ValidationError } from "../shared/errors.js";
 import { ChatError } from "../shared/chat.js";
+import { RuntimeFault } from "../shared/runtime.js";
 
 const MAX_EDITABLE_CHARS = 16_000;
 const MAX_FIELD_CHARS = 64_000;
@@ -228,12 +229,37 @@ export function applyEdits(
   return next;
 }
 
+/** Prevents rotating or reconnecting a preset connector onto a different account (which would transfer Bot grants
+ * and write-confirmation exemptions from account A to account B). Fails closed when A's account is known. */
+export function assertSameAccount(expected: string, actual: string | undefined): void {
+  const want = expected.trim();
+  if (!want) return;
+  const got = actual?.trim() ?? "";
+  if (!got) {
+    throw new RuntimeFault(
+      "connector_auth_required",
+      `Could not verify that this credential belongs to ${want}; existing credentials were kept.`,
+      409,
+    );
+  }
+  if (got.toLowerCase() !== want.toLowerCase()) {
+    throw new RuntimeFault(
+      "connector_account_mismatch",
+      `This credential belongs to ${got}, not ${want}. Add it as a separate connection instead.`,
+      409,
+      { expected: want, actual: got },
+    );
+  }
+}
+
 export function buildAuthRequestQuestion(
   connector: Connector,
   purpose: string,
   needsGrant: boolean,
   needsAuth: boolean,
+  binding?: { credFp?: string; runId?: string },
 ): QuestionSpec {
+  const account = connector.account || (connector.status === "connected" ? connector.statusDetail : "");
   return {
     question: purpose,
     options: [
@@ -245,7 +271,9 @@ export function buildAuthRequestQuestion(
     connectorAuth: {
       connectorId: connector.id, slug: connector.slug, name: connector.name,
       provider: connector.provider, purpose,
-      ...(connector.status === "connected" && connector.statusDetail ? { account: connector.statusDetail } : {}),
+      ...(account ? { account } : {}),
+      ...(binding?.credFp ? { credFp: binding.credFp } : {}),
+      ...(binding?.runId ? { runId: binding.runId } : {}),
       authKind: connector.authKind, needsGrant, needsAuth,
     },
   };
