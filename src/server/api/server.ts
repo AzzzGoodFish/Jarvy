@@ -5,6 +5,7 @@ import { networkInterfaces } from "node:os";
 import { getRequestListener, type HttpBindings } from "@hono/node-server";
 import type { ApiServices } from "./context.js";
 import { createHttpApp } from "./app.js";
+import { upgradeTerminal } from "./routes/terminals.js";
 
 export interface JarvyServer {
   listen(port: number, host: string): Promise<void>;
@@ -82,8 +83,10 @@ export function createJarvyServer(services: ApiServices, webRoot: string, tls: {
     if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { redirectToHttps(request, response); return; }
     void handle(request, response);
   }, (request, socket, head) => {
-    // A computer's client connecting itself (A96): over HTTPS from another machine, as the web is.
+    // A computer's client connecting itself (A96), or an interactive terminal WebSocket (A103): over HTTPS from another machine, as the web is.
     if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"); return; }
-    if (!services.bots.devices.upgrade(request, socket, head)) socket.destroy();
+    if (services.bots.devices.upgrade(request, socket, head)) return;
+    if (upgradeTerminal(request, socket, head, services)) return;
+    socket.destroy();
   });
 }

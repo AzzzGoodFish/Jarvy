@@ -8,8 +8,11 @@ import {
   removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
 import { hostCapacity } from "../../infra/env/libvirt.js";
+import { openSshPty } from "../../infra/env/ssh.js";
+import { openContainerPty } from "../../infra/env/terminal.js";
 import { ComputerImages, VM_SIZE, VmSandboxes, VmSupportCheck, computerType } from "./computer-vm.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
+import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { ComputerInfo, ComputerLimits, ComputerResources, ComputerStatus, ComputerType, VmSupport } from "../../../contract/environment.js";
 import { RuntimeFault } from "../../shared/runtime.js";
 import { ValidationError } from "../../shared/errors.js";
@@ -33,6 +36,8 @@ export interface ComputerDependencies {
   store: Store;
   /** A computer's state changed: the owner's page reloads the Bots. */
   changed: () => void;
+  /** A sandbox was stopped, reset, switched type or removed: drop any interactive terminals on it (A103). */
+  onEnvironmentClosed?: (environmentId: string) => void;
   log?: (text: string) => void;
 }
 
@@ -156,7 +161,7 @@ export class Computers {
     const computer = this.deps.store.environments.computerOf(botId), status = this.status(botId);
     if (!computer || !status) return null;
     const type = computerType(computer);
-    return { ...status, type, container: computer.spec.container!, image: this.images.tag(type), workspace: this.workspace(botId), mount: COMPUTER_CWD,
+    return { id: computer.id, ...status, type, container: computer.spec.container!, image: this.images.tag(type), workspace: this.workspace(botId), mount: COMPUTER_CWD,
       limits: computerLimits(computer), ...(this.resized.has(botId) ? { restartNeeded: true } : {}) };
   }
   get vmSupport(): VmSupport { return this.vms.current; }
@@ -174,6 +179,7 @@ export class Computers {
       throw this.unavailable(409);
     }
     await this.settled(botId);
+    this.deps.onEnvironmentClosed?.(computer.id);
     await this.disconnect(botId);
     if (current === "vm") {
       await this.libvirt.remove(computer, computerLimits(computer), this.workspace(botId), true);
@@ -392,8 +398,28 @@ export class Computers {
     this.preparing.set(botId, task);
     return task;
   }
+  /** Opens an interactive PTY in a Bot's container or VM sandbox, starting it first when stopped (A103). */
+  async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
+    const botId = record.botId;
+    if (!botId) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
+    const current = this.deps.store.environments.computerOf(botId) ?? record, cwd = COMPUTER_CWD;
+    if (computerType(current) === "vm") {
+      await this.ensure(botId);
+      const access = await this.libvirt.ensure(current, computerLimits(current), this.workspace(botId));
+      return { pty: await openSshPty(current.id, access, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd };
+    }
+    const container = await this.ensure(botId);
+    let home = this.homes.get(container);
+    if (!home) {
+      home = this.prepareContainer(container).catch(error => { this.homes.delete(container); this.log(`sandbox of ${botId} not set up: ${(error as Error).message}`); });
+      this.homes.set(container, home);
+    }
+    await home;
+    return { pty: await openContainerPty(container, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd };
+  }
   async stop(botId: string): Promise<void> {
     const computer = this.record(botId);
+    this.deps.onEnvironmentClosed?.(computer.id);
     await this.disconnect(botId);
     if (computerType(computer) === "vm") await this.libvirt.stop(computer.spec.container!);
     else { if (!this.available) throw this.unavailable(409); await stopContainer(computer.spec.container!); }
@@ -403,6 +429,7 @@ export class Computers {
   async reset(botId: string): Promise<void> {
     const computer = this.record(botId);
     await this.settled(botId);
+    this.deps.onEnvironmentClosed?.(computer.id);
     await this.disconnect(botId);
     if (computerType(computer) === "vm") await this.libvirt.reset(computer);
     else { if (!this.available) throw this.unavailable(409); await removeContainer(computer.spec.container!); }
@@ -413,6 +440,7 @@ export class Computers {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) return;
     await this.settled(botId);
+    this.deps.onEnvironmentClosed?.(computer.id);
     await this.disconnect(botId);
     if (computerType(computer) === "vm") await this.libvirt.remove(computer, computerLimits(computer), this.workspace(botId), keepFiles);
     else if (this.available) await removeContainer(computer.spec.container!);

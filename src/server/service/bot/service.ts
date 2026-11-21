@@ -41,6 +41,7 @@ import { plan, type Deliveries } from "../delivery/delivery.js";
 import type { InboxEntry } from "../../infra/storage/inbox-repository.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
+import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { SecretService } from "../secrets.js";
 import type { ConnectorService } from "../connectors.js";
 import type { TaskService } from "../tasks.js";
@@ -66,6 +67,8 @@ export interface BotDependencies {
   listening?: () => Listening | null;
   /** A model reply's headers, for the subscription limits some carry (A94). */
   onReply?: (connectionId: string, provider: string, headers: Record<string, string>) => void;
+  /** An environment was stopped, reset, switched or deleted: drop any interactive terminals on it (A103). */
+  onEnvironmentClosed?: (environmentId: string) => void;
 }
 /** Service-level lifetime/lookup entry. Each Bot remains the complete business object. */
 export class BotService {
@@ -88,7 +91,7 @@ export class BotService {
   private readonly skills: readonly Skill[] = builtinSkills();
   constructor(private readonly deps: BotDependencies) {
     this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries, this.skills);
-    this.computers = new Computers({ store: deps.store, changed: () => this.listChanged() });
+    this.computers = new Computers({ store: deps.store, changed: () => this.listChanged(), onEnvironmentClosed: id => deps.onEnvironmentClosed?.(id) });
     this.computers.adopt(deps.store.bots.list().map(record => record.id));
     this.ports = new PublishedPorts(deps.store, this.computers, () => deps.listening?.() ?? null);
     this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
@@ -231,12 +234,23 @@ export class BotService {
   /** The owner deletes an SSH machine: Bots working there are back in their default, and told. */
   async removeMachine(machineId: string, force: boolean): Promise<void> {
     const name = this.machines.get(machineId).name, granted = this.machines.get(machineId).botIds;
+    this.deps.onEnvironmentClosed?.(machineId);
     this.removed(name, granted, await this.machines.remove(machineId, force));
   }
   /** The owner unpairs a computer (A96), the same way. */
   removeDevice(deviceId: string): void {
     const { name, botIds } = this.devices.get(deviceId);
+    this.deps.onEnvironmentClosed?.(deviceId);
     this.removed(name, botIds, this.devices.remove(deviceId));
+  }
+  /** Opens an interactive PTY in any registered environment (Bot sandbox, SSH machine, or connected computer, A103). */
+  async openPty(environmentId: string, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
+    const record = this.deps.store.environments.get(environmentId);
+    if (!record) throw new ChatError(404, "No work environment with this id");
+    if (record.kind === "computer") return this.computers.openPty(record, options);
+    if (record.kind === "ssh") return this.machines.openPty(record, options);
+    if (record.kind === "device") return this.devices.openPty(record, options);
+    throw new ChatError(400, "Interactive terminals are not supported for this environment kind", "terminal_unsupported");
   }
   private removed(name: string, granted: string[], moved: string[]): void {
     for (const id of new Set([...granted, ...moved])) {

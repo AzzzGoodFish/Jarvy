@@ -2,10 +2,12 @@ import { spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { HostKeyChangedError, HostKeyUnknownError, RemoteExecutionEnv, detectPlatform, scanHostKey, sshArguments, sshConnection, type SshTarget } from "@earendil-works/pi-env";
+import { HostKeyChangedError, HostKeyUnknownError, RemoteExecutionEnv, detectPlatform, openTerminal, scanHostKey, sshArguments, sshConnection, type SshTarget } from "@earendil-works/pi-env";
 import type { WorkEnvironment } from "../../shared/environment.js";
+import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import type { HostKeys } from "../../../contract/environment.js";
 import { overDurable } from "./durable.js";
+import { wrapRemoteTerminal } from "./terminal.js";
 
 /** Machines the owner adds over SSH (A57, A59). Jarvy makes an ed25519 key for each one and logs in with it; the key
  * is installed with the password the owner types once, or the owner adds its public half themselves. A machine that
@@ -105,6 +107,32 @@ export function sshEnvironment(id: string, access: SshAccess, directory: string,
     passEnv: false, temp,
     close: () => { connection.close(); rmSync(folder, { recursive: true, force: true }); },
   });
+}
+
+/** Opens an interactive PTY over SSH using a dedicated pi-env connection (A103). Ephemeral key/known_hosts files are
+ * removed automatically when the terminal exits or closes. */
+export async function openSshPty(id: string, access: SshAccess, options: PtyOpenOptions, onLog?: (text: string) => void): Promise<PtyHandle> {
+  mkdirSync(access.runtime, { recursive: true, mode: 0o700 });
+  const folder = join(access.runtime, `pty-${id}-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`);
+  const files = writeFilesSync(folder, access);
+  const { connection } = sshConnection({ ...target(access, access.alias), ...files, loginShell: true, ...(onLog ? { onLog } : {}) });
+  const cleanup = () => rmSync(folder, { recursive: true, force: true });
+  try {
+    const term = await openTerminal(connection, {
+      cwd: options.cwd,
+      ...(options.argv ? { argv: options.argv } : {}),
+      env: options.env,
+      inheritEnv: true,
+      cols: options.cols,
+      rows: options.rows,
+      onData: bytes => options.onData(Buffer.from(bytes)),
+    });
+    return wrapRemoteTerminal(connection, term, cleanup);
+  } catch (error) {
+    connection.close();
+    cleanup();
+    throw classify(error, access, access.password ? "password" : "key");
+  }
 }
 
 /** Runs one command over SSH with the given access credentials; optional stdin, timeout and output stream callback. */

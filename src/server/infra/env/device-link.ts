@@ -8,6 +8,7 @@ import type { Duplex } from "node:stream";
 import { Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import type { WorkEnvironment } from "../../shared/environment.js";
+import type { PtyExit, PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import { overDurable } from "./durable.js";
 import { DEVICE_PATH, DEVICE_PROTOCOL } from "../../../contract/device.js";
 
@@ -39,9 +40,16 @@ export interface DeviceHooks {
 export const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 export const newToken = () => randomBytes(32).toString("base64url");
 
-/** One client's connection, with the daemons running through it. */
+interface NativePtyEntry {
+  onData: (chunk: Buffer) => void;
+  finish: (exit: PtyExit) => void;
+}
+
+/** One client's connection, with the daemons and native PTYs running through it. */
 class Link {
   readonly channels = new Map<number, Socket>();
+  readonly ptys = new Map<number, NativePtyEntry>();
+  capabilities = new Set<string>();
   private next = 1;
   paused = false;
   alive = true;
@@ -59,9 +67,58 @@ class Link {
     relay.on("error", () => relay.destroy());
     return ch;
   }
-  data(ch: number, bytes: Buffer): void { this.channels.get(ch)?.write(bytes); }
-  exit(ch: number): void { const relay = this.channels.get(ch); this.channels.delete(ch); relay?.end(); }
-  drop(): void { for (const relay of this.channels.values()) relay.destroy(); this.channels.clear(); }
+  openPty(options: PtyOpenOptions): PtyHandle {
+    const ch = this.next++;
+    let settled = false;
+    let resolveExit!: (exit: PtyExit) => void;
+    const exited = new Promise<PtyExit>(resolve => { resolveExit = resolve; });
+    const finish = (exit: PtyExit) => {
+      if (settled) return;
+      settled = true;
+      this.ptys.delete(ch);
+      resolveExit(exit);
+    };
+    this.ptys.set(ch, { onData: options.onData, finish });
+    this.socket.send(JSON.stringify({
+      t: "pty_open", ch, cols: options.cols, rows: options.rows, cwd: options.cwd,
+      ...(options.argv ? { argv: [...options.argv] } : {}),
+      ...(options.env ? { env: options.env } : {}),
+    }));
+    return {
+      write: data => {
+        if (settled || this.socket.readyState !== this.socket.OPEN) return;
+        const bytes = typeof data === "string" ? Buffer.from(data, "utf8") : Buffer.from(data);
+        this.socket.send(frame(ch, bytes));
+      },
+      resize: (cols, rows) => {
+        if (settled || this.socket.readyState !== this.socket.OPEN) return;
+        this.socket.send(JSON.stringify({ t: "pty_resize", ch, cols, rows }));
+      },
+      close: () => {
+        if (settled) return;
+        if (this.socket.readyState === this.socket.OPEN) this.socket.send(JSON.stringify({ t: "close", ch }));
+        finish({ exitCode: null, reason: "closed" });
+      },
+      exited,
+    };
+  }
+  data(ch: number, bytes: Buffer): void {
+    const relay = this.channels.get(ch);
+    if (relay) { relay.write(bytes); return; }
+    this.ptys.get(ch)?.onData(bytes);
+  }
+  exit(ch: number, code: number | null = null, error?: string): void {
+    const relay = this.channels.get(ch);
+    if (relay) { this.channels.delete(ch); relay.end(); return; }
+    const pty = this.ptys.get(ch);
+    if (pty) pty.finish({ exitCode: code, ...(error ? { reason: error } : {}) });
+  }
+  drop(): void {
+    for (const relay of this.channels.values()) relay.destroy();
+    this.channels.clear();
+    for (const pty of [...this.ptys.values()]) pty.finish({ exitCode: null, reason: "disconnected" });
+    this.ptys.clear();
+  }
 }
 
 const frame = (ch: number, bytes: Buffer) => { const head = Buffer.alloc(4); head.writeUInt32BE(ch); return Buffer.concat([head, bytes]); };
@@ -91,6 +148,17 @@ export class DeviceLinks {
   }
   online(id: string): boolean { return this.links.has(id); }
   paused(id: string): boolean { return !!this.links.get(id)?.paused; }
+  hasCapability(id: string, capability: string): boolean { return !!this.links.get(id)?.capabilities.has(capability); }
+  /** Opens a dedicated pi-env `Connection` over the device relay for an interactive terminal (Linux/macOS, A103). */
+  openTerminalConnection(id: string, onLog?: (text: string) => void): Connection {
+    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, ""], ...(onLog ? { onLog } : {}) });
+  }
+  /** Opens a native connector PTY channel (Windows ConPTY, A103) over the device's WebSocket. */
+  openNativePty(id: string, options: PtyOpenOptions): PtyHandle | null {
+    const link = this.links.get(id);
+    if (!link || link.paused) return null;
+    return link.openPty(options);
+  }
 
   /** An upgrade on Jarvy's port: the device path is this one's; anything else is left alone (false). */
   upgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean {
@@ -136,15 +204,17 @@ export class DeviceLinks {
         if (message.protocol !== DEVICE_PROTOCOL) { ws.send(JSON.stringify({ t: "error", code: "protocol", protocol: DEVICE_PROTOCOL })); ws.close(4001, "protocol"); return; }
         const previous = this.links.get(device.id);
         if (previous) { previous.drop(); previous.socket.close(4000, "replaced"); }
+        const info = describe(message);
         link = new Link(device.id, ws);
-        link.paused = !!message.paused;
+        link.paused = info.paused;
+        link.capabilities = new Set(info.capabilities);
         this.links.set(device.id, link);
-        this.hooks.hello(device.id, describe(message));
+        this.hooks.hello(device.id, info);
         ws.send(JSON.stringify({ t: "welcome", id: device.id, name: device.name, protocol: DEVICE_PROTOCOL }));
         this.hooks.presence(device.id, true);
       } else if (!link) return;
       else if (message.t === "state") { link.paused = !!message.paused; this.hooks.presence(device.id, true); }
-      else if (message.t === "exit") link.exit(message.ch);
+      else if (message.t === "exit") link.exit(message.ch, message.code ?? null, message.error);
     });
     ws.on("close", (code: number) => {
       clearTimeout(hello);

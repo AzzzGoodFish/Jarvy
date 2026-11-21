@@ -56,7 +56,7 @@ export type ComputerType = "container" | "vm";
 /** A Bot's sandbox in Bot info: its state, and what it is: its type, the container or VM's name, the image it is made
  * from, and the folder on this machine mounted as its workspace. `restartNeeded`: a VM's size was changed while it
  * ran, which takes effect at its next start. */
-export interface ComputerInfo extends ComputerStatus { type: ComputerType; container: string; image: string; workspace: string; mount: string; limits: ComputerLimits;
+export interface ComputerInfo extends ComputerStatus { id: string; type: ComputerType; container: string; image: string; workspace: string; mount: string; limits: ComputerLimits;
   restartNeeded?: boolean }
 /** Why this machine can't run VM sandboxes (A101): libvirt/QEMU isn't installed, libvirtd isn't running, this user lacks
  * permission to use libvirt, helper tools (qemu-img / cloud-localds) are missing, there is no KVM, KVM is held by

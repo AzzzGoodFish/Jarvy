@@ -5,7 +5,7 @@ export type ErrorCode =
   | "computer_failed" | "computer_missing" | "connection_in_use" | "connection_missing"
   | "connector_auth_required" | "connector_client_missing" | "connector_headers_invalid" | "connector_missing"
   | "connector_oauth_failed" | "connector_slug_invalid" | "connector_unreachable" | "connector_url_invalid" | "credential_changed"
-  | "credential_scope" | "credential_unreadable" | "credentials_missing" | "data_locked" | "device_missing" | "discovery_format"
+  | "credential_scope" | "credential_unreadable" | "credentials_missing" | "data_locked" | "device_missing" | "device_offline" | "discovery_format"
   | "discovery_http" | "discovery_key" | "discovery_protocol" | "discovery_unreachable" | "discovery_url"
   | "discovery_url_missing" | "docker_unavailable" | "file_too_large" | "history_missing" | "invalid_credential" | "invalid_run" | "limits_invalid"
   | "login_input" | "login_option" | "login_step" | "machine_missing" | "machine_name_taken" | "message_missing"
@@ -17,6 +17,6 @@ export type ErrorCode =
   | "session_path" | "ssh_auth_failed" | "ssh_bad_directory" | "ssh_bad_host" | "ssh_bad_port" | "ssh_bad_user"
   | "ssh_failed" | "ssh_host_key_changed" | "ssh_key_expired" | "ssh_key_refused" | "ssh_key_unreadable"
   | "ssh_password_missing" | "ssh_password_refused" | "ssh_unreachable" | "ssh_unsupported" | "stopping"
-  | "task_invalid" | "task_schedule_invalid" | "task_time_past" | "thinking_format" | "tools_missing" | "type_invalid" | "unsafe_replay" | "vm_size_invalid" | "vm_unavailable";
+  | "task_invalid" | "task_schedule_invalid" | "task_time_past" | "terminal_limit" | "terminal_missing" | "terminal_unsupported" | "thinking_format" | "tools_missing" | "type_invalid" | "unsafe_replay" | "vm_size_invalid" | "vm_unavailable";
 /** Values a failure's wording fills in. */
 export type ErrorParams = Record<string, string | number>;

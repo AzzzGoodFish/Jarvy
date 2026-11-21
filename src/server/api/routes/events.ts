@@ -42,6 +42,8 @@ export function eventRoutes({ events, account, chats, bots }: ApiServices) {
         }
         // The agent Bot created, changed or deleted Bots (A48): the page reloads them and its chats.
         case "bots": return ["bots", {}];
+        // Interactive terminals created, renamed, exited or closed (A103): Environments page refreshes tabs/counts.
+        case "terminals": return ["terminals", {}];
       }
     };
     return eventStream(c, () => account.authenticated(token), ({ send, close, signedIn }) => {

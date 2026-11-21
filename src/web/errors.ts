@@ -18,7 +18,7 @@ const ERROR_KEYS: Record<ErrorCode, Key> = {
   credentials_missing: "error.credentialsMissing", data_locked: "error.dataLocked",
   discovery_format: "error.discoveryFormat", discovery_http: "error.discoveryHttp", discovery_key: "error.discoveryKey",
   discovery_protocol: "error.discoveryProtocol", discovery_url: "error.discoveryUrl", discovery_url_missing: "error.discoveryUrlMissing", discovery_unreachable: "error.discoveryUnreachable",
-  machine_missing: "error.machineMissing", device_missing: "error.deviceMissing", machine_name_taken: "error.machineNameTaken",
+  machine_missing: "error.machineMissing", device_missing: "error.deviceMissing", device_offline: "error.deviceOffline", machine_name_taken: "error.machineNameTaken",
   ssh_auth_failed: "error.sshAuthFailed", ssh_bad_directory: "error.sshBadDirectory", ssh_bad_host: "error.sshBadHost", ssh_bad_port: "error.sshBadPort",
   ssh_bad_user: "error.sshBadUser", ssh_failed: "error.sshFailed", ssh_host_key_changed: "error.sshHostKeyChanged", ssh_key_unreadable: "error.sshKeyUnreadable",
   ssh_password_missing: "error.sshPasswordMissing", ssh_unreachable: "error.sshUnreachable", ssh_unsupported: "error.sshUnsupported",
@@ -36,6 +36,7 @@ const ERROR_KEYS: Record<ErrorCode, Key> = {
   session_missing: "error.sessionMissing", session_path: "error.sessionPath", stopping: "error.stopping",
   task_invalid: "error.taskInvalid",
   task_schedule_invalid: "error.taskScheduleInvalid", task_time_past: "error.taskTimePast",
+  terminal_limit: "error.terminalLimit", terminal_missing: "error.terminalMissing", terminal_unsupported: "error.terminalUnsupported",
   thinking_format: "error.thinkingFormat", tools_missing: "error.toolsMissing", unsafe_replay: "error.unsafeReplay",
   type_invalid: "error.typeInvalid", vm_size_invalid: "error.vmSizeInvalid", vm_unavailable: "error.vmUnavailable",
 };

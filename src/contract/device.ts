@@ -15,10 +15,14 @@ export type DeviceToJarvy =
       shells: { bash?: string; powershell?: string }; client: string; capabilities: string[]; paused: boolean }
   | { t: "state"; paused: boolean }
   | { t: "exit"; ch: number; code: number | null; error?: string };
-/** Jarvy → client. `open` asks it to run the daemon with these arguments on a new channel, for the Bot named; `close`
- * to stop it. Close codes: 4000 replaced by a newer connection, 4001 protocol mismatch, 4002 no hello, 4003 unpaired. */
+/** Jarvy → client. `open` asks it to run the daemon with these arguments on a new channel, for the Bot named; `pty_open`
+ * asks it to open an interactive pseudo-terminal (e.g. Windows ConPTY, A103) on a new channel; `pty_resize` updates its
+ * dimensions; `close` stops any channel. Close codes: 4000 replaced by a newer connection, 4001 protocol mismatch,
+ * 4002 no hello, 4003 unpaired. */
 export type JarvyToDevice =
   | { t: "welcome"; id: string; name: string; protocol: number }
   | { t: "error"; code: "protocol"; protocol: number }
   | { t: "open"; ch: number; args: string[]; bot?: string }
+  | { t: "pty_open"; ch: number; cols: number; rows: number; cwd: string; argv?: string[]; env?: Record<string, string> }
+  | { t: "pty_resize"; ch: number; cols: number; rows: number }
   | { t: "close"; ch: number };
