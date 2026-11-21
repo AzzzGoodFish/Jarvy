@@ -2,6 +2,23 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.17.0 — 2026-11-21
+
+**Before upgrading:** stop active Bot work and back up the data directory and its separate master key. The first start upgrades the database from v34 to v35. Existing Bot grants stay in place as “Always allow”; saved exceptions for write tools are removed. To roll back, use the previous version with its pre-upgrade backup.
+
+### Added
+
+- **Connect multiple accounts for the same service.** Add another GitHub, Gmail or Linear account in Settings → Connectors and give each connection a recognizable name. Bots request access to a specific connection: allow it for this run only or keep allowing it. Write calls still need a separate confirmation each time, even if the Bot has permanent access.
+- **Hand off a long task without losing its place.** When context usage reaches 100,000 tokens or half the model's window, whichever is lower, a Bot can use `context.handoff` to summarize its active work and start a fresh stage in the same session file. It can wait for your next message or continue immediately. Cited messages are checked for readability; earlier messages and History remain available.
+
+### Changed
+
+- To switch accounts or replace credentials for a preset connector, add a fresh connection and grant access to it. Renaming a custom MCP connection preserves its grants and pending confirmations. Changing its endpoint or credentials revokes those grants and expires the old cards; waiting Bots are notified instead of being left waiting for an answer.
+
+### Fixed
+
+- VM sandboxes can start after Jarvy restarts when their libvirt network isolation filter already exists. Jarvy reuses the filter's UUID and keeps its isolation rules in place.
+
 ## 0.16.0 — 2026-11-21
 
 **Before upgrading:** stop active Bot work and back up the data directory and its separate master key. On first start the database moves from v32 (0.15.0) or v33 (development builds) to v34; use the pre-upgrade backup to roll back. If you use Kata VM sandboxes, copy anything you need into `/workspace` first. Jarvy removes the old Kata containers at startup: their processes, installed packages and files outside the host-backed workspace do not migrate. Restoring just the database will not recreate those containers. Ordinary Docker sandboxes do not need to change.
