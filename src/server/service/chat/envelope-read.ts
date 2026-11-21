@@ -38,6 +38,7 @@ export function readEnvelope(text: string): ParsedInput | null {
       .map(chat => ({ id: chat.attrs.id ?? "", ...(chat.attrs.title ? { title: chat.attrs.title } : {}), type: chat.attrs.type ?? "channel", version: count(chat.attrs.version) }));
     else if (name === "running_jobs") input.runningJobs = elements(element, "running_job")
       .map(job => ({ id: job.attrs.id ?? "", env: job.attrs.env ?? "", since: time(job.attrs.since), command: textOf(job) }));
+    else if (name === "context") input.context = { tokens: count(attrs.tokens), window: count(attrs.window) };
     else if (name === "environment" && attrs.name) input.place = place(attrs);
     else input.items.push({ kind: "other", name, text: element.source });
   };
@@ -87,6 +88,9 @@ function itemOf(self: Element): ParsedItem | null {
       ...(attrs.duration ? { duration: attrs.duration } : {}), ...(attrs.env ? { env: attrs.env } : {}), at: time(attrs.at), output,
       ...(attrs.full_output ? { fullOutputPath: attrs.full_output } : {}), ...(error ? { error } : {}) };
   }
+  if (name === "handoff") return { kind: "handoff", text: textOf(self) };
+  if (name === "handoff_request") return { kind: "handoff_request", by: attrs.by, at: time(attrs.at) };
+  if (name === "handoff_continue") return { kind: "handoff_continue", at: time(attrs.at) };
   return null;
 }
 

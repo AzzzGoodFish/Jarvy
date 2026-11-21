@@ -114,7 +114,9 @@ export class BotService {
       if (to) this.deps.deliveries.notify({ to, kind: "job", reason: "finish", actorId: null, payloads: [payload] });
     });
     this.jobs.set(id, jobs);
-    const runtime = new AgentRuntime(new BotInbox(id, store.runtime, chats, files, store.tasks, here, () => jobs.running()), (setup, model, reference, activity) =>
+    let runtime!: AgentRuntime;
+    const inbox = new BotInbox(id, store.runtime, chats, files, store.tasks, record.workspacePath, here, () => jobs.running(), () => runtime.contextUsage());
+    runtime = new AgentRuntime(inbox, (setup, model, reference, activity) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),
         environment: () => this.environments.current(id, record.workspacePath), environmentName: () => this.environments.here(id, record.workspacePath).name,
@@ -124,7 +126,14 @@ export class BotService {
           // What it was doing in its threads may be out of the conversation too: they come with its next batch (A73).
           const to = chats.member(id);
           if (to) this.deps.deliveries.notify({ to, kind: "followed", reason: "compaction", actorId: null, payloads: [null] });
-        } }), () => this.stopBotJobs(id, jobs));
+        } }), () => this.stopBotJobs(id, jobs), continued => {
+          // A fresh session lost chat notice content and thread context, just like a compaction (A67, A73, A99).
+          chats.channels.clearNotesSeen(id);
+          const to = chats.member(id);
+          if (!to) return;
+          this.deps.deliveries.notify({ to, kind: "followed", reason: "handoff", actorId: null, payloads: [null] });
+          if (continued && !this.closed) this.deps.deliveries.notify({ to, kind: "handoff", reason: "continue", actorId: null, payloads: [{ kind: "continue" }] });
+        });
     const workspace = new Workspace(record.workspacePath, () => this.environments.current(id, record.workspacePath), () => {
       const place = this.environments.default(id, record.workspacePath); return { kind: "computer" as const, cwd: place.directory }; });
     const memory = new Memory(join(dirname(record.workspacePath), "history.db"));
@@ -145,7 +154,7 @@ export class BotService {
           call: (chatId, slug, toolName, args, ask, hasPerson, signal) =>
             this.deps.connectors.callTool(id, chatId, slug, toolName, args, ask, hasPerson, signal),
         },
-        tasks: this.deps.tasks, ports: this.ports,
+        tasks: this.deps.tasks, ports: this.ports, handoff: runtime.handoffPort(),
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
       state: new BotState(() => {
         if (id === AGENT_BOT_ID && bot?.status().status !== "running" && this.environments.expireOnce(id)) this.listChanged();
@@ -320,6 +329,14 @@ export class BotService {
     if (waiting) this.deliver(id, waiting.urgency);
   }
   retry(id: string): void { this.resume(id); }
+  /** Owner-initiated context handoff (A99): sends a durable notice that wakes/steers the Bot and waives the token floor. */
+  requestHandoff(id: string): void {
+    const record = this.record(id);
+    if (!record.connectionId) throw new RuntimeFault("model_required", "Pick a model for this Bot first.", 409);
+    if (this.deps.store.chats.inbox.hasPendingHandoffRequest(id)) { this.deliver(id, "queue"); return; }
+    const to = this.deps.chats.member(id);
+    if (to) this.deps.deliveries.notify({ to, kind: "handoff", reason: "owner", actorId: this.deps.store.account.userMemberId(), payloads: [{ kind: "request" }] });
+  }
   start(): void {
     if (this.started) return;
     this.started = true;

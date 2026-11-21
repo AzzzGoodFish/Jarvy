@@ -46,6 +46,11 @@ export class InboxRepository {
   cancelTaskNotice(taskId: string): void {
     this.db.prepare(`DELETE FROM inbox WHERE category='system' AND kind='task' AND state='pending' AND json_extract(payload,'$.task')=?`).run(taskId);
   }
+  /** Whether an owner-initiated context handoff request is already pending for this Bot (A99). */
+  hasPendingHandoffRequest(botId: string): boolean {
+    return !!this.db.prepare(`SELECT 1 FROM inbox WHERE member_id=? AND category='system' AND kind='handoff' AND state='pending'
+      AND json_extract(payload,'$.kind')='request' LIMIT 1`).get(botId);
+  }
   /** A deleted member's rows go with it. */
   forget(memberId: string): void { this.db.prepare("DELETE FROM inbox WHERE member_id=?").run(memberId); }
 

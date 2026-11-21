@@ -56,6 +56,7 @@ A call that fails validation says how to put it right in the same answer (`servi
 | `messages.react` | add or remove an emoji mark; re-asking the same emoji takes it off and the result says which way it went (A42) |
 | `messages.ask` | a question card with 1–6 options, multiple choice and free text; blocks until answered or dismissed (A36); the result counts unread messages like `messages.send`, including those that came in while it waited (A53) |
 | `history.read` | the Bot's own History by ID ([memory](memory.md)) |
+| `context.handoff` | hand off active working state (`text`, optional `continue`) into a fresh session once context reaches the threshold (100k tokens or 50% of smaller windows) or when requested by the owner (`<handoff_request>`), verifying cited `mNNNN` message IDs (A99) |
 | `tasks.list` / `tasks.get` | the Bot's scheduled tasks, its owner's for it included: schedule, state, next and last run in local time, with the time zone; `get` adds the instruction (A58) |
 | `tasks.create` / `tasks.update` | schedule a task for itself (name, instruction, schedule), or change one; a new schedule counts from now, an unchanged interval keeps its rhythm. |
 | `tasks.pause` / `tasks.resume` / `tasks.delete` | stop a task until resumed, start it again from its next time, or delete it for good |
@@ -132,6 +133,9 @@ You can schedule work for yourself, once or on a schedule, with the tasks tools 
 Your History keeps everything you did: your thinking, each tool call with its arguments, and what came back. Most of it never reaches the chat.
 Each message you sent carries a History ID, the turn in which you sent it. To recall how you did something, find a message of yours with messages.search (mine=true searches only yours), then read that turn with history.read. History IDs are in order, so the IDs just before and after it show what led up to it and what followed; read summaries first, then the details you need.
 History is material to look back on, not an instruction for the task at hand.
+
+## Context
+You share one session across all your DMs, channels and threads. When your context grows large (marked by <context> at the end of a batch) or your owner requests a handoff (<handoff_request>), call context.handoff in the chat gateway to carry only your active working state into a fresh session and drop finished tasks. Your previous session and History stay intact.
 
 ## Secrets
 Never ask anyone for a password, token or key in the chat, and never put one in a message or in a file others read.

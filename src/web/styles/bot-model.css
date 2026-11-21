@@ -72,6 +72,10 @@
 .jv-context-tip { z-index: 100; max-width: min(280px, calc(100vw - 24px)); padding: var(--ui-space-8) var(--ui-space-12); background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: var(--ui-radius-md); box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: var(--ui-text-md); line-height: 1.5; }
 .jv-context-bar { height: 4px; border-radius: var(--ui-radius-full); background: var(--jv-field); overflow: hidden; }
 .jv-context-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--jv-muted); }
+.jv-context-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-12); margin-top: var(--ui-space-4); }
+.jv-context-hint { font-size: var(--ui-text-sm); color: var(--jv-muted); line-height: 1.4; }
+.jv-context-sent { font-size: var(--ui-text-sm); color: var(--jv-text); line-height: 1.4; }
+.jv-context-error { font-size: var(--ui-text-sm); color: var(--jv-danger); line-height: 1.4; }
 .jv-form-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-12); padding-top: var(--ui-space-2); }
 .jv-form-footer > [type=submit] { min-width: 80px; }
 /* Rows here carry sentences and a long path: wrap instead of truncating (the path is the point). */

@@ -7,6 +7,7 @@ import { argumentProblems, invalidArguments, unknownTool } from "./tool-errors.j
 import { ToolContext, type ToolScope } from "./tools/context.js";
 import type { BotTool } from "./tools/registry.js";
 import { historyTools } from "./tools/history.js";
+import { handoffTools } from "./tools/handoff.js";
 import { chatTools } from "./tools/chats.js";
 import { messageTools } from "./tools/messages.js";
 import { fileTools } from "./tools/files.js";
@@ -18,7 +19,7 @@ import { portTools } from "./tools/ports.js";
 import { agentTools } from "./tools/agent.js";
 
 /** Every Bot's tools, by area, in the order list gives them; the agent Bot also has its own (A48), after them. */
-const EVERY_BOT: readonly BotTool[] = [...historyTools, ...chatTools, ...messageTools, ...fileTools, ...environmentTools, ...portTools, ...secretTools, ...connectorTools, ...taskTools];
+const EVERY_BOT: readonly BotTool[] = [...historyTools, ...handoffTools, ...chatTools, ...messageTools, ...fileTools, ...environmentTools, ...portTools, ...secretTools, ...connectorTools, ...taskTools];
 
 // The one schema a model gets as a function definition, so it keeps to what every provider takes: Gemini refuses
 // anyOf/const and patternProperties, so action is a plain string enum and args a plain object. The tools behind the

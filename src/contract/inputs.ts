@@ -16,6 +16,8 @@ export interface ParsedInput {
   place?: ParsedPlace;
   /** Background commands running when this batch arrived (A98). */
   runningJobs?: { id: string; env: string; since?: number; command: string }[];
+  /** Context usage watermark attached when the session reached the handoff threshold (A99). */
+  context?: { tokens: number; window: number };
 }
 export type ParsedPlace = ({ kind: "sandbox" } | { kind: "machine"; name: string }) & { directory: string; unavailable?: true };
 export interface ParsedChat { id: string; type: string; title?: string }
@@ -39,6 +41,12 @@ export type ParsedItem =
   | { kind: "instructions"; parts: string[]; text: string }
   /** A background bash command finished (A98). */
   | { kind: "job"; id: string; status: string; command: string; exitCode?: number; duration?: string; env?: string; at?: number; output: string; fullOutputPath?: string; error?: string }
+  /** Context handoff note carried from the previous session (A99). */
+  | { kind: "handoff"; text: string }
+  /** The owner asked the Bot to hand off its context (A99). */
+  | { kind: "handoff_request"; by?: string; at?: number }
+  /** Automatic continuation right after a mid-task context handoff (A99). */
+  | { kind: "handoff_continue"; at?: number }
   /** A part this doesn't know, as written. */
   | { kind: "other"; name: string; text: string };
 /** A record's input in a list: the first thing it says (its text cut short) with the chat and person that names, and

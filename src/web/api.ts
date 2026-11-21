@@ -124,6 +124,7 @@ export const api = {
   deleteTask: (botId: string, id: string) => request<{ ok: true }>(`/bots/${botId}/tasks/${id}`, { method: "DELETE" }),
   botSubscriptions: (botId: string) => request<{ chats: Chat[] }>(`/members/${botId}/subscriptions`),
   controlBot: (id: string, action: "start" | "stop" | "abort") => request<BotStatus>(`/bots/${id}/${action}`, { method: "POST" }),
+  handoffBot: (id: string) => request<{ ok: boolean }>(`/bots/${id}/handoff`, { method: "POST" }),
   grantBotMachine: (id: string, machineId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ machineId, granted }) }),
   /** The agent Bot into another Bot's sandbox (A93). */
   grantBotSandbox: (id: string, sandboxId: string, granted: boolean) => request<Bot>(`/bots/${id}/environment`, { method: "PUT", body: body({ sandboxId, granted }) }),

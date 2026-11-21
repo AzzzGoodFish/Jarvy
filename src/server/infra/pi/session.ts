@@ -119,7 +119,7 @@ export class PiSession implements BotSession {
     if (!resolve(reference.file).startsWith(expected) || dirname(resolve(reference.file)) !== resolve(sessionsDir))
       throw new RuntimeFault("session_path", "The session file path isn't valid.");
     const exists = existsSync(reference.file);
-    if (!exists && (reference.persisted || store.runtime.runs(bot.id).some(run => run.state === "unknown")))
+    if (!exists && (reference.persisted || store.runtime.hasUnknownRunInSession(bot.id)))
       throw new RuntimeFault("session_missing", "The session file is missing; check the run records before recovering.");
     if (exists) {
       let header: { type?: string; id?: string };
