@@ -37,6 +37,7 @@ export const terminals = {
   "terminal.devicePausedTitle": "Computer is paused",
   "terminal.devicePausedBody": "Resume this computer in its Jarvy client tray to open a terminal.",
   "terminal.copied": "Copied to clipboard",
+  "terminal.pasteHint": "Use Ctrl+V to paste",
   "error.deviceOffline": "This computer is offline or paused in its Jarvy client.",
   "error.terminalLimit": "Too many terminals are open. Close an existing terminal first.",
   "error.terminalMissing": "This terminal session no longer exists.",

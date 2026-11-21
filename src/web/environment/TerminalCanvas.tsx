@@ -72,45 +72,79 @@ const wsUrl = (id: string) => {
   return `${protocol}//${window.location.host}${TERMINAL_WS_PREFIX}${encodeURIComponent(id)}${TERMINAL_WS_SUFFIX}`;
 };
 
+/** Copies text to the clipboard, falling back to `execCommand("copy")` on plain-HTTP LAN origins where
+ * `navigator.clipboard` is unavailable. */
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* fall through */ }
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.left = "-9999px";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
+  area.remove();
+  return ok;
+}
+
 /** Interactive xterm.js canvas connected to a server-managed persistent terminal over WebSocket (A103).
  * Restores the exact serialized headless screen + scrollback on attach or reconnect, automatically resizes
- * via ResizeObserver, and supports TUI-friendly shortcuts (smart Ctrl+C, Shift+Enter, OSC 52 clipboard). */
+ * via ResizeObserver, and supports Windows/macOS/Linux terminal ergonomics (Ctrl+C/V, Ctrl+Shift+C/V,
+ * right-click copy/paste, Shift+Enter, OSC 52 clipboard). */
 export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   sessionId: string;
   active: boolean;
   onExit?: (exitCode: number | null, reason?: string) => void;
   onForeground?: (foreground?: string) => void;
   onStateSync?: (state: TerminalState, exitCode: number | null, reason?: string) => void;
-  onCopied?: () => void;
-}>(function TerminalCanvas({ sessionId, active, onExit, onForeground, onStateSync, onCopied }, ref) {
+  onNotice?: (message: string) => void;
+}>(function TerminalCanvas({ sessionId, active, onExit, onForeground, onStateSync, onNotice }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<() => void>(() => {});
-  const callbacksRef = useRef({ onExit, onForeground, onStateSync, onCopied });
-  callbacksRef.current = { onExit, onForeground, onStateSync, onCopied };
+  const callbacksRef = useRef({ onExit, onForeground, onStateSync, onNotice });
+  callbacksRef.current = { onExit, onForeground, onStateSync, onNotice };
   const [link, setLink] = useState<"connecting" | "open" | "reconnecting" | "closed">("connecting");
+
+  const copySelected = async (): Promise<boolean> => {
+    const term = termRef.current;
+    const text = term?.getSelection() ?? "";
+    if (!text.trim()) { term?.clearSelection(); return false; }
+    const ok = await copyToClipboard(text);
+    term?.clearSelection();
+    term?.focus();
+    if (ok) callbacksRef.current.onNotice?.(t("terminal.copied"));
+    return ok;
+  };
+
+  const pasteFromClipboard = async (): Promise<void> => {
+    const term = termRef.current;
+    if (!navigator.clipboard?.readText) {
+      callbacksRef.current.onNotice?.(t("terminal.pasteHint"));
+      term?.focus();
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) term?.paste(text);
+    } catch {
+      callbacksRef.current.onNotice?.(t("terminal.pasteHint"));
+    }
+    term?.focus();
+  };
 
   useImperativeHandle(ref, () => ({
     focus: () => termRef.current?.focus(),
-    copy: async () => {
-      const text = termRef.current?.getSelection() ?? "";
-      if (!text) return false;
-      try {
-        await navigator.clipboard.writeText(text);
-        termRef.current?.clearSelection();
-        callbacksRef.current.onCopied?.();
-        return true;
-      } catch { return false; }
-    },
-    paste: async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) termRef.current?.paste(text);
-        termRef.current?.focus();
-      } catch { /* clipboard permission denied */ }
-    },
+    copy: copySelected,
+    paste: pasteFromClipboard,
     reconnect: () => reconnectRef.current(),
     size: () => ({ cols: termRef.current?.cols ?? 100, rows: termRef.current?.rows ?? 30 }),
   }), []);
@@ -168,12 +202,18 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
         const bin = atob(b64);
         const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
         const text = new TextDecoder().decode(bytes);
-        void navigator.clipboard.writeText(text).then(() => callbacksRef.current.onCopied?.()).catch(() => {});
+        void copyToClipboard(text).then(ok => { if (ok) callbacksRef.current.onNotice?.(t("terminal.copied")); });
       } catch { /* malformed base64 */ }
       return true;
     });
 
-    // Ergonomic shortcuts for Windows/macOS/Linux + AI CLI TUIs (Claude Code, Codex, agy CLI).
+    // Clear empty/whitespace-only selections when dragging over blank canvas areas.
+    const onMouseUp = () => {
+      if (term.hasSelection() && !term.getSelection().trim()) term.clearSelection();
+    };
+    container.addEventListener("mouseup", onMouseUp);
+
+    // Windows Terminal / PowerShell / macOS ergonomics + AI CLI TUI shortcuts (Claude Code, Codex, agy CLI).
     term.attachCustomKeyEventHandler(event => {
       if (event.type !== "keydown") return true;
       const key = event.key.toLowerCase();
@@ -183,25 +223,34 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
         sendInput("\x1b\r");
         return false;
       }
-      // Smart Ctrl+C: copy when text is selected, otherwise pass SIGINT through to the shell.
-      if (event.ctrlKey && !event.altKey && !event.metaKey && key === "c") {
-        if (event.shiftKey || term.hasSelection()) {
-          const text = term.getSelection();
-          if (text) {
-            event.preventDefault();
-            void navigator.clipboard.writeText(text).then(() => {
-              term.clearSelection();
-              callbacksRef.current.onCopied?.();
-            }).catch(() => {});
-            return false;
-          }
-          if (event.shiftKey) return false;
+      // Copy: Ctrl+C (when text is selected), Ctrl+Shift+C, or Cmd+C (when text is selected).
+      if ((event.ctrlKey && !event.altKey && !event.metaKey && key === "c") || (event.metaKey && !event.ctrlKey && !event.altKey && key === "c")) {
+        const selected = term.getSelection();
+        if (selected.trim()) {
+          event.preventDefault();
+          void copyToClipboard(selected).then(ok => {
+            term.clearSelection();
+            term.focus();
+            if (ok) callbacksRef.current.onNotice?.(t("terminal.copied"));
+          });
+          return false;
         }
+        if (term.hasSelection()) term.clearSelection();
+        if (event.shiftKey || event.metaKey) return false;
+        return true; // No selection + plain Ctrl+C → send SIGINT to the shell.
       }
-      // Ctrl+Shift+V: paste via bracketed paste.
+      // Paste: Ctrl+V / Cmd+V → let the browser fire its native `paste` event on xterm's textarea (works on HTTP & HTTPS!).
+      if (((event.ctrlKey && !event.shiftKey && !event.metaKey) || (event.metaKey && !event.ctrlKey)) && !event.altKey && key === "v") {
+        return false;
+      }
+      // Ctrl+Shift+V: paste via Clipboard API when available; otherwise fall through to browser native paste.
       if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "v") {
-        event.preventDefault();
-        void navigator.clipboard.readText().then(text => { if (text) term.paste(text); }).catch(() => {});
+        if (navigator.clipboard?.readText) {
+          event.preventDefault();
+          void navigator.clipboard.readText().then(text => { if (text) term.paste(text); }).catch(() => {
+            callbacksRef.current.onNotice?.(t("terminal.pasteHint"));
+          });
+        }
         return false;
       }
       return true;
@@ -304,6 +353,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       disposed = true;
       if (retryTimer) window.clearTimeout(retryTimer);
       if (resizeTimer) window.clearTimeout(resizeTimer);
+      container.removeEventListener("mouseup", onMouseUp);
       resizeObserver.disconnect();
       themeObserver.disconnect();
       dataDispose.dispose();
@@ -332,7 +382,14 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   }, [active]);
 
   return <div className="jv-term-stage">
-    <div ref={hostRef} className="jv-term-canvas" onClick={() => termRef.current?.focus()}/>
+    <div ref={hostRef} className="jv-term-canvas"
+      onContextMenu={event => {
+        const term = termRef.current;
+        if (!term) return;
+        event.preventDefault();
+        if (term.getSelection().trim()) void copySelected();
+        else void pasteFromClipboard();
+      }}/>
     {(link === "connecting" || link === "reconnecting") && <div className="jv-term-overlay" role="status">
       <span>{t(link === "connecting" ? "terminal.connecting" : "terminal.reconnecting")}</span>
       {link === "reconnecting" && <Button type="button" variant="outline" size="sm" onClick={() => reconnectRef.current()}>{t("terminal.reconnect")}</Button>}

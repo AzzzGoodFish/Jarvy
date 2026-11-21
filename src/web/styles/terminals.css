@@ -50,8 +50,8 @@
 .jv-term-stage { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #fafbfc; }
 :root[data-theme="dark"] .jv-term-stage { background: #21252b; }
 
-/* Explicit text selection inside the terminal canvas (A100). */
-.jv-term-canvas { flex: 1; min-width: 0; min-height: 0; padding: var(--ui-space-8) var(--ui-space-12); overflow: hidden; user-select: text; -webkit-user-select: text; }
+/* xterm.js handles terminal selection internally; keep container padding unselectable so only terminal text selects. */
+.jv-term-canvas { flex: 1; min-width: 0; min-height: 0; padding: var(--ui-space-8) var(--ui-space-12); overflow: hidden; user-select: none; -webkit-user-select: none; }
 .jv-term-canvas .xterm { height: 100%; }
 .jv-term-canvas .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--ui-border-default) transparent; }
 

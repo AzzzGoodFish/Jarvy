@@ -40,6 +40,7 @@ export const terminals: Part<typeof en> = {
   "terminal.devicePausedTitle": "电脑已暂停",
   "terminal.devicePausedBody": "请在电脑客户端托盘中恢复连接后再打开终端。",
   "terminal.copied": "已复制到剪贴板",
+  "terminal.pasteHint": "请按 Ctrl+V 粘贴",
   "error.deviceOffline": "这台电脑当前离线或已在客户端中暂停。",
   "error.terminalLimit": "打开的终端数量已达上限，请先关闭不用的终端。",
   "error.terminalMissing": "该终端会话已不存在。",
