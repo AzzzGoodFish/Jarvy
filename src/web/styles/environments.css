@@ -1,6 +1,8 @@
 /* The Environments page (environment/Environments.tsx, A89): every place Bots work on the left, one row each with the
    Bots working there, the one picked on the right. */
 .jv-envs { display: grid; grid-template-columns: var(--ui-sidebar) minmax(0, 1fr); min-width: 0; min-height: 0; background: var(--ui-bg-base); }
+/* Keep Environments mounted off-flow when switching to Chats/Home so live terminal canvases keep their size, scroll and WebSocket. */
+.jv-envs[data-inactive] { position: absolute; inset: 0 0 0 var(--ui-rail); visibility: hidden; pointer-events: none; z-index: -1; }
 .jv-envs-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak); }
 /* The list's head and search box are the chat list's (shell.css, Sidebar.tsx), so the two pages line up. */
 .jv-envs-scroll { flex: 1; min-height: 0; padding: 0 var(--ui-space-12) var(--ui-space-16); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
@@ -17,6 +19,7 @@
 .jv-envs-more { margin-left: var(--ui-space-4); font-size: var(--ui-text-sm); color: var(--ui-text-tertiary); }
 
 .jv-envs-detail { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.jv-envs-content { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .jv-envs-back { display: none; flex: none; place-items: center; width: 32px; height: 32px; margin-left: calc(-1 * var(--ui-space-8)); padding: 0; border: 0; border-radius: var(--ui-radius-md);
   background: none; color: var(--ui-text-secondary); cursor: pointer; }
 .jv-envs-back:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
@@ -29,17 +32,18 @@
 /* Phones: the list fills the screen over the tab bar; a pick opens over it, with a way back and without the tab bar. */
 @media (max-width: 620px) {
   .jv-envs { flex: 1; grid-template-columns: minmax(0, 1fr); }
+  .jv-envs[data-inactive] { inset: 0; }
   .jv-envs-list { border-right: 0; padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
   .jv-envs[data-open] .jv-envs-list, .jv-envs:not([data-open]) .jv-envs-detail { display: none; }
-  .ui-app:has(.jv-envs[data-open]) .jv-rail { display: none; }
+  .ui-app:has(.jv-envs:not([data-inactive])[data-open]) .jv-rail { display: none; }
   .jv-envs-back { display: grid; }
   .jv-envs-body { padding: var(--ui-space-16) var(--ui-inset-list) max(var(--ui-space-24), env(safe-area-inset-bottom)); }
 }
 /* Adding: an SSH machine or a computer (A96). */
 .jv-envs-add-kind { align-self: flex-start; width: fit-content; margin-bottom: var(--ui-space-12); }
 /* Full-screen / focus mode for interactive terminals (A103). */
-.ui-app[data-view]:has(.jv-envs[data-maximized]) { grid-template-columns: minmax(0, 1fr); }
-.ui-app:has(.jv-envs[data-maximized]) .jv-rail { display: none; }
+.ui-app[data-view]:has(.jv-envs:not([data-inactive])[data-maximized]) { grid-template-columns: minmax(0, 1fr); }
+.ui-app:has(.jv-envs:not([data-inactive])[data-maximized]) .jv-rail { display: none; }
 .jv-envs[data-maximized] { grid-template-columns: minmax(0, 1fr); }
 .jv-envs[data-maximized] .jv-envs-list { display: none; }
 .jv-envs-tabs { flex: none; }

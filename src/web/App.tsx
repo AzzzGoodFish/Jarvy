@@ -129,7 +129,7 @@ export function App() {
   const agent = bots.find(bot => bot.agent), agentStatus = agent ? statuses[agent.id] : undefined;
   const agentDm = chats.find(chat => chat.type === "dm" && chat.botId === agent?.id), home = view === "home" && !!agent, envs = view === "envs";
   // The chats aren't on screen: the agent Bot's page or the environments cover them.
-  const away = home || envs, awayRef = useRef(away); awayRef.current = away;
+  const away = home || envs, awayRef = useRef(away), envsMounted = useRef(envs); awayRef.current = away; if (envs) envsMounted.current = true;
   const agentCall = useCall(agentStatus, agentDm), agentFigure = useAgentFigure(agent, agentStatus, agentCall.call === "error");
   // The rail's cat and the home page show what the agent Bot is doing, whatever is open.
   useEffect(() => { if (phase === "ready" && agent) void readStatus(agent.id).catch(handleError); }, [phase, agent?.id]);
@@ -398,7 +398,7 @@ export function App() {
     try {
       await drafts.clear(id => api.removeAttachment(id));
       await api.logout(); setPhase("login"); setAccountMenu(false); setSettingsTab(null);
-      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); setChanges(noChanges); memory.clear();
+      statusVersions.current.clear(); setStatuses({}); setPane(null); setFollowed(null); setChanges(noChanges); memory.clear(); envsMounted.current = false;
       setUsername(""); setSelected(null); setChats([]); setBots([]); setConnections([]); setMessages([]);
     } catch (error) { handleError(error); }
   }
@@ -480,7 +480,7 @@ export function App() {
       {home && <Home bot={agent} chat={agentDm} status={agentStatus} figure={agentFigure} call={agentCall.call} onSeen={agentCall.seen} meId={meId} members={members} drafts={drafts} live={live} onOpenDm={() => void openBot(agent.id)}
         onBotInfo={() => setInfoBotId(agent.id)} ensureDm={async () => { const chat = await api.createChat(agent.id); chatSaved(chat); return chat; }}
         onRead={(chat, sequence) => readUpTo(setChats, chat.id, sequence, handleError)} onPreview={(files, index) => setPreview({ files, index })} onNotice={setNotice} onError={handleError}/>}
-      {envs && <Environments bots={bots} statuses={statuses} adding={addingMachine} terminalVersion={terminalVersion} onAdding={setAddingMachine} onSaved={updateBot}/>}
+      {envsMounted.current && <Environments active={envs} bots={bots} statuses={statuses} adding={addingMachine} terminalVersion={terminalVersion} onAdding={setAddingMachine} onSaved={updateBot}/>}
     </div>
     {cardBot && botCard && <BotCard bot={cardBot} status={statuses[cardBot.id]} connections={connections} anchor={botCard.anchor} onClose={closeBotCard} onMessage={() => void openBot(cardBot.id)} onInfo={() => setInfoBotId(cardBot.id)}/>}
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
