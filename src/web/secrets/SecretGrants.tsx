@@ -12,9 +12,11 @@ export function SecretGrants({ secret, bots, onChanged }: { secret: Secret; bots
 }
 
 /** The Bots that can use something the owner keeps (a secret, an SSH machine), in Settings. */
-export function BotGrants({ grantedIds, onceIds, bots, onGrant }: { grantedIds: string[]; onceIds?: Set<string>; bots: Bot[]; onGrant: (botIds: string[], granted: boolean) => Promise<void> }) {
+export function BotGrants({ grantedIds, onceIds, bots, hideHeading, onGrant }: {
+  grantedIds: string[]; onceIds?: Set<string>; bots: Bot[]; hideHeading?: boolean; onGrant: (botIds: string[], granted: boolean) => Promise<void>;
+}) {
   const once = onceIds ?? new Set<string>();
-  return <Grants grantedIds={grantedIds} onGrant={onGrant}
+  return <Grants grantedIds={grantedIds} hideHeading={hideHeading} summary={count => t("envs.grantedCount", { count })} onGrant={onGrant}
     items={bots.map(bot => ({ id: bot.id, name: bot.name, once: once.has(bot.id), icon: <BotAvatar color={bot.color} mood={bot.mood} size={20} crown={bot.agent}/> }))}
     texts={{ heading: t("secrets.grants"), add: t("secrets.addBots"), search: t("secrets.searchBots"), none: t("secrets.noGrants"), nothing: t("secrets.noBots"),
       noMatch: t("secrets.noMatch"), all: t("secrets.allGranted") }}/>;

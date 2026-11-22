@@ -8,7 +8,8 @@ import { deviceState, deviceSystem } from "./DeviceDetail";
 import { EnvFaces, shellShortLabel } from "./EnvironmentsSidebar";
 import { machineAddress } from "./MachineDetail";
 
-/** Status-and-actions summary card at the top of an environment's Overview tab. */
+/** Status-and-actions summary card at the top of an environment's Overview tab:
+ * Band 1 shows live status + active work + primary actions; Band 2 lays out read-only specs in a clean grid. */
 export function EnvironmentHero({
   device, machine, bot, here, statuses, runningTerminals, onOpenTerminal, onBrowseFiles,
 }: {
@@ -25,7 +26,7 @@ export function EnvironmentHero({
   let pillLabel = "";
   let summary = "";
   let disabledActions = false;
-  const facts: { label: string; value: string }[] = [];
+  const specs: { label: string; value: string; mono?: boolean }[] = [];
 
   if (device) {
     const state = deviceState(device);
@@ -33,15 +34,22 @@ export function EnvironmentHero({
     pillLabel = t(`devices.${state}`);
     summary = deviceSystem(device) || t("devices.kindDevice");
     disabledActions = state !== "online";
-    if (device.directory) facts.push({ label: t("machines.directory"), value: device.directory });
-    if (device.activeShell) facts.push({ label: t("devices.shell"), value: shellShortLabel(device.activeShell, device.platform) });
-    if (device.client) facts.push({ label: t("devices.client"), value: device.client });
+    if (device.directory) specs.push({ label: t("machines.directory"), value: device.directory, mono: true });
+    const availableShells = [
+      device.shells.powershell ? t("devices.shellPowershell") : null,
+      device.shells.bash ? shellShortLabel("bash", device.platform) : null,
+    ].filter(Boolean).join(", ");
+    if (availableShells) specs.push({ label: t("envs.availableShells"), value: availableShells, mono: true });
+    else if (device.activeShell) specs.push({ label: t("devices.shell"), value: shellShortLabel(device.activeShell, device.platform), mono: true });
+    if (device.client) specs.push({ label: t("devices.client"), value: device.client, mono: true });
+    if (state === "offline" && device.seenAt) specs.push({ label: t("envs.lastOnline"), value: new Date(device.seenAt).toLocaleString() });
   } else if (machine) {
     pillTone = "ok";
     pillLabel = t("devices.kindMachine");
     summary = machineAddress(machine);
-    if (machine.directory) facts.push({ label: t("machines.directory"), value: machine.directory });
-    facts.push({ label: t("machines.login"), value: t(machine.login === "password" ? "machines.loginPassword" : "machines.loginKey") });
+    specs.push({ label: t("machines.host"), value: machineAddress(machine), mono: true });
+    if (machine.directory) specs.push({ label: t("machines.directory"), value: machine.directory, mono: true });
+    specs.push({ label: t("machines.login"), value: t(machine.login === "password" ? "machines.loginPassword" : "machines.loginKey") });
   } else if (bot?.environment.computer) {
     const computer = bot.environment.computer;
     pillTone = computer.state === "running" ? "ok"
@@ -51,15 +59,16 @@ export function EnvironmentHero({
     pillLabel = t(STATE[computer.state]);
     summary = t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container");
     disabledActions = computer.state === "unavailable";
-    if (computer.mount) facts.push({ label: t("environment.mount"), value: computer.mount });
-    if (computer.container) facts.push({ label: t(computer.type === "vm" ? "environment.vm" : "environment.container"), value: computer.container });
+    if (computer.container) specs.push({ label: t(computer.type === "vm" ? "environment.vm" : "environment.container"), value: computer.container, mono: true });
+    if (computer.mount) specs.push({ label: t("environment.mount"), value: computer.mount, mono: true });
+    if (computer.image) specs.push({ label: t("environment.image"), value: computer.image, mono: true });
   } else {
     return null;
   }
 
-  return <div className="jv-ov-hero">
-    <div className="jv-ov-hero-info">
-      <div className="jv-ov-hero-top">
+  return <section className="jv-ov-hero" aria-label={pillLabel}>
+    <div className="jv-ov-hero-head">
+      <div className="jv-ov-hero-status">
         <span className="jv-ov-pill" data-tone={pillTone}>
           <span className="jv-ov-pill-dot" aria-hidden="true"/>
           {pillLabel}
@@ -77,20 +86,20 @@ export function EnvironmentHero({
           </span>
         </>}
       </div>
-      {facts.length > 0 && <div className="jv-ov-hero-facts">
-        {facts.map(fact => <span key={fact.label} className="jv-ov-fact-chip">
-          <span>{fact.label}</span>
-          <code>{fact.value}</code>
-        </span>)}
-      </div>}
+      <div className="jv-ov-hero-actions">
+        <Button type="button" className="jv-primary" size="sm" disabled={disabledActions} onClick={onOpenTerminal}>
+          <TerminalIcon aria-hidden="true"/>{t("envs.openTerminal")}
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={disabledActions} onClick={onBrowseFiles}>
+          <FolderOpenIcon aria-hidden="true"/>{t("envs.browseFiles")}
+        </Button>
+      </div>
     </div>
-    <div className="jv-ov-hero-actions">
-      <Button type="button" className="jv-primary" size="sm" disabled={disabledActions} onClick={onOpenTerminal}>
-        <TerminalIcon aria-hidden="true"/>{t("envs.openTerminal")}
-      </Button>
-      <Button type="button" variant="outline" size="sm" disabled={disabledActions} onClick={onBrowseFiles}>
-        <FolderOpenIcon aria-hidden="true"/>{t("envs.browseFiles")}
-      </Button>
-    </div>
-  </div>;
+    {specs.length > 0 && <dl className="jv-ov-specs">
+      {specs.map(spec => <div key={spec.label} className="jv-ov-spec">
+        <dt>{spec.label}</dt>
+        <dd className={spec.mono ? "jv-mono" : undefined}>{spec.value}</dd>
+      </div>)}
+    </dl>}
+  </section>;
 }

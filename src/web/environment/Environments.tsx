@@ -280,8 +280,8 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
                 onChanged={saved => setMachines(list => list && list.map(item => item.id === saved.id ? saved : item))}
                 onDeleted={() => { kept = null; setPicked(null); setOpen(false); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>
               : bot ? <div className="jv-ov-grid">
-                <div><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={false}/></div>
-                <div><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></div>
+                <div className="jv-ov-col"><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={true} showSpecs={false}/></div>
+                <div className="jv-ov-col"><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></div>
               </div> : null}
           </div>
         </div>}

@@ -28,11 +28,6 @@ export function DeviceDetail({ device, bots, onChanged, onDeleted }: { device: D
     onChanged(saved); setName(saved.name); setDirectory(saved.directory); setDescription(saved.description);
   }); };
   const edited = name.trim() !== device.name || directory.trim() !== device.directory || description.trim() !== device.description;
-  const state = deviceState(device);
-  const availableList = [
-    device.shells.powershell ? t("devices.shellPowershell") : null,
-    device.shells.bash ? shellName(device, "bash") : null,
-  ].filter(Boolean).join(", ");
 
   return <div className="jv-ov-grid">
     <section className="jv-ov-col" aria-label={t("envs.sectionConfig")}>
@@ -69,29 +64,29 @@ export function DeviceDetail({ device, bots, onChanged, onDeleted }: { device: D
         <h3 className="jv-ov-heading">{t("envs.sectionAccess")}</h3>
         <div className="jv-list jv-machine-detail">
           <div className="jv-list-row jv-static-row jv-secret-details">
-            <BotGrants grantedIds={device.botIds} bots={bots}
+            <BotGrants grantedIds={device.botIds} bots={bots} hideHeading
               onGrant={async (ids, granted) => { let saved = device; for (const id of ids) saved = await api.grantDevice(device.id, id, granted); onChanged(saved); }}/>
           </div>
         </div>
       </section>
 
-      <section aria-label={t("envs.sectionInfo")}>
-        <h3 className="jv-ov-heading">{t("envs.sectionInfo")}</h3>
-        <div className="jv-list jv-machine-detail">
-          <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("devices.system")}</span><span className="jv-env-value">{deviceSystem(device) || "—"}</span></div>
-          <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("devices.state")}</span>
-            <span className="jv-env-value"><span className="jv-status" data-ok={state === "online" || undefined}>{t(`devices.${state}`)}{state === "offline" && device.seenAt
-              ? ` · ${t("devices.seen", { time: new Date(device.seenAt).toLocaleString() })}` : ""}</span></span></div>
-          {availableList && <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("envs.availableShells")}</span><code>{availableList}</code></div>}
-          {device.client && <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("devices.client")}</span><code>{device.client}</code></div>}
+      <section aria-label={t("envs.sectionDanger")}>
+        <h3 className="jv-ov-heading">{t("envs.sectionDanger")}</h3>
+        <div className="jv-list jv-machine-detail jv-ov-danger-card">
           <div className="jv-list-row jv-static-row jv-ov-danger-row">
-            {!confirming ? <div className="jv-secret-actions jv-secret-danger">
-              <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming(true)}>{t("devices.unpair")}</Button></div>
-              : <div className="jv-secret-confirm" role="group" aria-label={t("devices.unpairTitle", { name: device.name })}>
-                <strong>{t("devices.unpairTitle", { name: device.name })}</strong><p>{t("devices.unpairBody")}</p>
-                <div className="jv-secret-actions"><Button type="button" variant="ghost" size="sm" onClick={() => { setConfirming(false); setError(""); }}>{t("common.cancel")}</Button>
-                  <Button type="button" className="jv-primary" size="sm" disabled={busy} onClick={() => void act("delete", async () => { await api.deleteDevice(device.id); onDeleted(); })}>{t("devices.unpairConfirm")}</Button></div>
-              </div>}
+            {!confirming ? <>
+              <div className="jv-ov-danger-copy">
+                <span className="jv-ov-row-title">{t("devices.unpair")}</span>
+                <span className="jv-ov-row-hint">{t("envs.unpairShort")}</span>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="jv-ov-danger-btn" disabled={busy} onClick={() => setConfirming(true)}>
+                {t("devices.unpair")}
+              </Button>
+            </> : <div className="jv-secret-confirm" role="group" aria-label={t("devices.unpairTitle", { name: device.name })}>
+              <strong>{t("devices.unpairTitle", { name: device.name })}</strong><p>{t("devices.unpairBody")}</p>
+              <div className="jv-secret-actions"><Button type="button" variant="ghost" size="sm" onClick={() => { setConfirming(false); setError(""); }}>{t("common.cancel")}</Button>
+                <Button type="button" className="jv-primary jv-ov-danger-confirm" size="sm" disabled={busy} onClick={() => void act("delete", async () => { await api.deleteDevice(device.id); onDeleted(); })}>{t("devices.unpairConfirm")}</Button></div>
+            </div>}
           </div>
         </div>
       </section>
