@@ -101,26 +101,30 @@ export function MachineDetail({ machine, bots, onChanged, onDeleted }: {
         <h3 className="jv-ov-heading">{t("envs.sectionAccess")}</h3>
         <div className="jv-list jv-machine-detail">
           <div className="jv-list-row jv-static-row jv-secret-details">
-            <BotGrants grantedIds={machine.botIds} bots={bots}
+            <BotGrants grantedIds={machine.botIds} bots={bots} hideHeading
               onGrant={async (ids, granted) => { let saved = machine; for (const id of ids) saved = await api.grantMachine(machine.id, id, granted); onChanged(saved); }}/>
           </div>
         </div>
       </section>
 
-      <section aria-label={t("envs.sectionInfo")}>
-        <h3 className="jv-ov-heading">{t("envs.sectionInfo")}</h3>
-        <div className="jv-list jv-machine-detail">
-          <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("machines.host")}</span><code>{machineAddress(machine)}</code></div>
-          <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("machines.login")}</span><span className="jv-env-value">{t(machine.login === "password" ? "machines.loginPassword" : "machines.loginKey")}</span></div>
+      <section aria-label={t("envs.sectionDanger")}>
+        <h3 className="jv-ov-heading">{t("envs.sectionDanger")}</h3>
+        <div className="jv-list jv-machine-detail jv-ov-danger-card">
           <div className="jv-list-row jv-static-row jv-ov-danger-row">
-            {!confirming ? <div className="jv-secret-actions jv-secret-danger">
-              <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming("delete")}>{t("machines.delete")}</Button></div>
-              : <div className="jv-secret-confirm" role="group" aria-label={t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}>
-                <strong>{t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}</strong>
-                <p>{force ? t("machines.forceBody", { comment: `jarvy-${machine.id}` }) : t("machines.deleteBody")}</p>
-                <div className="jv-secret-actions"><Button type="button" variant="ghost" size="sm" onClick={() => { setConfirming(null); setError(""); }}>{t("common.cancel")}</Button>
-                  <Button type="button" className="jv-primary" size="sm" disabled={busy} onClick={() => remove(force)}>{t(force ? "machines.forceConfirm" : "machines.deleteConfirm")}</Button></div>
-              </div>}
+            {!confirming ? <>
+              <div className="jv-ov-danger-copy">
+                <span className="jv-ov-row-title">{t("machines.delete")}</span>
+                <span className="jv-ov-row-hint">{t("envs.deleteMachineShort")}</span>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="jv-ov-danger-btn" disabled={busy} onClick={() => setConfirming("delete")}>
+                {t("machines.delete")}
+              </Button>
+            </> : <div className="jv-secret-confirm" role="group" aria-label={t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}>
+              <strong>{t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}</strong>
+              <p>{force ? t("machines.forceBody", { comment: `jarvy-${machine.id}` }) : t("machines.deleteBody")}</p>
+              <div className="jv-secret-actions"><Button type="button" variant="ghost" size="sm" onClick={() => { setConfirming(null); setError(""); }}>{t("common.cancel")}</Button>
+                <Button type="button" className="jv-primary jv-ov-danger-confirm" size="sm" disabled={busy} onClick={() => remove(force)}>{t(force ? "machines.forceConfirm" : "machines.deleteConfirm")}</Button></div>
+            </div>}
           </div>
         </div>
       </section>

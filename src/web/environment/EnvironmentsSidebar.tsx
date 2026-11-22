@@ -1,4 +1,4 @@
-import { ContainerIcon, LaptopIcon, MonitorIcon, PanelLeftCloseIcon, Search, ServerIcon, TerminalIcon } from "lucide-react";
+import { ContainerIcon, LaptopIcon, MonitorIcon, PanelLeftCloseIcon, Search, ServerIcon } from "lucide-react";
 import type { Bot, BotStatus } from "../../contract/bots";
 import type { Device, SshMachine } from "../../contract/environment";
 import type { TerminalSession, TerminalShell } from "../../contract/terminal";
@@ -83,7 +83,6 @@ export function EnvironmentsSidebar({
 
   const allDevices = devices ?? [];
   const allMachines = machines ?? [];
-  const totalCount = allDevices.length + allMachines.length + sandboxes.length;
 
   const shownDevices = (category === "all" || category === "device")
     ? allDevices.filter(item => matches(`${item.name} ${deviceSystem(item)}`)) : [];
@@ -110,11 +109,11 @@ export function EnvironmentsSidebar({
     </div>;
   };
 
-  const categories: { id: EnvCategory; label: string; count: number }[] = [
-    { id: "all", label: t("envs.catAll"), count: totalCount },
-    { id: "device", label: t("envs.catDevices"), count: allDevices.length },
-    { id: "machine", label: t("envs.catMachines"), count: allMachines.length },
-    { id: "sandbox", label: t("envs.catSandboxes"), count: sandboxes.length },
+  const categories: { id: EnvCategory; label: string }[] = [
+    { id: "all", label: t("envs.catAll") },
+    { id: "device", label: t("envs.catDevices") },
+    { id: "machine", label: t("envs.catMachines") },
+    { id: "sandbox", label: t("envs.catSandboxes") },
   ];
 
   const hasVisible = shownDevices.length > 0 || shownMachines.length > 0 || shownSandboxes.length > 0;
@@ -140,7 +139,6 @@ export function EnvironmentsSidebar({
         aria-selected={category === item.id} data-active={category === item.id || undefined}
         onClick={() => onCategoryChange(item.id)}>
         <span>{item.label}</span>
-        <em>{item.count}</em>
       </button>)}
     </div>
 
@@ -151,13 +149,12 @@ export function EnvironmentsSidebar({
           const state = deviceState(item);
           const dotState = state === "online" ? "running" : state === "paused" ? "preparing" : "stopped";
           const picked: PickedEnv = { kind: "device", id: item.id };
-          const sessions = terminalsByEnv.get(item.id) ?? [];
           const dimmed = state === "offline";
           return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
             <ListRow active={!adding && selectedKind === "device" && selectedId === item.id} onClick={() => onPick(picked)}
               leading={<EnvKindTile type="device" dotState={dotState} dotLabel={t(`devices.${state}`)}/>}
               title={item.name} sub={deviceSystem(item) || t("devices.kindDevice")}
-              trailing={<><EnvFaces bots={botsOnDevice(item)} statuses={statuses}/>{!sessions.length && <TermBadge count={0}/>}</>}/>
+              trailing={<EnvFaces bots={botsOnDevice(item)} statuses={statuses}/>}/>
             {renderSubTerms(picked, item.id, item.platform)}
           </div>;
         })}
@@ -198,10 +195,4 @@ export function EnvironmentsSidebar({
       {error && <p className="jv-note-error" role="alert">{error}</p>}
     </div>
   </aside>;
-}
-
-function TermBadge({ count }: { count: number }) {
-  if (!count) return null;
-  const label = t("envs.terminalCount", { count });
-  return <span className="jv-envs-term-badge" title={label} aria-label={label}><TerminalIcon aria-hidden="true"/>{count}</span>;
 }
