@@ -57,6 +57,7 @@ export class EnvFileService {
         separator: fs.separator,
         entries: page.entries.map(item => toContractEntry(item, fs.separator)),
         truncated: page.truncated,
+        ...(page.omitted ? { omitted: page.omitted } : {}),
       };
     });
   }
