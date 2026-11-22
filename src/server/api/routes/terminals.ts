@@ -21,6 +21,8 @@ export function terminalRoutes(terminals: ApiServices["terminals"]) {
       name: input.name,
       cols: input.cols,
       rows: input.rows,
+      shell: input.shell,
+      cwd: input.cwd,
     });
     return c.json(session, 201);
   });

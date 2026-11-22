@@ -26,9 +26,11 @@ const unusableVm = (error: string | undefined): VmProblemReason =>
  * default there is: its state, its type, its container or VM name, image and mount, its resource limits or VM size and
  * usage (A75), Start or Stop and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it
  * switched to a machine. The machines it may use are on the 授权 tab (BotAccess). */
-export function BotEnvironment({ bot, onSaved, heading = true }: { bot: Bot; onSaved: (bot: Bot) => void;
-  /** Off on the Environments page, whose header already names the sandbox (A89). */
+export function BotEnvironment({ bot, onSaved, heading = true, showSpecs = true }: { bot: Bot; onSaved: (bot: Bot) => void;
+  /** Off when the outer page already names the sandbox. */
   heading?: boolean;
+  /** Off on the Environments Overview page where EnvironmentHero already displays container, image and mount. */
+  showSpecs?: boolean;
 }) {
   const { doing: busy, error, run: perform } = useAction<"start" | "stop" | "reset" | "restart">();
   /** Stopping, restarting and resetting are destructive: each asks in place first. */
@@ -47,9 +49,11 @@ export function BotEnvironment({ bot, onSaved, heading = true }: { bot: Bot; onS
         <span className="jv-status" data-ok={state === "running" || undefined} data-busy={state === "preparing" || undefined}>{t(label)}</span>
       </div>
       <SandboxType bot={bot} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>
-      <div className="jv-list-row jv-static-row jv-env-fact"><span>{t(vm ? "environment.vm" : "environment.container")}</span><code>{computer.container}</code></div>
-      <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>
-      <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
+      {showSpecs && <>
+        <div className="jv-list-row jv-static-row jv-env-fact"><span>{t(vm ? "environment.vm" : "environment.container")}</span><code>{computer.container}</code></div>
+        <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>
+        <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.mount")}</span><code>{computer.mount}</code></div>
+      </>}
       {state !== "unavailable" && <SandboxLimits bot={bot} onSaved={onSaved}/>}
       <div className="jv-list-row jv-static-row jv-env-details">
         {/* The state says the rest; only Docker or libvirt that can't be used needs words: why, and what that stops.

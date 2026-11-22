@@ -400,18 +400,18 @@ export class Computers {
     return openContainerFs(current.id, current.spec.container!, COMPUTER_CWD, COMPUTER_CWD, text => this.log(`[fs ${botId.slice(0, 8)}] ${text}`));
   }
   /** Opens an interactive PTY in a Bot's container or VM sandbox, starting it first when stopped (A103). */
-  async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
+  async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell: "bash" }> {
     const botId = record.botId;
     if (!botId) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
-    const current = this.deps.store.environments.computerOf(botId) ?? record, cwd = COMPUTER_CWD;
+    const current = this.deps.store.environments.computerOf(botId) ?? record, cwd = options.cwd && options.cwd.startsWith("/") ? options.cwd : COMPUTER_CWD;
     if (computerType(current) === "vm") {
       await this.ensure(botId);
       const access = await this.libvirt.ensure(current, computerLimits(current), this.workspace(botId));
-      return { pty: await openSshPty(current.id, access, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd };
+      return { pty: await openSshPty(current.id, access, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd, shell: "bash" };
     }
     const container = await this.ensure(botId);
     await this.ensureHome(botId, container);
-    return { pty: await openContainerPty(container, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd };
+    return { pty: await openContainerPty(container, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd, shell: "bash" };
   }
   async stop(botId: string): Promise<void> {
     const computer = this.record(botId);

@@ -11,7 +11,7 @@ import type { Store } from "../../infra/storage/store.js";
 import { ChatError } from "../../shared/chat.js";
 import type { EnvironmentRecord, ExecOptions, WorkEnvironment } from "../../shared/environment.js";
 import type { EnvironmentFs } from "../../shared/env-files.js";
-import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
+import type { PtyHandle, PtyOpenOptions, PtyShell } from "../../shared/terminal.js";
 import type { Device, DeviceShell } from "../../../contract/environment.js";
 import { fromWindows, toWindows, windowsLike } from "./device-paths.js";
 
@@ -85,30 +85,49 @@ export class Devices {
     return openDeviceFs(this.links, record.id, cwd, home, windows ? "\\" : "/", text => console.error(`[device-fs ${record.name}] ${text.trim()}`));
   }
   /** Opens an interactive PTY on a connected computer (A103): pi-env PTY on Linux/macOS, ConPTY on Windows. */
-  async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
+  async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell?: PtyShell }> {
     if (!this.online(record.id)) throw new ChatError(409, this.offline(record.id), "device_offline");
     const platform = record.spec.platform ?? "";
     const windows = platform === "win32";
     if (windows && !this.links.hasCapability(record.id, "pty")) {
       throw new ChatError(409, "Update the Jarvy client on this Windows computer to open interactive terminals", "terminal_unsupported");
     }
-    const rawDir = this.directory(record);
+    const rawDir = options.cwd ? this.terminalCwd(record, options.cwd) : this.directory(record);
     const cwd = windows ? toWindows(rawDir).replaceAll("/", "\\") : rawDir;
+    const requested = options.shell;
     const chosen = record.spec.shell;
-    const shell = activeShell(record);
+    const fallback = activeShell(record);
     let argv: string[] | undefined;
+    let resolvedShell: PtyShell | undefined;
     if (windows) {
-      if (shell === "bash" && record.spec.shellBash) argv = [record.spec.shellBash, "--login", "-i"];
-      else if (shell === "powershell") argv = [record.spec.shellPowershell ?? "powershell.exe", "-NoLogo"];
-      else argv = ["cmd.exe"];
-    } else if (chosen === "powershell" && record.spec.shellPowershell) {
-      argv = [record.spec.shellPowershell, "-NoLogo"];
-    } else if (chosen === "bash" && record.spec.shellBash) {
-      argv = [record.spec.shellBash, "-l"];
+      const target = requested ?? fallback ?? "cmd";
+      if (target === "bash") {
+        if (!record.spec.shellBash) throw new ChatError(400, "Git Bash is not installed on this computer");
+        argv = [record.spec.shellBash, "--login", "-i"];
+        resolvedShell = "bash";
+      } else if (target === "powershell") {
+        argv = [record.spec.shellPowershell ?? "powershell.exe", "-NoLogo"];
+        resolvedShell = "powershell";
+      } else {
+        argv = ["cmd.exe"];
+        resolvedShell = "cmd";
+      }
+    } else {
+      if (requested === "cmd") throw new ChatError(400, "Command Prompt is only available on Windows");
+      if (requested === "powershell" || (!requested && chosen === "powershell")) {
+        if (!record.spec.shellPowershell) throw new ChatError(400, "PowerShell is not installed on this computer");
+        argv = [record.spec.shellPowershell, "-NoLogo"];
+        resolvedShell = "powershell";
+      } else if (requested === "bash" || (!requested && chosen === "bash")) {
+        if (record.spec.shellBash) argv = [record.spec.shellBash, "-l"];
+        resolvedShell = "bash";
+      } else if (fallback) {
+        resolvedShell = fallback;
+      }
     }
     const pty = await openDevicePty(this.links, record.id, platform, { ...options, cwd, ...(argv ? { argv } : {}) },
       text => console.error(`[device-pty ${record.name}] ${text.trim()}`));
-    return { pty, cwd };
+    return { pty, cwd, ...(resolvedShell ? { shell: resolvedShell } : {}) };
   }
   /** The command-line client (A96), built beside Jarvy's own server bundle; null when running from the sources. */
   connector(): Buffer | null {
@@ -189,6 +208,23 @@ export class Devices {
   }
   private home(record: EnvironmentRecord): string { return (record.spec.home ?? "").replaceAll("\\", "/") || (record.spec.platform === "win32" ? "C:/" : "/"); }
   private directory(record: EnvironmentRecord): string { return (record.directory || record.spec.home || "").replaceAll("\\", "/") || this.home(record); }
+  /** Exact working directory for a terminal: never trims, so POSIX directories ending in spaces are preserved. */
+  private terminalCwd(record: EnvironmentRecord, value: string): string {
+    const home = this.home(record);
+    if (value.length > 1000 || /[\x00-\x1f]/.test(value)) throw new ChatError(400, "directory must be an absolute path or start with ~/");
+    if (record.spec.platform === "win32") {
+      const raw = value.replaceAll("\\", "/");
+      if (raw === "~") return home;
+      if (raw.startsWith("~/")) return `${home}/${raw.slice(2)}`;
+      if (/^[A-Za-z]:\//.test(raw)) return raw;
+      if (/^\/[A-Za-z](\/|$)/.test(raw)) return toWindows(raw);
+    } else {
+      if (value === "~") return home;
+      if (value.startsWith("~/")) return `${home}/${value.slice(2)}`;
+      if (value.startsWith("/")) return value;
+    }
+    throw new ChatError(400, "directory must be an absolute path or start with ~/");
+  }
   /** An absolute directory there: `~` and paths under it are its home; on Windows also `C:\…` or `/c/…`. */
   private directoryIn(record: EnvironmentRecord, value: unknown): string {
     const raw = text(value, 1000).replaceAll("\\", "/"), home = this.home(record);
