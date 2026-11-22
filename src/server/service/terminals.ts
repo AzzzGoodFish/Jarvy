@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import xtermHeadless from "@xterm/headless";
 import xtermSerialize from "@xterm/addon-serialize";
 import type { WebSocket, RawData } from "ws";
-import type { TerminalClientMessage, TerminalServerMessage, TerminalSession, TerminalState } from "../../contract/terminal.js";
+import type { TerminalClientMessage, TerminalServerMessage, TerminalSession, TerminalShell, TerminalState } from "../../contract/terminal.js";
 import { ChatError } from "../shared/chat.js";
 import type { PtyHandle, PtyOpenOptions } from "../shared/terminal.js";
 
@@ -21,7 +21,7 @@ const DEFAULT_ROWS = 30;
 const SHELL_NAMES = new Set(["bash", "-bash", "sh", "-sh", "zsh", "-zsh", "fish", "dash", "ash", "pwsh", "powershell", "cmd"]);
 
 export interface TerminalDependencies {
-  openPty(environmentId: string, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }>;
+  openPty(environmentId: string, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell?: TerminalShell }>;
   changed(): void;
 }
 
@@ -34,6 +34,19 @@ const clampRows = (value: unknown) => {
   return Math.max(5, Math.min(160, n));
 };
 const cleanName = (value: unknown) => typeof value === "string" ? value.trim().slice(0, 60) : "";
+const cleanShell = (value: unknown): TerminalShell | undefined => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (value === "bash" || value === "powershell" || value === "cmd") return value;
+  throw new ChatError(400, "shell must be bash, powershell or cmd");
+};
+const cleanCwd = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") throw new ChatError(400, "cwd must be a string");
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 1000 || /[\x00-\x1f]/.test(trimmed)) throw new ChatError(400, "Invalid cwd");
+  return trimmed;
+};
 
 const DEFAULT_ENV: Record<string, string> = {
   TERM: "xterm-256color",
@@ -55,10 +68,13 @@ class ManagedTerminal {
   cols: number;
   rows: number;
   cwd = "";
+  shell: TerminalShell | undefined;
   foreground: string | undefined;
   exitCode: number | null = null;
   exitReason: string | undefined;
   readonly createdAt = Date.now();
+  private readonly requestedShell: TerminalShell | undefined;
+  private readonly requestedCwd: string | undefined;
   private pty: PtyHandle | null = null;
   private headless: HeadlessTerminal;
   private serialize: HeadlessSerialize;
@@ -75,12 +91,16 @@ class ManagedTerminal {
     cols: number,
     rows: number,
     private readonly onChanged: () => void,
+    requestedShell?: TerminalShell,
+    requestedCwd?: string,
   ) {
     this.id = randomUUID();
     this.environmentId = environmentId;
     this.name = name;
     this.cols = cols;
     this.rows = rows;
+    this.requestedShell = requestedShell;
+    this.requestedCwd = requestedCwd;
     const { headless, serialize } = this.makeHeadless(cols, rows);
     this.headless = headless;
     this.serialize = serialize;
@@ -104,6 +124,7 @@ class ManagedTerminal {
       cols: this.cols,
       rows: this.rows,
       cwd: this.cwd,
+      ...(this.shell ? { shell: this.shell } : {}),
       ...(this.foreground ? { foreground: this.foreground } : {}),
       exitCode: this.exitCode,
       ...(this.exitReason ? { exitReason: this.exitReason } : {}),
@@ -137,8 +158,9 @@ class ManagedTerminal {
     const staged: Buffer[] = [];
     let committed = false;
 
-    const { pty, cwd } = await openPty(this.environmentId, {
-      cwd: "",
+    const { pty, cwd, shell } = await openPty(this.environmentId, {
+      cwd: this.requestedCwd ?? "",
+      ...(this.requestedShell ? { shell: this.requestedShell } : {}),
       cols,
       rows,
       env: DEFAULT_ENV,
@@ -174,6 +196,7 @@ class ManagedTerminal {
     this.generation = gen;
     this.pty = pty;
     this.cwd = cwd;
+    this.shell = shell;
     this.state = "running";
     this.exitCode = null;
     this.exitReason = undefined;
@@ -342,8 +365,10 @@ export class TerminalService {
     return this.need(id).view();
   }
 
-  async create(environmentId: string, options: { name?: unknown; cols?: unknown; rows?: unknown } = {}): Promise<TerminalSession> {
+  async create(environmentId: string, options: { name?: unknown; cols?: unknown; rows?: unknown; shell?: unknown; cwd?: unknown } = {}): Promise<TerminalSession> {
     if (!environmentId || typeof environmentId !== "string") throw new ChatError(400, "environmentId is required");
+    const requestedShell = cleanShell(options.shell);
+    const requestedCwd = cleanCwd(options.cwd);
     if (this.sessions.size + this.pending.size >= MAX_TOTAL) {
       throw new ChatError(409, `At most ${MAX_TOTAL} terminals may be open at once`, "terminal_limit");
     }
@@ -355,7 +380,7 @@ export class TerminalService {
     this.counters.set(environmentId, next);
     const name = cleanName(options.name) || `Terminal ${next}`;
     const cols = clampCols(options.cols), rows = clampRows(options.rows);
-    const session = new ManagedTerminal(environmentId, name, cols, rows, () => this.deps.changed());
+    const session = new ManagedTerminal(environmentId, name, cols, rows, () => this.deps.changed(), requestedShell, requestedCwd);
     this.pending.set(session.id, session);
     try {
       await session.start(this.deps.openPty);

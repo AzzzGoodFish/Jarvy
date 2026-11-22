@@ -12,6 +12,7 @@ export const envFiles = {
   "envFiles.newFolder": "New folder",
   "envFiles.newFolderPlaceholder": "Folder name",
   "envFiles.upload": "Upload",
+  "envFiles.openTerminalHere": "Open terminal here",
   "envFiles.open": "Open",
   "envFiles.download": "Download",
   "envFiles.copyPath": "Copy path",

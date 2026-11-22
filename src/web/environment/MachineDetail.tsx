@@ -14,10 +14,8 @@ import { MachineKeyLine } from "./MachineKey";
 /** Where a machine is, as ssh would be told: user@host, and the port when it isn't 22. */
 export const machineAddress = (machine: SshMachine) => `${machine.user}@${machine.host}${machine.port === 22 ? "" : `:${machine.port}`}`;
 
-/** One machine on the Environments page (A57, A59, A89): its name, start directory and notes; its fingerprint with a
- * check (and accepting a new one); how Jarvy logs in, with its public key (for a machine reached with its password: a
- * new password, or switching to the key); the Bots that may use it; and deleting it after confirming in place.
- * Deleting removes Jarvy's key from the machine first; when that fails it asks again. */
+/** One SSH machine on the Environments page Overview tab (A57, A59, A89):
+ * two-column layout with configuration & security on the left, Bot grants & danger action on the right. */
 export function MachineDetail({ machine, bots, onChanged, onDeleted }: {
   machine: SshMachine; bots: Bot[]; onChanged: (machine: SshMachine) => void; onDeleted: () => void;
 }) {
@@ -36,63 +34,97 @@ export function MachineDetail({ machine, bots, onChanged, onDeleted }: {
   });
   const edited = name.trim() !== machine.name || directory.trim() !== machine.directory || description.trim() !== machine.description;
   const force = confirming === "force";
-  return <div className="jv-list jv-machine-detail"><div className="jv-list-row jv-static-row jv-secret-details">
-    <form className="jv-secret-edit jv-machine-edit" onSubmit={save} aria-label={machine.name}>
-      <label className="jv-field"><span>{t("machines.name")}</span><Input required maxLength={40} value={name} onChange={event => setName(event.target.value)}/></label>
-      <label className="jv-field"><span>{t("machines.directory")}</span>
-        <Input className="jv-mono" required maxLength={1000} spellCheck={false} value={directory} onChange={event => setDirectory(event.target.value)}/></label>
-      <label className="jv-field jv-machine-description"><span>{t("machines.description")}</span>
-        <Textarea maxLength={2000} rows={3} placeholder={t("machines.descriptionPlaceholder")} value={description} onChange={event => setDescription(event.target.value)}/></label>
-      <div className="jv-secret-actions"><Button type="submit" variant="outline" size="sm" disabled={busy || !edited || !name.trim()}>{t("common.save")}</Button></div>
-    </form>
-    <div className="jv-machine-part">
-      <section className="jv-secret-grants" aria-label={t("machines.fingerprint")}>
-        <h4 className="jv-secret-heading">{t("machines.fingerprint")}</h4>
-        <div className="jv-machine-key jv-machine-fingerprint">
-          <div className="jv-machine-codes">{(check?.changed ? check.hostKeys.fingerprints : machine.fingerprints).map(print => <code key={print} data-new={check?.changed || undefined}>{print}</code>)}</div>
-          {check?.changed ? <button type="button" className="ui-button jv-machine-copy" disabled={busy}
-            onClick={() => void act("trust", async () => { onChanged(await api.trustMachine(machine.id, check.hostKeys.fingerprints)); setCheck(null); })}>{t("machines.trust")}</button>
-            : <button type="button" className="ui-button jv-machine-copy" disabled={busy} onClick={() => void act("check", async () => {
-              const result = await api.checkMachine(machine.id); setCheck(result); onChanged(result.machine); })}>
-              {t(doing === "check" ? "machines.checking" : "machines.check")}</button>}
+
+  return <div className="jv-ov-grid">
+    <div className="jv-ov-col jv-ov-side">
+      <section aria-label={t("envs.sectionConfig")}>
+        <h3 className="jv-ov-heading">{t("envs.sectionConfig")}</h3>
+        <div className="jv-list jv-machine-detail">
+          <div className="jv-list-row jv-static-row jv-secret-details">
+            <form className="jv-secret-edit jv-machine-edit" onSubmit={save} aria-label={machine.name}>
+              <label className="jv-field"><span>{t("machines.name")}</span><Input required maxLength={40} value={name} onChange={event => setName(event.target.value)}/></label>
+              <label className="jv-field"><span>{t("machines.directory")}</span>
+                <Input className="jv-mono" required maxLength={1000} spellCheck={false} value={directory} onChange={event => setDirectory(event.target.value)}/></label>
+              <label className="jv-field jv-machine-description"><span>{t("machines.description")}</span>
+                <Textarea maxLength={2000} rows={3} placeholder={t("machines.descriptionPlaceholder")} value={description} onChange={event => setDescription(event.target.value)}/></label>
+              <div className="jv-secret-actions"><Button type="submit" variant="outline" size="sm" disabled={busy || !edited || !name.trim()}>{t("common.save")}</Button></div>
+            </form>
+          </div>
         </div>
-        {check && <p className="jv-hint" data-warn={check.changed || undefined}>{t(check.changed ? "machines.changed" : "machines.unchanged")}</p>}
       </section>
-      <section className="jv-secret-grants" aria-label={t("machines.login")}>
-        <div className="jv-secret-grants-head"><h4 className="jv-secret-heading">{t("machines.login")}</h4>
-          <span className="jv-row-meta">{t(machine.login === "password" ? "machines.loginPassword" : "machines.loginKey")}</span></div>
-        {machine.publicKey && <MachineKeyLine publicKey={machine.publicKey}/>}
-        {machine.login === "password" && <>
-          <p className="jv-hint">{t("machines.passwordLogin")}</p>
-          <form className="jv-machine-password" autoComplete="off" aria-label={t("machines.updatePassword")} onSubmit={event => {
-            event.preventDefault(); void act("password", async () => { onChanged(await api.setMachinePassword(machine.id, password)); setPassword(""); setLoginNote(t("machines.passwordUpdated")); });
-          }}>
-            <label className="jv-field"><span>{t("machines.newPassword")}</span>
-              <SecretInput value={password} visible={visible} onChange={setPassword} onVisible={setVisible} required warnShort={false}/></label>
-            <div className="jv-secret-actions">
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void act("key", async () => {
-                const result = await api.checkMachine(machine.id); setCheck(result); onChanged(result.machine);
-                setLoginNote(t(result.machine.login === "key" ? "machines.usingKey" : "machines.stillPassword"));
-              })}>{t("machines.useKey")}</Button>
-              <Button type="submit" variant="outline" size="sm" disabled={busy || !password}>{t("machines.updatePassword")}</Button>
-            </div>
-          </form>
-        </>}
-        {loginNote && <p className="jv-hint">{loginNote}</p>}
+
+      <section aria-label={t("envs.sectionConnection")}>
+        <h3 className="jv-ov-heading">{t("envs.sectionConnection")}</h3>
+        <div className="jv-list jv-machine-detail">
+          <div className="jv-list-row jv-static-row jv-secret-details">
+            <section className="jv-secret-grants" aria-label={t("machines.fingerprint")}>
+              <h4 className="jv-secret-heading">{t("machines.fingerprint")}</h4>
+              <div className="jv-machine-key jv-machine-fingerprint">
+                <div className="jv-machine-codes">{(check?.changed ? check.hostKeys.fingerprints : machine.fingerprints).map(print => <code key={print} data-new={check?.changed || undefined}>{print}</code>)}</div>
+                {check?.changed ? <button type="button" className="ui-button jv-machine-copy" disabled={busy}
+                  onClick={() => void act("trust", async () => { onChanged(await api.trustMachine(machine.id, check.hostKeys.fingerprints)); setCheck(null); })}>{t("machines.trust")}</button>
+                  : <button type="button" className="ui-button jv-machine-copy" disabled={busy} onClick={() => void act("check", async () => {
+                    const result = await api.checkMachine(machine.id); setCheck(result); onChanged(result.machine); })}>
+                    {t(doing === "check" ? "machines.checking" : "machines.check")}</button>}
+              </div>
+              {check && <p className="jv-hint" data-warn={check.changed || undefined}>{t(check.changed ? "machines.changed" : "machines.unchanged")}</p>}
+            </section>
+            <section className="jv-secret-grants" aria-label={t("machines.login")}>
+              <div className="jv-secret-grants-head"><h4 className="jv-secret-heading">{t("machines.login")}</h4>
+                <span className="jv-row-meta">{t(machine.login === "password" ? "machines.loginPassword" : "machines.loginKey")}</span></div>
+              {machine.publicKey && <MachineKeyLine publicKey={machine.publicKey}/>}
+              {machine.login === "password" && <>
+                <p className="jv-hint">{t("machines.passwordLogin")}</p>
+                <form className="jv-machine-password" autoComplete="off" aria-label={t("machines.updatePassword")} onSubmit={event => {
+                  event.preventDefault(); void act("password", async () => { onChanged(await api.setMachinePassword(machine.id, password)); setPassword(""); setLoginNote(t("machines.passwordUpdated")); });
+                }}>
+                  <label className="jv-field"><span>{t("machines.newPassword")}</span>
+                    <SecretInput value={password} visible={visible} onChange={setPassword} onVisible={setVisible} required warnShort={false}/></label>
+                  <div className="jv-secret-actions">
+                    <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void act("key", async () => {
+                      const result = await api.checkMachine(machine.id); setCheck(result); onChanged(result.machine);
+                      setLoginNote(t(result.machine.login === "key" ? "machines.usingKey" : "machines.stillPassword"));
+                    })}>{t("machines.useKey")}</Button>
+                    <Button type="submit" variant="outline" size="sm" disabled={busy || !password}>{t("machines.updatePassword")}</Button>
+                  </div>
+                </form>
+              </>}
+              {loginNote && <p className="jv-hint">{loginNote}</p>}
+            </section>
+          </div>
+        </div>
       </section>
     </div>
-    <div className="jv-machine-part">
-      <BotGrants grantedIds={machine.botIds} bots={bots}
-        onGrant={async (ids, granted) => { let saved = machine; for (const id of ids) saved = await api.grantMachine(machine.id, id, granted); onChanged(saved); }}/>
+
+    <div className="jv-ov-col jv-ov-side">
+      <section aria-label={t("envs.sectionAccess")}>
+        <h3 className="jv-ov-heading">{t("envs.sectionAccess")}</h3>
+        <div className="jv-list jv-machine-detail">
+          <div className="jv-list-row jv-static-row jv-secret-details">
+            <BotGrants grantedIds={machine.botIds} bots={bots}
+              onGrant={async (ids, granted) => { let saved = machine; for (const id of ids) saved = await api.grantMachine(machine.id, id, granted); onChanged(saved); }}/>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label={t("envs.sectionInfo")}>
+        <h3 className="jv-ov-heading">{t("envs.sectionInfo")}</h3>
+        <div className="jv-list jv-machine-detail">
+          <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("machines.host")}</span><code>{machineAddress(machine)}</code></div>
+          <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("machines.login")}</span><span className="jv-env-value">{t(machine.login === "password" ? "machines.loginPassword" : "machines.loginKey")}</span></div>
+          <div className="jv-list-row jv-static-row jv-ov-danger-row">
+            {!confirming ? <div className="jv-secret-actions jv-secret-danger">
+              <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming("delete")}>{t("machines.delete")}</Button></div>
+              : <div className="jv-secret-confirm" role="group" aria-label={t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}>
+                <strong>{t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}</strong>
+                <p>{force ? t("machines.forceBody", { comment: `jarvy-${machine.id}` }) : t("machines.deleteBody")}</p>
+                <div className="jv-secret-actions"><Button type="button" variant="ghost" size="sm" onClick={() => { setConfirming(null); setError(""); }}>{t("common.cancel")}</Button>
+                  <Button type="button" className="jv-primary" size="sm" disabled={busy} onClick={() => remove(force)}>{t(force ? "machines.forceConfirm" : "machines.deleteConfirm")}</Button></div>
+              </div>}
+          </div>
+        </div>
+      </section>
+      {error && <p className="jv-note-error" role="alert">{error}</p>}
     </div>
-    {!confirming ? <div className="jv-secret-actions jv-secret-danger">
-      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming("delete")}>{t("machines.delete")}</Button></div>
-      : <div className="jv-secret-confirm" role="group" aria-label={t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}>
-        <strong>{t(force ? "machines.forceTitle" : "machines.deleteTitle", { name: machine.name })}</strong>
-        <p>{force ? t("machines.forceBody", { comment: `jarvy-${machine.id}` }) : t("machines.deleteBody")}</p>
-        <div className="jv-secret-actions"><Button type="button" variant="ghost" size="sm" onClick={() => { setConfirming(null); setError(""); }}>{t("common.cancel")}</Button>
-          <Button type="button" className="jv-primary" size="sm" disabled={busy} onClick={() => remove(force)}>{t(force ? "machines.forceConfirm" : "machines.deleteConfirm")}</Button></div>
-      </div>}
-    {error && <p className="jv-note-error" role="alert">{error}</p>}
-  </div></div>;
+  </div>;
 }

@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeftIcon, ContainerIcon, LaptopIcon, MonitorIcon, Search, ServerIcon, TerminalIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDownIcon, ChevronLeftIcon, PanelLeftOpenIcon } from "lucide-react";
 import { api } from "../api";
 import type { Bot, BotStatus } from "../../contract/bots";
 import type { Device, SshMachine } from "../../contract/environment";
 import type { TerminalSession } from "../../contract/terminal";
-import { BotAvatar } from "../avatar/BotAvatar";
 import { errorText } from "../errors";
 import { BotPorts } from "../ports/BotPorts";
-import { IconButton } from "../ui";
 import { ColumnHeader } from "../components/column-header";
-import { ListRow } from "../components/list-row";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { t } from "../i18n";
 import { BotEnvironment, STATE } from "./BotEnvironment";
-import { MachineDetail, machineAddress } from "./MachineDetail";
-import { MachineForm } from "./MachineForm";
 import { DeviceConnect, DeviceDetail, deviceState, deviceSystem } from "./DeviceDetail";
 import { EnvironmentFiles } from "./EnvironmentFiles";
-import { EnvironmentTerminals, type TerminalAvailability } from "./EnvironmentTerminals";
+import { EnvironmentHero } from "./EnvironmentHero";
+import {
+  EnvironmentsSidebar, EnvKindTile, type EnvCategory, type PickedEnv,
+} from "./EnvironmentsSidebar";
+import {
+  EnvironmentTerminals, type OpenTerminalRequest, type ShellOption, type TerminalAvailability,
+} from "./EnvironmentTerminals";
+import { MachineDetail, machineAddress } from "./MachineDetail";
+import { MachineForm } from "./MachineForm";
 import "../styles/model-workbench.css";
 import "../styles/secrets.css";
 import "../styles/machines.css";
@@ -25,26 +27,33 @@ import "../styles/environments.css";
 import "../styles/terminals.css";
 import "../styles/env-files.css";
 
-/** What the page shows on the right: a sandbox (by its Bot), a machine, or the form to add one. */
-type Picked = { kind: "sandbox" | "machine" | "device"; id: string };
 type DetailTab = "overview" | "terminal" | "files";
+const COLLAPSED_KEY = "jarvy-envs-sidebar-collapsed";
 /** The pick and tab, kept while the page is away (the chats, the agent Bot's page) and lost on a reload. */
-let kept: Picked | null = null;
+let kept: PickedEnv | null = null;
 let keptTab: DetailTab = "overview";
-/** Avatars shown on a row before the rest are counted. */
-const FACES = 3;
 
-/** The Environments page (A89, A103): every place Bots work, one row each, the computers and SSH machines first and
- * then each Bot's sandbox with its state; every row shows the Bots working there now and active terminal count. On the
- * right the one picked switches between Overview (details/ports) and Terminal (persistent multi-terminal sessions). */
+function loadCollapsed(): boolean {
+  try { return localStorage.getItem(COLLAPSED_KEY) === "1"; } catch { return false; }
+}
+
+/** The Environments page (A89, A103, A104): categorized, collapsible environment list with nested active
+ * terminals on the left; status-first Overview, unified multi-shell Terminal, and Files on the right. */
 export function Environments({ active, bots, statuses, adding, terminalVersion = 0, onAdding, onSaved }: {
   active: boolean; bots: Bot[]; statuses: Record<string, BotStatus>; adding: boolean; terminalVersion?: number; onAdding: (adding: boolean) => void; onSaved: (bot: Bot) => void;
 }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null), [error, setError] = useState<string | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null), [connecting, setConnecting] = useState(false);
   const [terminals, setTerminals] = useState<TerminalSession[]>([]);
-  const [picked, setPicked] = useState<Picked | null>(kept), [open, setOpen] = useState(adding), [filter, setFilter] = useState("");
+  const [picked, setPicked] = useState<PickedEnv | null>(kept), [open, setOpen] = useState(adding), [filter, setFilter] = useState("");
+  const [category, setCategory] = useState<EnvCategory>("all");
   const [tab, setTab] = useState<DetailTab>(keptTab), [maximized, setMaximized] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(loadCollapsed);
+  const [quickPickerOpen, setQuickPickerOpen] = useState(false);
+  const [selectedTermByEnv, setSelectedTermByEnv] = useState<Record<string, string>>({});
+  const [openTermReq, setOpenTermReq] = useState<OpenTerminalRequest | null>(null);
+  const reqSeq = useRef(0);
+
   const loadTerminals = useCallback(async () => {
     try { const view = await api.terminals(); setTerminals(view.terminals); } catch { /* ignore transient poll errors */ }
   }, []);
@@ -59,25 +68,56 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
     const timer = setInterval(load, 5000);
     return () => { alive = false; clearInterval(timer); };
   }, [active]);
-  useEffect(() => { if (adding) { setOpen(true); setMaximized(false); } }, [adding]);
+  useEffect(() => { if (adding) { setOpen(true); setMaximized(false); setQuickPickerOpen(false); } }, [adding]);
+  useEffect(() => {
+    if (!quickPickerOpen) return;
+    const close = () => setQuickPickerOpen(false);
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setQuickPickerOpen(false); };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("click", close); window.removeEventListener("keydown", onKey); };
+  }, [quickPickerOpen]);
+
+  const toggleCollapsed = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+    setQuickPickerOpen(false);
+  };
+
   const sandboxes = bots.filter(bot => bot.environment.computer);
-  // Machine names are unique, so the one a Bot says it works on is this one.
-  const on = (machine: SshMachine) => bots.filter(bot => bot.environment.current === "ssh" && bot.environment.currentName === machine.name);
-  const at = (device: Device) => bots.filter(bot => bot.environment.current === "device" && bot.environment.currentName === device.name);
-  const home = (bot: Bot) => bot.environment.current === "computer" ? [bot] : [];
+  const botsOnMachine = (item: SshMachine) => bots.filter(b => b.environment.current === "ssh" && b.environment.currentName === item.name);
+  const botsOnDevice = (item: Device) => bots.filter(b => b.environment.current === "device" && b.environment.currentName === item.name);
+  const botsInSandbox = (item: Bot) => item.environment.current === "computer" ? [item] : [];
+
   const chosenMachine = picked?.kind === "machine" ? machines?.find(item => item.id === picked.id) : undefined;
-  const chosenSandbox = picked?.kind === "sandbox" ? sandboxes.find(bot => bot.id === picked.id) : undefined;
+  const chosenSandbox = picked?.kind === "sandbox" ? sandboxes.find(b => b.id === picked.id) : undefined;
   const chosenDevice = picked?.kind === "device" ? devices?.find(item => item.id === picked.id) : undefined;
-  // Nothing picked, or what was picked is gone: the first row, once the machines are known.
   const none = !chosenMachine && !chosenSandbox && !chosenDevice;
   const device = adding ? undefined : chosenDevice ?? (none ? devices?.[0] : undefined);
   const machine = adding || device ? undefined : chosenMachine ?? (none ? machines?.[0] : undefined);
   const bot = adding || machine || device ? undefined : chosenSandbox ?? (none && (machines || error) ? sandboxes[0] : undefined);
-  const pick = (next: Picked) => { kept = next; setPicked(next); onAdding(false); setOpen(true); };
+
+  const selectedKind = device ? "device" : machine ? "machine" : bot ? "sandbox" : null;
+  const selectedItemId = device ? device.id : machine ? machine.id : bot ? bot.id : null;
+
+  const pick = (next: PickedEnv) => { kept = next; setPicked(next); onAdding(false); setOpen(true); setQuickPickerOpen(false); };
   const switchTab = (next: DetailTab) => { keptTab = next; setTab(next); if (next === "overview") setMaximized(false); };
-  const here = device ? at(device) : machine ? on(machine) : bot ? home(bot) : [];
+  const selectTermSession = useCallback((envId: string, sessionId: string) => {
+    setSelectedTermByEnv(prev => prev[envId] === sessionId ? prev : { ...prev, [envId]: sessionId });
+  }, []);
+
+  const pickTerminalFromSidebar = (env: PickedEnv, sessionId: string) => {
+    const envId = env.kind === "sandbox" ? bots.find(b => b.id === env.id)?.environment.computer?.id ?? env.id : env.id;
+    selectTermSession(envId, sessionId);
+    pick(env);
+    switchTab("terminal");
+  };
+
+  const here = device ? botsOnDevice(device) : machine ? botsOnMachine(machine) : bot ? botsInSandbox(bot) : [];
   const status = bot && statuses[bot.id];
-  const faces = (list: Bot[]) => <Faces bots={list} statuses={statuses}/>;
   const terminalsByEnv = useMemo(() => {
     const grouped = new Map<string, TerminalSession[]>();
     for (const item of terminals) {
@@ -90,6 +130,10 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
   const selectedEnvId = device ? device.id : machine ? machine.id : bot?.environment.computer?.id ?? null;
   const selectedSessions = selectedEnvId ? terminalsByEnv.get(selectedEnvId) ?? [] : [];
   const selectedRunning = selectedEnvId ? runningCount(selectedEnvId) : 0;
+  const activeTerminalId = selectedEnvId
+    ? selectedSessions.find(item => item.id === selectedTermByEnv[selectedEnvId])?.id ?? selectedSessions[selectedSessions.length - 1]?.id ?? null
+    : null;
+
   const availability: TerminalAvailability = device
     ? !device.online ? { kind: "device_offline" } : device.paused ? { kind: "device_paused" } : { kind: "ready" }
     : bot?.environment.computer
@@ -98,13 +142,24 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
       : bot.environment.computer.state === "preparing" ? { kind: "sandbox_stopped", starting: true }
       : { kind: "ready" }
     : { kind: "ready" };
+
+  const availableShells = useMemo<ShellOption[]>(() => {
+    if (!device) return [];
+    const list: ShellOption[] = [];
+    if (device.platform === "win32") {
+      list.push({ id: "powershell", label: t("devices.shellPowershell"), isDefault: device.activeShell === "powershell" });
+      if (device.shells.bash) list.push({ id: "bash", label: t("devices.shellBash"), isDefault: device.activeShell === "bash" });
+      list.push({ id: "cmd", label: t("terminal.shellCmd"), isDefault: !device.activeShell });
+    } else {
+      if (device.shells.bash) list.push({ id: "bash", label: t("devices.shellBashOther"), isDefault: device.activeShell !== "powershell" });
+      if (device.shells.powershell) list.push({ id: "powershell", label: t("devices.shellPowershell"), isDefault: device.activeShell === "powershell" });
+    }
+    return list;
+  }, [device]);
+
   const showTerminal = !adding && !!selectedEnvId && tab === "terminal";
   const showFiles = !adding && !!selectedEnvId && tab === "files";
-  // The search box, as the chat list's: a computer by its name or system, a machine by its name or address, a sandbox by its Bot's name.
-  const query = filter.trim().toLocaleLowerCase(), found = (text: string) => text.toLocaleLowerCase().includes(query);
-  const shownMachines = machines?.filter(item => found(`${item.name} ${machineAddress(item)}`));
-  const shownDevices = devices?.filter(item => found(`${item.name} ${deviceSystem(item)}`));
-  const shownSandboxes = sandboxes.filter(item => found(`${item.name} ${t("envs.sandboxOf", { name: item.name })}`));
+
   const refreshBot = () => {
     if (!bot) return;
     void api.bots().then(view => {
@@ -112,44 +167,80 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
       if (updated) onSaved(updated);
     }).catch(() => {});
   };
+
+  const openTerminalInDir = (cwd: string) => {
+    if (!selectedEnvId) return;
+    switchTab("terminal");
+    setOpenTermReq({ seq: ++reqSeq.current, environmentId: selectedEnvId, cwd });
+  };
+
+  const quickEntries = useMemo(() => {
+    const out: { key: string; env: PickedEnv; envId: string; name: string; sub: string; dot: "running" | "preparing" | "stopped" | "failed" | "unavailable" }[] = [];
+    for (const d of devices ?? []) {
+      const st = deviceState(d);
+      out.push({ key: `d:${d.id}`, env: { kind: "device", id: d.id }, envId: d.id, name: d.name, sub: deviceSystem(d) || t("devices.kindDevice"), dot: st === "online" ? "running" : st === "paused" ? "preparing" : "stopped" });
+    }
+    for (const m of machines ?? []) {
+      out.push({ key: `m:${m.id}`, env: { kind: "machine", id: m.id }, envId: m.id, name: m.name, sub: machineAddress(m), dot: "running" });
+    }
+    for (const b of sandboxes) {
+      const c = b.environment.computer!;
+      out.push({ key: `s:${b.id}`, env: { kind: "sandbox", id: b.id }, envId: c.id, name: t("envs.sandboxOf", { name: b.name }), sub: t(STATE[c.state]), dot: c.state });
+    }
+    return out;
+  }, [devices, machines, sandboxes]);
+
+  const headerKind = device ? "device" : machine ? "ssh" : bot ? bot.environment.computer!.type : null;
+  const headerTitle = adding ? t(connecting ? "devices.connect" : "machines.add") : device ? device.name : machine ? machine.name : bot ? t("envs.sandboxOf", { name: bot.name }) : "";
+  const headerSub = device ? deviceSystem(device) : machine ? <span className="jv-mono">{machineAddress(machine)}</span> : undefined;
+
   return <section className="jv-envs" data-inactive={!active || undefined} data-open={open || undefined}
+    data-collapsed={collapsed && !adding ? "" : undefined}
     data-maximized={active && (showTerminal || showFiles) && maximized ? "" : undefined}
     aria-hidden={!active || undefined} inert={!active || undefined} aria-label={t("rail.environments")}>
-    <aside className="jv-envs-list">
-      <ColumnHeader place="sidebar" title={<span className="sr-only">{t("rail.environments")}</span>}
-        actions={<IconButton icon="add" label={t("machines.add")} aria-pressed={adding} onClick={() => { onAdding(true); setOpen(true); }}/>}/>
-      <div className="mx-3 mt-1 mb-2 shrink-0" role="search">
-        <InputGroup className="h-9 bg-background">
-          <InputGroupInput type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder={t("envs.search")} aria-label={t("envs.search")}
-            onKeyDown={event => { if (event.key === "Escape" && filter) { event.preventDefault(); setFilter(""); } }} className="text-sm"/>
-          <InputGroupAddon align="inline-start"><Search aria-hidden="true"/></InputGroupAddon>
-        </InputGroup>
-      </div>
-      <div className="jv-envs-scroll">
-        {shownDevices?.map(item => <ListRow key={item.id} active={device?.id === item.id} onClick={() => pick({ kind: "device", id: item.id })}
-          leading={<Kind type="device"/>} title={item.name} sub={deviceSystem(item) || t("devices.kindDevice")}
-          trailing={<><TermBadge count={runningCount(item.id)}/>{faces(at(item))}<DeviceDot device={item}/></>}/>)}
-        {shownMachines?.map(item => <ListRow key={item.id} active={machine?.id === item.id} onClick={() => pick({ kind: "machine", id: item.id })}
-          leading={<Kind type="ssh"/>} title={item.name} sub={<span className="jv-mono">{machineAddress(item)}</span>}
-          trailing={<><TermBadge count={runningCount(item.id)}/>{faces(on(item))}<span className="jv-envs-state"/></>}/>)}
-        {shownSandboxes.map(item => {
-          const computer = item.environment.computer!;
-          return <ListRow key={item.id} active={bot?.id === item.id} onClick={() => pick({ kind: "sandbox", id: item.id })}
-            leading={<Kind type={computer.type}/>} title={t("envs.sandboxOf", { name: item.name })}
-            sub={t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container")}
-            trailing={<><TermBadge count={runningCount(computer.id)}/>{faces(home(item))}
-              <span className="jv-envs-state" data-state={computer.state} role="img" aria-label={t(STATE[computer.state])} title={t(STATE[computer.state])}/></>}/>;
-        })}
-        {query && machines && !shownMachines?.length && !shownDevices?.length && !shownSandboxes.length && <p className="jv-envs-none">{t("envs.noMatch")}</p>}
-        {error && <p className="jv-note-error" role="alert">{error}</p>}
-      </div>
-    </aside>
+    <EnvironmentsSidebar
+      devices={devices} machines={machines} sandboxes={sandboxes} statuses={statuses}
+      filter={filter} category={category} adding={adding}
+      selectedKind={selectedKind} selectedId={selectedItemId}
+      activeTerminalId={activeTerminalId} inTerminalTab={showTerminal}
+      terminalsByEnv={terminalsByEnv} botsOnMachine={botsOnMachine} botsOnDevice={botsOnDevice} botsInSandbox={botsInSandbox}
+      error={error} onFilterChange={setFilter} onCategoryChange={setCategory}
+      onPick={pick} onPickTerminal={pickTerminalFromSidebar}
+      onAdd={() => { onAdding(true); setOpen(true); setCollapsed(false); }}
+      onCollapse={toggleCollapsed}/>
+
     <main className="jv-envs-detail jv-ui" data-mode={showTerminal ? "terminal" : showFiles ? "files" : "overview"}>
       <ColumnHeader place="content" as="h2"
-        leading={<><button type="button" className="jv-envs-back" aria-label={t("envs.back")} onClick={() => { setOpen(false); setMaximized(false); onAdding(false); }}><ChevronLeftIcon aria-hidden="true"/></button>
-          {device ? <Kind type="device"/> : machine ? <Kind type="ssh"/> : bot ? <Kind type={bot.environment.computer!.type}/> : null}</>}
-        title={adding ? t(connecting ? "devices.connect" : "machines.add") : device ? device.name : machine ? machine.name : bot ? t("envs.sandboxOf", { name: bot.name }) : ""}
-        sub={device ? deviceSystem(device) : machine ? <span className="jv-mono">{machineAddress(machine)}</span> : undefined}
+        leading={<>
+          <button type="button" className="jv-envs-back" aria-label={t("envs.back")} onClick={() => { setOpen(false); setMaximized(false); onAdding(false); }}>
+            <ChevronLeftIcon aria-hidden="true"/>
+          </button>
+          {collapsed && !adding && <button type="button" className="ui-iconbtn jv-envs-expand-btn" aria-label={t("envs.expandSidebar")} title={t("envs.expandSidebar")} onClick={toggleCollapsed}>
+            <PanelLeftOpenIcon className="ui-icon" aria-hidden="true"/>
+          </button>}
+          {collapsed && !adding && headerKind ? <div className="jv-envs-quick-wrap">
+            <button type="button" className="jv-envs-quick-btn" aria-label={t("envs.switchEnvironment")} aria-expanded={quickPickerOpen}
+              onClick={event => { event.stopPropagation(); setQuickPickerOpen(v => !v); }}>
+              <EnvKindTile type={headerKind} compact/>
+              <span className="jv-envs-quick-title">{headerTitle}</span>
+              <ChevronDownIcon className="jv-envs-quick-chevron" aria-hidden="true"/>
+            </button>
+            {quickPickerOpen && <div className="jv-envs-quick-menu" role="menu" onClick={event => event.stopPropagation()}>
+              {quickEntries.map(entry => {
+                const count = runningCount(entry.envId);
+                const isCurrent = selectedKind === entry.env.kind && selectedItemId === entry.env.id;
+                return <button key={entry.key} type="button" role="menuitem" className="jv-envs-quick-item" data-active={isCurrent || undefined}
+                  onClick={() => pick(entry.env)}>
+                  <span className="jv-envs-state" data-state={entry.dot} aria-hidden="true"/>
+                  <span className="jv-envs-quick-name">{entry.name}</span>
+                  <span className="jv-envs-quick-meta">{count > 0 ? `>_ ${count}` : entry.sub}</span>
+                </button>;
+              })}
+            </div>}
+          </div> : headerKind ? <EnvKindTile type={headerKind} compact/> : null}
+        </>}
+        title={collapsed && !adding && headerKind ? "" : headerTitle}
+        sub={collapsed && !adding ? undefined : headerSub}
         actions={!adding && selectedEnvId ? <div className="jv-seg jv-envs-tabs" role="radiogroup" aria-label={t("rail.environments")}>
           <button type="button" role="radio" aria-checked={tab === "overview"} onClick={() => switchTab("overview")}>{t("envs.tabOverview")}</button>
           <button type="button" role="radio" aria-checked={tab === "terminal"} onClick={() => switchTab("terminal")}>
@@ -157,59 +248,44 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
           </button>
           <button type="button" role="radio" aria-checked={tab === "files"} onClick={() => switchTab("files")}>{t("envs.tabFiles")}</button>
         </div> : undefined}/>
+
       <div className="jv-envs-content">
-        {(selectedEnvId || terminals.length > 0) && <EnvironmentTerminals environmentId={selectedEnvId ?? ""} sessions={selectedSessions} allSessions={terminals}
+        {(selectedEnvId || terminals.length > 0) && <EnvironmentTerminals
+          environmentId={selectedEnvId ?? ""} platform={device?.platform}
+          sessions={selectedSessions} allSessions={terminals} availableShells={availableShells}
           availability={availability} visible={active && showTerminal} maximized={maximized}
+          selectedSessionId={activeTerminalId} openRequest={openTermReq}
+          onSelectSession={selectTermSession}
           onToggleMaximize={() => setMaximized(value => !value)}
           onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>}
         {showFiles && <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={availability}
           maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
-          onSandboxStarted={refreshBot}/>}
+          onOpenTerminal={openTerminalInDir} onSandboxStarted={refreshBot}/>}
         {!showTerminal && !showFiles && <div className="jv-envs-body">
-          {!adding && here.length > 0 && <p className="jv-envs-here">{faces(here)}{t("envs.workingHere", { names: here.map(item => item.name).join(t("common.listSeparator")), count: here.length })}</p>}
-          {adding && <div className="jv-seg jv-envs-add-kind" role="radiogroup" aria-label={t("machines.add")}>
-            {([false, true] as const).map(value => <button key={String(value)} type="button" role="radio" aria-checked={connecting === value} onClick={() => setConnecting(value)}>
-              {t(value ? "devices.kindDevice" : "devices.kindMachine")}</button>)}</div>}
-          {adding && connecting ? <DeviceConnect/>
-            : adding ? <MachineForm onCancel={() => { onAdding(false); setOpen(false); }} onSaved={saved => {
-            setMachines(list => [...(list ?? []), saved]); pick({ kind: "machine", id: saved.id });
-          }}/>
-            : device ? <DeviceDetail key={device.id} device={device} bots={bots}
-              onChanged={saved => setDevices(list => list && list.map(item => item.id === saved.id ? saved : item))}
-              onDeleted={() => { kept = null; setPicked(null); setOpen(false); setDevices(list => list && list.filter(item => item.id !== device.id)); }}/>
-            : machine ? <MachineDetail key={machine.id} machine={machine} bots={bots}
-              onChanged={saved => setMachines(list => list && list.map(item => item.id === saved.id ? saved : item))}
-              onDeleted={() => { kept = null; setPicked(null); setOpen(false); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>
-            : bot ? <><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={false}/><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></> : null}
+          <div className="jv-ov-inner">
+            {adding && <div className="jv-seg jv-envs-add-kind" role="radiogroup" aria-label={t("machines.add")}>
+              {([false, true] as const).map(value => <button key={String(value)} type="button" role="radio" aria-checked={connecting === value} onClick={() => setConnecting(value)}>
+                {t(value ? "devices.kindDevice" : "devices.kindMachine")}</button>)}</div>}
+            {!adding && <EnvironmentHero device={device} machine={machine} bot={bot} here={here} statuses={statuses}
+              runningTerminals={selectedRunning}
+              onOpenTerminal={() => switchTab("terminal")} onBrowseFiles={() => switchTab("files")}/>}
+            {adding && connecting ? <DeviceConnect/>
+              : adding ? <MachineForm onCancel={() => { onAdding(false); setOpen(false); }} onSaved={saved => {
+                setMachines(list => [...(list ?? []), saved]); pick({ kind: "machine", id: saved.id });
+              }}/>
+              : device ? <DeviceDetail key={device.id} device={device} bots={bots}
+                onChanged={saved => setDevices(list => list && list.map(item => item.id === saved.id ? saved : item))}
+                onDeleted={() => { kept = null; setPicked(null); setOpen(false); setDevices(list => list && list.filter(item => item.id !== device.id)); }}/>
+              : machine ? <MachineDetail key={machine.id} machine={machine} bots={bots}
+                onChanged={saved => setMachines(list => list && list.map(item => item.id === saved.id ? saved : item))}
+                onDeleted={() => { kept = null; setPicked(null); setOpen(false); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>
+              : bot ? <div className="jv-ov-grid">
+                <div><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={false}/></div>
+                <div><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></div>
+              </div> : null}
+          </div>
         </div>}
       </div>
     </main>
   </section>;
-}
-
-/** Active terminal count badge on an environment list row (A103). */
-function TermBadge({ count }: { count: number }) {
-  if (!count) return null;
-  const label = t("envs.terminalCount", { count });
-  return <span className="jv-envs-term-badge" title={label} aria-label={label}><TerminalIcon aria-hidden="true"/>{count}</span>;
-}
-
-/** What kind of place it is: a container, a VM (A85) or a machine over SSH. */
-function Kind({ type }: { type: "container" | "vm" | "ssh" | "device" }) {
-  const Icon = type === "device" ? LaptopIcon : type === "ssh" ? ServerIcon : type === "vm" ? MonitorIcon : ContainerIcon;
-  return <span className="ui-tile" data-kind={type}><Icon aria-hidden="true"/></span>;
-}
-
-/** A computer's dot: green online, amber paused in its client, grey offline. */
-function DeviceDot({ device }: { device: Device }) {
-  const state = deviceState(device), label = t(`devices.${state}`);
-  return <span className="jv-envs-state" data-state={state === "online" ? "running" : state === "paused" ? "preparing" : "stopped"} role="img" aria-label={label} title={label}/>;
-}
-
-/** The Bots working in a place now, overlapping, a stopped one asleep (A88); past three, how many more. */
-function Faces({ bots, statuses }: { bots: Bot[]; statuses: Record<string, BotStatus> }) {
-  return <span className="jv-envs-faces" title={bots.map(bot => bot.name).join(t("common.listSeparator")) || undefined}>
-    {bots.slice(0, FACES).map(bot => <BotAvatar key={bot.id} color={bot.color} mood={bot.mood} size={22} crown={bot.agent} asleep={statuses[bot.id]?.status === "stop"}/>)}
-    {bots.length > FACES && <span className="jv-envs-more">+{bots.length - FACES}</span>}
-  </span>;
 }
