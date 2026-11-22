@@ -15,6 +15,7 @@ export const envFiles: Part<typeof en> = {
   "envFiles.newFolder": "新建文件夹",
   "envFiles.newFolderPlaceholder": "文件夹名称",
   "envFiles.upload": "上传文件",
+  "envFiles.openTerminalHere": "在此目录开终端",
   "envFiles.open": "打开",
   "envFiles.download": "下载",
   "envFiles.copyPath": "复制路径",

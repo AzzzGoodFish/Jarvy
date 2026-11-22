@@ -145,7 +145,7 @@ export class SshMachines {
   }
   /** Opens an interactive PTY on this SSH machine in its configured directory (A103). */
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
-    const cwd = record.directory || record.spec.home || "/";
+    const cwd = options.cwd && options.cwd.startsWith("/") ? options.cwd : (record.directory || record.spec.home || "/");
     const pty = await this.wrap(() => openSshPty(record.id, this.access(record), { ...options, cwd },
       text => console.error(`[ssh-pty ${record.name}] ${text.trim()}`)));
     return { pty, cwd };

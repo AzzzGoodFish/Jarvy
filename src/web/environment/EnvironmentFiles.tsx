@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, FolderPlusIcon, HomeIcon, Maximize2Icon,
-  Minimize2Icon, PencilIcon, RefreshCwIcon, SearchIcon, UploadIcon,
+  Minimize2Icon, PencilIcon, RefreshCwIcon, SearchIcon, TerminalIcon, UploadIcon,
 } from "lucide-react";
 import { ApiError, api } from "../api";
 import type { EnvDirListing, EnvFileEntry } from "../../contract/env-files";
@@ -16,12 +16,13 @@ import { copyToClipboard, renameSelectionEnd, sortEntries, splitBreadcrumbs, typ
 import { useFileUploads } from "./useFileUploads";
 
 /** Direct file browser & streaming transfer pane for one work environment (A104). */
-export function EnvironmentFiles({ environmentId, botId, availability, maximized, onToggleMaximize, onSandboxStarted }: {
+export function EnvironmentFiles({ environmentId, botId, availability, maximized, onToggleMaximize, onOpenTerminal, onSandboxStarted }: {
   environmentId: string;
   botId?: string;
   availability: TerminalAvailability;
   maximized: boolean;
   onToggleMaximize: () => void;
+  onOpenTerminal?: (path: string) => void;
   onSandboxStarted?: () => void;
 }) {
   const [listing, setListing] = useState<EnvDirListing | null>(null);
@@ -291,6 +292,10 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
           onClick={() => setShowHidden(value => !value)}>
           {showHidden ? <EyeIcon aria-hidden="true"/> : <EyeOffIcon aria-hidden="true"/>}
         </button>
+        {onOpenTerminal && <button type="button" className="jv-term-tool" aria-label={t("envFiles.openTerminalHere")} title={t("envFiles.openTerminalHere")}
+          disabled={!listing} onClick={() => listing && onOpenTerminal(listing.path)}>
+          <TerminalIcon aria-hidden="true"/>
+        </button>}
         <button type="button" className="jv-term-tool" aria-label={t("envFiles.newFolder")} title={t("envFiles.newFolder")}
           disabled={!listing} onClick={() => { setCreatingDir(true); setNewDirName(""); }}>
           <FolderPlusIcon aria-hidden="true"/>

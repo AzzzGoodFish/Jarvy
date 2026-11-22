@@ -42,7 +42,7 @@ import type { InboxEntry } from "../../infra/storage/inbox-repository.js";
 import { welcomeLanguage, type BotChange } from "../../shared/agent.js";
 import type { LiveChat } from "../../shared/live.js";
 import type { EnvironmentFs } from "../../shared/env-files.js";
-import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
+import type { PtyHandle, PtyOpenOptions, PtyShell } from "../../shared/terminal.js";
 import type { SecretService } from "../secrets.js";
 import type { ConnectorService } from "../connectors.js";
 import type { TaskService } from "../tasks.js";
@@ -268,7 +268,7 @@ export class BotService {
     throw new ChatError(400, "File browsing is not supported for this environment kind");
   }
   /** Opens an interactive PTY in any registered environment (Bot sandbox, SSH machine, or connected computer, A103). */
-  async openPty(environmentId: string, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string }> {
+  async openPty(environmentId: string, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell?: PtyShell }> {
     const record = this.deps.store.environments.get(environmentId);
     if (!record) throw new ChatError(404, "No work environment with this id");
     if (record.kind === "computer") return this.computers.openPty(record, options);

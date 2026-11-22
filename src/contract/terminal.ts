@@ -11,6 +11,7 @@ export const TERMINAL_WS_PREFIX = "/api/terminals/";
 export const TERMINAL_WS_SUFFIX = "/ws";
 
 export type TerminalState = "running" | "exited";
+export type TerminalShell = "bash" | "powershell" | "cmd";
 
 export interface TerminalSession {
   id: string;
@@ -20,6 +21,8 @@ export interface TerminalSession {
   cols: number;
   rows: number;
   cwd: string;
+  /** Shell used to launch this terminal, when known. */
+  shell?: TerminalShell;
   /** Foreground program name when different from the login shell, if known. */
   foreground?: string;
   exitCode: number | null;

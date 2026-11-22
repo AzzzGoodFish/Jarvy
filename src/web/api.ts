@@ -177,7 +177,7 @@ export const api = {
   grantDevice: (id: string, botId: string, granted: boolean) => request<Device>(`/environments/devices/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   /** Persistent interactive terminals across environments (A103). */
   terminals: (environmentId?: string) => request<{ terminals: TerminalSession[] }>(`/terminals${environmentId ? `?environmentId=${encodeURIComponent(environmentId)}` : ""}`),
-  createTerminal: (input: { environmentId: string; name?: string; cols?: number; rows?: number }) => request<TerminalSession>("/terminals", { method: "POST", body: body(input) }),
+  createTerminal: (input: { environmentId: string; name?: string; cols?: number; rows?: number; shell?: import("../contract/terminal").TerminalShell; cwd?: string }) => request<TerminalSession>("/terminals", { method: "POST", body: body(input) }),
   renameTerminal: (id: string, name: string) => request<TerminalSession>(`/terminals/${id}`, { method: "PATCH", body: body({ name }) }),
   restartTerminal: (id: string, input: { cols?: number; rows?: number } = {}) => request<TerminalSession>(`/terminals/${id}/restart`, { method: "POST", body: body(input) }),
   closeTerminal: (id: string) => request<{ ok: boolean }>(`/terminals/${id}`, { method: "DELETE" }),

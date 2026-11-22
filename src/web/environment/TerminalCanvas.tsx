@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Terminal, type ITheme } from "@xterm/xterm";
+import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import { TERMINAL_WS_PREFIX, TERMINAL_WS_SUFFIX, type TerminalServerMessage, type TerminalState } from "../../contract/terminal";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
+import { TERMINAL_THEMES, type ResolvedTerminalTheme } from "./terminal-themes";
 
 export interface TerminalCanvasHandle {
   focus(): void;
@@ -16,57 +17,6 @@ export interface TerminalCanvasHandle {
   size(): { cols: number; rows: number };
 }
 
-const DARK_THEME: ITheme = {
-  background: "#21252b",
-  foreground: "#e1e6ee",
-  cursor: "#61afef",
-  cursorAccent: "#21252b",
-  selectionBackground: "#3e4451",
-  selectionInactiveBackground: "#323842",
-  black: "#282c34",
-  red: "#e06c75",
-  green: "#98c379",
-  yellow: "#e5c07b",
-  blue: "#61afef",
-  magenta: "#c678dd",
-  cyan: "#56b6c2",
-  white: "#abb2bf",
-  brightBlack: "#5c6370",
-  brightRed: "#f47067",
-  brightGreen: "#a8d98b",
-  brightYellow: "#f0cc86",
-  brightBlue: "#74bdf7",
-  brightMagenta: "#d28ee8",
-  brightCyan: "#6bc9d5",
-  brightWhite: "#f5f7fa",
-};
-
-const LIGHT_THEME: ITheme = {
-  background: "#fafbfc",
-  foreground: "#24292f",
-  cursor: "#0969da",
-  cursorAccent: "#fafbfc",
-  selectionBackground: "#b6d7ff",
-  selectionInactiveBackground: "#dce8f8",
-  black: "#24292f",
-  red: "#cf222e",
-  green: "#1a7f37",
-  yellow: "#9a6700",
-  blue: "#0969da",
-  magenta: "#8250df",
-  cyan: "#1b7c83",
-  white: "#6e7781",
-  brightBlack: "#57606a",
-  brightRed: "#a40e26",
-  brightGreen: "#2da44e",
-  brightYellow: "#bf8700",
-  brightBlue: "#218bff",
-  brightMagenta: "#a475f9",
-  brightCyan: "#3192aa",
-  brightWhite: "#8c959f",
-};
-
-const currentTheme = (): ITheme => document.documentElement.classList.contains("dark") ? DARK_THEME : LIGHT_THEME;
 const wsUrl = (id: string) => {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}${TERMINAL_WS_PREFIX}${encodeURIComponent(id)}${TERMINAL_WS_SUFFIX}`;
@@ -101,17 +51,20 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   sessionId: string;
   visible: boolean;
   focusable?: boolean;
+  theme: ResolvedTerminalTheme;
   onExit?: (exitCode: number | null, reason?: string) => void;
   onForeground?: (foreground?: string) => void;
   onStateSync?: (state: TerminalState, exitCode: number | null, reason?: string) => void;
   onNotice?: (message: string) => void;
-}>(function TerminalCanvas({ sessionId, visible, focusable = true, onExit, onForeground, onStateSync, onNotice }, ref) {
+}>(function TerminalCanvas({ sessionId, visible, focusable = true, theme, onExit, onForeground, onStateSync, onNotice }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
   const fitSyncRef = useRef<() => void>(() => {});
   const reconnectRef = useRef<() => void>(() => {});
   const callbacksRef = useRef({ onExit, onForeground, onStateSync, onNotice });
@@ -164,7 +117,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       fontSize: 13,
       lineHeight: 1.25,
       scrollback: 5000,
-      theme: currentTheme(),
+      theme: TERMINAL_THEMES[themeRef.current],
       allowProposedApi: true,
       macOptionIsMeta: true,
       rightClickSelectsWord: false,
@@ -274,10 +227,6 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       ws.send(bytes);
     });
 
-    // Keep xterm palette synced with Jarvy's Light/Dark theme.
-    const themeObserver = new MutationObserver(() => { term.options.theme = currentTheme(); });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
-
     let resizeTimer: number | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (resizeTimer) window.clearTimeout(resizeTimer);
@@ -367,7 +316,6 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       if (resizeTimer) window.clearTimeout(resizeTimer);
       container.removeEventListener("mouseup", onMouseUp);
       resizeObserver.disconnect();
-      themeObserver.disconnect();
       dataDispose.dispose();
       binDispose.dispose();
       oscDispose.dispose();
@@ -379,6 +327,10 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       fitRef.current = null;
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = TERMINAL_THEMES[theme];
+  }, [theme]);
 
   useEffect(() => {
     if (!visible) {
