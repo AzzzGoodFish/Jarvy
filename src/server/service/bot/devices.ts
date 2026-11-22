@@ -92,7 +92,7 @@ export class Devices {
     if (windows && !this.links.hasCapability(record.id, "pty")) {
       throw new ChatError(409, "Update the Jarvy client on this Windows computer to open interactive terminals", "terminal_unsupported");
     }
-    const rawDir = options.cwd ? this.directoryIn(record, options.cwd) : this.directory(record);
+    const rawDir = options.cwd ? this.terminalCwd(record, options.cwd) : this.directory(record);
     const cwd = windows ? toWindows(rawDir).replaceAll("/", "\\") : rawDir;
     const requested = options.shell;
     const chosen = record.spec.shell;
@@ -208,6 +208,23 @@ export class Devices {
   }
   private home(record: EnvironmentRecord): string { return (record.spec.home ?? "").replaceAll("\\", "/") || (record.spec.platform === "win32" ? "C:/" : "/"); }
   private directory(record: EnvironmentRecord): string { return (record.directory || record.spec.home || "").replaceAll("\\", "/") || this.home(record); }
+  /** Exact working directory for a terminal: never trims, so POSIX directories ending in spaces are preserved. */
+  private terminalCwd(record: EnvironmentRecord, value: string): string {
+    const home = this.home(record);
+    if (value.length > 1000 || /[\x00-\x1f]/.test(value)) throw new ChatError(400, "directory must be an absolute path or start with ~/");
+    if (record.spec.platform === "win32") {
+      const raw = value.replaceAll("\\", "/");
+      if (raw === "~") return home;
+      if (raw.startsWith("~/")) return `${home}/${raw.slice(2)}`;
+      if (/^[A-Za-z]:\//.test(raw)) return raw;
+      if (/^\/[A-Za-z](\/|$)/.test(raw)) return toWindows(raw);
+    } else {
+      if (value === "~") return home;
+      if (value.startsWith("~/")) return `${home}/${value.slice(2)}`;
+      if (value.startsWith("/")) return value;
+    }
+    throw new ChatError(400, "directory must be an absolute path or start with ~/");
+  }
   /** An absolute directory there: `~` and paths under it are its home; on Windows also `C:\…` or `/c/…`. */
   private directoryIn(record: EnvironmentRecord, value: unknown): string {
     const raw = text(value, 1000).replaceAll("\\", "/"), home = this.home(record);

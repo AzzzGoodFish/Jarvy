@@ -47,7 +47,8 @@
   height: var(--ui-control-lg); padding: 0 var(--ui-space-12);
   background: var(--jv-t-chrome); border-bottom: 1px solid var(--jv-t-border); flex-shrink: 0;
 }
-.jv-term-tabs { display: flex; align-items: flex-end; gap: var(--ui-space-2); height: 100%; min-width: 0; flex: 1; padding-top: var(--ui-space-4); overflow-x: auto; scrollbar-width: none; }
+.jv-term-left { display: flex; align-items: flex-end; height: 100%; min-width: 0; flex: 1; }
+.jv-term-tabs { display: flex; align-items: flex-end; gap: var(--ui-space-2); height: 100%; min-width: 0; flex: 0 1 auto; padding-top: var(--ui-space-4); overflow-x: auto; scrollbar-width: none; }
 .jv-term-tabs::-webkit-scrollbar { display: none; }
 
 .jv-term-tab {
@@ -126,13 +127,15 @@
 }
 .jv-term-menu-left { left: 0; }
 .jv-term-menu-right { right: 0; }
+.jv-term-menu-fixed { position: fixed; top: 0; left: 0; z-index: 60; }
 .jv-term-menu-head {
   padding: var(--ui-space-4) var(--ui-space-8) var(--ui-space-6);
   font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); font-weight: 600; color: var(--ui-text-tertiary);
 }
 .jv-term-menu-item {
   width: 100%; display: flex; align-items: center; gap: var(--ui-space-8); height: var(--ui-control-md);
-  padding: 0 var(--ui-space-8); border-radius: var(--ui-radius-sm); text-align: left;
+  padding: 0 var(--ui-space-8); border: 0; border-radius: var(--ui-radius-sm); background: transparent;
+  text-align: left; font-family: inherit; cursor: pointer;
   font-size: var(--ui-text-md); line-height: var(--ui-leading-md); color: var(--ui-text-primary);
 }
 .jv-term-menu-item:hover { background: var(--ui-fill-ghost-hover); }

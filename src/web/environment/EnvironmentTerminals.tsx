@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CheckIcon, ChevronDownIcon, Maximize2Icon, Minimize2Icon, PaletteIcon, PlusIcon, RotateCwIcon, TerminalIcon, XIcon } from "lucide-react";
 import { api } from "../api";
 import type { TerminalSession, TerminalShell } from "../../contract/terminal";
@@ -62,9 +63,12 @@ export function EnvironmentTerminals({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [menu, setMenu] = useState<"shell" | "theme" | null>(null);
+  const [shellMenuPos, setShellMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [themeChoice, setThemeChoice] = useState<TerminalThemeChoice>(loadTerminalThemeChoice);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTerminalTheme>(() => resolveTerminalTheme(loadTerminalThemeChoice()));
   const canvasesRef = useRef(new Map<string, TerminalCanvasHandle>());
+  const shellBtnRef = useRef<HTMLButtonElement>(null);
+  const shellMenuRef = useRef<HTMLDivElement>(null);
   const lastRequestSeq = useRef(0);
 
   // Sync resolved terminal theme whenever choice or the app's light/dark theme changes.
@@ -85,6 +89,34 @@ export function EnvironmentTerminals({
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("click", close); window.removeEventListener("keydown", onKey); };
   }, [menu]);
+
+  useEffect(() => { if (!visible) setMenu(null); }, [visible]);
+
+  const updateShellMenuPos = useCallback(() => {
+    const btn = shellBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const menuWidth = shellMenuRef.current?.offsetWidth || 200;
+    const menuHeight = shellMenuRef.current?.offsetHeight || 160;
+    const pad = 8;
+    const maxLeft = Math.max(pad, window.innerWidth - menuWidth - pad);
+    const left = Math.min(Math.max(pad, rect.left), maxLeft);
+    const fitsBelow = rect.bottom + 4 + menuHeight <= window.innerHeight - pad;
+    const top = fitsBelow ? rect.bottom + 4 : Math.max(pad, rect.top - menuHeight - 4);
+    setShellMenuPos({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (menu !== "shell") { setShellMenuPos(null); return; }
+    updateShellMenuPos();
+    const onScrollOrResize = () => updateShellMenuPos();
+    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    return () => {
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+    };
+  }, [menu, updateShellMenuPos, availableShells.length]);
 
   useEffect(() => {
     setConfirmClose(null);
@@ -253,61 +285,68 @@ export function EnvironmentTerminals({
       {error && <p className="jv-note-error" role="alert">{error}</p>}
     </div> : <>
       <div className="jv-term-bar" role="tablist" aria-label={t("envs.tabTerminal")}>
-        <div className="jv-term-tabs">
-          {sessions.map(session => {
-            const isSelected = session.id === active?.id;
-            const isEditing = editing?.id === session.id;
-            const shellLabel = shellShortLabel(session.shell, platform);
-            const chip = session.foreground && shellLabel && session.foreground.toLowerCase() !== shellLabel.toLowerCase()
-              ? `${shellLabel} · ${session.foreground}`
-              : session.foreground || shellLabel;
-            return <div key={session.id} className="jv-term-tab" data-active={isSelected || undefined} data-state={session.state}
-              role="tab" aria-selected={isSelected} tabIndex={isSelected ? 0 : -1}
-              onClick={() => onSelectSession(environmentId, session.id)}
-              onDoubleClick={() => setEditing({ id: session.id, value: session.name })}
-              onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelectSession(environmentId, session.id); } }}>
-              <span className="jv-term-dot" data-state={session.state} aria-hidden="true"/>
-              {isEditing ? <input className="jv-term-rename" value={editing.value} maxLength={60} autoFocus
-                aria-label={t("terminal.rename")}
-                onClick={event => event.stopPropagation()}
-                onChange={event => setEditing({ id: session.id, value: event.target.value })}
-                onBlur={() => void commitRename()}
-                onKeyDown={event => {
-                  event.stopPropagation();
-                  if (event.key === "Enter") { event.preventDefault(); void commitRename(); }
-                  else if (event.key === "Escape") { event.preventDefault(); setEditing(null); }
-                }}/>
-                : <span className="jv-term-tab-label" title={t("terminal.renameHint")}>
-                  <span className="jv-term-tab-name">{session.name}</span>
-                  {chip && <span className="jv-term-tab-chip">{chip}</span>}
-                </span>}
-              <button type="button" className="jv-term-tab-close" aria-label={t("terminal.close")}
-                onClick={event => { event.stopPropagation(); requestClose(session); }}>
-                <XIcon aria-hidden="true"/>
-              </button>
-            </div>;
-          })}
+        <div className="jv-term-left">
+          <div className="jv-term-tabs">
+            {sessions.map(session => {
+              const isSelected = session.id === active?.id;
+              const isEditing = editing?.id === session.id;
+              const shellLabel = shellShortLabel(session.shell, platform);
+              const chip = session.foreground && shellLabel && session.foreground.toLowerCase() !== shellLabel.toLowerCase()
+                ? `${shellLabel} · ${session.foreground}`
+                : session.foreground || shellLabel;
+              return <div key={session.id} className="jv-term-tab" data-active={isSelected || undefined} data-state={session.state}
+                role="tab" aria-selected={isSelected} tabIndex={isSelected ? 0 : -1}
+                onClick={() => onSelectSession(environmentId, session.id)}
+                onDoubleClick={() => setEditing({ id: session.id, value: session.name })}
+                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelectSession(environmentId, session.id); } }}>
+                <span className="jv-term-dot" data-state={session.state} aria-hidden="true"/>
+                {isEditing ? <input className="jv-term-rename" value={editing.value} maxLength={60} autoFocus
+                  aria-label={t("terminal.rename")}
+                  onClick={event => event.stopPropagation()}
+                  onChange={event => setEditing({ id: session.id, value: event.target.value })}
+                  onBlur={() => void commitRename()}
+                  onKeyDown={event => {
+                    event.stopPropagation();
+                    if (event.key === "Enter") { event.preventDefault(); void commitRename(); }
+                    else if (event.key === "Escape") { event.preventDefault(); setEditing(null); }
+                  }}/>
+                  : <span className="jv-term-tab-label" title={t("terminal.renameHint")}>
+                    <span className="jv-term-tab-name">{session.name}</span>
+                    {chip && <span className="jv-term-tab-chip">{chip}</span>}
+                  </span>}
+                <button type="button" className="jv-term-tab-close" aria-label={t("terminal.close")}
+                  onClick={event => { event.stopPropagation(); requestClose(session); }}>
+                  <XIcon aria-hidden="true"/>
+                </button>
+              </div>;
+            })}
+          </div>
           {!blocked && <div className="jv-term-new-group">
             <button type="button" className="jv-term-add" aria-label={t("terminal.new")} title={t("terminal.new")}
               disabled={creating} onClick={() => void createNew()}>
               <PlusIcon aria-hidden="true"/>
             </button>
-            {hasShellPicker && <button type="button" className="jv-term-add jv-term-add-chevron"
+            {hasShellPicker && <button ref={shellBtnRef} type="button" className="jv-term-add jv-term-add-chevron"
               aria-label={t("terminal.chooseShell")} title={t("terminal.chooseShell")} aria-expanded={menu === "shell"}
               disabled={creating} onClick={event => { event.stopPropagation(); setMenu(cur => cur === "shell" ? null : "shell"); }}>
               <ChevronDownIcon aria-hidden="true"/>
             </button>}
-            {menu === "shell" && <div className="jv-term-menu jv-term-menu-left" role="menu" onClick={event => event.stopPropagation()}>
-              <div className="jv-term-menu-head">{t("terminal.newWithShell")}</div>
-              {availableShells.map(item => <button key={item.id} type="button" role="menuitem" className="jv-term-menu-item"
-                onClick={() => void createNew({ shell: item.id })}>
-                <TerminalIcon aria-hidden="true"/>
-                <span>{item.label}</span>
-                {item.isDefault && <span className="jv-term-menu-meta">{t("terminal.shellDefault")}</span>}
-              </button>)}
-            </div>}
           </div>}
         </div>
+        {menu === "shell" && hasShellPicker && !blocked && createPortal(
+          <div ref={shellMenuRef} className="jv-term-menu jv-term-menu-fixed" role="menu"
+            style={shellMenuPos ? { top: shellMenuPos.top, left: shellMenuPos.left } : { visibility: "hidden" }}
+            onClick={event => event.stopPropagation()}>
+            <div className="jv-term-menu-head">{t("terminal.newWithShell")}</div>
+            {availableShells.map(item => <button key={item.id} type="button" role="menuitem" className="jv-term-menu-item"
+              onClick={() => void createNew({ shell: item.id })}>
+              <TerminalIcon aria-hidden="true"/>
+              <span>{item.label}</span>
+              {item.isDefault && <span className="jv-term-menu-meta">{t("terminal.shellDefault")}</span>}
+            </button>)}
+          </div>,
+          document.body,
+        )}
 
         <div className="jv-term-actions">
           {notice && <span className="jv-term-copied" role="status">{notice}</span>}

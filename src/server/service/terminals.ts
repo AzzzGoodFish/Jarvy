@@ -40,12 +40,11 @@ const cleanShell = (value: unknown): TerminalShell | undefined => {
   throw new ChatError(400, "shell must be bash, powershell or cmd");
 };
 const cleanCwd = (value: unknown): string | undefined => {
-  if (value === undefined || value === null) return undefined;
+  if (value === undefined || value === null || value === "") return undefined;
   if (typeof value !== "string") throw new ChatError(400, "cwd must be a string");
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.length > 1000 || /[\x00-\x1f]/.test(trimmed)) throw new ChatError(400, "Invalid cwd");
-  return trimmed;
+  // Never trim: leading/trailing spaces are valid POSIX directory characters and trimming can retarget a sibling directory.
+  if (value.length > 1000 || /[\x00-\x1f]/.test(value)) throw new ChatError(400, "Invalid cwd");
+  return value;
 };
 
 const DEFAULT_ENV: Record<string, string> = {
