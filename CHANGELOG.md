@@ -2,6 +2,27 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.19.0 — 2026-11-22
+
+The database stays at v35 when upgrading from 0.18.0. Update the desktop client on connected Windows computers to get the Windows terminal fix.
+
+### Added
+
+- **Choose a shell for each terminal.** On a connected computer with more than one supported shell, choose one when opening a terminal without changing the computer's default. In Files, use **Open terminal here** to start in the folder you are browsing. Restarting a terminal retains its explicitly selected shell and starting folder.
+- **Set a terminal color theme independently.** Follow the app's theme or choose One Dark, Midnight, Soft light, or Warm paper.
+
+### Changed
+
+- **Find environments and open terminals faster.** Filter the sidebar by computer, SSH machine, or Bot sandbox, and jump directly to a running terminal from its environment's row. Collapse the list to make room and switch environments from the header. The Overview puts status, key details, and shortcuts to Terminal and Files up front.
+- The terminal toolbar no longer duplicates Copy and Paste. Keyboard shortcuts and the terminal's context menu still provide both actions.
+- Updated the English and Chinese README guides and screenshots.
+
+### Fixed
+
+- `agy` and other terminal programs that query terminal modes can render their first screen without waiting for a reconnect.
+- Switching to Files, Overview, or Chats and back keeps the live terminal view and scroll position. Full browser reloads and connection drops still recover the screen from the server.
+- On Windows, PowerShell and Git Bash now receive interactive terminal input and show command errors in the terminal instead of sending them to the helper log.
+
 ## 0.18.0 — 2026-11-21
 
 The database stays at v35 when upgrading from 0.17.0.
