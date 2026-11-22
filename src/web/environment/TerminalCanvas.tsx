@@ -99,16 +99,20 @@ async function copyToClipboard(text: string): Promise<boolean> {
  * right-click copy/paste, Shift+Enter, OSC 52 clipboard). */
 export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   sessionId: string;
-  active: boolean;
+  visible: boolean;
+  focusable?: boolean;
   onExit?: (exitCode: number | null, reason?: string) => void;
   onForeground?: (foreground?: string) => void;
   onStateSync?: (state: TerminalState, exitCode: number | null, reason?: string) => void;
   onNotice?: (message: string) => void;
-}>(function TerminalCanvas({ sessionId, active, onExit, onForeground, onStateSync, onNotice }, ref) {
+}>(function TerminalCanvas({ sessionId, visible, focusable = true, onExit, onForeground, onStateSync, onNotice }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const fitSyncRef = useRef<() => void>(() => {});
   const reconnectRef = useRef<() => void>(() => {});
   const callbacksRef = useRef({ onExit, onForeground, onStateSync, onNotice });
   callbacksRef.current = { onExit, onForeground, onStateSync, onNotice };
@@ -176,6 +180,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     termRef.current = term;
     fitRef.current = fit;
 
+    let lastSent = { cols: 0, rows: 0 };
     const encoder = new TextEncoder();
     const sendInput = (text: string) => {
       const ws = wsRef.current;
@@ -183,15 +188,20 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     };
     const sendResize = () => {
       const ws = wsRef.current;
-      if (ws?.readyState === WebSocket.OPEN && term.cols >= 20 && term.rows >= 5) {
-        ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
-      }
+      if (ws?.readyState !== WebSocket.OPEN || term.cols < 20 || term.rows < 5) return;
+      if (term.cols === lastSent.cols && term.rows === lastSent.rows) return;
+      lastSent = { cols: term.cols, rows: term.rows };
+      ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
     };
     const fitAndSync = () => {
-      if (!container.clientWidth || !container.clientHeight) return;
-      try { fit.fit(); } catch { return; }
+      if (!visibleRef.current || !container.clientWidth || !container.clientHeight) return;
+      const dims = fit.proposeDimensions();
+      if (dims && dims.cols >= 20 && dims.rows >= 5 && (dims.cols !== term.cols || dims.rows !== term.rows)) {
+        try { fit.fit(); } catch { return; }
+      }
       sendResize();
     };
+    fitSyncRef.current = fitAndSync;
 
     // OSC 52 clipboard write: lets remote TUI apps (vim, claude, etc.) copy directly to the browser clipboard.
     const oscDispose = term.parser.registerOscHandler(52, data => {
@@ -306,6 +316,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
         let msg: TerminalServerMessage;
         try { msg = JSON.parse(String(event.data)) as TerminalServerMessage; } catch { return; }
         if (msg.t === "snapshot") {
+          lastSent = { cols: msg.cols, rows: msg.rows };
           term.reset();
           if (msg.cols >= 20 && msg.rows >= 5) term.resize(msg.cols, msg.rows);
           term.write(msg.data, () => {
@@ -343,7 +354,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     };
     connect();
     requestAnimationFrame(() => {
-      if (!disposed) {
+      if (!disposed && visibleRef.current) {
         fitAndSync();
         term.focus();
       }
@@ -351,6 +362,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
 
     return () => {
       disposed = true;
+      fitSyncRef.current = () => {};
       if (retryTimer) window.clearTimeout(retryTimer);
       if (resizeTimer) window.clearTimeout(resizeTimer);
       container.removeEventListener("mouseup", onMouseUp);
@@ -369,19 +381,21 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   }, [sessionId]);
 
   useEffect(() => {
-    if (!active) return;
-    const id = requestAnimationFrame(() => {
-      try { fitRef.current?.fit(); } catch { /* ignore */ }
-      const term = termRef.current, ws = wsRef.current;
-      if (term && ws?.readyState === WebSocket.OPEN && term.cols >= 20 && term.rows >= 5) {
-        ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
+    if (!visible) {
+      const host = hostRef.current;
+      if (host && document.activeElement instanceof HTMLElement && host.contains(document.activeElement)) {
+        document.activeElement.blur();
       }
-      term?.focus();
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      fitSyncRef.current();
+      if (focusable) termRef.current?.focus();
     });
     return () => cancelAnimationFrame(id);
-  }, [active]);
+  }, [visible, focusable]);
 
-  return <div className="jv-term-stage">
+  return <div className="jv-term-stage" data-inactive={!visible || undefined} aria-hidden={!visible || undefined} inert={!visible || undefined}>
     <div ref={hostRef} className="jv-term-canvas"
       onContextMenu={event => {
         const term = termRef.current;

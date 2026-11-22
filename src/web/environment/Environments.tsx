@@ -37,8 +37,8 @@ const FACES = 3;
 /** The Environments page (A89, A103): every place Bots work, one row each, the computers and SSH machines first and
  * then each Bot's sandbox with its state; every row shows the Bots working there now and active terminal count. On the
  * right the one picked switches between Overview (details/ports) and Terminal (persistent multi-terminal sessions). */
-export function Environments({ bots, statuses, adding, terminalVersion = 0, onAdding, onSaved }: {
-  bots: Bot[]; statuses: Record<string, BotStatus>; adding: boolean; terminalVersion?: number; onAdding: (adding: boolean) => void; onSaved: (bot: Bot) => void;
+export function Environments({ active, bots, statuses, adding, terminalVersion = 0, onAdding, onSaved }: {
+  active: boolean; bots: Bot[]; statuses: Record<string, BotStatus>; adding: boolean; terminalVersion?: number; onAdding: (adding: boolean) => void; onSaved: (bot: Bot) => void;
 }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null), [error, setError] = useState<string | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null), [connecting, setConnecting] = useState(false);
@@ -50,14 +50,15 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
   }, []);
   useEffect(() => { void api.machines().then(view => setMachines(view.machines)).catch(reason => setError(errorText(reason))); }, []);
   useEffect(() => { void loadTerminals(); }, [loadTerminals, terminalVersion]);
-  // A computer comes online, goes away or is added from its own side, so the list is asked again now and then.
+  // A computer comes online, goes away or is added from its own side, so the list is asked again now and then while visible.
   useEffect(() => {
+    if (!active) return;
     let alive = true;
     const load = () => void api.devices().then(view => { if (alive) setDevices(view.devices); }).catch(() => {});
     load();
     const timer = setInterval(load, 5000);
     return () => { alive = false; clearInterval(timer); };
-  }, []);
+  }, [active]);
   useEffect(() => { if (adding) { setOpen(true); setMaximized(false); } }, [adding]);
   const sandboxes = bots.filter(bot => bot.environment.computer);
   // Machine names are unique, so the one a Bot says it works on is this one.
@@ -111,7 +112,9 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
       if (updated) onSaved(updated);
     }).catch(() => {});
   };
-  return <section className="jv-envs" data-open={open || undefined} data-maximized={(showTerminal || showFiles) && maximized ? "" : undefined} aria-label={t("rail.environments")}>
+  return <section className="jv-envs" data-inactive={!active || undefined} data-open={open || undefined}
+    data-maximized={active && (showTerminal || showFiles) && maximized ? "" : undefined}
+    aria-hidden={!active || undefined} inert={!active || undefined} aria-label={t("rail.environments")}>
     <aside className="jv-envs-list">
       <ColumnHeader place="sidebar" title={<span className="sr-only">{t("rail.environments")}</span>}
         actions={<IconButton icon="add" label={t("machines.add")} aria-pressed={adding} onClick={() => { onAdding(true); setOpen(true); }}/>}/>
@@ -154,13 +157,15 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
           </button>
           <button type="button" role="radio" aria-checked={tab === "files"} onClick={() => switchTab("files")}>{t("envs.tabFiles")}</button>
         </div> : undefined}/>
-      {showTerminal ? <EnvironmentTerminals environmentId={selectedEnvId} sessions={selectedSessions} availability={availability}
-        maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
-        onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>
-        : showFiles ? <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={availability}
+      <div className="jv-envs-content">
+        {(selectedEnvId || terminals.length > 0) && <EnvironmentTerminals environmentId={selectedEnvId ?? ""} sessions={selectedSessions} allSessions={terminals}
+          availability={availability} visible={active && showTerminal} maximized={maximized}
+          onToggleMaximize={() => setMaximized(value => !value)}
+          onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>}
+        {showFiles && <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={availability}
           maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
-          onSandboxStarted={refreshBot}/>
-        : <div className="jv-envs-body">
+          onSandboxStarted={refreshBot}/>}
+        {!showTerminal && !showFiles && <div className="jv-envs-body">
           {!adding && here.length > 0 && <p className="jv-envs-here">{faces(here)}{t("envs.workingHere", { names: here.map(item => item.name).join(t("common.listSeparator")), count: here.length })}</p>}
           {adding && <div className="jv-seg jv-envs-add-kind" role="radiogroup" aria-label={t("machines.add")}>
             {([false, true] as const).map(value => <button key={String(value)} type="button" role="radio" aria-checked={connecting === value} onClick={() => setConnecting(value)}>
@@ -177,6 +182,7 @@ export function Environments({ bots, statuses, adding, terminalVersion = 0, onAd
               onDeleted={() => { kept = null; setPicked(null); setOpen(false); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>
             : bot ? <><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={false}/><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></> : null}
         </div>}
+      </div>
     </main>
   </section>;
 }
