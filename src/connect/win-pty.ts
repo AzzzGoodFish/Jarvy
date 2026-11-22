@@ -21,6 +21,7 @@ using Microsoft.Win32.SafeHandles;
 
 public static class JarvyConPty {
   const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
+  const int STARTF_USESTDHANDLES = 0x00000100;
   const uint INFINITE = 0xFFFFFFFF;
   static readonly IntPtr PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = new IntPtr(0x00020016);
 
@@ -140,8 +141,16 @@ public static class JarvyConPty {
         ClosePseudoConsole(hPC);
         return 1;
       }
+      // Explicitly set STARTF_USESTDHANDLES with null handles so CreateProcessW does not inherit
+      // this helper's own redirected pipe stdio (framing stdin / log stderr) into the ConPTY child.
       var siEx = new STARTUPINFOEX {
-        StartupInfo = new STARTUPINFO { cb = Marshal.SizeOf(typeof(STARTUPINFOEX)) },
+        StartupInfo = new STARTUPINFO {
+          cb = Marshal.SizeOf(typeof(STARTUPINFOEX)),
+          dwFlags = STARTF_USESTDHANDLES,
+          hStdInput = IntPtr.Zero,
+          hStdOutput = IntPtr.Zero,
+          hStdError = IntPtr.Zero,
+        },
         lpAttributeList = attrList
       };
       if (!CreateProcessW(null, cmd, IntPtr.Zero, IntPtr.Zero, false, EXTENDED_STARTUPINFO_PRESENT, IntPtr.Zero, string.IsNullOrEmpty(cwd) ? null : cwd, ref siEx, out pi)) {
@@ -314,7 +323,7 @@ export async function spawnWinPty(options: WinPtyOptions): Promise<WinPtyProcess
     if (text) options.onLog?.(`conpty: ${text}`);
   });
   child.stdin?.on("error", () => {});
-  child.on("exit", code => finish(code));
+  child.on("close", code => finish(code));
   child.on("error", error => finish(null, error.message));
 
   return {
