@@ -2,16 +2,59 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { ConflictError, ValidationError } from "../../shared/errors.js";
 import { SECRET_NAME } from "../../shared/secret.js";
-import { type GrantScope, type Secret, type SecretUse } from "../../../contract/secrets.js";
+import { SECRET_CATEGORIES, type GrantScope, type Secret, type SecretCategory, type SecretUse } from "../../../contract/secrets.js";
 import type { Cipher } from "../vault/cipher.js";
 
-type Row = { id: string; name: string; kind: Secret["kind"]; botId: string | null; description: string; value: string; fingerprint: string;
-  createdAt: number; updatedAt: number; uses: number; lastUsedAt: number | null };
-const COLUMNS = `s.id, s.name, s.kind, s.bot_id AS botId, s.description, s.value, s.fingerprint, s.created_at AS createdAt, s.updated_at AS updatedAt,
+type Row = {
+  id: string; name: string; kind: Secret["kind"]; category: SecretCategory; url: string; username: string;
+  botId: string | null; description: string; value: string; fingerprint: string;
+  createdAt: number; updatedAt: number; uses: number; lastUsedAt: number | null;
+};
+const COLUMNS = `s.id, s.name, s.kind, s.category, s.url, s.username, s.bot_id AS botId, s.description, s.value, s.fingerprint, s.created_at AS createdAt, s.updated_at AS updatedAt,
   (SELECT count(*) FROM secret_uses u WHERE u.secret_id=s.id) AS uses, (SELECT max(at) FROM secret_uses u WHERE u.secret_id=s.id) AS lastUsedAt`;
 const MAX_VALUE = 16 * 1024;
+const CONTROL_CHARS = /[\x00-\x1f]/u;
+const CATEGORY_SET = new Set<string>(SECRET_CATEGORIES);
 
-/** Secrets, their grants and their uses (v21, A52). Values are sealed under the master key, bound to the secret's id. */
+/** Validates a secret category (v36). Empty/omitted defaults to `other`. */
+export function checkSecretCategory(value: unknown): SecretCategory {
+  if (value === undefined || value === null || value === "") return "other";
+  if (typeof value !== "string" || !CATEGORY_SET.has(value)) {
+    throw new ValidationError("Category must be login, api_key, database or other", "secret_category_invalid");
+  }
+  return value as SecretCategory;
+}
+
+/** Validates an optional associated website/URL or host address (v36). Rejects embedded passwords. */
+export function checkSecretUrl(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string" || value.length > 300 || CONTROL_CHARS.test(value)) {
+    throw new ValidationError("The associated URL must be one line of up to 300 characters", "secret_url_invalid");
+  }
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.password) {
+      throw new ValidationError("Do not include a password in the associated URL", "secret_url_invalid");
+    }
+  } catch (error) {
+    if (error instanceof ValidationError) throw error;
+    // Plain host/address such as `db.internal:5432` or `staging.example.com` is allowed.
+  }
+  return trimmed;
+}
+
+/** Validates an optional associated username/account identifier (v36). */
+export function checkSecretUsername(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string" || value.length > 160 || CONTROL_CHARS.test(value)) {
+    throw new ValidationError("The username must be one line of up to 160 characters", "secret_username_invalid");
+  }
+  return value.trim();
+}
+
+/** Secrets, their grants and their uses (v21, v36, A52). Values are sealed under the master key, bound to the secret's id. */
 export class SecretRepository {
   constructor(private readonly db: DatabaseSync, private readonly cipher: Cipher, private readonly ownerId: () => string) {}
   private toRecord(row: Row): Secret {
@@ -39,21 +82,28 @@ export class SecretRepository {
     if (typeof value !== "string" || value.length > 200 || /[\n\r]/.test(value)) throw new ValidationError("The description must be one line of up to 200 characters", "secret_description_invalid");
     return value.trim();
   }
-  create(input: { name: unknown; description?: unknown; value: unknown }): Secret {
+  create(input: { name: unknown; category?: unknown; url?: unknown; username?: unknown; description?: unknown; value: unknown }): Secret {
     if (typeof input.name !== "string" || !SECRET_NAME.test(input.name)) throw new ValidationError("Names use capital letters, digits and underscores, and start with a letter", "secret_name_invalid");
+    const category = checkSecretCategory(input.category);
+    const url = checkSecretUrl(input.url);
+    const username = checkSecretUsername(input.username);
     const description = this.checkDescription(input.description), value = this.checkValue(input.value);
     if (this.db.prepare("SELECT 1 FROM secrets WHERE owner_id=? AND kind='value' AND name=?").get(this.ownerId(), input.name)) throw new ConflictError("Another secret has this name", "secret_name_taken");
     const id = randomUUID(), now = Date.now();
-    this.db.prepare("INSERT INTO secrets(id,owner_id,name,kind,bot_id,description,value,fingerprint,created_at,updated_at) VALUES(?,?,?,'value',NULL,?,?,?,?,?)")
-      .run(id, this.ownerId(), input.name, description, this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), now, now);
+    this.db.prepare("INSERT INTO secrets(id,owner_id,name,kind,category,url,username,bot_id,description,value,fingerprint,created_at,updated_at) VALUES(?,?,?,'value',?,?,?,NULL,?,?,?,?,?)")
+      .run(id, this.ownerId(), input.name, category, url, username, description, this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), now, now);
     return this.get(id)!;
   }
-  update(id: string, input: { description?: unknown; value?: unknown }): Secret | null {
+  update(id: string, input: { category?: unknown; url?: unknown; username?: unknown; description?: unknown; value?: unknown }): Secret | null {
     if (!this.get(id)) return null;
-    if (input.description !== undefined) this.db.prepare("UPDATE secrets SET description=?, updated_at=? WHERE id=?").run(this.checkDescription(input.description), Date.now(), id);
+    const now = Date.now();
+    if (input.category !== undefined) this.db.prepare("UPDATE secrets SET category=?, updated_at=? WHERE id=?").run(checkSecretCategory(input.category), now, id);
+    if (input.url !== undefined) this.db.prepare("UPDATE secrets SET url=?, updated_at=? WHERE id=?").run(checkSecretUrl(input.url), now, id);
+    if (input.username !== undefined) this.db.prepare("UPDATE secrets SET username=?, updated_at=? WHERE id=?").run(checkSecretUsername(input.username), now, id);
+    if (input.description !== undefined) this.db.prepare("UPDATE secrets SET description=?, updated_at=? WHERE id=?").run(this.checkDescription(input.description), now, id);
     if (input.value !== undefined) {
       const value = this.checkValue(input.value);
-      this.db.prepare("UPDATE secrets SET value=?, fingerprint=?, updated_at=? WHERE id=?").run(this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), Date.now(), id);
+      this.db.prepare("UPDATE secrets SET value=?, fingerprint=?, updated_at=? WHERE id=?").run(this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), now, id);
     }
     return this.get(id);
   }

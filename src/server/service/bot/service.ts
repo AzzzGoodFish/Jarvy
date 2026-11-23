@@ -158,7 +158,10 @@ export class BotService {
           address: environmentId => this.machines.located(environmentId),
           ...(id === AGENT_BOT_ID ? { waiting: (environmentId: string) => this.environments.enterTarget(id, environmentId),
             allow: (environmentId: string, once: boolean) => { this.environments.allow(id, environmentId, store.account.userMemberId(), once ? runtime.activeRunId ?? "no-run" : undefined); this.listChanged(); } } : {}) },
-        secrets: { list: () => this.deps.secrets.listFor(id), prepare: (name, purpose) => this.deps.secrets.prepareRequest(id, name, purpose) },
+        secrets: {
+          list: filter => this.deps.secrets.listFor(id, filter),
+          prepare: (name, purpose, meta) => this.deps.secrets.prepareRequest(id, name, purpose, meta),
+        },
         connectors: {
           list: query => this.deps.connectors.listFor(id, query),
           describe: (slug, toolName, query) => this.deps.connectors.describeFor(id, slug, toolName, query),

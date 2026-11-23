@@ -3,6 +3,7 @@ import {
   type ConnectorAuthAsk, type ConnectorWriteAsk, type ConnectorWriteField,
   type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionExpiredReason, type QuestionSpec, type SecretAsk,
 } from "../../../contract/chat.js";
+import { SECRET_CATEGORIES, type SecretCategory } from "../../../contract/secrets.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -31,12 +32,21 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
     ...(input.connectorAuth === undefined ? {} : { connectorAuth: connectorAuthAsk(input.connectorAuth) }),
     ...(input.connectorWrite === undefined ? {} : { connectorWrite: connectorWriteAsk(input.connectorWrite) }) };
 }
+const SECRET_CATEGORY_SET = new Set<string>(SECRET_CATEGORIES);
 /** A secret request (secrets.request, A52), as built by the secrets service. */
 function secretAsk(value: unknown): SecretAsk {
   const ask = value as Record<string, unknown> | null;
   if (!ask || typeof ask !== "object" || typeof ask.name !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(ask.name) || !text(ask.purpose, 300)
-    || typeof ask.exists !== "boolean" || typeof ask.needsValue !== "boolean") throw new ChatError(400, "Invalid secret request");
-  return { name: ask.name, purpose: (ask.purpose as string).trim(), exists: ask.exists, needsValue: ask.needsValue };
+    || typeof ask.exists !== "boolean" || typeof ask.needsValue !== "boolean"
+    || (ask.category !== undefined && (typeof ask.category !== "string" || !SECRET_CATEGORY_SET.has(ask.category)))
+    || (ask.url !== undefined && !text(ask.url, 300))
+    || (ask.username !== undefined && !text(ask.username, 160))) throw new ChatError(400, "Invalid secret request");
+  return {
+    name: ask.name, purpose: (ask.purpose as string).trim(), exists: ask.exists, needsValue: ask.needsValue,
+    ...(ask.category !== undefined ? { category: ask.category as SecretCategory } : {}),
+    ...(ask.url !== undefined ? { url: (ask.url as string).trim() } : {}),
+    ...(ask.username !== undefined ? { username: (ask.username as string).trim() } : {}),
+  };
 }
 /** A machine request (environments.request, A57), as built by the machines service. */
 function machineAsk(value: unknown): MachineAsk {
