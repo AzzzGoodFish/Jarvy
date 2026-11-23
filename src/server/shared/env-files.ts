@@ -14,6 +14,8 @@ export interface FsEntry {
 export interface FsDirPage {
   entries: FsEntry[];
   truncated: boolean;
+  /** Number of entries skipped because their metadata could not be read (e.g. Windows reserved names). */
+  omitted?: number;
 }
 
 /** Long-lived positional reader for streaming downloads without per-chunk open/close overhead. */

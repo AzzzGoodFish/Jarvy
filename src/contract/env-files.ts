@@ -25,6 +25,8 @@ export interface EnvDirListing {
   entries: EnvFileEntry[];
   /** True when the directory had more entries than the listing cap. */
   truncated: boolean;
+  /** Count of directory entries omitted because their metadata could not be read. */
+  omitted?: number;
 }
 
 export interface EnvFileUploadResult {

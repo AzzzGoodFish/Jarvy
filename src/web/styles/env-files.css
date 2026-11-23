@@ -16,6 +16,9 @@
   color: var(--ui-text-secondary); font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); cursor: pointer; }
 .jv-files-crumb:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-files-crumb[data-current] { color: var(--ui-text-primary); font-weight: 500; }
+.jv-files-crumb-placeholder { padding: var(--ui-space-2) var(--ui-space-4); color: var(--ui-text-tertiary);
+  font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-files-crumb-edit { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; flex: none; width: 22px; height: 22px;
   padding: 0; border: 0; border-radius: var(--ui-radius-xs); background: transparent; color: var(--ui-text-tertiary); cursor: pointer; }
 .jv-files-crumb-edit:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
@@ -124,7 +127,8 @@
 .jv-files-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-12); flex-wrap: wrap;
   padding: var(--ui-space-6) var(--ui-inset-content); background: var(--ui-bg-subtle); border-top: 1px solid var(--ui-border-weak);
   font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); color: var(--ui-text-tertiary); flex-shrink: 0; }
-.jv-files-truncated { color: var(--ui-text-warning); }
+.jv-files-notes { display: inline-flex; align-items: center; gap: var(--ui-space-12); flex-wrap: wrap; }
+.jv-files-truncated, .jv-files-omitted { color: var(--ui-text-warning); }
 
 .jv-files-modal-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: var(--ui-space-16);
   background: var(--ui-bg-scrim); }

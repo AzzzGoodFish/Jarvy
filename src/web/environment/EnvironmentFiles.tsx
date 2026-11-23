@@ -36,6 +36,7 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [editingPath, setEditingPath] = useState(false);
   const [pathDraft, setPathDraft] = useState("");
+  const [lastPath, setLastPath] = useState("");
   const [creatingDir, setCreatingDir] = useState(false);
   const [newDirName, setNewDirName] = useState("");
   const [renaming, setRenaming] = useState<{ path: string; value: string } | null>(null);
@@ -55,12 +56,13 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
     loadAbortRef.current?.abort();
     const controller = new AbortController();
     loadAbortRef.current = controller;
+    if (targetPath !== undefined) setLastPath(targetPath);
     setLoading(true);
     setError(null);
     try {
       const next = await api.envFiles(environmentId, targetPath, controller.signal);
       if (controller.signal.aborted) return;
-      setListing(next); setEditingPath(false); setFilter("");
+      setListing(next); setLastPath(next.path); setEditingPath(false); setFilter("");
       setConfirmDelete(null); setRenaming(null); setSelectedPath(null); setInspectEntry(null);
     } catch (reason) {
       if (controller.signal.aborted) return;
@@ -80,7 +82,7 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
 
   useEffect(() => {
     cancelActiveConflict();
-    setListing(null); setError(null); setFilter(""); setEditingPath(false); setCreatingDir(false);
+    setListing(null); setLastPath(""); setError(null); setFilter(""); setEditingPath(false); setCreatingDir(false);
     setRenaming(null); setConfirmDelete(null); setSelectedPath(null); setInspectEntry(null);
     setDragging(false); dragDepthRef.current = 0;
     if (availability.kind === "ready") void loadDir();
@@ -116,13 +118,13 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
   }
 
   function startPathEdit() {
-    if (!listing) return;
-    setPathDraft(listing.path);
+    setPathDraft(listing?.path ?? lastPath);
     setEditingPath(true);
   }
 
   function submitPathEdit() {
-    if (!pathDraft) { setEditingPath(false); return; }
+    setEditingPath(false);
+    if (!pathDraft) return;
     void loadDir(pathDraft);
   }
 
@@ -252,27 +254,29 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
           <ArrowLeftIcon aria-hidden="true"/>
         </button>
         <button type="button" className="jv-term-tool" aria-label={t("envFiles.home")} title={t("envFiles.home")}
-          disabled={!listing || listing.path === listing.root || loading} onClick={() => listing && void loadDir(listing.root)}>
+          disabled={(!listing && !lastPath) || (!!listing && listing.path === listing.root) || loading} onClick={() => void loadDir(listing?.root)}>
           <HomeIcon aria-hidden="true"/>
         </button>
         <button type="button" className="jv-term-tool" aria-label={t("envFiles.refresh")} title={t("envFiles.refresh")}
-          disabled={loading} onClick={() => void loadDir(listing?.path)}>
+          disabled={loading} onClick={() => void loadDir(listing?.path ?? (lastPath || undefined))}>
           <RefreshCwIcon aria-hidden="true" className={loading ? "jv-files-spin" : undefined}/>
         </button>
 
         {editingPath ? <form className="jv-files-path-form" onSubmit={event => { event.preventDefault(); submitPathEdit(); }}>
-          <input className="jv-files-path-input" value={pathDraft} autoFocus aria-label={t("envFiles.pathInput")}
+          <input className="jv-files-path-input" value={pathDraft} autoFocus placeholder={t("envFiles.pathPlaceholder")} aria-label={t("envFiles.pathInput")}
             onChange={event => setPathDraft(event.target.value)}
             onBlur={() => setEditingPath(false)}
             onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); setEditingPath(false); } }}/>
         </form>
           : <div className="jv-files-crumbs" role="navigation" aria-label={t("envFiles.pathInput")}
-            onClick={event => { if (event.target === event.currentTarget) startPathEdit(); }}>
-            {breadcrumbs.map((crumb, index) => <span key={crumb.path} className="jv-files-crumb-wrap">
+            onClick={event => {
+              if (event.target === event.currentTarget || (event.target as HTMLElement).closest(".jv-files-crumb-placeholder")) startPathEdit();
+            }}>
+            {breadcrumbs.length > 0 ? breadcrumbs.map((crumb, index) => <span key={crumb.path} className="jv-files-crumb-wrap">
               {index > 0 && <ChevronRightIcon className="jv-files-crumb-sep" aria-hidden="true"/>}
               <button type="button" className="jv-files-crumb" data-current={index === breadcrumbs.length - 1 || undefined}
                 onClick={() => void loadDir(crumb.path)}>{crumb.label}</button>
-            </span>)}
+            </span>) : <span className="jv-files-crumb-placeholder">{lastPath || t("envFiles.pathPlaceholder")}</span>}
             <button type="button" className="jv-files-crumb-edit" aria-label={t("envFiles.editPath")} title={t("envFiles.editPath")}
               onClick={startPathEdit}><PencilIcon aria-hidden="true"/></button>
           </div>}
@@ -338,7 +342,9 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
         {!listing && loading && <div className="jv-files-empty"><p>{t("envFiles.loading")}</p></div>}
         {listing && !visibleEntries.length && <div className="jv-files-empty">
           <p className="jv-files-empty-title">{t(filter.trim() ? "envFiles.noMatch" : "envFiles.emptyFolder")}</p>
-          {!filter.trim() && <p className="jv-files-empty-hint">{t("envFiles.emptyHint")}</p>}
+          {!filter.trim() && <p className="jv-files-empty-hint">{(listing.omitted ?? 0) > 0
+            ? t("envFiles.omitted", { count: listing.omitted! })
+            : t("envFiles.emptyHint")}</p>}
         </div>}
         {visibleEntries.map(entry => <FileEntryRow key={entry.path} environmentId={environmentId} entry={entry}
           selected={selectedPath === entry.path}
@@ -377,7 +383,10 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
         })}
         {counts.hidden > 0 && ` · ${t("envFiles.hiddenNote", { count: counts.hidden })}`}
       </span>
-      {listing.truncated && <span className="jv-files-truncated">{t("envFiles.truncated", { count: listing.entries.length })}</span>}
+      {(listing.truncated || (listing.omitted ?? 0) > 0) && <span className="jv-files-notes">
+        {(listing.omitted ?? 0) > 0 && <span className="jv-files-omitted" role="status">{t("envFiles.omitted", { count: listing.omitted! })}</span>}
+        {listing.truncated && <span className="jv-files-truncated">{t("envFiles.truncated", { count: listing.entries.length })}</span>}
+      </span>}
     </div>}
   </div>;
 }
