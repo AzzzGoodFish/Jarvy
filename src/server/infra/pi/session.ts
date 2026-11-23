@@ -99,7 +99,7 @@ export class PiSession implements BotSession {
   private settledResolve?: () => void;
   private wantsAbort = false;
   private abortTask?: Promise<void>;
-  private abortFailure?: unknown;
+  private abortFailure?: Error;
   private result: PromptResult = { outcome: "completed" };
   private signature = "";
   private readonly translator = new LiveTranslator();
@@ -268,7 +268,7 @@ export class PiSession implements BotSession {
   private maybeAbort(): void {
     if (!this.wantsAbort || !this.promptActive || this.abortTask || this.session.isIdle) return;
     this.options.activity("aborting");
-    this.abortTask = this.session.abort().catch(error => { this.abortFailure = error; }).finally(() => { this.abortTask = undefined; });
+    this.abortTask = this.session.abort().catch(error => { this.abortFailure = error instanceof Error ? error : new Error(String(error)); }).finally(() => { this.abortTask = undefined; });
   }
   /** A notice rides along with the running turn. Pi keeps queued steering messages across an abort, so a
    * notice steered just before a new message interrupts the turn is delivered at the start of the next one. */
@@ -295,7 +295,9 @@ export class PiSession implements BotSession {
         await this.abortTask;
         this.options.store.runtime.recordSession(this.options.bot.id, this.sessionId, existsSync(this.sessionFile));
       }
-      if (this.abortFailure) throw this.abortFailure;
+      // `abort()` can populate `abortFailure` concurrently while `prompt()` is awaiting.
+      const failure = this.abortFailure as Error | undefined;
+      if (failure) throw failure;
       outcome = this.result.outcome;
       return this.result;
     } finally { this.options.live?.({ type: "end", outcome }); }

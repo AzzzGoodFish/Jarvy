@@ -15,12 +15,13 @@ Read [docs/index.md](docs/index.md) and the [engineering principles](docs/engine
 - **Delete, don't shim.** Internal paths are replaced outright: no compatibility layers, deprecated wrappers or dual writes. Data migrations and the `/api/*` contract are kept and versioned.
 - **People and Bots are the same at the upper layers.** Routing, policy and the inbox treat them alike; they differ only in how each responds (A41).
 - **Ask before adding.** A new boundary, policy, user-visible behaviour or change to the Bot prompt is described to the maintainer first — the real scenario, what the user sees, the trade-offs — and built after it is agreed.
+- **Encode lessons in structure.** When a structural or recurring bug is fixed, prefer preventing the whole class over adding prose reminders, following this ladder: architecture / single source of truth → TypeScript types → an ESLint (`eslint.config.mjs`) or `npm run check:architecture` (`scripts/check-*.mjs`) check whose error message names the right fix → documentation last.
 
 ## Verifying a change
 
 There are no unit tests. Verify with:
 
-1. `npm run build` — type checks, layer check, the production frontend build and the server bundle.
+1. `npm run build` — architecture checks (`check:architecture`), ESLint (`npm run lint`), type checks, the production frontend build and the server bundle.
 2. A real run against an isolated data directory (`--data-dir`, a separate port), using a fake model endpoint for routine flows. Never test against a data directory someone uses.
 3. For UI changes, browser screenshots in light and dark themes and at 390 px width.
 4. For schema changes, also migrate a copy of an existing database (credentials removed, pending work cancelled) and check `PRAGMA integrity_check` and `PRAGMA foreign_key_check`.

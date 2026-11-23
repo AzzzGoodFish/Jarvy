@@ -3,7 +3,7 @@
  * Windows takes too, on the way there. */
 export function fromWindows(path: string): string {
   const slashed = path.replaceAll("\\", "/"), drive = /^([A-Za-z]):(\/.*)?$/.exec(slashed);
-  return drive ? `/${drive[1]!.toLowerCase()}${drive[2] && drive[2] !== "/" ? drive[2] : ""}` || "/" : slashed;
+  return drive ? `/${drive[1]!.toLowerCase()}${drive[2] && drive[2] !== "/" ? drive[2] : ""}` : slashed;
 }
 export function toWindows(path: string): string {
   const slashed = path.replaceAll("\\", "/");
