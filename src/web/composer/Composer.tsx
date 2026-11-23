@@ -127,65 +127,79 @@ export function Composer({ chatId, id, place, drafts, placeholder, disabled = fa
     }
     finally { drafts.update(target, { sending: false }); }
   }
-  // Grow with the content (CSS max-height caps it, then it scrolls). Measuring via "auto" briefly enlarges the
-  // transcript and clamps its scroll position; restore it so the bottom anchor is not lost on every keystroke.
-  const fit = useCallback(() => {
+  const settled = useRef<number | null>(null), slide = useRef<number | null>(null), lastChat = useRef(chatId), lastWidth = useRef<number | null>(null);
+  // Grow with the content (CSS max-height caps it, then it scrolls), sliding smoothly to the final height when typing.
+  // Measuring via "auto" briefly enlarges the transcript and clamps its scroll position; restore it so the bottom anchor
+  // is not lost on every keystroke.
+  const fit = useCallback((animate: boolean) => {
     const el = textarea.current, shell = box.current, log = scrollRef?.current; if (!el || !shell) return;
     const top = log?.scrollTop;
+    // Start any new slide from the box's current visual height, then drop inline height/clipping so we measure the true
+    // natural height in the target layout (pill vs card) before starting one monotonic animation.
+    const from = slide.current !== null ? Math.round(shell.getBoundingClientRect().height) : settled.current;
+    cancelAnimationFrame(slide.current ?? 0);
+    slide.current = null;
+    shell.style.height = "";
+    delete shell.dataset.sliding;
     // A pill clips its input to one line; the text's whole height is still what it would want, and its padding differs
-    // between a pill and a card, so the height is read without its padding.
+    // between a pill and a card, so the height is read without its padding. Hide overflow while measuring so a classic
+    // vertical scrollbar cannot appear during `height: auto`, steal ~15 px of width, and wrap the last character early.
     const measure = () => {
       const style = getComputedStyle(el), pad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const max = parseFloat(style.maxHeight) || Infinity;
+      el.style.overflowY = "hidden";
       el.style.height = "auto";
-      return { content: el.scrollHeight - pad, pad };
+      const total = el.scrollHeight;
+      return { content: total - pad, pad, overflows: total > max };
     };
     // Whether the text is one line is what a *pill* gives it, whatever shape the box is in now: the box is put back in
     // its one-line layout to measure, so the answer is this window's real width for this set of buttons (the home page's
     // light chat has another), and it cannot change merely because the box is a card. Nothing paints in between.
-    const card = shell.getAttribute("data-tall");
-    if (card !== null) shell.removeAttribute("data-tall");
-    const line = parseFloat(getComputedStyle(el).lineHeight) || 20, oneLine = measure().content <= line + 8;
-    if (card !== null) shell.setAttribute("data-tall", card);
+    shell.removeAttribute("data-tall");
+    const line = parseFloat(getComputedStyle(el).lineHeight) || 20, nextTall = measure().content > line + 8;
+    // Apply the target shape *before* reading the textarea's final height so a pill -> card transition measures at the
+    // wider card width in one pass instead of briefly sizing the box for a stale two-line pill height.
+    if (nextTall) shell.setAttribute("data-tall", "");
     const natural = measure();
     el.style.height = `${natural.content + natural.pad}px`;
-    setTall(!oneLine);
-    if (log && top !== undefined && log.scrollTop !== top) log.scrollTo({ top, behavior: "instant" });
-  }, [scrollRef]);
-  useLayoutEffect(() => {
-    fit();
-    // Its width decides how the text wraps: any change to it is measured again (a resized window, the box turning
-    // from a pill into a card).
-    const el = textarea.current; if (!el) return;
-    const watched = new ResizeObserver(() => fit());
-    watched.observe(el);
-    return () => watched.disconnect();
-  }, [draft, chatId, fit]);
-  // Slide to the new height rather than jump: turning from a pill into a card adds a row of buttons at once, and every
-  // extra line adds a line's worth. The box is clipped while it slides, so the buttons come out from under the text
-  // instead of appearing below it; the first measurement only records where the box starts.
-  const settled = useRef<number | null>(null), slide = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    const el = box.current; if (!el) return;
-    // The height written out by a running slide is dropped first, so what is read is the height this content wants;
-    // the last settled height is where the new slide starts from.
-    const pinned = el.style.height;
-    el.style.height = ""; delete el.dataset.sliding;
-    const to = Math.round(el.getBoundingClientRect().height), from = settled.current;
+    el.style.overflowY = natural.overflows ? "auto" : "hidden";
+    setTall(nextTall);
+    const to = Math.round(shell.getBoundingClientRect().height);
     settled.current = to;
-    if (pinned) el.style.height = pinned;
+    if (log && top !== undefined && log.scrollTop !== top) log.scrollTo({ top, behavior: "instant" });
     // A window drag or a phone keyboard resizes the box far more often than a keystroke; only a line or a new row of
     // buttons is worth animating.
-    if (from === null || Math.abs(to - from) < 12) return;
-    const started = performance.now();
-    cancelAnimationFrame(slide.current ?? 0);
-    el.dataset.sliding = "";
+    if (!animate || from === null || Math.abs(to - from) < 12) return;
+    shell.style.height = `${from}px`;
+    shell.dataset.sliding = "";
+    let started: number | null = null;
     const step = (now: number) => {
+      started ??= now;
       const part = Math.min(1, (now - started) / 160), eased = 1 - (1 - part) ** 3;
-      if (part < 1) { el.style.height = `${Math.round(from + (to - from) * eased)}px`; slide.current = requestAnimationFrame(step); }
-      else { el.style.height = ""; delete el.dataset.sliding; slide.current = null; }
+      if (part < 1) { shell.style.height = `${Math.round(from + (to - from) * eased)}px`; slide.current = requestAnimationFrame(step); }
+      else { shell.style.height = ""; delete shell.dataset.sliding; slide.current = null; }
     };
     slide.current = requestAnimationFrame(step);
-  });
+  }, [scrollRef]);
+  useLayoutEffect(() => {
+    const sameChat = lastChat.current === chatId;
+    lastChat.current = chatId;
+    fit(sameChat);
+  }, [draft, chatId, fit]);
+  // Re-measure when the box's own width changes (window resize, side pane toggle/drag), ignoring height changes from
+  // typing or pill <-> card transitions so ResizeObserver never cancels or desyncs a running height slide.
+  useLayoutEffect(() => {
+    const shell = box.current; if (!shell) return;
+    lastWidth.current = Math.round(shell.getBoundingClientRect().width);
+    const watched = new ResizeObserver(() => {
+      const width = Math.round(shell.getBoundingClientRect().width);
+      if (width === lastWidth.current) return;
+      lastWidth.current = width;
+      fit(false);
+    });
+    watched.observe(shell);
+    return () => watched.disconnect();
+  }, [fit]);
   useEffect(() => () => cancelAnimationFrame(slide.current ?? 0), []);
 
   /* The box is the input, so a press anywhere in it that is not on a button or the file trigger puts the caret in the
