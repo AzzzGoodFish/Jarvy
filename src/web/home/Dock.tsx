@@ -103,7 +103,7 @@ export function Dock({ bot, chat, meId, members, drafts, live, dockRef, opener, 
       <button type="button" className="jv-dock-icon" title={t("home.talk", { name: bot.name })} aria-label={t("home.talk", { name: bot.name })}
         aria-expanded={shown} tabIndex={shown ? -1 : 0} onClick={open}><MessageCircle aria-hidden="true"/></button>
       <div className="jv-dock-input" aria-hidden={!shown} inert={!shown}>
-        {chat && <Composer chatId={chat.id} id="jv-dock-composer" drafts={drafts} scrollRef={log} disabled={!ready}
+        {chat && <Composer chatId={chat.id} id="jv-dock-composer" place="dock" drafts={drafts} scrollRef={log} disabled={!ready}
           placeholder={ready ? t("chat.toBot", { name: bot.name }) : t("chat.pickModel")} onSend={send} onError={onError} onNotice={onNotice}
           extra={<button type="button" className="jv-dock-go" title={t("home.openDm")} aria-label={t("home.openDm")} onClick={onOpenDm}><ArrowUpRight aria-hidden="true"/></button>}/>}
       </div>

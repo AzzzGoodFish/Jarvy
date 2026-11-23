@@ -1,0 +1,194 @@
+/* Shared message composer (composer/Composer.tsx, docs/design.md): owns its own chrome,
+ * sizing, quotes, pending attachments, drop overlay, dark surface, and column placement
+ * (`data-place="content" | "pane" | "wide" | "dock"`) so callers never restyle its insides. */
+
+.ui-compose-wrap {
+  position: relative;
+  flex: none;
+  padding: 0 var(--ui-inset-content) var(--ui-space-16);
+}
+/* Side pane (thread beside a channel): aligns horizontally with the pane's inset (--ui-inset-list)
+ * while keeping the exact same bottom inset (--ui-space-16) so both composers share one baseline. */
+.ui-compose-wrap[data-place="pane"] { padding-inline: var(--ui-inset-list); }
+/* Wide / full-page thread: aligns horizontally with the centered 860 px transcript column. */
+.ui-compose-wrap[data-place="wide"] { padding-inline: max(var(--ui-inset-content), calc((100% - 860px) / 2)); }
+/* Home light chat dock: .jv-dock-bar provides the outer frame, border, shadow and width animation. */
+.ui-compose-wrap[data-place="dock"] { padding: 0; }
+
+.ui-composer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-8);
+  min-height: 46px;
+  padding: var(--ui-space-8);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-bg-base);
+  box-shadow: var(--ui-shadow-sm);
+  transition: border-color var(--ui-duration-fast), border-radius 160ms var(--ui-ease-out);
+  /* The box is the input, so it is the input's pointer too, and a press anywhere in it puts the caret in the text. */
+  cursor: text;
+}
+/* Sliding to a new height: clipped, so the buttons come out from under the text rather than appear below it. */
+.ui-composer[data-sliding] { overflow: hidden; }
+.ui-composer:focus-within { border-color: var(--ui-border-strong); }
+
+/* More than one line: a pill's ends would cut into the text, and the buttons would take its width, so the box becomes a
+   rounded card whose input keeps the whole top and whose buttons share a row under it. */
+.ui-composer[data-tall] {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  padding: var(--ui-space-8) var(--ui-space-8) var(--ui-space-6);
+  border-radius: var(--ui-radius-lg);
+}
+/* The text sits inside the box by the same amount on both sides once the buttons are not beside it, and uses the whole
+   width. A line that only just wrapped in a pill may fit again in the wider card; the box stays a card anyway, because
+   the decision is measured against the pill's own width, so nothing here has to hold room for the buttons. */
+.ui-composer[data-tall] textarea {
+  order: -1;
+  flex: 1 0 100%;
+  min-height: 0;
+  min-width: 0;
+  max-height: 124px;
+  padding: var(--ui-space-2) var(--ui-space-8) 0 var(--ui-space-8);
+}
+.ui-composer[data-tall] :is(.jarvy-attach-trigger, .ui-send) { margin-top: var(--ui-space-2); }
+.ui-composer[data-tall] .jarvy-attach-trigger { margin-left: calc(-1 * var(--ui-space-2)); }
+.ui-composer[data-tall] .jv-composer-extra { display: inline-flex; align-items: center; gap: var(--ui-space-4); margin-top: var(--ui-space-2); margin-left: auto; }
+.ui-composer[data-tall] .ui-send { margin-left: auto; }
+.ui-composer[data-tall] .jv-composer-extra + .ui-send { margin-left: 0; }
+
+.jv-composer-extra { display: inline-flex; align-items: center; flex: none; }
+
+.ui-composer textarea {
+  display: block;
+  flex: 1;
+  min-height: 28px;
+  max-height: 130px;
+  padding: var(--ui-space-4) 0;
+  overflow-y: auto;
+  resize: none;
+  border: 0;
+  background: transparent;
+  font-size: var(--ui-text-base);
+  line-height: var(--ui-leading-base);
+}
+.ui-composer textarea::placeholder { color: var(--ui-text-disabled); }
+.ui-composer textarea:focus-visible { outline: none; }
+
+/* Dock placement: frameless inside .jv-dock-bar while keeping the exact same flex-wrap tall layout. */
+.ui-compose-wrap[data-place="dock"] .ui-composer {
+  min-height: 42px;
+  padding: var(--ui-space-6);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.ui-compose-wrap[data-place="dock"] .ui-composer[data-tall] {
+  gap: var(--ui-space-4);
+  padding: var(--ui-space-8);
+}
+.ui-compose-wrap[data-place="dock"] .ui-composer[data-tall] textarea {
+  padding: 0 0 var(--ui-space-6) 0;
+}
+.ui-compose-wrap[data-place="dock"] .ui-composer[data-tall] :is(.jarvy-attach-trigger, .jv-composer-extra, .ui-send) {
+  margin-top: 0;
+}
+.ui-compose-wrap[data-place="dock"] .ui-composer[data-tall] .jarvy-attach-trigger {
+  margin-left: 0;
+}
+.ui-compose-wrap[data-place="dock"] :is(.jarvy-pending-files, .jv-compose-quote, .jv-compose-quotes) {
+  margin: var(--ui-space-8) var(--ui-space-8) 0;
+}
+
+/* Attach button, pending files, drop hint and reply/passage quotes above the input. */
+.jarvy-attach-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ui-fill-secondary);
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+}
+.jarvy-attach-trigger:hover { background: var(--ui-fill-secondary-hover); }
+.jarvy-attach-trigger:focus-within { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
+.jarvy-attach-trigger input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.jarvy-attach-trigger:has(input:disabled) { opacity: .4; cursor: default; }
+
+.jarvy-pending-files { display: flex; flex-wrap: wrap; gap: var(--ui-space-6); margin: 0 0 var(--ui-space-8); }
+.jarvy-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-4);
+  max-width: 230px;
+  padding: var(--ui-space-6) var(--ui-space-8);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-fill-secondary);
+  color: var(--ui-text-primary);
+  font-size: var(--ui-text-sm);
+  line-height: var(--ui-leading-md);
+  text-decoration: none;
+}
+.jarvy-file-chip span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.jarvy-file-chip button { font-size: var(--ui-text-lg); padding: 0 var(--ui-space-2); line-height: var(--ui-leading-sm); }
+.jarvy-file-chip .ui-icon { width: 14px; height: 14px; }
+.jarvy-file-chip[data-uploading] { position: relative; overflow: hidden; color: var(--ui-text-secondary); }
+.jarvy-file-chip span.jarvy-file-percent { flex: none; overflow: visible; font-variant-numeric: tabular-nums; }
+.jarvy-file-chip[data-uploading] button { color: var(--ui-text-primary); }
+.jarvy-file-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: color-mix(in srgb, var(--ui-text-primary) 10%, transparent); }
+.jarvy-file-progress > span { display: block; height: 100%; background: var(--ui-text-primary); transition: width .15s linear; }
+
+.jarvy-dropping .ui-composer { border-style: dashed; border-color: var(--ui-border-focus); background: var(--ui-fill-ghost-hover); }
+.jarvy-drop-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: var(--ui-bg-base);
+  font-size: var(--ui-text-md);
+  color: var(--ui-text-secondary);
+  pointer-events: none;
+}
+
+.jv-compose-quote {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ui-space-8);
+  margin: 0 0 var(--ui-space-6);
+  padding: var(--ui-space-6) var(--ui-space-8);
+  border-left: 2px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-fill-ghost-hover);
+  font-size: var(--ui-text-sm);
+  color: var(--ui-text-secondary);
+}
+.jv-compose-quote .jv-reply-text { flex: 1; }
+.jv-compose-quote button { flex: none; width: 20px; height: 20px; border-radius: 50%; line-height: 1; color: var(--ui-text-tertiary); }
+.jv-compose-quote button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+
+.jv-compose-quotes { display: flex; flex-direction: column; align-items: flex-start; gap: var(--ui-space-4); margin: 0 0 var(--ui-space-6); }
+.jv-compose-quotes .jv-quote-tag { padding-right: var(--ui-space-4); }
+.jv-compose-quotes .jv-quote-tag button { flex: none; width: 18px; height: 18px; border-radius: 50%; line-height: 1; color: var(--ui-text-tertiary); }
+.jv-compose-quotes .jv-quote-tag button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+
+/* Dark theme: standalone composers sit on the solid secondary fill; dock inherits .jv-dock-bar's surface. */
+:root[data-theme="dark"] .ui-compose-wrap:not([data-place="dock"]) .ui-composer { background: var(--ui-fill-secondary-solid); }
+
+/* Phones: consistent inset and bottom safe-area across channel, DM, and thread placements. */
+@media (max-width: 620px) {
+  .ui-compose-wrap:not([data-place="dock"]) {
+    padding: 0 var(--ui-inset-list) max(var(--ui-space-12), env(safe-area-inset-bottom));
+  }
+  .ui-composer { gap: var(--ui-space-6); padding: var(--ui-space-8); }
+  .ui-compose-wrap[data-place="dock"] .ui-composer { padding: var(--ui-space-6); }
+  .ui-composer textarea { min-height: 27px; font-size: 16px; line-height: 23px; }
+  .ui-composer .ui-round { width: 30px; height: 30px; }
+}

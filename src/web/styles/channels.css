@@ -75,8 +75,7 @@ button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--
 .jv-divider { display: flex; align-items: center; gap: var(--ui-space-8); margin: var(--ui-space-8) var(--ui-space-8); font-size: var(--ui-text-xs); color: var(--ui-text-danger); font-weight: 600; }
 .jv-divider::before, .jv-divider::after { content: ""; flex: 1; height: .5px; background: var(--ui-border-danger); }
 
-/* @ menu */
-.jv-composer { position: relative; }
+/* @ menu (anchored to .ui-composer in styles/composer.css) */
 /* The box holds the menu and, beside it, the 「不在本频道中」 list; phones show the list in the menu's place. */
 .jv-mention-box { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30; display: flex; align-items: flex-end; gap: var(--ui-space-6); }
 .jv-mention-box > .ui-popover { position: static; width: 260px; }
@@ -186,11 +185,6 @@ button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--
 .jv-reply-author { flex: none; font-weight: 600; }
 .jv-reply-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-user .jv-reply-quote { margin-left: auto; }
-.jv-compose-quote { display: flex; align-items: baseline; gap: var(--ui-space-8); margin: 0 0 var(--ui-space-6); padding: var(--ui-space-6) var(--ui-space-8); border-left: 2px solid var(--ui-border-strong);
-  border-radius: var(--ui-radius-xs); background: var(--ui-fill-ghost-hover); font-size: var(--ui-text-sm); color: var(--ui-text-secondary); }
-.jv-compose-quote .jv-reply-text { flex: 1; }
-.jv-compose-quote button { flex: none; width: 20px; height: 20px; border-radius: 50%; line-height: 1; color: var(--ui-text-tertiary); }
-.jv-compose-quote button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 /* Marks under a message, and the picker on the hover toolbar. */
 .jv-reactions { display: flex; flex-wrap: wrap; gap: var(--ui-space-4); margin-top: var(--ui-space-4); }
 .ui-user .jv-reactions { justify-content: flex-end; }
@@ -223,9 +217,10 @@ button.ui-column-title .ui-icon { width: 14px; height: 14px; margin-left: var(--
 .jv-emoji-groups button[aria-selected="true"] { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-emoji-groups[data-hidden] { display: none; }
 .jv-emoji-groups .lucide { width: 16px; height: 16px; }
-.jv-emoji-scroll { height: 236px; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
-.jv-emoji-section h2 { position: sticky; top: 0; z-index: 1; margin: 0; padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-4);
-  background: var(--ui-bg-elevated, var(--ui-bg-base)); font-size: var(--ui-text-xs); font-weight: 500; color: var(--ui-text-tertiary); }
+.jv-emoji-scroll { height: 236px; overflow: hidden auto; overscroll-behavior: contain; contain: layout style; scrollbar-width: thin; scrollbar-color: var(--ui-border-weak) transparent; }
+.jv-emoji-section h2 { position: sticky; top: 0; z-index: 1; height: 24px; margin: 0; padding: var(--ui-space-4);
+  background: var(--ui-bg-elevated, var(--ui-bg-base)); font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); font-weight: 500; color: var(--ui-text-tertiary); }
+.jv-emoji-grid-virtual { position: relative; }
 .jv-emoji-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: var(--ui-space-2); }
 .jv-emoji-empty { margin: 0; padding: var(--ui-space-20) 0; text-align: center; font-size: var(--ui-text-md); color: var(--ui-text-tertiary); }
 /* Jumped-to message (a reply's quote): a brief highlight. */
@@ -299,10 +294,6 @@ button.jv-quote-tag:hover { background: var(--ui-fill-ghost-hover); color: var(-
 .jv-ref-text { display: -webkit-box; margin: var(--ui-space-2) 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .jv-ref-open { display: block; margin: var(--ui-space-8) 0 0 auto; padding: var(--ui-space-4) var(--ui-space-12); border-radius: var(--ui-radius-sm); background: var(--ui-fill-secondary); font-size: var(--ui-text-sm); color: var(--ui-text-primary); }
 .jv-ref-open:hover { background: var(--ui-fill-ghost-hover); }
-.jv-compose-quotes { display: flex; flex-direction: column; align-items: flex-start; gap: var(--ui-space-4); margin: 0 0 var(--ui-space-6); }
-.jv-compose-quotes .jv-quote-tag { padding-right: var(--ui-space-4); }
-.jv-compose-quotes .jv-quote-tag button { flex: none; width: 18px; height: 18px; border-radius: 50%; line-height: 1; color: var(--ui-text-tertiary); }
-.jv-compose-quotes .jv-quote-tag button:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-selection-menu { position: fixed; z-index: 50; display: flex; width: auto; min-width: 0; padding: var(--ui-space-4); transform: translate(-50%, -100%); }
 .jv-selection-menu .ui-menu-item { width: auto; min-height: 30px; padding: 0 var(--ui-space-12); white-space: nowrap; }
 ::highlight(jv-passage) { background-color: color-mix(in srgb, var(--ui-fill-warning) 55%, transparent); color: inherit; }

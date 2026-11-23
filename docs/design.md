@@ -150,6 +150,8 @@ A block with its own border: the notice, request cards in a chat, a followed thr
 
 ### Composer
 
+- One component, `Composer` (`composer/Composer.tsx`), and one stylesheet (`styles/composer.css`) own its frame, insets and placement across channels, DMs, thread panes, full/embedded threads and the home dock. Callers pick `place` (`content`, `pane`, `wide`, `dock`) instead of restyling its internals.
+- `content` (channel and DM) and `pane` (thread beside a channel) keep the same `--ui-space-16` bottom inset (and mobile safe-area inset), so side-by-side composers sit on the exact same baseline while `pane` keeps `--ui-inset-list` horizontally to match its pane header.
 - One line: a pill at `--ui-radius-full`, `--ui-control-md` high, the attach and send buttons beside the text.
 - More than one line: a card at `--ui-radius-lg`, the text on a row of its own, the buttons on the row under it.
 - The card's text takes the box's whole inside width, `--ui-space-8` from each side, and wraps there. Whether the text
