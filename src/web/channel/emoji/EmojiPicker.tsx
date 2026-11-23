@@ -29,7 +29,7 @@ function score(item: IndexedEmoji, query: string, text: string): number {
     : item.enWords.includes(text) || item.zhWords.includes(query) ? 4
     : item.enNameParts.some(word => word.startsWith(text)) || item.zhName.startsWith(query) ? 3
     : item.enWords.some(word => word.startsWith(text)) || item.zhWords.some(word => word.startsWith(query)) ? 2
-    : (text.length > 3 && item.enWords.some(word => word.includes(text))) || item.zhName.includes(query) || item.zhWords.includes(query) ? 1 : 0;
+    : (text.length > 3 && item.enWords.some(word => word.includes(text))) || item.zhName.includes(query) || item.zhWordsText.includes(query) ? 1 : 0;
   return tier && tier * 1000 - item.wordCount;
 }
 

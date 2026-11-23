@@ -8,6 +8,7 @@ export interface IndexedEmoji {
   readonly zhName: string;
   readonly zhNameParts: readonly string[];
   readonly zhWords: readonly string[];
+  readonly zhWordsText: string;
   readonly wordCount: number;
 }
 
@@ -25,8 +26,8 @@ function buildCatalog(groups: EmojiGroup[]): EmojiCatalog {
     for (const emoji of group.emoji) {
       byGlyph.set(emoji[0], emoji);
       const [, enName, enWords, zhName, zhWords] = emoji;
-      const enWordList = enWords ? enWords.toLowerCase().split(" ") : [];
-      const zhWordList = zhWords ? zhWords.split(" ") : [];
+      const enWordList = enWords.toLowerCase().split(" ");
+      const zhWordList = zhWords.split(" ");
       all.push({
         emoji,
         enNameParts: enName.toLowerCase().split(/[\s:]+/),
@@ -34,6 +35,7 @@ function buildCatalog(groups: EmojiGroup[]): EmojiCatalog {
         zhName,
         zhNameParts: zhName.split(/:\s*/),
         zhWords: zhWordList,
+        zhWordsText: zhWords,
         wordCount: Math.min(enWordList.length + zhWordList.length, 999),
       });
     }
