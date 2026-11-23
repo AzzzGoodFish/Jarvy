@@ -323,7 +323,7 @@ export function ThreadPane({ threadId, mode, showSummary = false, focus, onSearc
         onClick={() => { hold.release(); body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" }); }}>
         {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}
     </div>
-    <Composer chatId={threadId} id="jarvy-thread-composer" drafts={drafts} placeholder={t("thread.reply")} scrollRef={body} disabled={!chat}
+    <Composer chatId={threadId} id="jarvy-thread-composer" place={mode === "pane" ? "pane" : "wide"} drafts={drafts} placeholder={t("thread.reply")} scrollRef={body} disabled={!chat}
       initialText={messages.length === 0 && root && root.senderId !== me && rootSender && !rootSender.deleted ? `@${rootSender.name} ` : undefined}
       mention={{ bots, inside: liveMembers(members).filter(member => member.id !== me && !!channel?.memberIds.includes(member.id)),
         outside: liveMembers(members).filter(member => !channel?.memberIds.includes(member.id)), onInvite, participants }}

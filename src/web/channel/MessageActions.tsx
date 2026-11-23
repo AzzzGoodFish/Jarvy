@@ -5,6 +5,7 @@ import { memberName } from "../members";
 import { t } from "../i18n";
 import { previewText } from "./quotes";
 import { EmojiPicker } from "./emoji/EmojiPicker";
+import { prefetchEmoji } from "./emoji/load";
 
 /** The emoji panel's size with its margin, in CSS pixels (channels.css). */
 const PANEL_HEIGHT = 380, PANEL_WIDTH = 310;
@@ -77,7 +78,7 @@ export function MessageActions({ message, me, onReply, onReact, onError }: {
   };
   return <div className="jv-message-actions" ref={box}>
     {onReply && <IconButton icon="arrow-u-up-right" label={t("actions.reply")} onClick={() => onReply(message)}/>}
-    <IconButton icon="smiley-plus" label={t("actions.react")} aria-expanded={open} onClick={show}/>
+    <IconButton icon="smiley-plus" label={t("actions.react")} aria-expanded={open} onPointerEnter={prefetchEmoji} onFocus={prefetchEmoji} onClick={show}/>
     {open && <div className="jv-emoji-menu" role="dialog" aria-label={t("actions.pickEmoji")} data-up={up || undefined} data-right={toRight || undefined}
       style={over ? { position: "fixed", top: over.top, left: over.left, right: "auto", bottom: "auto" } : undefined}
       onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>

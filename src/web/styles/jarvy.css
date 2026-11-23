@@ -9,16 +9,6 @@
 /* Radix ScrollArea wraps content in an inline display:table box, which grows to the longest
    preview instead of letting rows truncate (time and delete ended up off-screen). */
 .ui-sidebar [data-slot="scroll-area-viewport"] > div { display: block !important; }
-.jarvy-attach-trigger { position: relative; display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--ui-fill-secondary); color: var(--ui-text-secondary); cursor: pointer; }
-.jarvy-attach-trigger:hover { background: var(--ui-fill-secondary-hover); }
-.jarvy-attach-trigger:focus-within { outline: 2px solid var(--ui-border-focus); outline-offset: 2px; }
-.jarvy-attach-trigger input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-.jarvy-attach-trigger:has(input:disabled) { opacity: .4; cursor: default; }
-.jarvy-pending-files { display: flex; flex-wrap: wrap; gap: var(--ui-space-6); margin: 0 0 var(--ui-space-8); }
-.jarvy-file-chip { display: inline-flex; align-items: center; gap: var(--ui-space-4); max-width: 230px; padding: var(--ui-space-6) var(--ui-space-8); border-radius: var(--ui-radius-md); background: var(--ui-fill-secondary); color: var(--ui-text-primary); font-size: var(--ui-text-sm); line-height: var(--ui-leading-md); text-decoration: none; }
-.jarvy-file-chip span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.jarvy-file-chip button { font-size: var(--ui-text-lg); padding: 0 var(--ui-space-2); line-height: var(--ui-leading-sm); }
-.jarvy-file-chip .ui-icon { width: 14px; height: 14px; }
 .jarvy-transcript { scroll-behavior: smooth; display: block; }
 .jarvy-empty-text { text-align: center; padding: var(--ui-space-24); font-size: var(--ui-text-sm); color: var(--ui-text-secondary); }
 .jarvy-empty-chat { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ui-space-8); text-align: center; color: var(--ui-text-secondary); padding: var(--ui-space-32) var(--ui-space-20); }
@@ -28,16 +18,6 @@
 .jarvy-first-chat .ui-button { margin-top: var(--ui-space-16); }
 .jarvy-first-chat .ui-icon { width: 14px; height: 14px; }
 .jarvy-bubble-avatar { margin-right: var(--ui-space-8); align-self: flex-end; }
-.jarvy-dropping .ui-composer { border-style: dashed; border-color: var(--ui-border-focus); background: var(--ui-fill-ghost-hover); }
-/* A file being uploaded: its chip, with the progress along the bottom edge until it joins the draft. */
-.jarvy-file-chip[data-uploading] { position: relative; overflow: hidden; color: var(--ui-text-secondary); }
-.jarvy-file-chip span.jarvy-file-percent { flex: none; overflow: visible; font-variant-numeric: tabular-nums; }
-.jarvy-file-chip[data-uploading] button { color: var(--ui-text-primary); }
-.jarvy-file-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: color-mix(in srgb, var(--ui-text-primary) 10%, transparent); }
-.jarvy-file-progress > span { display: block; height: 100%; background: var(--ui-text-primary); transition: width .15s linear; }
-/* Dragging files over the composer: the hint sits inside the input, over its content. */
-.jarvy-drop-hint { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: inherit; background: var(--ui-bg-base);
-  font-size: var(--ui-text-md); color: var(--ui-text-secondary); pointer-events: none; }
 /* Beside the rail's account button (A87); on a phone above the tab bar (home.css). */
 .jarvy-account-menu { bottom: 12px; left: calc(var(--ui-rail) + 8px); right: auto; top: auto; z-index: 50; }
 .jarvy-account-menu .ui-menu-item { gap: var(--ui-space-8); }
@@ -60,6 +40,5 @@
 @media (max-width: 620px) { .jv-run-tip { padding: var(--ui-space-8) var(--ui-space-12); align-items: flex-start; } }
 /* App icon above the login title (option G). */
 .jv-login-logo { display: block; width: 64px; height: 64px; margin: 0 auto var(--ui-space-12); border-radius: 15px; }
-/* Dark theme: dialogs and the composer sit on the solid secondary fill. */
+/* Dark theme: dialogs sit on the solid secondary fill (composer surface lives in styles/composer.css). */
 :root[data-theme="dark"] dialog { background: var(--ui-fill-secondary-solid); box-shadow: 0 20px 60px #00000030; }
-:root[data-theme="dark"] .ui-composer { background: var(--ui-fill-secondary-solid); }

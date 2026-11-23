@@ -7,14 +7,21 @@ import { newKey, putBack, useDraft, type DraftStore } from "./drafts";
 import { QuoteTags } from "../channel/quotes";
 import { t } from "../i18n";
 import { Icon } from "../ui";
+import "../styles/composer.css";
 
+/** Where the composer sits, owning its outer inset and surface treatment (styles/composer.css):
+ * - `content`: channel or DM main column
+ * - `pane`: thread side pane beside a channel (narrower horizontal inset, same bottom baseline as `content`)
+ * - `wide`: full-width or embedded thread centered to the 860 px reading column
+ * - `dock`: frameless inside the home page's light chat bar */
+export type ComposerPlace = "content" | "pane" | "wide" | "dock";
 
 /** Message input shared by the main chat, the thread pane and the home page's light chat: per-chat drafts (text,
  * pending attachments, quote; kept in the account's DraftStore), paste and drag-drop upload (chips above the input with
  * a progress bar; nothing appears below it, so the layout does not jump), @ completion in channels and threads,
  * retry-safe send keys, and growing with its content. */
-export function Composer({ chatId, id, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, extra, onSend, onError, onNotice }: {
-  chatId: string; id: string; drafts: DraftStore; placeholder: string; disabled?: boolean;
+export function Composer({ chatId, id, place, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, extra, onSend, onError, onNotice }: {
+  chatId: string; id: string; place: ComposerPlace; drafts: DraftStore; placeholder: string; disabled?: boolean;
   /** Channel / thread: who can be @-mentioned; picking someone outside the channel invites them. */
   mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void; participants?: ReadonlySet<string> };
   /** Used while this chat has no draft yet (a new thread pre-fills its root's sender once). */
@@ -193,7 +200,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
     field.setSelectionRange(field.value.length, field.value.length);
   };
 
-  return <form ref={formRef} className={`ui-compose-wrap${dropping ? " jarvy-dropping" : ""}`} onSubmit={event => void send(event)} onDragEnter={dragOver} onDragOver={dragOver}
+  return <form ref={formRef} className={`ui-compose-wrap${dropping ? " jarvy-dropping" : ""}`} data-place={place} onSubmit={event => void send(event)} onDragEnter={dragOver} onDragOver={dragOver}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false); }} onDrop={drop}>
     {files.length + pending.length > 0 && <div className="jarvy-pending-files">{files.map(file => <span className="jarvy-file-chip" key={file.id}><Icon name="paperclip"/><span title={file.name}>{file.name}</span>
       <button type="button" aria-label={t("composer.removeFile", { name: file.name })} onClick={() => void remove(file.id)}>×</button></span>)}
@@ -214,7 +221,7 @@ export function Composer({ chatId, id, drafts, placeholder, disabled = false, me
         onChange={event => { setDraft(event.target.value); if (mention) menu.track(event.target.value); }}
         onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => { if (mention && menu.onKeyDown(event)) return; if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
         onClick={() => { if (mention) menu.track(); }} onBlur={mention ? menu.leaves : undefined}/>
-      {extra}
+      {extra && <span className="jv-composer-extra">{extra}</span>}
       <button type="submit" className="ui-round ui-send" aria-label={t("composer.send")} disabled={sending || uploading || disabled || (!draft.trim() && !files.length && !saved.passages.length)}><Icon name="arrow-up"/></button>
     </div>
   </form>;

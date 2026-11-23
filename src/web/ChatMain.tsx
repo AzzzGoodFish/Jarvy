@@ -2,6 +2,7 @@ import type { Bot, BotStatus } from "../contract/bots";
 import type { Chat, ChatMessage, Member } from "../contract/chat";
 import type { ModelConnection } from "../contract/models";
 import { ChannelHeader, ChannelMessages, NoticeBar } from "./channel/ChannelView";
+import { prefetchEmoji } from "./channel/emoji/load";
 import { QuoteSelection } from "./channel/quotes";
 import { Composer } from "./composer/Composer";
 import type { DraftStore } from "./composer/drafts";
@@ -14,7 +15,7 @@ import { t } from "./i18n";
 import type { Pane } from "./pane";
 import type { InfoPage } from "./channel/ChannelInfo";
 import type { useTranscript } from "./transcript/useTranscript";
-import type { RefObject } from "react";
+import { useEffect, type RefObject } from "react";
 
 /** The main area: header, notice, transcript, composer and the selection menu (A44). The sidebar, the followed-threads
  * page and the panes are App's. Nothing here holds state of its own. */
@@ -47,6 +48,13 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
   onBotCard: (bot: Bot, anchor: DOMRect) => void;
 }) {
   const { messages, loading, hasOlder, loadingOlder, top, away, unseen, toLatest } = history;
+  // Warm the emoji picker chunk while the chat is idle so the first reaction click opens immediately.
+  useEffect(() => {
+    const idle = window.requestIdleCallback;
+    if (idle) { const id = idle(() => prefetchEmoji(), { timeout: 2000 }); return () => window.cancelIdleCallback(id); }
+    const timer = window.setTimeout(prefetchEmoji, 600);
+    return () => window.clearTimeout(timer);
+  }, []);
   // Your newest message here, so the cat turns to listen when you speak (A86).
   const mine = messages.filter(message => message.senderId === meId), lastMine = mine[mine.length - 1]?.id;
   return <main className="ui-chat" aria-label={t("chat.area")} ref={chatArea} hidden={hidden}>
@@ -79,7 +87,7 @@ export function ChatMain({ chat, inChannel, bots, members, meId, drafts, compose
         {away && messages.length > 0 && <div className="jv-to-latest"><button type="button" onClick={toLatest} aria-label={t("chat.toLatest")}>
           {unseen > 0 && <span>{t("chat.unseen", { count: unseen })}</span>}<Icon name="chevron-down"/></button></div>}
       </div>
-      <Composer chatId={chat.id} id="jarvy-composer" drafts={drafts} formRef={composeWrap} scrollRef={transcript} disabled={!composeReady}
+      <Composer chatId={chat.id} id="jarvy-composer" place="content" drafts={drafts} formRef={composeWrap} scrollRef={transcript} disabled={!composeReady}
         placeholder={inChannel ? t("chat.toChannel", { name: chat.title }) : activeBot?.connectionId ? t("chat.toBot", { name: botName }) : t("chat.pickModel")}
         mention={inChannel ? { bots, inside: liveMembers(members).filter(member => member.id !== meId && chat.memberIds.includes(member.id)),
           outside: liveMembers(members).filter(member => !chat.memberIds.includes(member.id)), onInvite: member => onInvite(chat.id, member) } : undefined}
