@@ -142,11 +142,15 @@ export function Composer({ chatId, id, place, drafts, placeholder, disabled = fa
     shell.style.height = "";
     delete shell.dataset.sliding;
     // A pill clips its input to one line; the text's whole height is still what it would want, and its padding differs
-    // between a pill and a card, so the height is read without its padding.
+    // between a pill and a card, so the height is read without its padding. Hide overflow while measuring so a classic
+    // vertical scrollbar cannot appear during `height: auto`, steal ~15 px of width, and wrap the last character early.
     const measure = () => {
       const style = getComputedStyle(el), pad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const max = parseFloat(style.maxHeight) || Infinity;
+      el.style.overflowY = "hidden";
       el.style.height = "auto";
-      return { content: el.scrollHeight - pad, pad };
+      const total = el.scrollHeight;
+      return { content: total - pad, pad, overflows: total > max };
     };
     // Whether the text is one line is what a *pill* gives it, whatever shape the box is in now: the box is put back in
     // its one-line layout to measure, so the answer is this window's real width for this set of buttons (the home page's
@@ -158,6 +162,7 @@ export function Composer({ chatId, id, place, drafts, placeholder, disabled = fa
     if (nextTall) shell.setAttribute("data-tall", "");
     const natural = measure();
     el.style.height = `${natural.content + natural.pad}px`;
+    el.style.overflowY = natural.overflows ? "auto" : "hidden";
     setTall(nextTall);
     const to = Math.round(shell.getBoundingClientRect().height);
     settled.current = to;
