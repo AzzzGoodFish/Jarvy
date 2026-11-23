@@ -20,8 +20,8 @@ export type ComposerPlace = "content" | "pane" | "wide" | "dock";
  * pending attachments, quote; kept in the account's DraftStore), paste and drag-drop upload (chips above the input with
  * a progress bar; nothing appears below it, so the layout does not jump), @ completion in channels and threads,
  * retry-safe send keys, and growing with its content. */
-export function Composer({ chatId, id, place = "content", drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, extra, onSend, onError, onNotice }: {
-  chatId: string; id: string; place?: ComposerPlace; drafts: DraftStore; placeholder: string; disabled?: boolean;
+export function Composer({ chatId, id, place, drafts, placeholder, disabled = false, mention, initialText, formRef, scrollRef, extra, onSend, onError, onNotice }: {
+  chatId: string; id: string; place: ComposerPlace; drafts: DraftStore; placeholder: string; disabled?: boolean;
   /** Channel / thread: who can be @-mentioned; picking someone outside the channel invites them. */
   mention?: { inside: Member[]; outside: Member[]; bots: Bot[]; onInvite: (member: Member) => void; participants?: ReadonlySet<string> };
   /** Used while this chat has no draft yet (a new thread pre-fills its root's sender once). */

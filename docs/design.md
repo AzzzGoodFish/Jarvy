@@ -170,5 +170,6 @@ A block with its own border: the notice, request cards in a chat, a followed thr
 
 ## Checks
 
+- `check:architecture` runs `scripts/check-design.mjs` to enforce shared part CSS ownership (for example, `Composer` classes may only be styled in `styles/composer.css`, and non-dock `data-place` variants may only adjust horizontal insets so side-by-side composers keep one bottom baseline).
 - `check:architecture` reads `web/styles/*.css` (except `tokens.css` and `shadcn.css`) and the `className`s in `web/**/*.tsx`: a literal `px` in padding, margin, gap, font-size, line-height, border-radius or box-shadow fails, as does a Tailwind arbitrary value (`text-[11px]`). Widths and heights of pictures and layouts are not checked. Allowed: `0`; border widths (`1px solid …`); a variable inside `calc()` (`calc(-1 * var(--ui-space-4))` for a negative margin, `calc(var(--ui-control-md) + var(--ui-space-8))`).
 - The end-to-end run measures every column header (same height, title on the same baseline), the list columns' rows (same left edge as the search box), and compares a shot of each page with the last approved one.
