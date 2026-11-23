@@ -45,7 +45,6 @@ export function BotCard({ bot, status, connections, anchor, onClose, onMessage, 
     document.addEventListener("scroll", scroll, true);
     return () => { document.removeEventListener("pointerdown", down); document.removeEventListener("keydown", key); document.removeEventListener("scroll", scroll, true); };
     // The App hands `onClose` afresh each render; the listeners only need it once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { box.current?.focus({ preventScroll: true }); }, [bot.id]);
   // Its height is known once it is laid out; measured before the first paint, so it never shows in the wrong place.
