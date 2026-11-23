@@ -67,6 +67,9 @@ export const connectors = {
   "connectors.manualSubmit": "Complete",
 
   "connectorCard.grantTitle": "Allow {name}",
+  "connectorCard.grantBatchTitle": "Allow {count} connectors",
+  "connectorCard.allowedPartial": "Allowed {selected}/{total}",
+  "connectorCard.oncePartial": "Allowed {selected}/{total} (this time only)",
   "connectorCard.account": "Account",
   "connectorCard.disconnected": "Disconnected",
   "connectorCard.revoked": "Access revoked",
@@ -88,6 +91,20 @@ export const connectors = {
   "connectorCard.showAllFields": "Show all {count} fields",
   "connectorCard.showFewerFields": "Show fewer fields",
   "connectorCard.toggleDetails": "Show or hide details",
+
+  "connectorBatch.title": "{action} · {count} items",
+  "connectorBatch.mixedAction": "Batch actions",
+  "connectorBatch.commonFields": "Applied to all",
+  "connectorBatch.selectedCount": "{selected} of {total} selected",
+  "connectorBatch.selectAll": "Select all",
+  "connectorBatch.clearAll": "Clear all",
+  "connectorBatch.confirmCount": { one: "Confirm {count} action", other: "Confirm {count} actions" },
+  "connectorBatch.confirmSubset": "Confirm {selected} of {total}",
+  "connectorBatch.confirmedAll": { one: "Confirmed {count} action", other: "Confirmed {count} actions" },
+  "connectorBatch.confirmedPartial": "Confirmed {selected}/{total}",
+  "connectorBatch.skippedTag": "Skipped",
+  "connectorBatch.expandItem": "Show arguments",
+  "connectorBatch.collapseItem": "Hide arguments",
 
   "connectorAction.create_issue": "Create issue",
   "connectorAction.update_issue": "Update issue",
@@ -119,6 +136,7 @@ export const connectors = {
   "connectorField.owner": "Owner",
   "connectorField.repo": "Repository",
   "connectorField.number": "Number",
+  "connectorField.id": "ID",
 
   "error.connectorMissing": "Connector not found. It may have been disconnected.",
   "error.connectorSlugInvalid": "Use lowercase letters, digits, hyphens or underscores, starting with a letter.",

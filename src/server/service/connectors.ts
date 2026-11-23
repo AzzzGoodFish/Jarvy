@@ -21,7 +21,8 @@ import {
   applyEdits, buildWriteConfirmQuestion, cleanHeaders, cleanName, cleanSlug, cleanUrl,
   formatConnectorDescribe, formatConnectorList, pickConnectorSlug, pickPresetName,
 } from "./connectors-format.js";
-import { fulfilConnectorAuth, prepareConnectorAuthRequest } from "./connectors-requests.js";
+import { fulfilConnectorAuth, prepareConnectorAuthRequest, type PreparedAuthRequest } from "./connectors-requests.js";
+import { executeConnectorBatch, type ConnectorBatchItemInput } from "./connectors-batch.js";
 
 const MAX_TOOL_TEXT = 32_000;
 
@@ -458,13 +459,16 @@ export class ConnectorService {
     return { connector: slug, tool: toolName, isError: out.isError, text };
   }
 
-  /** connectors.request: returns immediately if granted & connected, else prepares an in-chat grant card. */
-  async prepareRequest(botId: string, slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }> {
-    return prepareConnectorAuthRequest({ store: this.store, chats: this.chats }, botId, slug, purpose);
+  /** connectors.batch: invokes multiple tool calls on one granted connector, consolidating write confirmations onto one card. */
+  callBatch(botId: string, chatId: string, slug: string, items: readonly ConnectorBatchItemInput[], summary: string | undefined, ask: (question: QuestionSpec) => Promise<QuestionResult & { messageId: string }>, hasPerson: () => boolean, signal?: AbortSignal) {
+    return executeConnectorBatch({ store: this.store, chats: this.chats, secrets: this.secrets, driver: this.driver, withLock: (id, work) => this.withLock(id, work), generation: id => this.generation(id), clientOf: (c, creds) => this.clientOf(c, creds), redirectUri: () => this.oauth.defaultRedirectUri(), requireGranted: (b, s) => this.requireGranted(b, s) }, botId, chatId, slug, items, summary, ask, hasPerson, signal);
   }
-
+  /** connectors.request: returns immediately if all granted & connected, else prepares a single or batch grant card. */
+  async prepareRequest(botId: string, slugs: string | readonly string[], purpose: string): Promise<PreparedAuthRequest> {
+    return prepareConnectorAuthRequest({ store: this.store, chats: this.chats }, botId, typeof slugs === "string" ? [slugs] : slugs, purpose);
+  }
   /** Settles an in-chat connectorAuth card after synchronously verifying account, credentials and requesting run. */
-  fulfilAuth(actorId: string, chatId: string, messageId: string, input?: { scope?: unknown }): ChatMessage {
+  fulfilAuth(actorId: string, chatId: string, messageId: string, input?: { scope?: unknown; connectorIds?: unknown }): ChatMessage {
     return fulfilConnectorAuth({ store: this.store, chats: this.chats }, actorId, chatId, messageId, input);
   }
 

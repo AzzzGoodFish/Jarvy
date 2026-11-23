@@ -70,6 +70,9 @@ export const connectors: Part<typeof en> = {
   "connectors.manualSubmit": "完成授权",
 
   "connectorCard.grantTitle": "授权使用 {name}",
+  "connectorCard.grantBatchTitle": "授权使用 {count} 个连接器",
+  "connectorCard.allowedPartial": "已允许 {selected}/{total}",
+  "connectorCard.oncePartial": "仅限本次（{selected}/{total}）",
   "connectorCard.account": "账号",
   "connectorCard.disconnected": "连接已断开",
   "connectorCard.revoked": "权限已撤销",
@@ -91,6 +94,20 @@ export const connectors: Part<typeof en> = {
   "connectorCard.showAllFields": "展开全部 {count} 个字段",
   "connectorCard.showFewerFields": "收起部分字段",
   "connectorCard.toggleDetails": "展开或收起详情",
+
+  "connectorBatch.title": "{action} · {count} 项",
+  "connectorBatch.mixedAction": "批量操作",
+  "connectorBatch.commonFields": "共同参数",
+  "connectorBatch.selectedCount": "已选 {selected} / {total} 项",
+  "connectorBatch.selectAll": "全选",
+  "connectorBatch.clearAll": "取消全选",
+  "connectorBatch.confirmCount": { one: "确认执行（{count} 项）", other: "确认执行（{count} 项）" },
+  "connectorBatch.confirmSubset": "确认执行（{selected} / {total} 项）",
+  "connectorBatch.confirmedAll": { one: "已确认 {count} 项", other: "已确认 {count} 项" },
+  "connectorBatch.confirmedPartial": "已确认 {selected}/{total} 项",
+  "connectorBatch.skippedTag": "已跳过",
+  "connectorBatch.expandItem": "展开参数",
+  "connectorBatch.collapseItem": "收起参数",
 
   "connectorAction.create_issue": "创建 Issue",
   "connectorAction.update_issue": "更新 Issue",
@@ -122,6 +139,7 @@ export const connectors: Part<typeof en> = {
   "connectorField.owner": "仓库属主",
   "connectorField.repo": "仓库",
   "connectorField.number": "编号",
+  "connectorField.id": "ID",
 
   "error.connectorMissing": "找不到这个连接器，它可能已被断开。",
   "error.connectorSlugInvalid": "标识只能包含小写字母、数字、连字符和下划线，且以字母开头。",

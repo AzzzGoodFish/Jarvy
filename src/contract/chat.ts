@@ -38,7 +38,9 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   /** A request for a connector (connectors.request, A102): grants access or opens OAuth in place. */
   connectorAuth?: ConnectorAuthAsk;
   /** A confirmation card before a connector runs a write tool (connectors.call, A102). */
-  connectorWrite?: ConnectorWriteAsk; }
+  connectorWrite?: ConnectorWriteAsk;
+  /** A single confirmation card covering multiple write tool calls on one connector (connectors.batch, A102). */
+  connectorBatchWrite?: ConnectorBatchWriteAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
  * doesn't open under this installation's key). */
 export interface SecretAsk { name: string; purpose: string; exists: boolean; needsValue: boolean; }
@@ -48,10 +50,21 @@ export interface MachineAsk { name: string; host: string; port: number; user: st
   hostKeys: HostKeys; existing: { id: string; name: string } | null }
 /** The environment the agent Bot asks to enter, with a system-fixed target name and free-form purpose (A93). */
 export interface EnterAsk { kind: "sandbox" | "machine"; name: string; address?: string; purpose: string; }
+/** One connector inside a batch access grant request (connectors.request, A102). */
+export interface ConnectorAuthItem {
+  connectorId: string;
+  slug: string;
+  name: string;
+  provider: ConnectorProvider;
+  account?: string;
+  credFp?: string;
+}
 /** A connector access grant request (A102). */
 export interface ConnectorAuthAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider; purpose: string;
   account?: string; credFp?: string; runId?: string;
+  /** Present when requesting access to multiple connected connectors on one card (2–20 items). */
+  items?: ConnectorAuthItem[];
 }
 /** Why a pending connector card was expired before the owner answered it. */
 export type QuestionExpiredReason = "connector_disconnected" | "connector_revoked";
@@ -70,6 +83,27 @@ export interface ConnectorWriteField {
 export interface ConnectorWriteAsk {
   connectorId: string; slug: string; name: string; provider: ConnectorProvider;
   toolName: string; actionLabel: string; account?: string; fields: ConnectorWriteField[];
+}
+/** One write action inside a batch write confirmation card (connectors.batch, A102). */
+export interface ConnectorBatchWriteItem {
+  index: number;
+  toolName: string;
+  actionLabel: string;
+  label: string;
+  fields: ConnectorWriteField[];
+}
+/** A single confirmation card covering multiple write calls on one connector (connectors.batch, A102). */
+export interface ConnectorBatchWriteAsk {
+  connectorId: string;
+  slug: string;
+  name: string;
+  provider: ConnectorProvider;
+  account?: string;
+  summary?: string;
+  sharedToolName?: string;
+  sharedActionLabel?: string;
+  commonFields?: ConnectorWriteField[];
+  items: ConnectorBatchWriteItem[];
 }
 /** pending: the tool is waiting; ignored: the tool stopped waiting (new message, abort, stop, restart). */
 export type QuestionState = "pending" | "answered" | "dismissed" | "ignored";

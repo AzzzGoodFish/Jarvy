@@ -250,8 +250,11 @@ export const api = {
   grantConnector: (id: string, botId: string, granted: boolean) =>
     request<Connector>(`/connectors/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   connectorUses: (id: string) => request<{ uses: ConnectorUse[] }>(`/connectors/${id}/uses`),
-  fulfilConnectorAuth: (chatId: string, messageId: string, scope: "always" | "once") =>
-    request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, { method: "POST", body: body({ scope }) }),
+  fulfilConnectorAuth: (chatId: string, messageId: string, scope: "always" | "once", connectorIds?: string[]) =>
+    request<ChatMessage>(`/connectors/requests/${chatId}/${messageId}`, {
+      method: "POST",
+      body: body({ scope, ...(connectorIds ? { connectorIds } : {}) }),
+    }),
   botStatus: (id: string) => request<BotStatus>(`/bots/${id}/status`),
   uploadAttachment: upload,
   removeAttachment: (id: string) => request<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
