@@ -1,6 +1,6 @@
 import type { Connector, ConnectorTool } from "../../contract/connectors.js";
 import type { GrantScope } from "../../contract/secrets.js";
-import type { ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
+import type { ConnectorAuthItem, ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
 import { CONNECTOR_SLUG, isWriteTool } from "../shared/connector.js";
 import { ValidationError } from "../shared/errors.js";
 import { ChatError } from "../shared/chat.js";
@@ -248,6 +248,46 @@ export function buildAuthRequestQuestion(
       ...(account ? { account } : {}),
       ...(binding?.credFp ? { credFp: binding.credFp } : {}),
       ...(binding?.runId ? { runId: binding.runId } : {}),
+    },
+  };
+}
+
+/** Builds a single in-chat grant card requesting access to 2–20 connected connectors at once (A102). */
+export function buildBatchAuthRequestQuestion(
+  connectors: readonly Connector[],
+  purpose: string,
+  runId?: string,
+): QuestionSpec {
+  const first = connectors[0]!;
+  const items: ConnectorAuthItem[] = connectors.map(connector => {
+    const account = connector.account || (connector.status === "connected" ? connector.statusDetail : "");
+    return {
+      connectorId: connector.id,
+      slug: connector.slug,
+      name: connector.name,
+      provider: connector.provider,
+      ...(account ? { account } : {}),
+      ...(connector.credFp ? { credFp: connector.credFp } : {}),
+    };
+  });
+  return {
+    question: purpose,
+    options: [
+      { label: "Keep allowing", value: "always", style: "primary" },
+      { label: "This time only", value: "once" },
+    ],
+    multiple: false,
+    allowCustom: true,
+    connectorAuth: {
+      connectorId: first.id,
+      slug: first.slug,
+      name: first.name,
+      provider: first.provider,
+      purpose,
+      ...(items[0]!.account ? { account: items[0]!.account } : {}),
+      ...(items[0]!.credFp ? { credFp: items[0]!.credFp } : {}),
+      ...(runId ? { runId } : {}),
+      items,
     },
   };
 }

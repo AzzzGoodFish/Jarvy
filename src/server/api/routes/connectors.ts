@@ -105,7 +105,10 @@ export function connectorRoutes(connectors: ApiServices["connectors"]) {
   routes.get("/:id/uses", c => c.json({ uses: connectors.uses(c.req.param("id")) }));
   routes.post("/requests/:chatId/:messageId", async c => {
     const input = await readJson(c).catch(() => ({} as Record<string, unknown>));
-    return c.json(messageView(connectors.fulfilAuth(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), { scope: input.scope })));
+    return c.json(messageView(connectors.fulfilAuth(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), {
+      scope: input.scope,
+      ...(input.connectorIds !== undefined ? { connectorIds: input.connectorIds } : {}),
+    })));
   });
   return routes;
 }

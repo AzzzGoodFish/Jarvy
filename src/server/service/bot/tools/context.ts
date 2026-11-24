@@ -42,9 +42,19 @@ export interface ToolScope {
   connectors: {
     list(query?: string): unknown;
     describe(slug: string, toolName?: string, query?: string): unknown;
-    prepare(slug: string, purpose: string): Promise<{ ready: true } | { question: QuestionSpec }>;
+    prepare(slugs: readonly string[], purpose: string): Promise<
+      | { ready: true; alreadyGranted: string[] }
+      | { question: QuestionSpec; alreadyGranted: string[]; pendingSlugs: string[] }
+    >;
     call(
       chatId: string, slug: string, toolName: string, args: Record<string, unknown>,
+      ask: (question: QuestionSpec) => Promise<QuestionResult & { messageId: string }>,
+      hasPerson: () => boolean, signal?: AbortSignal,
+    ): Promise<unknown>;
+    batch(
+      chatId: string, slug: string,
+      items: readonly { tool: string; args: Record<string, unknown>; label?: string }[],
+      summary: string | undefined,
       ask: (question: QuestionSpec) => Promise<QuestionResult & { messageId: string }>,
       hasPerson: () => boolean, signal?: AbortSignal,
     ): Promise<unknown>;

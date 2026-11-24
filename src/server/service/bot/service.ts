@@ -165,9 +165,11 @@ export class BotService {
         connectors: {
           list: query => this.deps.connectors.listFor(id, query),
           describe: (slug, toolName, query) => this.deps.connectors.describeFor(id, slug, toolName, query),
-          prepare: (slug, purpose) => this.deps.connectors.prepareRequest(id, slug, purpose),
+          prepare: (slugs, purpose) => this.deps.connectors.prepareRequest(id, slugs, purpose),
           call: (chatId, slug, toolName, args, ask, hasPerson, signal) =>
             this.deps.connectors.callTool(id, chatId, slug, toolName, args, ask, hasPerson, signal),
+          batch: (chatId, slug, items, summary, ask, hasPerson, signal) =>
+            this.deps.connectors.callBatch(id, chatId, slug, items, summary, ask, hasPerson, signal),
         },
         tasks: this.deps.tasks, ports: this.ports, handoff: runtime.handoffPort(),
         ...(id === AGENT_BOT_ID ? { agent: this.agent } : {}) }), agentRuntime: runtime,
