@@ -224,16 +224,31 @@ export class SecretRepository {
     const existingRow = this.db.prepare("SELECT id, fields_json AS fieldsJson FROM secrets WHERE id=? AND owner_id=?")
       .get(id, this.ownerId()) as { id: string; fieldsJson: string } | undefined;
     if (!existingRow) return null;
-    const now = Date.now();
-    if (input.category !== undefined) this.db.prepare("UPDATE secrets SET category=?, updated_at=? WHERE id=?").run(checkSecretCategory(input.category), now, id);
+    // Validate and seal every supplied field before touching SQLite so a failed save never persists partial changes.
+    const sets: string[] = [];
+    const params: (string | number)[] = [];
+    if (input.category !== undefined) {
+      sets.push("category=?");
+      params.push(checkSecretCategory(input.category));
+    }
     if (input.fields !== undefined) {
       const encoded = this.encodeFields(id, input.fields, parseStoredFields(existingRow.fieldsJson));
-      this.db.prepare("UPDATE secrets SET fields_json=?, updated_at=? WHERE id=?").run(JSON.stringify(encoded), now, id);
+      sets.push("fields_json=?");
+      params.push(JSON.stringify(encoded));
     }
-    if (input.description !== undefined) this.db.prepare("UPDATE secrets SET description=?, updated_at=? WHERE id=?").run(this.checkDescription(input.description), now, id);
+    if (input.description !== undefined) {
+      sets.push("description=?");
+      params.push(this.checkDescription(input.description));
+    }
     if (input.value !== undefined) {
       const value = this.checkValue(input.value);
-      this.db.prepare("UPDATE secrets SET value=?, fingerprint=?, updated_at=? WHERE id=?").run(this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value), now, id);
+      sets.push("value=?", "fingerprint=?");
+      params.push(this.cipher.seal(value, `secret:${id}`), this.cipher.fingerprint(value));
+    }
+    if (sets.length) {
+      sets.push("updated_at=?");
+      params.push(Date.now(), id, this.ownerId());
+      this.db.prepare(`UPDATE secrets SET ${sets.join(", ")} WHERE id=? AND owner_id=?`).run(...params);
     }
     return this.get(id);
   }

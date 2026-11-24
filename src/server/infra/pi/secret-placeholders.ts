@@ -1,6 +1,6 @@
 /** Secret placeholders in bash commands (A52). The model writes `{{secret:NAME}}` for a secret's primary value or
  * `{{secret:NAME.FIELD}}` for an encrypted custom field (v36). Before the command runs, each becomes a shell variable
- * (`${JARVY_SECRET_NAME}` or `${JARVY_SECRET_f_NAME__FIELD}`), quoted so the shell neither splits it nor leaves it
+ * (`${JARVY_SECRET_NAME}` or `${JARVY_SECRET_<len>_NAME_FIELD}`), quoted so the shell neither splits it nor leaves it
  * unexpanded, and the value goes in that command's environment only. In a quoted heredoc it would stay literal, so the
  * call is refused. */
 const PLACEHOLDER = /\{\{secret:([A-Za-z0-9_]{1,64}(?:\.[A-Za-z0-9_]{1,64})?)\}\}/y;
@@ -8,12 +8,16 @@ const PLACEHOLDER_GLOBAL = /\{\{secret:([A-Za-z0-9_]{1,64}(?:\.[A-Za-z0-9_]{1,64
 const PLACEHOLDER_TEST = /\{\{secret:[A-Za-z0-9_]{1,64}(?:\.[A-Za-z0-9_]{1,64})?\}\}/;
 const VALID_REF = /^[A-Z][A-Z0-9_]{0,63}(?:\.[A-Za-z][A-Za-z0-9_]{0,63})?$/;
 
-/** Non-colliding POSIX environment variable name for a secret reference (`NAME` or `NAME.FIELD`).
- * Top-level names are strictly uppercase, so lowercase `_f_` guarantees disjointness from any top-level secret. */
+/** Non-colliding POSIX/PowerShell environment variable name for a secret reference (`NAME` or `NAME.FIELD`).
+ * Top-level names start with `[A-Z]`, while field variables prefix `NAME`'s length after `JARVY_SECRET_`
+ * (`JARVY_SECRET_<len>_<NAME>_<FIELD>`), guaranteeing injectivity across arbitrary underscore splits (e.g.
+ * `DEMO__GROUP.CODE` vs `DEMO.GROUP__CODE`) and disjointness from top-level secrets even case-insensitively. */
 export function secretVariable(ref: string): string {
   const dot = ref.indexOf(".");
   if (dot < 0) return `JARVY_SECRET_${ref}`;
-  return `JARVY_SECRET_f_${ref.slice(0, dot)}__${ref.slice(dot + 1)}`;
+  const name = ref.slice(0, dot);
+  const field = ref.slice(dot + 1);
+  return `JARVY_SECRET_${name.length}_${name}_${field}`;
 }
 export function placeholderNames(text: string): string[] {
   return [...new Set([...text.matchAll(PLACEHOLDER_GLOBAL)].map(match => match[1]!))];
