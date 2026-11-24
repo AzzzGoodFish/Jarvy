@@ -117,16 +117,23 @@ export function SecretRequestCard({ message, onSettled }: { message: ChatMessage
       <SecretFieldsEditor category={category} draft={fieldsDraft} onChange={setFieldsDraft} disabled={busy} compact/>
     </div>}
 
-    {needsValue && <MaskedField label={secretPrimaryLabel(category)} value={value} visible={visible} disabled={busy} autoFocus placeholder={t("secretCard.valuePlaceholder")}
-      hint={t(short ? "secrets.shortValue" : "secretCard.valueHint")} short={short} onChange={setValue} onVisible={setVisible}/>}
+    {needsValue && <MaskedField
+      label={<span className="jv-secret-request-label" title={t("secretCard.valueHint")}><LockIcon aria-hidden="true"/><span>{secretPrimaryLabel(category)}</span></span>}
+      value={value} visible={visible} disabled={busy} autoFocus placeholder={t("secretCard.valuePlaceholder")}
+      hint={short ? t("secrets.shortValue") : undefined} short={short} onChange={setValue} onVisible={setVisible}/>}
 
     {creating && !editingDetails && requiredCustomSecrets.map(field => {
       const fieldShort = field.value.length > 0 && field.value.length < 8;
-      return <MaskedField key={field.id} label={fieldDisplayLabel(field)} value={field.value}
-        visible={Boolean(field.visible)} disabled={busy} placeholder={t("secrets.fieldSecretValuePlaceholder")}
-        hint={fieldShort ? t("secrets.shortValue") : ""} short={fieldShort}
+      return <MaskedField key={field.id}
+        label={<span className="jv-secret-request-label" title={t("secretCard.valueHint")}><LockIcon aria-hidden="true"/><span>{fieldDisplayLabel(field)}</span></span>}
+        value={field.value} visible={Boolean(field.visible)} disabled={busy} placeholder={t("secrets.fieldSecretValuePlaceholder")}
+        hint={fieldShort ? t("secrets.shortValue") : undefined} short={fieldShort}
         onChange={val => updateSecretField(field.id, { value: val })}
         onVisible={vis => updateSecretField(field.id, { visible: vis })}/>;
     })}
+
+    {(needsValue || (creating && !editingDetails && requiredCustomSecrets.length > 0)) && (
+      <p className="jv-secret-request-hint">{t("secretCard.valueHint")}</p>
+    )}
   </RequestCard>;
 }
