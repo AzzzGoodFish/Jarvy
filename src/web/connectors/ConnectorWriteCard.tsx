@@ -6,45 +6,8 @@ import { t } from "../i18n";
 import { useAction } from "../action";
 import { Markdown } from "../ui";
 import { ConnectorMark } from "./ConnectorMark";
+import { connectorActionLabel, connectorFieldLabel } from "./labels";
 import "../styles/connectors.css";
-
-const ACTION_KEYS: Record<string, Parameters<typeof t>[0]> = {
-  create_issue: "connectorAction.create_issue",
-  update_issue: "connectorAction.update_issue",
-  create_comment: "connectorAction.create_comment",
-  send_email: "connectorAction.send_email",
-  create_draft: "connectorAction.create_draft",
-};
-
-const FIELD_KEYS: Record<string, Parameters<typeof t>[0]> = {
-  title: "connectorField.title",
-  name: "connectorField.name",
-  subject: "connectorField.subject",
-  team: "connectorField.team",
-  project: "connectorField.project",
-  description: "connectorField.description",
-  body: "connectorField.body",
-  content: "connectorField.content",
-  message: "connectorField.message",
-  text: "connectorField.text",
-  comment: "connectorField.comment",
-  from: "connectorField.from",
-  to: "connectorField.to",
-  cc: "connectorField.cc",
-  bcc: "connectorField.bcc",
-  priority: "connectorField.priority",
-  status: "connectorField.status",
-  state: "connectorField.status",
-  assignee: "connectorField.assignee",
-  labels: "connectorField.labels",
-  parent: "connectorField.parent",
-  url: "connectorField.url",
-  owner: "connectorField.owner",
-  repo: "connectorField.repo",
-  repository: "connectorField.repo",
-  number: "connectorField.number",
-  issue_number: "connectorField.number",
-};
 
 const HEADING_KEYS = new Set(["subject", "title", "name"]);
 const BODY_KEYS = new Set(["body", "description", "content", "message", "text", "comment"]);
@@ -95,8 +58,7 @@ export function ConnectorWriteCard({ message, onSettled }: {
   const ask = question.connectorWrite;
   const toolLower = ask.toolName.toLowerCase();
   const isMail = toolLower === "send_email" || toolLower === "create_draft" || ask.provider === "gmail";
-  const actionKey = ACTION_KEYS[toolLower];
-  const actionTitle = actionKey ? t(actionKey) : ask.actionLabel;
+  const actionTitle = connectorActionLabel(ask.toolName, ask.actionLabel);
   const kindTitle = isMail ? t("connectorCard.emailKind") : ask.name;
 
   const [draft, setDraft] = useState<Record<string, string>>(() =>
@@ -139,12 +101,7 @@ export function ConnectorWriteCard({ message, onSettled }: {
     }
   }, [bodyValue, bodyEditable, expandedBody, question.state]);
 
-  const fieldLabel = (key: string, fallback: string) => {
-    const lower = key.toLowerCase();
-    if ((lowerCounts.get(lower) ?? 0) > 1) return fallback;
-    const k = FIELD_KEYS[lower];
-    return k ? t(k) : fallback;
-  };
+  const fieldLabel = (key: string, fallback: string) => connectorFieldLabel(key, fallback, lowerCounts);
 
   if (question.state !== "pending") {
     const finalFields = resolvedFields(ask, question.answer?.custom);

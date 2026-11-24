@@ -1,6 +1,7 @@
 import { ChatError, type ChatMessage } from "../../shared/chat.js";
 import {
-  type ConnectorAuthAsk, type ConnectorWriteAsk, type ConnectorWriteField,
+  type ConnectorAuthAsk, type ConnectorAuthItem, type ConnectorBatchWriteAsk, type ConnectorBatchWriteItem,
+  type ConnectorWriteAsk, type ConnectorWriteField,
   type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionExpiredReason, type QuestionSpec, type SecretAsk,
 } from "../../../contract/chat.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
@@ -29,7 +30,8 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
     ...(input.machine === undefined ? {} : { machine: machineAsk(input.machine) }),
     ...(input.enter === undefined ? {} : { enter: enterAsk(input.enter) }),
     ...(input.connectorAuth === undefined ? {} : { connectorAuth: connectorAuthAsk(input.connectorAuth) }),
-    ...(input.connectorWrite === undefined ? {} : { connectorWrite: connectorWriteAsk(input.connectorWrite) }) };
+    ...(input.connectorWrite === undefined ? {} : { connectorWrite: connectorWriteAsk(input.connectorWrite) }),
+    ...(input.connectorBatchWrite === undefined ? {} : { connectorBatchWrite: connectorBatchWriteAsk(input.connectorBatchWrite) }) };
 }
 /** A secret request (secrets.request, A52), as built by the secrets service. */
 function secretAsk(value: unknown): SecretAsk {
@@ -66,26 +68,41 @@ function connectorAuthAsk(value: unknown): ConnectorAuthAsk {
     || !text(ask.purpose, 300) || (ask.account !== undefined && !text(ask.account, 120))
     || (ask.credFp !== undefined && !text(ask.credFp, 64)) || (ask.runId !== undefined && !text(ask.runId, 80)))
     throw new ChatError(400, "Invalid connector auth request");
+  let items: ConnectorAuthItem[] | undefined;
+  if (ask.items !== undefined) {
+    if (!Array.isArray(ask.items) || ask.items.length < 2 || ask.items.length > 20)
+      throw new ChatError(400, "Invalid connector auth items");
+    const seen = new Set<string>();
+    items = ask.items.map(raw => {
+      const item = raw as Record<string, unknown> | null;
+      if (!item || typeof item !== "object" || !text(item.connectorId, 80) || seen.has((item.connectorId as string).trim())
+        || !text(item.slug, 64) || !text(item.name, 80)
+        || typeof item.provider !== "string" || !CONNECTOR_PROVIDERS.has(item.provider)
+        || (item.account !== undefined && !text(item.account, 120))
+        || (item.credFp !== undefined && !text(item.credFp, 64)))
+        throw new ChatError(400, "Invalid connector auth item");
+      seen.add((item.connectorId as string).trim());
+      return {
+        connectorId: (item.connectorId as string).trim(), slug: (item.slug as string).trim(), name: (item.name as string).trim(),
+        provider: item.provider as ConnectorAuthItem["provider"],
+        ...(item.account !== undefined ? { account: (item.account as string).trim() } : {}),
+        ...(item.credFp !== undefined ? { credFp: (item.credFp as string).trim() } : {}),
+      };
+    });
+  }
   return {
     connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
     provider: ask.provider as ConnectorAuthAsk["provider"], purpose: (ask.purpose as string).trim(),
     ...(ask.account !== undefined ? { account: (ask.account as string).trim() } : {}),
     ...(ask.credFp !== undefined ? { credFp: (ask.credFp as string).trim() } : {}),
     ...(ask.runId !== undefined ? { runId: (ask.runId as string).trim() } : {}),
+    ...(items ? { items } : {}),
   };
 }
-/** A connector write confirmation request (connectors.call, A102). */
-function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
-  const ask = value as Record<string, unknown> | null;
-  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
-    || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
-    || !text(ask.toolName, 120) || !text(ask.actionLabel, 80)
-    || (ask.account !== undefined && !text(ask.account, 120))
-    || !Array.isArray(ask.fields) || ask.fields.length > 64)
-    throw new ChatError(400, "Invalid connector write request");
-  let totalChars = 0;
+function parseWriteFields(raw: unknown, maxFields: number, budget: { total: number; limit: number }): ConnectorWriteField[] {
+  if (!Array.isArray(raw) || raw.length > maxFields) throw new ChatError(400, "Invalid connector write field");
   const seenKeys = new Set<string>();
-  const fields: ConnectorWriteField[] = ask.fields.map(item => {
+  return raw.map(item => {
     const field = item as Record<string, unknown> | null;
     const validKey = typeof field?.key === "string" && field.key.length > 0 && field.key.length <= 256 && !/[\x00-\x08\x0b\x0c\x0e-\x1f]/u.test(field.key);
     if (!field || typeof field !== "object" || !validKey || seenKeys.has(field.key as string)
@@ -93,8 +110,8 @@ function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
       || (field.preview !== undefined && !text(field.preview, 300)))
       throw new ChatError(400, "Invalid connector write field");
     seenKeys.add(field.key as string);
-    totalChars += (field.value as string).length;
-    if (totalChars > 100_000) throw new ChatError(400, "Connector write card payload too large");
+    budget.total += (field.value as string).length;
+    if (budget.total > budget.limit) throw new ChatError(400, "Connector write card payload too large");
     return {
       key: field.key as string, label: (field.label as string).trim(), value: field.value as string,
       ...(field.preview !== undefined ? { preview: (field.preview as string).trim() } : {}),
@@ -102,6 +119,16 @@ function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
       ...(field.editable === true ? { editable: true } : field.editable === false ? { editable: false } : {}),
     };
   });
+}
+/** A connector write confirmation request (connectors.call, A102). */
+function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
+    || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
+    || !text(ask.toolName, 120) || !text(ask.actionLabel, 80)
+    || (ask.account !== undefined && !text(ask.account, 120)))
+    throw new ChatError(400, "Invalid connector write request");
+  const fields = parseWriteFields(ask.fields, 64, { total: 0, limit: 100_000 });
   return {
     connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
     provider: ask.provider as ConnectorWriteAsk["provider"], toolName: (ask.toolName as string).trim(),
@@ -110,13 +137,54 @@ function connectorWriteAsk(value: unknown): ConnectorWriteAsk {
     fields,
   };
 }
+/** A batch connector write confirmation request (connectors.batch, A102). */
+function connectorBatchWriteAsk(value: unknown): ConnectorBatchWriteAsk {
+  const ask = value as Record<string, unknown> | null;
+  if (!ask || typeof ask !== "object" || !text(ask.connectorId, 80) || !text(ask.slug, 64) || !text(ask.name, 80)
+    || typeof ask.provider !== "string" || !CONNECTOR_PROVIDERS.has(ask.provider)
+    || (ask.account !== undefined && !text(ask.account, 120))
+    || (ask.summary !== undefined && !text(ask.summary, 300))
+    || (ask.sharedToolName !== undefined && !text(ask.sharedToolName, 120))
+    || (ask.sharedActionLabel !== undefined && !text(ask.sharedActionLabel, 80))
+    || !Array.isArray(ask.items) || ask.items.length < 1 || ask.items.length > 50)
+    throw new ChatError(400, "Invalid connector batch write request");
+  const budget = { total: 0, limit: 120_000 };
+  const commonFields = ask.commonFields !== undefined ? parseWriteFields(ask.commonFields, 64, budget) : undefined;
+  const seenIndex = new Set<number>();
+  const items: ConnectorBatchWriteItem[] = ask.items.map(rawItem => {
+    const item = rawItem as Record<string, unknown> | null;
+    if (!item || typeof item !== "object" || !Number.isInteger(item.index) || (item.index as number) < 0
+      || (item.index as number) >= 50 || seenIndex.has(item.index as number)
+      || !text(item.toolName, 120) || !text(item.actionLabel, 80) || !text(item.label, 160))
+      throw new ChatError(400, "Invalid connector batch write item");
+    seenIndex.add(item.index as number);
+    return {
+      index: item.index as number,
+      toolName: (item.toolName as string).trim(),
+      actionLabel: (item.actionLabel as string).trim(),
+      label: (item.label as string).trim(),
+      fields: parseWriteFields(item.fields, 64, budget),
+    };
+  });
+  return {
+    connectorId: (ask.connectorId as string).trim(), slug: (ask.slug as string).trim(), name: (ask.name as string).trim(),
+    provider: ask.provider as ConnectorBatchWriteAsk["provider"],
+    ...(ask.account !== undefined ? { account: (ask.account as string).trim() } : {}),
+    ...(ask.summary !== undefined ? { summary: (ask.summary as string).trim() } : {}),
+    ...(ask.sharedToolName !== undefined ? { sharedToolName: (ask.sharedToolName as string).trim() } : {}),
+    ...(ask.sharedActionLabel !== undefined ? { sharedActionLabel: (ask.sharedActionLabel as string).trim() } : {}),
+    ...(commonFields && commonFields.length > 0 ? { commonFields } : {}),
+    items,
+  };
+}
 function answerOf(question: Question, input: Record<string, unknown>): QuestionAnswer {
   const selected = input.selected ?? [], custom = input.custom === undefined || input.custom === null || input.custom === "" ? null : input.custom;
   if (!Array.isArray(selected) || new Set(selected).size !== selected.length
     || !selected.every(index => Number.isInteger(index) && index >= 0 && index < question.options.length)) throw new ChatError(400, "Invalid selection");
-  const maxCustom = question.connectorWrite ? 32_000 : 2000;
+  const isStructuredConnectorCard = Boolean(question.connectorWrite || question.connectorBatchWrite || question.connectorAuth?.items?.length);
+  const maxCustom = isStructuredConnectorCard ? 32_000 : 2000;
   if (custom !== null && (!question.allowCustom || !text(custom, maxCustom))) throw new ChatError(400, "Invalid custom answer");
-  if (question.connectorWrite) {
+  if (isStructuredConnectorCard) {
     if (selected.length !== 1) throw new ChatError(400, "Choose one option");
   } else {
     const count = selected.length + (custom === null ? 0 : 1);
@@ -131,7 +199,7 @@ const resultOf = (question: Question, answer: QuestionAnswer): QuestionResult =>
 interface QuestionWaiter {
   chatId: string;
   botId: string;
-  connectorId?: string;
+  connectorIds?: ReadonlySet<string>;
   resolve: (result: QuestionResult) => void;
   reject: (error: Error) => void;
 }
@@ -151,7 +219,12 @@ export class ChatQuestions {
     if (question.state === "answered") return Promise.resolve(resultOf(question, question.answer!));
     if (question.state === "dismissed") return Promise.resolve({ status: "dismissed" });
     if (question.state === "ignored") return Promise.reject(new ChatError(409, "The question is no longer waiting for an answer", "question_expired"));
-    const connectorId = question.connectorAuth?.connectorId ?? question.connectorWrite?.connectorId;
+    const boundIds = question.connectorAuth?.items?.length
+      ? new Set(question.connectorAuth.items.map(item => item.connectorId))
+      : (() => {
+          const single = question.connectorAuth?.connectorId ?? question.connectorWrite?.connectorId ?? question.connectorBatchWrite?.connectorId;
+          return single ? new Set([single]) : undefined;
+        })();
     return new Promise((resolve, reject) => {
       const stop = () => {
         this.waiting.delete(message.id);
@@ -163,7 +236,7 @@ export class ChatQuestions {
       this.waiting.set(message.id, {
         chatId: message.chatId,
         botId: message.sender.id,
-        ...(connectorId ? { connectorId } : {}),
+        ...(boundIds ? { connectorIds: boundIds } : {}),
         resolve: result => { signal?.removeEventListener("abort", stop); resolve(result); },
         reject: error => { signal?.removeEventListener("abort", stop); reject(error); },
       });
@@ -181,7 +254,7 @@ export class ChatQuestions {
   /** Expires every live pending card bound to a connector (optionally scoped to one Bot on grant revocation). */
   expireByConnector(connectorId: string, reason: string, expiredReason: QuestionExpiredReason, botId?: string): void {
     for (const [messageId, entry] of [...this.waiting.entries()]) {
-      if (entry.connectorId !== connectorId) continue;
+      if (!entry.connectorIds?.has(connectorId)) continue;
       if (botId && entry.botId !== botId) continue;
       this.expire(entry.chatId, messageId, reason, expiredReason);
     }
