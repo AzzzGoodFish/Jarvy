@@ -1,10 +1,10 @@
 import type { Store } from "../infra/storage/store.js";
-import { checkSecretCategory, checkSecretUrl, checkSecretUsername } from "../infra/storage/secret-repository.js";
+import { checkSecretCategory, checkSecretFieldHints } from "../infra/storage/secret-repository.js";
 import { RuntimeFault } from "../shared/runtime.js";
 import { ChatError, type ChatMessage } from "../shared/chat.js";
 import { type QuestionSpec } from "../../contract/chat.js";
 import { SECRET_NAME, type SecretAccess } from "../shared/secret.js";
-import { type GrantScope, type Secret, type SecretCategory, type SecretUse } from "../../contract/secrets.js";
+import { type GrantScope, type Secret, type SecretCategory, type SecretFieldInput, type SecretUse } from "../../contract/secrets.js";
 import { Masker, placeholder } from "../shared/secret-mask.js";
 import type { ChatService } from "./chat/service.js";
 
@@ -14,7 +14,7 @@ const SCOPES: GrantScope[] = ["always", "once"];
 /** The owner's secrets (A52): kept in Settings, granted to Bots, never shown again once saved. Only the owner manages
  * them; the agent Bot has no tools for them. Bots use them through placeholders in bash and see them masked. */
 export interface SecretsView { secrets: Secret[]; keyLocation: string }
-export interface SecretMetadataInput { category?: unknown; url?: unknown; username?: unknown }
+export interface SecretMetadataInput { category?: unknown; fields?: unknown }
 export interface SecretListFilter { query?: string; category?: SecretCategory }
 
 export class SecretService {
@@ -22,10 +22,10 @@ export class SecretService {
   private cached: Masker | null = null;
   constructor(private readonly store: Store, private readonly chats: ChatService) {}
   list(): SecretsView { return { secrets: this.store.secrets.list(), keyLocation: this.store.cipher.location() }; }
-  create(input: { name: unknown; category?: unknown; url?: unknown; username?: unknown; description?: unknown; value: unknown }): Secret {
+  create(input: { name: unknown; category?: unknown; fields?: unknown; description?: unknown; value: unknown }): Secret {
     const made = this.store.secrets.create(input); this.cached = null; return made;
   }
-  update(id: string, input: { category?: unknown; url?: unknown; username?: unknown; description?: unknown; value?: unknown }): Secret {
+  update(id: string, input: { category?: unknown; fields?: unknown; description?: unknown; value?: unknown }): Secret {
     const updated = this.store.secrets.update(id, input) ?? this.missing();
     this.cached = null; return updated;
   }
@@ -41,8 +41,9 @@ export class SecretService {
   uses(id: string): SecretUse[] { if (!this.store.secrets.get(id)) this.missing(); return this.store.secrets.uses(id); }
   refreshMask(): void { this.cached = null; }
   masker(): Masker { return this.cached ??= new Masker([...this.store.secrets.values(), ...this.store.connectors.secretValues()]); }
+
   /** secrets.list: every secret the owner keeps (optionally filtered by category or keyword) and whether the Bot may
-   * use it, with non-secret metadata (category, url, username, description), never a value. */
+   * use it, with category, public field values, and placeholders for secret fields; never any secret value. */
   listFor(botId: string, filter?: SecretListFilter) {
     const grants = new Map(this.store.secrets.grantedTo(botId).map(grant => [grant.id, grant.scope]));
     const allValues = this.store.secrets.list().filter(secret => secret.kind === "value");
@@ -51,20 +52,24 @@ export class SecretService {
     const matched = allValues.filter(secret => {
       if (categoryFilter && secret.category !== categoryFilter) return false;
       if (!needle) return true;
-      return secret.name.toLowerCase().includes(needle)
-        || secret.description.toLowerCase().includes(needle)
-        || secret.url.toLowerCase().includes(needle)
-        || secret.username.toLowerCase().includes(needle);
+      if (secret.name.toLowerCase().includes(needle) || secret.description.toLowerCase().includes(needle)) return true;
+      return secret.fields.some(field =>
+        field.key.toLowerCase().includes(needle)
+        || (field.label ?? "").toLowerCase().includes(needle)
+        || (!field.secret && (field.value ?? "").toLowerCase().includes(needle)),
+      );
     });
-    const secrets = matched.map(({ id, name, category, url, username, description }) => {
+    const secrets = matched.map(({ id, name, category, fields, description }) => {
       const scope = grants.get(id);
+      const exposedFields = fields.map(field => field.secret
+        ? { key: field.key, ...(field.label ? { label: field.label } : {}), secret: true as const, placeholder: placeholder(`${name}.${field.key}`) }
+        : { key: field.key, ...(field.label ? { label: field.label } : {}), secret: false as const, value: field.value ?? "" });
       return {
         name,
         placeholder: placeholder(name),
         category,
-        ...(url ? { url } : {}),
-        ...(username ? { username } : {}),
         ...(description ? { description } : {}),
+        ...(exposedFields.length ? { fields: exposedFields } : {}),
         granted: !!scope,
         ...(scope === "once" ? { until: "this run ends" } : {}),
       };
@@ -78,17 +83,20 @@ export class SecretService {
           : null;
     return { secrets, ...(note ? { note } : {}) };
   }
+
   /** secrets.request: nothing to ask when the Bot may already use it; else the card to post. */
   prepareRequest(botId: string, name: string, purpose: string, meta?: SecretMetadataInput): { granted: true } | { question: QuestionSpec } {
     if (!SECRET_NAME.test(name)) throw new ChatError(400, "Secret names are capital letters, digits and underscores, starting with a letter, such as GITHUB_TOKEN");
     const existing = this.store.secrets.byName(name), readable = !!existing?.readable;
     if (readable && this.store.secrets.grantedTo(botId).some(secret => secret.name === name)) return { granted: true };
     const hintedCategory = meta?.category !== undefined ? checkSecretCategory(meta.category) : undefined;
-    const hintedUrl = meta?.url !== undefined ? checkSecretUrl(meta.url) : undefined;
-    const hintedUsername = meta?.username !== undefined ? checkSecretUsername(meta.username) : undefined;
+    const hintedFields = meta?.fields !== undefined ? checkSecretFieldHints(meta.fields) : [];
     const category = existing ? existing.category : hintedCategory;
-    const url = existing ? existing.url : hintedUrl;
-    const username = existing ? existing.username : hintedUsername;
+    const fields: SecretFieldInput[] = existing
+      ? existing.fields.map(field => field.secret
+          ? { key: field.key, ...(field.label ? { label: field.label } : {}), secret: true }
+          : { key: field.key, ...(field.label ? { label: field.label } : {}), secret: false, ...(field.value ? { value: field.value } : {}) })
+      : hintedFields;
     return {
       question: {
         question: purpose,
@@ -101,15 +109,15 @@ export class SecretService {
           exists: !!existing,
           needsValue: !readable,
           ...(category ? { category } : {}),
-          ...(url ? { url } : {}),
-          ...(username ? { username } : {}),
+          ...(fields.length ? { fields } : {}),
         },
       },
     };
   }
-  /** The owner's answer on a request card: saves the value (and any associated category/url/username for a new or
-   * edited secret), grants it to the Bot that asked, then settles the card. The value never enters the message. */
-  fulfil(actorId: string, chatId: string, messageId: string, input: { value?: unknown; scope?: unknown; category?: unknown; url?: unknown; username?: unknown }): ChatMessage {
+
+  /** The owner's answer on a request card: saves the value (and any category/fields for a new or edited secret),
+   * grants it to the Bot that asked, then settles the card. Secret values never enter the message. */
+  fulfil(actorId: string, chatId: string, messageId: string, input: { value?: unknown; scope?: unknown; category?: unknown; fields?: unknown }): ChatMessage {
     const message = this.chats.message(actorId, messageId);
     const ask = message?.question?.secret;
     if (!message || message.chatId !== chatId || !ask || message.question?.state !== "pending") throw new ChatError(409, "The question is already settled", "question_closed");
@@ -122,18 +130,16 @@ export class SecretService {
       secret = this.store.secrets.create({
         name: ask.name,
         category: input.category ?? ask.category,
-        url: input.url ?? ask.url,
-        username: input.username ?? ask.username,
+        fields: input.fields ?? ask.fields,
         description: ask.purpose.replace(/\s+/g, " ").slice(0, 200),
         value: value ?? "",
       });
-    } else if (value !== undefined || input.category !== undefined || input.url !== undefined || input.username !== undefined) {
+    } else if (value !== undefined || input.category !== undefined || input.fields !== undefined) {
       if (value === undefined && !secret.readable) throw new ChatError(400, "A secret needs a value", "secret_value_missing");
       secret = this.store.secrets.update(secret.id, {
         ...(value !== undefined ? { value } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),
-        ...(input.url !== undefined ? { url: input.url } : {}),
-        ...(input.username !== undefined ? { username: input.username } : {}),
+        ...(input.fields !== undefined ? { fields: input.fields } : {}),
       })!;
     } else if (!secret.readable) {
       throw new ChatError(400, "A secret needs a value", "secret_value_missing");
@@ -142,26 +148,39 @@ export class SecretService {
     this.store.secrets.grant(secret.id, botId, scope, scope === "once" ? this.store.secrets.currentRun(botId) : null);
     return this.chats.questions.respond(actorId, chatId, messageId, { action: "answer", selected: [SCOPES.indexOf(scope)] });
   }
-  /** One Bot's access, for its runs. */
+
+  /** One Bot's access, for its runs. Resolves both `NAME` (primary value) and `NAME.FIELD` (encrypted custom field). */
   forBot(botId: string): SecretAccess {
     return {
-      resolve: names => {
+      resolve: refs => {
         const granted = new Map(this.store.secrets.grantedTo(botId).map(secret => [secret.name, secret.id]));
-        const refused = names.filter(name => !granted.has(name));
-        if (refused.length) return { refused };
+        const refused: string[] = [];
         const values: Record<string, string> = {};
-        for (const name of names) {
-          const value = this.store.secrets.value(granted.get(name)!);
-          if (value === null) return { refused: [name] };
-          values[name] = value;
+        for (const ref of refs) {
+          const dot = ref.indexOf(".");
+          const secretName = dot < 0 ? ref : ref.slice(0, dot);
+          const fieldKey = dot < 0 ? null : ref.slice(dot + 1);
+          const secretId = granted.get(secretName);
+          if (!secretId) { refused.push(ref); continue; }
+          const value = fieldKey ? this.store.secrets.fieldValue(secretId, fieldKey) : this.store.secrets.value(secretId);
+          if (value === null) { refused.push(ref); continue; }
+          values[ref] = value;
         }
+        if (refused.length) return { refused };
         return { values };
       },
-      record: (names, use) => {
+      record: (refs, use) => {
         const granted = new Map(this.store.secrets.grantedTo(botId).map(secret => [secret.name, secret.id]));
-        for (const name of names) {
-          const secretId = granted.get(name);
-          if (secretId) this.store.secrets.record({ secretId, name, botId, how: "command", ...use });
+        const recorded = new Set<string>();
+        for (const ref of refs) {
+          const dot = ref.indexOf(".");
+          const secretName = dot < 0 ? ref : ref.slice(0, dot);
+          if (recorded.has(secretName)) continue;
+          const secretId = granted.get(secretName);
+          if (secretId) {
+            recorded.add(secretName);
+            this.store.secrets.record({ secretId, name: secretName, botId, how: "command", ...use });
+          }
         }
       },
       masker: () => this.masker(),

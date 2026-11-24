@@ -1,7 +1,7 @@
 /** Chats, messages and members as the interface sees them (A37, A41, A44, A60). */
 import type { HostKeys } from "./environment.js";
 import type { ConnectorProvider } from "./connectors.js";
-import type { SecretCategory } from "./secrets.js";
+import type { SecretCategory, SecretFieldInput } from "./secrets.js";
 
 /** A person or a Bot. `deleted`: a deleted Bot, still shown as the author of its old messages (v15). */
 export interface Member { id: string; kind: "user" | "bot"; name: string; deleted?: boolean; }
@@ -41,10 +41,10 @@ export interface QuestionSpec { question: string; detail?: string; options: Ques
   /** A confirmation card before a connector runs a write tool (connectors.call, A102). */
   connectorWrite?: ConnectorWriteAsk; }
 /** `exists`: the owner already keeps a secret by this name; `needsValue`: the card must take a value (none, or it
- * doesn't open under this installation's key). Optional non-secret metadata pre-fills a new secret or shows context. */
+ * doesn't open under this installation's key). Optional category and structured fields pre-fill a new secret or show context. */
 export interface SecretAsk {
   name: string; purpose: string; exists: boolean; needsValue: boolean;
-  category?: SecretCategory; url?: string; username?: string;
+  category?: SecretCategory; fields?: SecretFieldInput[];
 }
 /** The machine a Bot asks for, with the host keys scanned when it asked; `existing` when the owner already added a
  * machine at this address, so the card only grants it. */

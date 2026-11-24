@@ -1,5 +1,5 @@
 import { DatabaseIcon, GlobeIcon, KeyRoundIcon, LockIcon } from "lucide-react";
-import { SECRET_CATEGORIES, type Secret, type SecretCategory } from "../../contract/secrets";
+import { SECRET_CATEGORIES, type Secret, type SecretCategory, type SecretField } from "../../contract/secrets";
 import { t, type Key } from "../i18n";
 
 const CATEGORY_KEYS: Record<SecretCategory, Key> = {
@@ -9,8 +9,67 @@ const CATEGORY_KEYS: Record<SecretCategory, Key> = {
   other: "secrets.cat.other",
 };
 
+const PRIMARY_VALUE_KEYS: Record<SecretCategory, Key> = {
+  login: "secrets.primary.login",
+  api_key: "secrets.primary.api_key",
+  database: "secrets.primary.database",
+  other: "secrets.primary.other",
+};
+
+export interface BuiltInFieldSpec {
+  key: string;
+  labelKey: Key;
+  placeholderKey: Key;
+}
+
+const BUILTIN_FIELD_SPECS: Record<SecretCategory, readonly BuiltInFieldSpec[]> = {
+  login: [
+    { key: "url", labelKey: "secrets.field.url", placeholderKey: "secrets.placeholder.loginUrl" },
+    { key: "username", labelKey: "secrets.field.username", placeholderKey: "secrets.placeholder.loginUsername" },
+  ],
+  api_key: [
+    { key: "url", labelKey: "secrets.field.endpoint", placeholderKey: "secrets.placeholder.apiUrl" },
+  ],
+  database: [
+    { key: "host", labelKey: "secrets.field.host", placeholderKey: "secrets.placeholder.dbHost" },
+    { key: "port", labelKey: "secrets.field.port", placeholderKey: "secrets.placeholder.dbPort" },
+    { key: "database", labelKey: "secrets.field.database", placeholderKey: "secrets.placeholder.dbName" },
+    { key: "username", labelKey: "secrets.field.username", placeholderKey: "secrets.placeholder.dbUsername" },
+  ],
+  other: [],
+};
+
+const FIELD_LABEL_KEYS: Record<string, Key> = {
+  url: "secrets.field.url",
+  username: "secrets.field.username",
+  host: "secrets.field.host",
+  port: "secrets.field.port",
+  database: "secrets.field.database",
+};
+
+export function builtInFieldsFor(category: SecretCategory): readonly BuiltInFieldSpec[] {
+  return BUILTIN_FIELD_SPECS[category];
+}
+
 export function secretCategoryLabel(category: SecretCategory): string {
   return t(CATEGORY_KEYS[category]);
+}
+
+export function secretPrimaryLabel(category: SecretCategory): string {
+  return t(PRIMARY_VALUE_KEYS[category]);
+}
+
+export function secretNamePlaceholder(category: SecretCategory): string {
+  if (category === "login") return "STAGING_ADMIN";
+  if (category === "database") return "PROD_PG";
+  if (category === "api_key") return "GITHUB_TOKEN";
+  return "SERVICE_SECRET";
+}
+
+export function fieldDisplayLabel(field: Pick<SecretField, "key" | "label">): string {
+  if (field.label) return field.label;
+  const builtin = FIELD_LABEL_KEYS[field.key.toLowerCase()];
+  return builtin ? t(builtin) : field.key;
 }
 
 export function SecretCategoryIcon({ category, className }: { category: SecretCategory; className?: string }) {
@@ -18,19 +77,6 @@ export function SecretCategoryIcon({ category, className }: { category: SecretCa
   if (category === "api_key") return <KeyRoundIcon className={className} aria-hidden="true"/>;
   if (category === "database") return <DatabaseIcon className={className} aria-hidden="true"/>;
   return <LockIcon className={className} aria-hidden="true"/>;
-}
-
-export function secretPlaceholders(category: SecretCategory): { name: string; url: string; username: string } {
-  if (category === "login") {
-    return { name: "STAGING_ADMIN_PASSWORD", url: t("secrets.urlPlaceholderLogin"), username: t("secrets.usernamePlaceholderLogin") };
-  }
-  if (category === "database") {
-    return { name: "PROD_DB_PASSWORD", url: t("secrets.urlPlaceholderDatabase"), username: t("secrets.usernamePlaceholderDatabase") };
-  }
-  if (category === "api_key") {
-    return { name: "GITHUB_TOKEN", url: t("secrets.urlPlaceholderApi"), username: t("secrets.usernamePlaceholderApi") };
-  }
-  return { name: "SERVICE_SECRET", url: t("secrets.urlPlaceholderOther"), username: t("secrets.usernamePlaceholderOther") };
 }
 
 /** Returns a safe http(s) href only when the saved URL is an explicit web URL (blocks javascript:/data:). */
@@ -59,10 +105,39 @@ export function compactUrl(raw: string): string {
   }
 }
 
-/** One-line summary combining non-secret associations and description for rows and grant pickers. */
-export function secretSummary(secret: Pick<Secret, "url" | "username" | "description">): string {
-  const parts = [secret.username, compactUrl(secret.url), secret.description].filter(Boolean);
+/** One-line summary combining public structured fields and description for rows and grant pickers. */
+export function secretSummary(secret: Pick<Secret, "fields" | "description">): string {
+  const byKey = new Map<string, string>();
+  const extras: string[] = [];
+  for (const field of secret.fields) {
+    if (field.secret || !field.value) continue;
+    const lower = field.key.toLowerCase();
+    if (["url", "username", "host", "port", "database"].includes(lower)) byKey.set(lower, field.value);
+    else extras.push(`${fieldDisplayLabel(field)}: ${field.value}`);
+  }
+  const host = byKey.get("host");
+  const port = byKey.get("port");
+  const endpoint = host ? `${host}${port ? `:${port}` : ""}` : byKey.get("url") ? compactUrl(byKey.get("url")!) : "";
+  const parts = [
+    byKey.get("username"),
+    endpoint,
+    byKey.get("database"),
+    ...extras.slice(0, 1),
+    secret.description,
+  ].filter(Boolean);
   return parts.join(" · ");
+}
+
+/** Matches a search needle against name, description, and any field key/label/public value (never secret values). */
+export function matchesSecretQuery(secret: Pick<Secret, "name" | "description" | "fields">, rawQuery: string): boolean {
+  const needle = rawQuery.trim().toLowerCase();
+  if (!needle) return true;
+  if (secret.name.toLowerCase().includes(needle) || secret.description.toLowerCase().includes(needle)) return true;
+  return secret.fields.some(field =>
+    field.key.toLowerCase().includes(needle)
+    || (field.label ?? "").toLowerCase().includes(needle)
+    || (!field.secret && (field.value ?? "").toLowerCase().includes(needle)),
+  );
 }
 
 /** Segmented category selector used in Add/Edit secret forms and SecretRequestCard. */

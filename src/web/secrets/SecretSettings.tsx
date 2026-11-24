@@ -10,13 +10,18 @@ import { errorText } from "../errors";
 import { useAction } from "../action";
 import { SecretItem } from "./SecretItem";
 import { SecretInput } from "./SecretInput";
-import { SecretCategoryPicker, secretCategoryLabel, secretPlaceholders } from "./category";
+import {
+  SecretFieldsEditor, fieldsDraftReady, remapDraftCategory, serializeFieldsDraft, type SecretFieldsDraft,
+} from "./SecretFieldsEditor";
+import {
+  SecretCategoryPicker, matchesSecretQuery, secretCategoryLabel, secretNamePlaceholder, secretPrimaryLabel,
+} from "./category";
 import "../styles/secrets.css";
 
 const byName = (a: Secret, b: Secret) => a.name.localeCompare(b.name);
 
-/** Settings → Secrets (A52): tokens, website logins and database passwords the owner keeps for Bots, with non-secret
- * categorization and associations (website/URL, username). Values go in once and never come back to the page. */
+/** Settings → Secrets (A52): typed secrets with built-in category templates and extensible public/secret fields.
+ * Secret values go in once and never come back to the page; the master key's place is shown so it can be backed up. */
 export function SecretSettings() {
   const [secrets, setSecrets] = useState<Secret[] | null>(null);
   const [keyLocation, setKeyLocation] = useState("");
@@ -36,15 +41,9 @@ export function SecretSettings() {
   }, []);
 
   const changed = (secret: Secret) => setSecrets(list => list && list.map(item => item.id === secret.id ? secret : item));
-  const needle = query.trim().toLowerCase();
-  const visibleSecrets = (secrets ?? []).filter(secret => {
-    if (categoryFilter !== "all" && secret.category !== categoryFilter) return false;
-    if (!needle) return true;
-    return secret.name.toLowerCase().includes(needle)
-      || secret.description.toLowerCase().includes(needle)
-      || secret.url.toLowerCase().includes(needle)
-      || secret.username.toLowerCase().includes(needle);
-  });
+  const visibleSecrets = (secrets ?? []).filter(secret =>
+    (categoryFilter === "all" || secret.category === categoryFilter) && matchesSecretQuery(secret, query),
+  );
 
   return <div className="jv-page">
     <header className="jv-page-header"><h2>{t("settings.secrets")}</h2>
@@ -96,35 +95,45 @@ export function SecretSettings() {
   </div>;
 }
 
-/** A new secret: category, name, optional associated website/username/description, and the encrypted value. */
+/** A new secret: category template, name, template/extensible fields, optional description, and the primary secret value. */
 function SecretForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (secret: Secret) => void }) {
   const [category, setCategory] = useState<SecretCategory>("api_key");
-  const [name, setName] = useState(""), [url, setUrl] = useState(""), [username, setUsername] = useState("");
+  const [name, setName] = useState("");
+  const [fieldsDraft, setFieldsDraft] = useState<SecretFieldsDraft>({ builtIn: {}, custom: [] });
   const [description, setDescription] = useState(""), [value, setValue] = useState("");
   const [visible, setVisible] = useState(false), { busy, error, run } = useAction();
-  const hints = secretPlaceholders(category);
+
+  const changeCategory = (next: SecretCategory) => {
+    setFieldsDraft(prev => remapDraftCategory(category, next, prev));
+    setCategory(next);
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     await run("add", async () => onSaved(await api.createSecret({
-      name: name.trim(), category, url: url.trim(), username: username.trim(), description: description.trim(), value,
+      name: name.trim(),
+      category,
+      fields: serializeFieldsDraft(category, fieldsDraft),
+      description: description.trim(),
+      value,
     })));
   };
+
+  const ready = Boolean(name.trim() && value && fieldsDraftReady(fieldsDraft));
+
   return <form className="jv-panel jv-secret-form" onSubmit={event => void submit(event)} aria-label={t("secrets.add")}>
     <div className="jv-field"><span>{t("secrets.category")}</span>
-      <SecretCategoryPicker value={category} onChange={setCategory} disabled={busy}/></div>
+      <SecretCategoryPicker value={category} onChange={changeCategory} disabled={busy}/></div>
     <label className="jv-field"><span>{t("secrets.name")}</span>
-      <Input className="jv-mono" required autoFocus maxLength={64} placeholder={hints.name} value={name} onChange={event => setName(event.target.value.toUpperCase())}/></label>
-    <div className="jv-secret-pair">
-      <label className="jv-field"><span>{t("secrets.url")}</span>
-        <Input maxLength={300} placeholder={hints.url} value={url} onChange={event => setUrl(event.target.value)}/></label>
-      <label className="jv-field"><span>{t("secrets.username")}</span>
-        <Input maxLength={160} placeholder={hints.username} value={username} onChange={event => setUsername(event.target.value)}/></label>
-    </div>
+      <Input className="jv-mono" required autoFocus maxLength={64} placeholder={secretNamePlaceholder(category)}
+        value={name} onChange={event => setName(event.target.value.toUpperCase())}/></label>
+    <SecretFieldsEditor category={category} draft={fieldsDraft} onChange={setFieldsDraft} disabled={busy}/>
     <label className="jv-field"><span>{t("secrets.description")}</span>
       <Input maxLength={200} placeholder={t("secrets.descriptionPlaceholder")} value={description} onChange={event => setDescription(event.target.value)}/></label>
-    <label className="jv-field"><span>{t("secrets.value")}</span><SecretInput value={value} visible={visible} onChange={setValue} onVisible={setVisible} required/></label>
+    <label className="jv-field"><span>{secretPrimaryLabel(category)}</span>
+      <SecretInput value={value} visible={visible} onChange={setValue} onVisible={setVisible} required/></label>
     {error && <p className="jv-note-error" role="alert">{error}</p>}
     <div className="jv-secret-actions"><Button type="button" variant="ghost" onClick={onCancel}>{t("common.cancel")}</Button>
-      <Button type="submit" className="jv-primary" disabled={busy || !name.trim() || !value}>{t("common.save")}</Button></div>
+      <Button type="submit" className="jv-primary" disabled={busy || !ready}>{t("common.save")}</Button></div>
   </form>;
 }

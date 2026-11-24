@@ -11,14 +11,14 @@ export function secretRoutes(secrets: ApiServices["secrets"]) {
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
     return c.json(secrets.create({
-      name: input.name, category: input.category, url: input.url, username: input.username,
+      name: input.name, category: input.category, fields: input.fields,
       description: input.description, value: input.value,
     }), 201);
   });
   routes.put("/:id", jsonBody, async c => {
     const input = await readJson(c);
     return c.json(secrets.update(c.req.param("id"), {
-      category: input.category, url: input.url, username: input.username,
+      category: input.category, fields: input.fields,
       description: input.description, value: input.value,
     }));
   });
@@ -33,7 +33,7 @@ export function secretRoutes(secrets: ApiServices["secrets"]) {
   routes.post("/requests/:chatId/:messageId", jsonBody, async c => {
     const input = await readJson(c);
     return c.json(messageView(secrets.fulfil(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), {
-      value: input.value, scope: input.scope, category: input.category, url: input.url, username: input.username,
+      value: input.value, scope: input.scope, category: input.category, fields: input.fields,
     })));
   });
   return routes;
