@@ -1,15 +1,16 @@
-import type { Connector, ConnectorAuthKind, ConnectorTool } from "../../contract/connectors.js";
-import type { ConnectorBatchWriteItem, ConnectorWriteField, QuestionSpec } from "../../contract/chat.js";
+import type { Connector, ConnectorAuthKind } from "../../contract/connectors.js";
+import type { QuestionSpec } from "../../contract/chat.js";
 import { isWriteTool, type ConnectorDriver, type StoredConnectorCredentials } from "../shared/connector.js";
 import type { Store } from "../infra/storage/store.js";
 import { ChatError } from "../shared/chat.js";
 import type { ChatService } from "./chat/service.js";
 import type { SecretService } from "./secrets.js";
 import type { QuestionResult } from "./chat/questions.js";
-import { buildWriteFields, humanizeKey } from "./connectors-format.js";
+import { buildBatchWriteQuestion, parseApprovedIndices } from "./connectors-batch-format.js";
+
+export { buildBatchWriteQuestion, parseApprovedIndices } from "./connectors-batch-format.js";
 
 export const MAX_BATCH_ITEMS = 50;
-const MAX_BATCH_CARD_CHARS = 120_000;
 const MAX_BATCH_ITEM_TEXT = 2_000;
 const MAX_BATCH_RESULT_TEXT = 32_000;
 
@@ -38,120 +39,6 @@ export interface ConnectorBatchDeps {
   clientOf: (connector: Connector, creds: StoredConnectorCredentials) => { clientId?: string; clientSecret?: string };
   redirectUri: () => string;
   requireGranted: (botId: string, slug: string) => Connector;
-}
-
-const CONTROL_SPACE = /[\x00-\x1f]+/gu;
-const LABEL_KEYS = ["title", "subject", "name", "id", "issue_id", "identifier", "issue_number", "number", "to", "path", "key"];
-
-function cleanSingleLine(raw: string): string {
-  return raw.replace(CONTROL_SPACE, " ").replace(/\s+/g, " ").trim();
-}
-
-function fallbackLabel(fields: readonly ConnectorWriteField[], actionLabel: string, index: number): string {
-  const pick = LABEL_KEYS
-    .map(key => fields.find(field => field.key.toLowerCase() === key))
-    .find((field): field is ConnectorWriteField => Boolean(field))
-    ?? fields[0];
-  const raw = cleanSingleLine((pick?.preview ?? pick?.value ?? "").split("\n")[0] ?? "");
-  return (raw || `${actionLabel} #${index + 1}`).slice(0, 120);
-}
-
-/** Builds a single confirmation card for all write items in a batch. Extracts identical field values across
- * all write items (when >= 2) into `commonFields` while keeping every item's representation 100% lossless. */
-export function buildBatchWriteQuestion(
-  connector: Connector,
-  writeEntries: readonly { index: number; tool: ConnectorTool; args: Record<string, unknown>; label?: string }[],
-  summary: string | undefined,
-  masker: { mask(text: string): string },
-): QuestionSpec {
-  const formatted = writeEntries.map(entry => ({
-    entry,
-    actionLabel: (entry.tool.title?.trim() || humanizeKey(entry.tool.name)).slice(0, 80),
-    fields: buildWriteFields(entry.args, masker).map(field => ({ ...field, editable: false })),
-  }));
-
-  const commonKeySet = new Set<string>();
-  const commonFields: ConnectorWriteField[] = [];
-  if (formatted.length >= 2) {
-    for (const candidate of formatted[0]!.fields) {
-      const identical = formatted.every(item =>
-        item.fields.some(field => field.key === candidate.key && field.value === candidate.value),
-      );
-      if (identical) {
-        commonKeySet.add(candidate.key);
-        commonFields.push(candidate);
-      }
-    }
-  }
-
-  let totalChars = commonFields.reduce((sum, field) => sum + field.value.length, 0);
-  const items: ConnectorBatchWriteItem[] = formatted.map(({ entry, actionLabel, fields }) => {
-    const varying = commonKeySet.size > 0 ? fields.filter(field => !commonKeySet.has(field.key)) : fields;
-    for (const field of varying) totalChars += field.value.length;
-    if (totalChars > MAX_BATCH_CARD_CHARS) {
-      throw new ChatError(
-        400,
-        `The combined batch payload is too large (${totalChars} chars) to display in full on one confirmation card. Split into smaller batches so your owner can review everything before confirming.`,
-      );
-    }
-    const rawLabel = entry.label ? cleanSingleLine(entry.label) : "";
-    const maskedLabel = rawLabel ? cleanSingleLine(masker.mask(rawLabel)).slice(0, 140) : "";
-    return {
-      index: entry.index,
-      toolName: entry.tool.name,
-      actionLabel,
-      label: maskedLabel || fallbackLabel(varying.length ? varying : fields, actionLabel, entry.index),
-      fields: varying,
-    };
-  });
-
-  const allSameTool = formatted.every(item => item.entry.tool.name === formatted[0]!.entry.tool.name);
-  const sharedToolName = allSameTool ? formatted[0]!.entry.tool.name : undefined;
-  const sharedActionLabel = allSameTool ? formatted[0]!.actionLabel : undefined;
-  const cleanSummary = summary ? cleanSingleLine(masker.mask(cleanSingleLine(summary))).slice(0, 300) || undefined : undefined;
-  const headline = cleanSummary
-    || (sharedActionLabel ? `${sharedActionLabel} (${items.length})` : `Batch actions (${items.length})`);
-  const account = connector.account || connector.statusDetail;
-
-  return {
-    question: `${connector.name} · ${headline}`.slice(0, 500),
-    options: [
-      { label: "Confirm", value: "confirm", style: "primary" },
-      { label: "Discard", value: "discard" },
-    ],
-    multiple: false,
-    allowCustom: true,
-    connectorBatchWrite: {
-      connectorId: connector.id,
-      slug: connector.slug,
-      name: connector.name,
-      provider: connector.provider,
-      ...(account ? { account } : {}),
-      ...(cleanSummary ? { summary: cleanSummary } : {}),
-      ...(sharedToolName ? { sharedToolName } : {}),
-      ...(sharedActionLabel ? { sharedActionLabel } : {}),
-      ...(commonFields.length > 0 ? { commonFields } : {}),
-      items,
-    },
-  };
-}
-
-/** Parses `{ approved: number[] }` from the owner's batch card answer; null means every write item was approved. */
-export function parseApprovedIndices(custom: string | null, validWriteIndices: ReadonlySet<number>): Set<number> {
-  if (!custom) return new Set(validWriteIndices);
-  let parsed: unknown;
-  try { parsed = JSON.parse(custom); } catch {
-    throw new ChatError(400, "Invalid batch confirmation selection.");
-  }
-  const list = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-    ? (parsed as { approved?: unknown }).approved
-    : undefined;
-  if (!Array.isArray(list) || !list.every(item => Number.isInteger(item) && validWriteIndices.has(item as number))) {
-    throw new ChatError(400, "Invalid batch confirmation selection.");
-  }
-  const approved = new Set(list as number[]);
-  if (approved.size === 0) throw new ChatError(400, "Select at least one action to confirm, or discard the batch.");
-  return approved;
 }
 
 /** Executes multiple tool calls on one granted connector, consolidating all write items onto one confirmation card
@@ -268,7 +155,6 @@ export async function executeConnectorBatch(
       throw new ChatError(409, `Batch confirmation on "${slug}" expired because connector access, settings or connection state changed. Check connectors.list and ask again if still needed.`, "question_expired");
     }
 
-    // Re-check every tool to be executed against the live tool list (preventing read->write drift without confirmation).
     for (const entry of resolved) {
       const willRun = !entry.write || Boolean(confirmed?.approvedWriteIndices.has(entry.index));
       if (!willRun) continue;
@@ -323,7 +209,6 @@ export async function executeConnectorBatch(
         continue;
       }
 
-      // Stop executing further items if the connector was modified, disabled, disconnected, or revoked mid-batch.
       const current = deps.store.connectors.get(live!.id);
       const stillGranted = Boolean(current && current.enabled && current.status === "connected" && deps.store.connectors.grantedIds(botId).has(live!.id));
       if (deps.generation(live!.id) !== startGen || !stillGranted) {

@@ -8,7 +8,7 @@ External service integrations exposed uniformly to Bots through the `chat` gatew
 
 - **Shared base**:
   - `server/shared/connector.ts`: driver contract (`ConnectorDriver`) and safe write classification (`isWriteTool`).
-  - `server/service/connectors.ts`, `connectors-batch.ts`, `connectors-oauth.ts`, `connectors-requests.ts`: vendor-agnostic lifecycle, encrypted credentials, `Masker` redaction, ephemeral preset OAuth/token flows, per-Bot grants, pure in-chat grant/write/batch confirmation cards, and audit logs.
+  - `server/service/connectors.ts`, `connectors-batch.ts`, `connectors-batch-format.ts`, `connectors-oauth.ts`, `connectors-requests.ts`: vendor-agnostic lifecycle, encrypted credentials, `Masker` redaction, ephemeral preset OAuth/token flows, per-Bot grants, pure in-chat grant/write/batch confirmation cards, and audit logs.
   - `server/infra/pi/mcp.ts`: generic Streamable HTTP MCP transport built on `@earendil-works/pi-mcp`.
   - `server/infra/connectors/adapter.ts` & `registry.ts`: `ConnectorAdapter` contract and single `ConnectorRegistry` dispatching all provider calls without branching in services.
 - **Per-vendor modules (`server/infra/connectors/providers/`)**:

@@ -145,7 +145,7 @@
 .jv-batch-item[data-unchecked] .jv-batch-item-label { color: var(--ui-text-tertiary); text-decoration: line-through; }
 .jv-batch-item[data-unchecked] .jv-batch-item-preview { opacity: 0.6; }
 .jv-batch-item-tool { flex: none; padding: var(--ui-space-2) var(--ui-space-6); border-radius: var(--ui-radius-xs); background: var(--ui-fill-secondary); color: var(--ui-text-secondary); font-size: var(--ui-text-xs); line-height: var(--ui-leading-xs); }
-.jv-batch-item-preview { font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-batch-item-preview { font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); color: var(--ui-text-secondary); white-space: normal; overflow-wrap: anywhere; }
 .jv-batch-expand { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--ui-radius-sm); background: transparent; color: var(--ui-text-tertiary); cursor: pointer; }
 .jv-batch-expand:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
 .jv-batch-expand svg { width: 14px; height: 14px; }

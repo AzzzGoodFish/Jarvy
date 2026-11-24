@@ -34,14 +34,10 @@ function inlinePreview(item: ConnectorBatchWriteItem): string {
   const collisions = fieldCollisions(item.fields);
   return item.fields.slice(0, 2).map(field => {
     const label = connectorFieldLabel(field.key, field.label, collisions);
-    const val = (field.preview ?? field.value).split("\n")[0]!.slice(0, 48);
+    const firstLine = (field.preview ?? field.value).split("\n")[0]!;
+    const val = firstLine.length > 64 ? `${firstLine.slice(0, 63)}…` : firstLine;
     return `${label}: ${val}`;
   }).join(" · ");
-}
-
-function needsExpand(item: ConnectorBatchWriteItem): boolean {
-  if (item.fields.length > 2) return true;
-  return item.fields.some(field => Boolean(field.preview) || field.multiline || field.value.length > 48);
 }
 
 /** Single in-chat confirmation card for `connectors.batch` (A102):
@@ -215,7 +211,7 @@ export function ConnectorBatchWriteCard({ message, onSettled }: {
         {ask.items.map(item => {
           const checked = selected.has(item.index);
           const open = Boolean(expandedItems[item.index]);
-          const expandable = item.fields.length > 0 && (needsExpand(item) || !ask.sharedToolName);
+          const expandable = item.fields.length > 0;
           const preview = inlinePreview(item);
           return <div key={item.index} className="jv-batch-item" role="listitem" data-unchecked={!checked || undefined}>
             <div className="jv-batch-item-row">
