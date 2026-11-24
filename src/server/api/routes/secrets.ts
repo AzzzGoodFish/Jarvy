@@ -33,7 +33,7 @@ export function secretRoutes(secrets: ApiServices["secrets"]) {
   routes.post("/requests/:chatId/:messageId", jsonBody, async c => {
     const input = await readJson(c);
     return c.json(messageView(secrets.fulfil(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), {
-      value: input.value, scope: input.scope, category: input.category, fields: input.fields,
+      value: input.value, scope: input.scope, category: input.category, fields: input.fields, description: input.description,
     })));
   });
   return routes;

@@ -93,6 +93,8 @@ export const secrets = {
   "secretCard.always": "Always allow",
   "secretCard.once": "This time only",
   "secretCard.decline": "Decline",
+  "secretCard.editDetails": "Edit details",
+  "secretCard.hideDetails": "Hide details",
   "error.secretCategoryInvalid": "Choose a valid category.",
   "error.secretFieldsInvalid": "Check custom field names (letters, digits, underscores), secret values, and ensure non-secret URLs don't contain passwords.",
   "error.secretNameInvalid": "Use capital letters, digits and underscores, starting with a letter.",

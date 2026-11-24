@@ -96,6 +96,8 @@ export const secrets: Part<typeof en> = {
   "secretCard.always": "始终允许",
   "secretCard.once": "仅限本次",
   "secretCard.decline": "拒绝",
+  "secretCard.editDetails": "编辑详情",
+  "secretCard.hideDetails": "收起详情",
   "error.secretCategoryInvalid": "请选择有效的密钥分类。",
   "error.secretFieldsInvalid": "请检查字段名（字母开头，仅含字母/数字/下划线）、秘密字段值，且非秘密地址不要包含内嵌密码。",
   "error.secretNameInvalid": "名称只能包含大写字母、数字和下划线，且以字母开头。",

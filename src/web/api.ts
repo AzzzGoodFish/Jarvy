@@ -218,7 +218,7 @@ export const api = {
   grantSecret: (id: string, botId: string, granted: boolean) => request<Secret>(`/secrets/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   secretUses: (id: string) => request<{ uses: SecretUse[] }>(`/secrets/${id}/uses`),
   /** Answers a request card: the value goes here, never into a message. */
-  fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once"; category?: SecretCategory; fields?: SecretFieldInput[] }) =>
+  fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once"; category?: SecretCategory; fields?: SecretFieldInput[]; description?: string }) =>
     request<ChatMessage>(`/secrets/requests/${chatId}/${messageId}`, { method: "POST", body: body(input) }),
   /** External service connectors (A102). */
   connectors: () => request<{ connectors: Connector[]; presets: ConnectorPreset[]; publicUrl: string | null }>("/connectors"),

@@ -115,9 +115,9 @@ export class SecretService {
     };
   }
 
-  /** The owner's answer on a request card: saves the value (and any category/fields for a new or edited secret),
-   * grants it to the Bot that asked, then settles the card. Secret values never enter the message. */
-  fulfil(actorId: string, chatId: string, messageId: string, input: { value?: unknown; scope?: unknown; category?: unknown; fields?: unknown }): ChatMessage {
+  /** The owner's answer on a request card: saves the value (and any category/fields/description for a new or edited
+   * secret), grants it to the Bot that asked, then settles the card. Secret values never enter the message. */
+  fulfil(actorId: string, chatId: string, messageId: string, input: { value?: unknown; scope?: unknown; category?: unknown; fields?: unknown; description?: unknown }): ChatMessage {
     const message = this.chats.message(actorId, messageId);
     const ask = message?.question?.secret;
     if (!message || message.chatId !== chatId || !ask || message.question?.state !== "pending") throw new ChatError(409, "The question is already settled", "question_closed");
@@ -131,15 +131,16 @@ export class SecretService {
         name: ask.name,
         category: input.category ?? ask.category,
         fields: input.fields ?? ask.fields,
-        description: ask.purpose.replace(/\s+/g, " ").slice(0, 200),
+        description: input.description !== undefined ? input.description : ask.purpose.replace(/\s+/g, " ").slice(0, 200),
         value: value ?? "",
       });
-    } else if (value !== undefined || input.category !== undefined || input.fields !== undefined) {
+    } else if (value !== undefined || input.category !== undefined || input.fields !== undefined || input.description !== undefined) {
       if (value === undefined && !secret.readable) throw new ChatError(400, "A secret needs a value", "secret_value_missing");
       secret = this.store.secrets.update(secret.id, {
         ...(value !== undefined ? { value } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),
         ...(input.fields !== undefined ? { fields: input.fields } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
       })!;
     } else if (!secret.readable) {
       throw new ChatError(400, "A secret needs a value", "secret_value_missing");
