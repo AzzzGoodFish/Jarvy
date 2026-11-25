@@ -3,7 +3,7 @@ import { previewQuotes } from "../../shared/quotes.js";
 import type { RuntimeRepository } from "../../infra/storage/runtime-repository.js";
 import type { ChatFiles } from "../chat/files.js";
 import type { ChatService } from "../chat/service.js";
-import { encodeChatBatch, encodeNoticeBatch, type BatchEnvironment, type EnvelopeNotice } from "../chat/envelope.js";
+import { encodeChatBatch, encodeNoticeBatch, type EnvelopeNotice } from "../chat/envelope.js";
 import type { TaskRepository } from "../../infra/storage/task-repository.js";
 import { describeSchedule } from "../../shared/task.js";
 import type { BotNotice } from "../../infra/storage/inbox-repository.js";
@@ -24,9 +24,8 @@ export interface PreparedBatch {
 const FOLLOWED_SHOWN = 15;
 /** Converts already-committed Chat input into runtime input; no SDK dependencies. */
 export class BotInbox {
-  /** `where` is the work environment the Bot is in now, named at the end of each batch (A50). */
   constructor(readonly botId: string, readonly repository: RuntimeRepository, private readonly chats: ChatService, private readonly files: ChatFiles,
-    private readonly tasks: TaskRepository, private readonly where?: () => BatchEnvironment,
+    private readonly tasks: TaskRepository,
     private readonly runningJobs?: () => RunningJobSummary[], private readonly context?: () => { tokens: number | null; limit: number } | null) {}
   /** Messages and other deliveries wait in the inbox (A41); either kind is work for the next run. A digest delivery
    * (a change the agent Bot made, A48) is not work of its own: it rides along with the next batch. */
@@ -59,8 +58,7 @@ export class BotInbox {
     const unreadNotes = this.chats.channels.unreadNotes(this.botId, [...new Set(batch.inputs.map(input => input.chatId))]);
     const running = this.runningJobs?.() ?? [];
     const digest = { ...this.chats.channels.digest(this.botId), ...(unreadNotes.length ? { unreadNotes } : {}),
-      ...(running.length ? { runningJobs: running } : {}), ...(context ? { context } : {}),
-      ...(this.where ? { environment: this.where() } : {}) };
+      ...(running.length ? { runningJobs: running } : {}), ...(context ? { context } : {}) };
     // Deliveries never steered into a run (A39, A41) are told with this batch.
     const tail = this.convert(this.chats.notices(this.botId));
     this.tell(tail.stale);
@@ -139,7 +137,7 @@ export class BotInbox {
     const continuation = kept.find((notice): notice is Extract<EnvelopeNotice, { kind: "handoff" }> => notice.kind === "handoff");
     const hasExternalWork = kept.some(notice => notice.kind !== "followed" && notice.kind !== "handoff");
     return {
-      xml: encodeNoticeBatch(this.botId, kept, this.where?.(), prompt, unreadNotes, running.length ? running : undefined, context),
+      xml: encodeNoticeBatch(this.botId, kept, prompt, unreadNotes, running.length ? running : undefined, context),
       ids: kept.map(notice => notice.id),
       continueCount: continuation?.continues,
       hasExternalWork,

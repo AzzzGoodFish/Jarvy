@@ -6,7 +6,10 @@ import { tool } from "./registry.js";
 export const connectorTools = [
   tool(
     "connectors.list",
-    "List external connectors (such as GitHub, Gmail, Linear or custom remote MCPs): slug, name, account (when connected), status, tools (write tools always ask the owner before running) and granted. Pass query to filter tools by keyword.",
+    {
+      summary: "List external service connectors (GitHub, Gmail, Linear, remote MCPs), their status, tools, and grant state.",
+      detail: "List external connectors (such as GitHub, Gmail, Linear or custom remote MCPs): slug, name, account (when connected), status, tools (write tools always ask the owner before running) and granted. Pass query to filter tools by keyword.",
+    },
     Type.Object({
       query: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "Optional keyword to filter tools by name or description" })),
     }, { additionalProperties: false }),
@@ -14,7 +17,10 @@ export const connectorTools = [
   ),
   tool(
     "connectors.describe",
-    "Inspect one granted connector's tools and full JSON input schemas before calling connectors.call. Pass tool for one tool, or query to search tools by keyword.",
+    {
+      summary: "Inspect a granted connector's tool schemas before calling connectors.call or connectors.batch.",
+      detail: "Inspect one granted connector's tools and full JSON input schemas before calling connectors.call or connectors.batch. Pass tool for one tool, or query to search tools by keyword.",
+    },
     Type.Object({
       connector: Type.String({ minLength: 1, maxLength: 64, description: "Connector slug from connectors.list" }),
       tool: Type.Optional(Type.String({ minLength: 1, maxLength: 120, description: "Optional exact tool name to inspect" })),
@@ -24,7 +30,10 @@ export const connectorTools = [
   ),
   tool(
     "connectors.call",
-    "Call a tool on a granted connector. Inspect its schema with connectors.describe first. Every write tool pauses for the owner's confirmation on a card in the chat.",
+    {
+      summary: "Call one tool on a granted connector (write tools pause for owner confirmation on a card).",
+      detail: "Call a tool on a granted connector. Inspect its schema with connectors.describe first. Every write tool pauses for the owner's confirmation on a card in the chat.",
+    },
     Type.Object({
       chatId: Type.String({ description: "Current chat ID (used if write confirmation is required)" }),
       connector: Type.String({ minLength: 1, maxLength: 64, description: "Connector slug from connectors.list" }),
@@ -43,7 +52,10 @@ export const connectorTools = [
   ),
   tool(
     "connectors.batch",
-    "Call multiple tools on one granted connector (up to 50 items per batch). Prefer this over repeated connectors.call when making bulk changes (e.g. updating multiple Linear issues): all write items are shown together on a single confirmation card where your owner can review, optionally uncheck individual items, and confirm once. Split larger sets into batches of at most 50.",
+    {
+      summary: "Call up to 50 tools on one granted connector (consolidates write confirmations onto a single card).",
+      detail: "Call multiple tools on one granted connector (up to 50 items per batch). Prefer this over repeated connectors.call when making bulk changes (e.g. updating multiple Linear issues): all write items are shown together on a single confirmation card where your owner can review, optionally uncheck individual items, and confirm once. Split larger sets into batches of at most 50.",
+    },
     Type.Object({
       chatId: Type.String({ description: "Current chat ID (used if write confirmation is required)" }),
       connector: Type.String({ minLength: 1, maxLength: 64, description: "Connector slug from connectors.list" }),
@@ -66,7 +78,10 @@ export const connectorTools = [
   ),
   tool(
     "connectors.request",
-    "Ask your owner on a card in a chat with them to grant access (for this run only or always) to one or more connected connectors you need. Pass connector for one, or connectors (up to 20 slugs) to ask for several on a single card. Returns immediately if all requested connectors are already granted; if any connector is not connected, ask your owner to connect it in Settings → Connectors.",
+    {
+      summary: "Ask your owner on a card to grant access to one or multiple connected connectors.",
+      detail: "Ask your owner on a card in a chat with them to grant access (for this run only or always) to one or more connected connectors you need. Pass connector for one, or connectors (up to 20 slugs) to ask for several on a single card. Returns immediately if all requested connectors are already granted; if any connector is not connected, ask your owner to connect it in Settings → Connectors.",
+    },
     Type.Object({
       chatId: Type.String(),
       connector: Type.Optional(Type.String({ minLength: 1, maxLength: 64, description: "Single connector slug from connectors.list" })),

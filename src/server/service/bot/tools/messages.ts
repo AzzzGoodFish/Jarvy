@@ -28,7 +28,10 @@ async function page(context: ToolContext, chatId: string, messages: ChatMessage[
 
 /** Reading, searching, sending, asking and reacting. What reaches the chat goes through the runtime's send (A53). */
 export const messageTools = [
-  tool("messages.read", "Read messages; their files are listed by id, name, type and size, for files.get and files.view. Three ways: ① chatId + after: read on from that sequence number (from the start by default); ② around with a message ID: that message and context messages on each side (5 by default), to see the context; this doesn't move your read position; ③ unread=true: your unread messages, in one chat with chatId, or without it in every chat with unread (grouped by chat, the most recently active first, up to limit messages in all; threads that are done are left out). ① and ③ move your read position to the last message read; hasMore=true means there is more, so call again.",
+  tool("messages.read", {
+    summary: "Read messages in a chat (by after sequence, around a messageId, or unread=true across chats).",
+    detail: "Read messages; their files are listed by id, name, type and size, for files.get and files.view. Three ways: ① chatId + after: read on from that sequence number (from the start by default); ② around with a message ID: that message and context messages on each side (5 by default), to see the context; this doesn't move your read position; ③ unread=true: your unread messages, in one chat with chatId, or without it in every chat with unread (grouped by chat, the most recently active first, up to limit messages in all; threads that are done are left out). ① and ③ move your read position to the last message read; hasMore=true means there is more, so call again.",
+  },
     Type.Object({ chatId: Type.Optional(Type.String()), after: Type.Optional(Type.Integer({ minimum: 0 })), around: Type.Optional(MessageId),
       context: Type.Optional(Type.Integer({ minimum: 0, maximum: 50 })), unread: Type.Optional(Type.Boolean()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }, { additionalProperties: false }), async (input, context, { signal }) => {
     const chats = context.chats, bot = context.bot;
@@ -60,7 +63,10 @@ export const messageTools = [
     return { chatId: chat.id, ...await page(context, chat.id, messages, limit, signal) };
   }),
   // `mine`: only what this Bot sent; those messages carry the History ID of the turn that sent them (A21).
-  tool("messages.search", "Search message text. With chatId, only that chat; without it, every chat you can see, and each result says which chat it is in. Results list their files like messages.read. mine=true: only messages you sent; each carries the History ID of the turn that sent it.",
+  tool("messages.search", {
+    summary: "Search message text in one chat or all readable chats (mine=true returns only yours with History IDs).",
+    detail: "Search message text. With chatId, only that chat; without it, every chat you can see, and each result says which chat it is in. Results list their files like messages.read. mine=true: only messages you sent; each carries the History ID of the turn that sent it.",
+  },
     Type.Object({ chatId: Type.Optional(Type.String()), query: Type.String({ minLength: 1, maxLength: 500 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
       mine: Type.Optional(Type.Boolean({ description: "Only messages you sent" })) }, { additionalProperties: false }), (input, context) => {
     const chats = context.chats, bot = context.bot, sender = input.mine ? bot : undefined;
@@ -73,7 +79,10 @@ export const messageTools = [
     for (const message of found) { const chat = chatOf(message.chatId); if (chat && !seen.has(chat.id)) { seen.add(chat.id); context.oversee(chat, "messages.search", `「${input.query.slice(0, 80)}」`); } }
     return found.map(message => messageRow(chats, bot, message, listing(message), input.chatId === undefined ? chatOf(message.chatId) : null));
   }),
-  tool("messages.send", "Send a message, with files from your environment if you like (path there, absolute or relative to your directory, and the name people see). Give chatId or to, not both: to is a member's name and sends them a DM (a person or a Bot; the first time creates the DM). Only messages sent successfully are visible in the chat. In channels and threads, only the members whose @name is in the text and the members subscribed there receive it; DMs need no @. The result lists who was @-mentioned (notified), who got it through a subscription (subscribers), and the names that aren't in the channel and weren't told. If the chat had messages you hadn't read, it also gives their count (unread) and a note on where to read them: sending marks them read, so read from the after it names. thread: the ID of a message in the channel, to reply in that message's thread (created if it has none; chatId is the channel). replyTo: the ID of a message in the same chat, to reply to it as a quote; this tells its author, like an @. When replying in a thread, alsoToChannel=true also posts a copy to the channel.",
+  tool("messages.send", {
+    summary: "Send a chat message by chatId or member name (to), with optional thread, replyTo, alsoToChannel, and file attachments.",
+    detail: "Send a message, with files from your environment if you like (path there, absolute or relative to your directory, and the name people see). Give chatId or to, not both: to is a member's name and sends them a DM (a person or a Bot; the first time creates the DM). Only messages sent successfully are visible in the chat. In channels and threads, only the members whose @name is in the text and the members subscribed there receive it; DMs need no @. The result lists who was @-mentioned (notified), who got it through a subscription (subscribers), and the names that aren't in the channel and weren't told. If the chat had messages you hadn't read, it also gives their count (unread) and a note on where to read them: sending marks them read, so read from the after it names. thread: the ID of a message in the channel, to reply in that message's thread (created if it has none; chatId is the channel). replyTo: the ID of a message in the same chat, to reply to it as a quote; this tells its author, like an @. When replying in a thread, alsoToChannel=true also posts a copy to the channel.",
+  },
     Type.Object({ chatId: Type.Optional(Type.String()), to: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })), message: Type.String({ maxLength: 32000 }),
       thread: Type.Optional(MessageId), replyTo: Type.Optional(MessageId), alsoToChannel: Type.Optional(Type.Boolean()),
       attachments: Type.Optional(Type.Array(Type.Object({ path: Type.String({ minLength: 1 }), name: Type.String({ minLength: 1, maxLength: 200 }) }, { additionalProperties: false }), { maxItems: 5 })) }, { additionalProperties: false }), async (input, context, { toolCallId, signal }) => {
@@ -100,7 +109,10 @@ export const messageTools = [
     return { messageId: sent.id, chatId: sent.chatId, sequence: sent.sequence, notified,
       ...(subscribers.length ? { subscribers } : {}), ...(report.notInChannel.length ? { notInChannel: report.notInChannel } : {}), ...context.unreadHint(before.unread, before.after) };
   }),
-  tool("messages.ask", "Post a multiple-choice card in a chat you are in and wait for the person's answer. It returns {status:\"answered\", selected:[{label,value}], custom}, or {status:\"dismissed\"} if they closed the question without answering. If the chat had messages you hadn't read, before the card or while it waited, it also gives their count (unread) and a note on where to read them. Use it when someone needs to choose or confirm (a plan, a preference, whether to go on with something risky); ask open questions with messages.send. options: 1–6; multiple allows several choices; allowCustom lets them write their own answer (custom). If, while you wait, the person sends a new message, cancels this turn or stops the Bot, the call is interrupted and the new message arrives in the next batch. Only people can answer, so it can't be used in chats without one (such as a DM between Bots). Never use it to ask for passwords, tokens or keys: use secrets.request.",
+  tool("messages.ask", {
+    summary: "Post an interactive choice/confirmation card (1–6 options) in a chat with a person and wait for their answer.",
+    detail: "Post a multiple-choice card in a chat you are in and wait for the person's answer. It returns {status:\"answered\", selected:[{label,value}], custom}, or {status:\"dismissed\"} if they closed the question without answering. If the chat had messages you hadn't read, before the card or while it waited, it also gives their count (unread) and a note on where to read them. Use it when someone needs to choose or confirm (a plan, a preference, whether to go on with something risky); ask open questions with messages.send. options: 1–6; multiple allows several choices; allowCustom lets them write their own answer (custom). If, while you wait, the person sends a new message, cancels this turn or stops the Bot, the call is interrupted and the new message arrives in the next batch. Only people can answer, so it can't be used in chats without one (such as a DM between Bots). Never use it to ask for reusable passwords, tokens, or API keys: use secrets.request.",
+  },
     Type.Object({ chatId: Type.String(), question: Type.String({ minLength: 1, maxLength: 500 }), detail: Type.Optional(Type.String({ minLength: 1, maxLength: 1000 })),
       options: Type.Array(QuestionOption, { minItems: 1, maxItems: 6 }), multiple: Type.Optional(Type.Boolean()), allowCustom: Type.Optional(Type.Boolean()) }, { additionalProperties: false }), async (input, context, call) => {
     const chatId = context.withPerson(input.chatId, "use messages.send").id;
@@ -111,7 +123,10 @@ export const messageTools = [
     const answer = await context.ask(chatId, question, call);
     return { ...answer, ...context.unreadHint(before.unread + context.readState(chatId).unread, before.after) };
   }),
-  tool("messages.react", "Add or remove an emoji reaction on a message (people and Bots can both react). on=false removes it. Giving an emoji the message already has from you removes it instead (and the other way round); marked or unmarked and note in the result say which happened. Use this toggle to signal states such as \"got it\", \"on it\" and \"done\". Only the message's author is told: if they are running, it joins their current turn without interrupting; if they are idle, it starts a turn.",
+  tool("messages.react", {
+    summary: "Add or toggle an emoji reaction on a message (messageId, emoji).",
+    detail: "Add or remove an emoji reaction on a message (people and Bots can both react). on=false removes it. Giving an emoji the message already has from you removes it instead (and the other way round); marked or unmarked and note in the result say which happened. Use this toggle to signal states such as \"got it\", \"on it\" and \"done\". Only the message's author is told: if they are running, it joins their current turn without interrupting; if they are idle, it starts a turn.",
+  },
     Type.Object({ messageId: MessageId, emoji: Type.String({ minLength: 1, maxLength: 32, description: "A single emoji, such as 👍" }), on: Type.Optional(Type.Boolean()) }, { additionalProperties: false }), (input, context) => {
     const target = context.chats.message(context.bot, input.messageId), where = target ? context.chats.get(context.bot, target.chatId) : null;
     if (where && !context.isMember(where)) throw new ChatError(403, "You can read this message but you aren't in its chat, so you can't react there");

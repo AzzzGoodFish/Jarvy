@@ -8,7 +8,11 @@ export const ssh: EnvironmentKindEntry = {
   place: record => ({ id: record.id, kind: "ssh", name: record.name, directory: record.directory ?? record.spec.home ?? "/" }),
   connects: true,
   summary: record => record.name,
-  describe: (record, _botId, deps) => ({ address: deps.machines.address(record), ...(record.description ? { description: record.description } : {}) }),
+  describe: (record, _botId, deps) => ({
+    address: deps.machines.address(record),
+    ...(record.spec.platform ? { platform: record.spec.platform === "darwin" ? "macOS" : "Linux" } : {}),
+    ...(record.description ? { description: record.description } : {}),
+  }),
   about: (record, botId, deps) => deps.machines.about(record, botId),
   signature: record => `${record.id}@${record.directory ?? ""}`,
 };

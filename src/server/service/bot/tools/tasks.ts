@@ -26,7 +26,10 @@ export function taskRow(task: Task, full = false) {
 }
 /** The tasks tools (A58): each Bot manages its own scheduled tasks, including those its owner made for it. */
 export const taskTools = [
-  tool("tasks.list", "List your scheduled tasks: each one's id, name, schedule, state (active, paused or done), next and last run. Times are this machine's local time, which timeZone names.",
+  tool("tasks.list", {
+    summary: "List your scheduled tasks with schedules, states, next/last runs, and local timeZone.",
+    detail: "List your scheduled tasks: each one's id, name, schedule, state (active, paused or done), next and last run. Times are this machine's local time, which timeZone names.",
+  },
     Type.Object({}, { additionalProperties: false }), (_args, context) => ({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, now: localIso(Date.now()),
     tasks: context.scope.tasks.list(context.bot).map(task => taskRow(task)) })),
   tool("tasks.get", "One of your scheduled tasks in full, with its instruction.",
@@ -35,9 +38,15 @@ export const taskTools = [
     if (!task) throw new ChatError(404, "Task not found; see tasks.list");
     return taskRow(task, true);
   }),
-  tool("tasks.create", "Schedule a task for yourself. When it is due you get its instruction in a batch, as a <task>, and do it then; it never interrupts a turn, it waits for it to end. Runs missed while this chat platform was not running are skipped.",
+  tool("tasks.create", {
+    summary: "Schedule a one-off or recurring task for yourself (delivered as <task> when due).",
+    detail: "Schedule a task for yourself. When it is due you get its instruction in a batch, as a <task>, and do it then; it never interrupts a turn, it waits for it to end. Runs missed while this chat platform was not running are skipped.",
+  },
     Type.Object({ ...Fields, schedule: Schedule }, { additionalProperties: false }), (input, context) => taskRow(context.scope.tasks.create(context.bot, input), true)),
-  tool("tasks.update", "Change one of your tasks; give only what changes. A new schedule counts from now; an interval left as it was keeps its rhythm.",
+  tool("tasks.update", {
+    summary: "Update a scheduled task's name, instruction, or schedule.",
+    detail: "Change one of your tasks; give only what changes. A new schedule counts from now; an interval left as it was keeps its rhythm.",
+  },
     Type.Object({ id: Id, name: Type.Optional(Fields.name), instruction: Type.Optional(Fields.instruction), schedule: Type.Optional(Schedule) }, { additionalProperties: false }), ({ id, ...changes }, context) => taskRow(context.scope.tasks.update(context.bot, id, changes), true)),
   tool("tasks.pause", "Stop a task from running until you resume it; it stays in the list.",
     ByID, ({ id }, context) => taskRow(context.scope.tasks.setState(context.bot, id, "paused"))),

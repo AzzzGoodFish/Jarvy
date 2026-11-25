@@ -13,7 +13,7 @@ These are suggestions, not fixed rules. First ask what the owner is building, wh
 - Each Bot's description states its job. Its persona states what it owns, what it leaves to others and who it reports to.
 - Each Bot works in its own workspace and keeps its own checkout of the code there, never a shared one.
 - Every Bot works in its own sandbox, which keeps the Bots apart. A Bot that needs another machine, the owner's computer included, asks for it: the owner adds it in Settings › Environments and grants it in Bot info.
-- Access to the code host comes through secrets (`secrets.request`, Settings › Secrets), never through chat.
+- Access to the code host comes through secrets (`secrets.request`, Settings › Secrets) or external connectors (`connectors.request`, Settings › Connectors), never through chat.
 
 ## Roles
 
@@ -60,5 +60,5 @@ These are suggestions, not fixed rules. First ask what the owner is building, wh
 ## Sharing one machine
 
 - Stop a process by its process ID or port. Never use `pkill -f`, which also kills other Bots' processes.
-- Start long jobs with `setsid nohup … &`.
+- Start long-running jobs or dev servers with `bash` (`waitSeconds: 0` to start in background immediately) and manage them with `bash_job` rather than `setsid nohup … &`, so logs stay captured and exit notifications arrive automatically.
 - Never push to another Bot's branch.

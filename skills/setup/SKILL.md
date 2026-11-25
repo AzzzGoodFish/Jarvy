@@ -1,6 +1,6 @@
 ---
 name: setup
-description: How to help the owner get Jarvy ready — model connections, Docker for the Bots' sandboxes (not installed, not running or not allowed), reaching Jarvy from phones and other devices, adding other machines, and secrets. Use when the owner is new, when your environment names a problem, or when they ask how to set something up.
+description: How to help the owner get Jarvy ready — model connections, Docker or KVM VMs for Bots' sandboxes, reaching Jarvy from phones and other devices, adding SSH machines or connected desktop devices, secrets, and external service connectors. Use when the owner is new, when environments.list names a problem, or when they ask how to set something up.
 ---
 
 # Getting Jarvy ready
@@ -19,7 +19,7 @@ A Bot needs a model to work. Settings › Models (设置 › 模型) adds a prov
 
 ## 2. Docker for the Bots' sandboxes
 
-Every Bot works in a sandbox of its own, a Docker container on the computer running Jarvy. Without Docker, Bots can still chat, and they can work on another machine they are allowed to switch to, but they can't read or write files or run commands in their sandboxes. Your environment line and `environments.list` say why Docker can't be used. Bot info › Environment (环境) shows the owner the same.
+Every Bot works in a sandbox of its own, a Docker container on the computer running Jarvy. Without Docker, Bots can still chat, and they can work on another machine they are allowed to switch to, but they can't read or write files or run commands in their sandboxes. `environments.list` says why Docker can't be used. Bot info › Environment (环境) shows the owner the same.
 
 **Not installed.** Ask which system the computer runs.
 - Linux: Docker Engine, from https://docs.docker.com/engine/install/ for their distribution (or the distribution's own `docker.io` package).
@@ -48,10 +48,16 @@ Every Bot works in a sandbox of its own, a Docker container on the computer runn
 
 By default Jarvy answers only on the computer running it. Settings › Network (设置 › 网络) turns on LAN access (局域网访问) and shows the addresses to open on other devices. They reach it over HTTPS with Jarvy's own certificate: each device installs and trusts it once, from Download certificate (下载证书) there, which also has the steps for Mac, Windows, iPhone and Android. Until a device trusts it, its browser warns that the connection isn't private. Plain HTTP can be allowed there too, but then others on the same network could read passwords and conversations.
 
-## 4. Other machines
+## 4. Other machines and connected devices
 
-A Bot that needs another computer, the one running Jarvy included, works there over SSH. The owner adds the machine in Settings › Environments (设置 › 工作环境) with Add machine (添加机器), then allows each Bot that may use it in Bot info › Environment (环境). You can ask for one with `environments.request`; the owner types its password on that card. A Bot reaches on that machine everything its login user can, so suggest a user with only what the work needs.
+A Bot can also work outside its sandbox on:
+- **SSH machines**: the owner adds a machine in Settings › Environments (设置 › 工作环境) with Add machine (添加机器), then grants each Bot that may use it in Bot info › Environment (环境). A Bot can also ask for one with `environments.request`; the owner enters its password or key on that card. Because a Bot reaches everything its SSH login user can, suggest a user scoped to what the work needs.
+- **Connected desktop devices**: the owner can connect their own Windows, macOS, or Linux computer via the Jarvy desktop client / connector from Settings › Environments (设置 › 工作环境), then grant Bots access per device. While the client is offline or paused, tools there fail and say so.
 
 ## 5. Secrets
 
-Tokens and keys the Bots need, such as for a code host, go in Settings › Secrets (设置 › 密钥), each given to the Bots that may use it. A Bot asks for a missing one with `secrets.request`.
+Reusable credentials the Bots need (logins, API keys, database credentials, or custom structured secrets) go in Settings › Secrets (设置 › 密钥), each granted to the Bots that may use it. A Bot asks for a missing one with `secrets.request`.
+
+## 6. Connectors
+
+External services such as GitHub, Gmail, Linear, or custom remote HTTP MCP servers are connected in Settings › Connectors (设置 › 连接器). Newly connected accounts start ungranted; Bots discover them with `connectors.list` and ask for access on a card with `connectors.request` (every write action also pauses for the owner's confirmation).

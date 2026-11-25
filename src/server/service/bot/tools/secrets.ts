@@ -20,7 +20,10 @@ const FieldHintSchema = Type.Object({
 export const secretTools = [
   tool(
     "secrets.list",
-    "List your owner's secrets: each name, primary placeholder ({{secret:NAME}}), category (login/api_key/database/other), description, structured fields (public fields include value; secret fields include placeholder {{secret:NAME.FIELD}}), and granted. Pass optional query or category to filter. Write placeholders in bash commands; secret values are filled in for that command only and masked in output. For granted=false, ask with secrets.request.",
+    {
+      summary: "List stored secrets (category, public fields, {{secret:...}} placeholders, granted); optional query/category filter.",
+      detail: "List your owner's secrets: each name, primary placeholder ({{secret:NAME}}), category (login/api_key/database/other), description, structured fields (public fields include value; secret fields include placeholder {{secret:NAME.FIELD}}), and granted. Pass optional query or category to filter. Write placeholders in bash commands; secret values are filled in for that command only and masked in output. For granted=false, ask with secrets.request.",
+    },
     Type.Object({
       query: Type.Optional(Type.String({ minLength: 1, maxLength: 100, description: "Optional keyword to match name, description or any non-secret field" })),
       category: Type.Optional(CategorySchema),
@@ -29,7 +32,10 @@ export const secretTools = [
   ),
   tool(
     "secrets.request",
-    "Ask your owner for a secret on a card in a chat with them, and wait for the answer, as messages.ask does (for SSH machines, use environments.request). Choose a category (login, api_key, database, other) and optionally pass fields (both built-in public fields like url/username/host/port/database and custom extensible fields with secret=true or secret=false). For an existing secret (in secrets.list) they only allow it; for a new one they fill in the primary value and any fields on the card without exposing secrets in chat. Returns {status:\"granted\", placeholder, until} or {status:\"declined\"}; if already granted, returns at once.",
+    {
+      summary: "Ask your owner on a card to grant or enter a stored secret (supports category and structured/custom fields).",
+      detail: "Ask your owner for a stored credential on a card in a chat with them, and wait for the answer, as messages.ask does (for SSH machines, use environments.request). Choose a category (login, api_key, database, other) and optionally pass fields (both built-in public fields like url/username/host/port/database and custom extensible fields with secret=true or secret=false). For an existing secret (in secrets.list) they only allow it; for a new one they fill in the primary value and any fields on the card without exposing secrets in chat. Returns {status:\"granted\", placeholder, until} or {status:\"declined\"}; if already granted, returns at once.",
+    },
     Type.Object({
       chatId: Type.String(),
       name: Type.String({ pattern: "^[A-Z][A-Z0-9_]{0,63}$", description: "Capital letters, digits and underscores, such as GITHUB_TOKEN or STAGING_ADMIN" }),
