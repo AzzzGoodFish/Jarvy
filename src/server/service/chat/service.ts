@@ -17,6 +17,9 @@ import { quoteDrafts, resolveQuotes } from "./quotes.js";
 import { ChatAttachments, fileName } from "./attachments.js";
 import type { AttachmentFiles } from "../../infra/files/attachments.js";
 import type { ChatChange } from "./contracts.js";
+import type { MessageOrigin } from "./envelope.js";
+
+const MAX_MESSAGE_ORIGINS = 500;
 
 function titleValue(value: unknown): string {
   if (value === undefined) return "";
@@ -57,6 +60,8 @@ export class ChatService {
   readonly channels: ChatChannels;
   readonly threads: ChatThreads;
   readonly attachments: ChatAttachments;
+  /** Transient client-origin metadata for recent human messages (A106); bounded in memory with no schema change. */
+  private readonly origins = new Map<string, MessageOrigin>();
   /** `deliveries`: the delivery module (A41, A61); chat sources hand their committed deliveries off there. */
   constructor(private readonly repository: ChatRepository, private readonly deliveries: Deliveries, files: AttachmentFiles, private readonly notifications: ChatNotifications = {}) {
     this.attachments = new ChatAttachments(repository, files);
@@ -184,7 +189,7 @@ export class ChatService {
       throw new ChatError(400, "Invalid message cursor or limit");
     return this.repository.messages(actorId, chatId, after, limit);
   }
-  instance(actorId: string, chatId: string): Chat {
+  instance(actorId: string, chatId: string, origin?: MessageOrigin): Chat {
     this.repository.assertAccess(actorId, chatId);
     // A thread reply also changes its root in the channel (the reply count and last reply under it); the 「同时发到频道」
     // copy is a new message of the channel, notified on its own.
@@ -192,6 +197,7 @@ export class ChatService {
     return new Chat(chatId, {
       info: new ChatInfo(chatId, actorId, this.repository),
       members: new ChatMembers(chatId, actorId, this.repository, (message, deliveries) => {
+        if (origin) this.rememberOrigin(message.id, origin);
         this.notify({ kind: "message", chatId: message.chatId, messageId: message.id });
         if (message.chatId === chatId && parentId && rootId) this.notify({ kind: "message.updated", chatId: parentId, messageId: rootId });
         this.deliveries.dispatch(deliveries, message);
@@ -199,12 +205,21 @@ export class ChatService {
       messages: new ChatMessages(chatId, actorId, this.repository, this.attachments),
     }, { delete: async id => { this.repository.assertOwner(actorId, id); this.repository.deleteChat(actorId, id); } });
   }
-  async send(actorId: string, chatId: string, input: Record<string, unknown>): Promise<ChatMessage> {
+  private rememberOrigin(messageId: string, origin: MessageOrigin): void {
+    this.origins.delete(messageId);
+    this.origins.set(messageId, origin);
+    if (this.origins.size > MAX_MESSAGE_ORIGINS) {
+      const oldest = this.origins.keys().next().value;
+      if (oldest !== undefined) this.origins.delete(oldest);
+    }
+  }
+  origin(messageId: string): MessageOrigin | undefined { return this.origins.get(messageId); }
+  async send(actorId: string, chatId: string, input: Record<string, unknown>, origin?: MessageOrigin): Promise<ChatMessage> {
     if (input.alsoToChannel !== undefined && typeof input.alsoToChannel !== "boolean") throw new ChatError(400, "Invalid alsoToChannel");
     const draft = messageDraft(input), quotes = resolveQuotes(this.repository, actorId, chatId, draft.content, quoteDrafts(input.quotes) ?? []);
-    return this.deliver(actorId, chatId, { ...draft, alsoToChannel: input.alsoToChannel === true, ...(quotes.length ? { quotes } : {}) });
+    return this.deliver(actorId, chatId, { ...draft, alsoToChannel: input.alsoToChannel === true, ...(quotes.length ? { quotes } : {}) }, origin);
   }
-  async deliver(actorId: string, chatId: string, message: DeliveryMessage): Promise<ChatMessage> {
+  async deliver(actorId: string, chatId: string, message: DeliveryMessage, origin?: MessageOrigin): Promise<ChatMessage> {
     const files = message.files ?? [];
     if (files.length > 5) throw new ChatError(400, "Too many attachments");
     for (const file of files) {
@@ -212,7 +227,7 @@ export class ChatService {
     }
     const draft = messageDraft({ content: message.content, attachmentIds: message.attachmentIds, clientMessageId: message.clientMessageId, replyTo: message.replyTo }, files.length > 0);
     const question = message.question ? questionSpec(message.question as unknown as Record<string, unknown>) : undefined;
-    return this.instance(actorId, chatId).deliver(actorId, { ...draft, files: message.files, source: message.source, ...(question ? { question } : {}),
+    return this.instance(actorId, chatId, origin).deliver(actorId, { ...draft, files: message.files, source: message.source, ...(question ? { question } : {}),
       ...(message.alsoToChannel ? { alsoToChannel: true } : {}), ...(message.quotes?.length ? { quotes: message.quotes } : {}) });
   }
   message(actorId: string, id: string) { return this.repository.message(actorId, id); }

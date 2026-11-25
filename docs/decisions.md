@@ -965,3 +965,15 @@ Over successive releases (background `bash_job`, `context.handoff`, VM sandboxes
 Why: separating static principles from on-demand tool manuals cuts prompt/list token noise without losing capability, keeps execution-environment awareness inside execution tools rather than chat messages, and aligns every layer with current platform features.
 
 Consequences: no database schema change and no new dependencies; existing sessions learn the updated static prompt cleanly via A56 `<instructions_changed>` on their next batch and adopt it on restart, model switch, compaction, or handoff.
+
+## A106 User client environment on messages
+
+When the owner works across multiple registered desktop devices, browsers, and phones and asks a Bot to act on "my computer" (e.g. organizing local files), the Bot had no visibility into which device or OS the owner was messaging from.
+
+- **Lightweight per-message attributes (`via`, optional `env`)**: human-sent `<message>` elements in `<chat_batch>` carry `via` (e.g. `Win-PC (Windows)`, `Desktop (macOS)`, `Web (Linux, local)`, `Mobile (iOS)`) and, when sent from a paired desktop client, `env="<deviceId>"` matching the device's ID in `environments.list`. Bot messages omit both attributes.
+- **Desktop identity without token exposure**: `Connector` surfaces the server-issued device `id` from the existing `welcome` frame (no protocol change), and the Electron desktop client stores `deviceId` in `config.json` (both on new registration and automatically on reconnect for existing pairings). `preload.ts` exposes a read-only `jarvyDesktop.client()` returning `{ deviceId?, platform }` (never the device token), which `src/web/api.ts` sends on `POST /api/chats/:id/messages` as `X-Jarvy-Client` / `X-Jarvy-Device` / `X-Jarvy-Platform`.
+- **Browser & loopback detection, zero DB migration**: `api/client-env.ts` validates `X-Jarvy-Device` against the owner's registered devices; for unpaired desktop clients and web/mobile browsers, it derives form factor and OS from `Sec-CH-UA-*` / `User-Agent` and appends `, local` when `fromThisMachine(remoteAddress)` is true. `ChatService` keeps recent human message origins in a bounded in-memory map (last 500 messages), populated synchronously before delivery dispatch and attached when `ChatFiles.envelope()` builds batches.
+
+Why: attaching origin directly to human `<message>` elements keeps Bots immediately aware when the owner switches between computers and phone, lets Bots target the right `environments.switch` / `environments.request` ID without asking, and avoids any SQLite migration or protocol bump.
+
+Consequences: no database schema change and no new dependencies; if the server restarts between saving a message and delivering it, `via`/`env` is gracefully omitted for that message. Existing desktop binaries still report `Desktop (<OS>)` via `User-Agent` until upgraded to send `X-Jarvy-Device`.
