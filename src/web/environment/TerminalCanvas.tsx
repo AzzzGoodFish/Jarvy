@@ -113,7 +113,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: "bar",
-      fontFamily: "var(--ui-font-mono)",
+      fontFamily: "var(--ui-font-terminal)",
       fontSize: 13,
       lineHeight: 1.25,
       scrollback: 5000,

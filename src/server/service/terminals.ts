@@ -5,6 +5,7 @@ import type { WebSocket, RawData } from "ws";
 import type { TerminalClientMessage, TerminalServerMessage, TerminalSession, TerminalShell, TerminalState } from "../../contract/terminal.js";
 import { ChatError } from "../shared/chat.js";
 import type { PtyHandle, PtyOpenOptions } from "../shared/terminal.js";
+import { trackMissingModes } from "./terminal-modes.js";
 
 const { Terminal } = xtermHeadless;
 const { SerializeAddon } = xtermSerialize;
@@ -77,6 +78,7 @@ class ManagedTerminal {
   private pty: PtyHandle | null = null;
   private headless: HeadlessTerminal;
   private serialize: HeadlessSerialize;
+  private modeSuffix: () => string;
   private readonly clients = new Map<WebSocket, ClientState>();
   private disposed = false;
   private restarting = false;
@@ -100,18 +102,19 @@ class ManagedTerminal {
     this.rows = rows;
     this.requestedShell = requestedShell;
     this.requestedCwd = requestedCwd;
-    const { headless, serialize } = this.makeHeadless(cols, rows);
+    const { headless, serialize, modeSuffix } = this.makeHeadless(cols, rows);
     this.headless = headless;
     this.serialize = serialize;
+    this.modeSuffix = modeSuffix;
   }
 
   get isDisposed(): boolean { return this.disposed; }
 
-  private makeHeadless(cols: number, rows: number): { headless: HeadlessTerminal; serialize: HeadlessSerialize } {
+  private makeHeadless(cols: number, rows: number): { headless: HeadlessTerminal; serialize: HeadlessSerialize; modeSuffix: () => string } {
     const headless = new Terminal({ cols, rows, scrollback: SCROLLBACK, allowProposedApi: true });
     const serialize = new SerializeAddon();
     headless.loadAddon(serialize);
-    return { headless, serialize };
+    return { headless, serialize, modeSuffix: trackMissingModes(headless) };
   }
 
   view(): TerminalSession {
@@ -186,6 +189,7 @@ class ManagedTerminal {
       this.headless.dispose();
       this.headless = next.headless;
       this.serialize = next.serialize;
+      this.modeSuffix = next.modeSuffix;
       this.cols = cols;
       this.rows = rows;
     } else {
@@ -290,9 +294,10 @@ class ManagedTerminal {
     const barrier = ++client.barrier;
     const targetHeadless = this.headless;
     const targetSerialize = this.serialize;
+    const targetModeSuffix = this.modeSuffix;
     targetHeadless.write("", () => {
       if (this.disposed || this.headless !== targetHeadless || this.clients.get(ws) !== client || client.barrier !== barrier || ws.readyState !== ws.OPEN) return;
-      const data = targetSerialize.serialize({ scrollback: SCROLLBACK });
+      const data = targetSerialize.serialize({ scrollback: SCROLLBACK }) + targetModeSuffix();
       const msg: TerminalServerMessage = {
         t: "snapshot",
         cols: this.cols,

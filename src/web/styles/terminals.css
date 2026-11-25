@@ -1,5 +1,16 @@
 /* Persistent interactive terminals in the Environments page (A103). Uses --ui-* design tokens only. */
 
+/* Self-hosted geometric Powerline fallback so TUI status/tab bars (Zellij, tmux, Starship, Powerlevel10k) render crisp
+ * separators even on browsers without Nerd Fonts installed. `unicode-range` keeps normal ASCII/CJK metrics untouched. */
+@font-face {
+  font-family: 'Jarvy Powerline';
+  src: url('../assets/jarvy-powerline.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+E0A0-E0A3, U+E0B0-E0BF;
+}
+
 /* Independent terminal surface themes: chrome tab bar and terminal canvas share one cohesive surface. */
 .jv-term-shell[data-term-theme="onedark"] {
   --jv-t-chrome: #1b1f26;
