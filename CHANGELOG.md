@@ -2,6 +2,27 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.20.0 — 2026-11-25
+
+**Before upgrading:** let active Bot work finish and back up the data directory and the separate master key. The first start upgrades the database from v35 to v36. Existing secrets and grants stay in place. A server restart ends open terminal sessions. To roll back, restore the pre-upgrade backup with the previous version.
+
+### Added
+
+- **Batch Connector operations.** Bots can run up to 50 ordered operations on one Connector. Read-only batches do not open a card. When a batch includes writes, review the arguments and choose which calls to run on one confirmation card. A Bot can also request access to multiple Connectors on one card.
+- **Organize secrets by category.** Use templates for common credential types and add custom fields. Keep sensitive fields encrypted and separate from public metadata. Bots with access can use an approved field in shell commands as `{{secret:NAME.FIELD}}`.
+
+### Changed
+
+- **Shorter default Bot instructions and tool discovery.** The chat gateway lists short descriptions and returns the full instructions and schema on demand. Workspace tool results carry the execution environment rather than repeating it in every chat batch. Chat still retains its messages; posting a code does not send it through a private credential field.
+- The composer has consistent spacing in chats and threads, and the emoji picker opens faster while retaining Chinese keyword search.
+- The build checks for common correctness problems such as misplaced React Hooks and unhandled promises.
+
+### Fixed
+
+- Windows folder listings skip individual entries that cannot be read instead of failing the entire listing. The path can still be edited after a listing error.
+- The composer grows smoothly when text wraps without briefly overshooting or wrapping early when a scrollbar appears.
+- Reconnecting to a terminal preserves the mouse reporting format and cursor visibility used by Zellij and other interactive programs. Terminal borders and Powerline separators render without an installed Nerd Font. The visible terminal can use WebGL and falls back to ordinary rendering when WebGL is unavailable.
+
 ## 0.19.0 — 2026-11-22
 
 The database stays at v35 when upgrading from 0.18.0. Update the desktop client on connected Windows computers to get the Windows terminal fix.
