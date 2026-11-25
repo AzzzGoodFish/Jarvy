@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BoxIcon, KeyRoundIcon, LaptopIcon, PlusIcon, ServerIcon } from "lucide-react";
+import { BoxIcon, LaptopIcon, PlusIcon, ServerIcon } from "lucide-react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
 import { type SshMachine } from "../../contract/environment";
@@ -8,6 +8,7 @@ import { type Connector } from "../../contract/connectors";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { Grants } from "../secrets/Grants";
+import { SecretCategoryIcon, secretSummary } from "../secrets/category";
 import { machineAddress } from "../environment/MachineDetail";
 import { ConnectorMark } from "../connectors/ConnectorMark";
 
@@ -32,8 +33,13 @@ export function BotAccess({ bot, onSaved, onManageSecrets, onManageConnectors, o
   const mine = (secret: Secret) => secret.grants.find(grant => grant.botId === bot.id);
   return <section className="jv-section jv-access" aria-label={t("bot.tab.access")}>
     <Grants rows grantedIds={secrets.filter(mine).map(secret => secret.id)}
-      items={secrets.map(secret => ({ id: secret.id, name: secret.name, mono: true, ...(secret.description ? { detail: secret.description } : {}),
-        once: mine(secret)?.scope === "once", icon: <KeyRoundIcon className="jv-grant-icon" aria-hidden="true"/> }))}
+      items={secrets.map(secret => {
+        const detail = secretSummary(secret);
+        return {
+          id: secret.id, name: secret.name, mono: true, ...(detail ? { detail } : {}),
+          once: mine(secret)?.scope === "once", icon: <SecretCategoryIcon category={secret.category} className="jv-grant-icon"/>,
+        };
+      })}
       texts={{ heading: t("access.secrets"), add: t("common.add"), search: t("access.searchSecrets"), none: t("access.noSecrets"), noMatch: t("access.noMatch"), all: t("access.allSecrets"),
         nothing: <><span>{t("access.noSecretsYet")}</span><Button type="button" variant="outline" size="sm" onClick={onManageSecrets}><PlusIcon/>{t("access.newSecret")}</Button></> }}
       onGrant={async (ids, granted) => {

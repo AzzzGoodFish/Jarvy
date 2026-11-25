@@ -1,5 +1,6 @@
 import { ChatError, type Chat } from "../../../shared/chat.js";
 import type { EnterAsk, Member, QuestionSpec } from "../../../../contract/chat.js";
+import type { SecretCategory, SecretFieldInput } from "../../../../contract/secrets.js";
 import type { EnvironmentRecord } from "../../../shared/environment.js";
 import type { ChatService } from "../../chat/service.js";
 import type { ChatFiles } from "../../chat/files.js";
@@ -33,7 +34,10 @@ export type MachineRequest = { host: string; user: string; port?: number; direct
 export interface ToolScope {
   botId: string; chats: ChatService; files: ChatFiles; memory: Memory; workspace: Workspace; places: Places;
   /** The secrets this Bot may use (A52), never their values, and the card that asks the owner for one. */
-  secrets: { list(): unknown; prepare(name: string, purpose: string): { granted: true } | { question: QuestionSpec } };
+  secrets: {
+    list(filter?: { query?: string; category?: SecretCategory }): unknown;
+    prepare(name: string, purpose: string, meta?: { category?: SecretCategory; fields?: SecretFieldInput[] }): { granted: true } | { question: QuestionSpec };
+  };
   /** External service connectors (A102): discover, inspect, authorize and call tools through the chat gateway. */
   connectors: {
     list(query?: string): unknown;

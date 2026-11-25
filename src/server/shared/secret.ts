@@ -2,6 +2,7 @@
 import type { Masker } from "./secret-mask.js";
 
 export const SECRET_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
+export const SECRET_FIELD_KEY = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
 /** What a Bot's run may do with secrets (A52): the session's side of it, kept apart from storage. */
 export interface SecretAccess {

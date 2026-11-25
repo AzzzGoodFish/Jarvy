@@ -12,7 +12,7 @@ export type ErrorCode =
   | "model_incomplete" | "model_missing" | "model_request_failed" | "model_required" | "model_switch_uncertain"
   | "name_taken" | "port_invalid" | "port_missing" | "port_range_invalid" | "port_range_own" | "ports_exhausted"
   | "provider_name_taken" | "question_closed" | "question_expired" | "reset_custom" | "runtime_failed" | "sandbox_stopped"
-  | "secret_description_invalid" | "secret_missing" | "secret_name_invalid" | "secret_name_taken"
+  | "secret_category_invalid" | "secret_description_invalid" | "secret_fields_invalid" | "secret_missing" | "secret_name_invalid" | "secret_name_taken"
   | "secret_value_missing" | "secret_value_too_long" | "session_corrupt" | "session_mismatch" | "session_missing"
   | "session_path" | "ssh_auth_failed" | "ssh_bad_directory" | "ssh_bad_host" | "ssh_bad_port" | "ssh_bad_user"
   | "ssh_failed" | "ssh_host_key_changed" | "ssh_key_expired" | "ssh_key_refused" | "ssh_key_unreadable"

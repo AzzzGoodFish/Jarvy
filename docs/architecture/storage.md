@@ -97,6 +97,7 @@ A write that spans several statements goes through `transaction(db, work)` (`inf
 | v33 | `environments.kind` gains `device` and `token_hash` for desktop computers (A96) |
 | v34 | `connectors`, `connector_unconfirmed_tools` (fingerprinted by tool definition hash), `connector_credentials`, `connector_grants` and `connector_uses` (A102) |
 | v35 | `connector_grants.scope` (`always` \| `once`) and `run_id` for one-run connector grants; drops `connector_unconfirmed_tools` so every write action is confirmed on a card (A102) |
+| v36 | `secrets.category` (`login` \| `api_key` \| `database` \| `other`, default `other`) and `secrets.fields_json` (extensible per-field `secret: boolean`, where secret fields are sealed under AES-256-GCM bound to `secret:<id>:<key>`) (A52) |
 
 ## Search
 

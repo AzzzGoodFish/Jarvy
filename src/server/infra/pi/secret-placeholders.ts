@@ -1,12 +1,26 @@
-/** Secret placeholders in bash commands (A52). The model writes `{{secret:NAME}}`; before the command runs it becomes
- * `${JARVY_SECRET_NAME}`, quoted so the shell neither splits it nor leaves it unexpanded, and the value goes in that
- * command's environment only. Inside double quotes it stays as is; unquoted it gains double quotes; inside single
- * quotes those are closed around it. In an unquoted heredoc it expands as written; a quoted heredoc would print the
- * placeholder literally, so it is refused. */
-const PLACEHOLDER = /\{\{secret:([A-Za-z0-9_]{1,64})\}\}/y;
-export const secretVariable = (name: string) => `JARVY_SECRET_${name}`;
+/** Secret placeholders in bash commands (A52). The model writes `{{secret:NAME}}` for a secret's primary value or
+ * `{{secret:NAME.FIELD}}` for an encrypted custom field (v36). Before the command runs, each becomes a shell variable
+ * (`${JARVY_SECRET_NAME}` or `${JARVY_SECRET_<len>_NAME_FIELD}`), quoted so the shell neither splits it nor leaves it
+ * unexpanded, and the value goes in that command's environment only. In a quoted heredoc it would stay literal, so the
+ * call is refused. */
+const PLACEHOLDER = /\{\{secret:([A-Za-z0-9_]{1,64}(?:\.[A-Za-z0-9_]{1,64})?)\}\}/y;
+const PLACEHOLDER_GLOBAL = /\{\{secret:([A-Za-z0-9_]{1,64}(?:\.[A-Za-z0-9_]{1,64})?)\}\}/g;
+const PLACEHOLDER_TEST = /\{\{secret:[A-Za-z0-9_]{1,64}(?:\.[A-Za-z0-9_]{1,64})?\}\}/;
+const VALID_REF = /^[A-Z][A-Z0-9_]{0,63}(?:\.[A-Za-z][A-Za-z0-9_]{0,63})?$/;
+
+/** Non-colliding POSIX/PowerShell environment variable name for a secret reference (`NAME` or `NAME.FIELD`).
+ * Top-level names start with `[A-Z]`, while field variables prefix `NAME`'s length after `JARVY_SECRET_`
+ * (`JARVY_SECRET_<len>_<NAME>_<FIELD>`), guaranteeing injectivity across arbitrary underscore splits (e.g.
+ * `DEMO__GROUP.CODE` vs `DEMO.GROUP__CODE`) and disjointness from top-level secrets even case-insensitively. */
+export function secretVariable(ref: string): string {
+  const dot = ref.indexOf(".");
+  if (dot < 0) return `JARVY_SECRET_${ref}`;
+  const name = ref.slice(0, dot);
+  const field = ref.slice(dot + 1);
+  return `JARVY_SECRET_${name.length}_${name}_${field}`;
+}
 export function placeholderNames(text: string): string[] {
-  return [...new Set([...text.matchAll(/\{\{secret:([A-Za-z0-9_]{1,64})\}\}/g)].map(match => match[1]!))];
+  return [...new Set([...text.matchAll(PLACEHOLDER_GLOBAL)].map(match => match[1]!))];
 }
 type Heredoc = { delimiter: string; quoted: boolean; tabs: boolean };
 export type Rewritten = { command: string; names: string[] } | { error: string };
@@ -20,9 +34,12 @@ export function rewritePlaceholders(command: string): Rewritten {
     PLACEHOLDER.lastIndex = i;
     const match = PLACEHOLDER.exec(command);
     if (match) {
-      const name = match[1]!, variable = `\${${secretVariable(name)}}`;
-      if (!/^[A-Z][A-Z0-9_]*$/.test(name)) return { error: `"${name}" isn't a secret name: names are capital letters, digits and underscores, starting with a letter` };
-      names.add(name);
+      const ref = match[1]!;
+      if (!VALID_REF.test(ref)) {
+        return { error: `"${ref}" isn't a valid secret reference: use UPPER_SNAKE (or UPPER_SNAKE.field for a secret field)` };
+      }
+      const variable = `\${${secretVariable(ref)}}`;
+      names.add(ref);
       out += state === "plain" ? `"${variable}"` : state === "double" ? variable : state === "single" ? `'"${variable}"'` : `'"${variable}"$'`;
       i += match[0].length; continue;
     }
@@ -55,8 +72,15 @@ export function rewritePlaceholders(command: string): Rewritten {
           const end = command.indexOf("\n", i), stop = end < 0 ? command.length : end;
           const line = command.slice(i, stop), next = end < 0 ? command.length : end + 1;
           if ((doc.tabs ? line.replace(/^\t+/, "") : line) === doc.delimiter) { out += command.slice(i, next); i = next; break; }
-          if (doc.quoted && /\{\{secret:[A-Za-z0-9_]{1,64}\}\}/.test(line)) return { error: `A placeholder in a quoted heredoc (<<'${doc.delimiter}') stays literal. Use an unquoted heredoc, or pass the value another way. To write the placeholder itself into a file, use write or edit, which keep it as written.` };
-          out += line.replace(/\{\{secret:([A-Za-z0-9_]{1,64})\}\}/g, (_, name: string) => { names.add(name); return `\${${secretVariable(name)}}`; }) + command.slice(stop, next);
+          if (doc.quoted && PLACEHOLDER_TEST.test(line)) return { error: `A placeholder in a quoted heredoc (<<'${doc.delimiter}') stays literal. Use an unquoted heredoc, or pass the value another way. To write the placeholder itself into a file, use write or edit, which keep it as written.` };
+          let invalid: string | null = null;
+          const replaced = line.replace(PLACEHOLDER_GLOBAL, (_, ref: string) => {
+            if (!VALID_REF.test(ref)) { invalid = ref; return ""; }
+            names.add(ref);
+            return `\${${secretVariable(ref)}}`;
+          });
+          if (invalid) return { error: `"${invalid}" isn't a valid secret reference: use UPPER_SNAKE (or UPPER_SNAKE.field for a secret field)` };
+          out += replaced + command.slice(stop, next);
           i = next;
         }
       }

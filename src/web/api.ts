@@ -4,7 +4,7 @@ import type { ConnectionInfo } from "../contract/connection";
 import type { PortRange, PublishedPort } from "../contract/ports";
 import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport, Device } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, ConnectionQuota, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
-import type { Secret, SecretUse } from "../contract/secrets";
+import type { Secret, SecretCategory, SecretFieldInput, SecretUse } from "../contract/secrets";
 import type {
   Connector, ConnectorAuthKind, ConnectorOAuthState, ConnectorPreset, ConnectorProvider, ConnectorUse,
 } from "../contract/connectors";
@@ -210,13 +210,15 @@ export const api = {
   unpublishPort: (botId: string, port: number) => request<{ ok: boolean }>(`/bots/${botId}/ports/${port}`, { method: "DELETE" }),
   /** The owner's secrets (A52); values go in and never come back. */
   secrets: () => request<{ secrets: Secret[]; keyLocation: string }>("/secrets"),
-  createSecret: (input: { name: string; description: string; value: string }) => request<Secret>("/secrets", { method: "POST", body: body(input) }),
-  updateSecret: (id: string, input: { description?: string; value?: string }) => request<Secret>(`/secrets/${id}`, { method: "PUT", body: body(input) }),
+  createSecret: (input: { name: string; category?: SecretCategory; fields?: SecretFieldInput[]; description: string; value: string }) =>
+    request<Secret>("/secrets", { method: "POST", body: body(input) }),
+  updateSecret: (id: string, input: { category?: SecretCategory; fields?: SecretFieldInput[]; description?: string; value?: string }) =>
+    request<Secret>(`/secrets/${id}`, { method: "PUT", body: body(input) }),
   deleteSecret: (id: string) => request<{ ok: boolean }>(`/secrets/${id}`, { method: "DELETE" }),
   grantSecret: (id: string, botId: string, granted: boolean) => request<Secret>(`/secrets/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
   secretUses: (id: string) => request<{ uses: SecretUse[] }>(`/secrets/${id}/uses`),
   /** Answers a request card: the value goes here, never into a message. */
-  fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once" }) =>
+  fulfilSecret: (chatId: string, messageId: string, input: { value?: string; scope: "always" | "once"; category?: SecretCategory; fields?: SecretFieldInput[]; description?: string }) =>
     request<ChatMessage>(`/secrets/requests/${chatId}/${messageId}`, { method: "POST", body: body(input) }),
   /** External service connectors (A102). */
   connectors: () => request<{ connectors: Connector[]; presets: ConnectorPreset[]; publicUrl: string | null }>("/connectors"),

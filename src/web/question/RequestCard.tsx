@@ -46,9 +46,9 @@ export function SettledRequest({ icon, title, state, text, purpose }: {
   </div>;
 }
 
-/** A value typed into a request card (a secret, a machine's password): masked unless shown, with its hint below. */
+/** A value typed into a request card (a secret, a machine's password): masked unless shown, with optional hint below. */
 export function MaskedField({ label, value, visible, disabled, autoFocus, placeholder, hint, short, onChange, onVisible }: {
-  label: string; value: string; visible: boolean; disabled: boolean; autoFocus?: boolean; placeholder?: string; hint: string; short?: boolean;
+  label: ReactNode; value: string; visible: boolean; disabled: boolean; autoFocus?: boolean; placeholder?: string; hint?: string; short?: boolean;
   onChange: (value: string) => void; onVisible: (visible: boolean) => void;
 }) {
   return <label className="ui-field jv-secret-request-value">
@@ -58,6 +58,6 @@ export function MaskedField({ label, value, visible, disabled, autoFocus, placeh
         value={value} disabled={disabled} onChange={event => onChange(event.target.value)}/>
       <button type="button" aria-label={t(visible ? "secrets.hideValue" : "secrets.showValue")} onClick={() => onVisible(!visible)}>{visible ? <EyeOffIcon/> : <EyeIcon/>}</button>
     </span>
-    <small data-short={short || undefined}>{hint}</small>
+    {hint && <small data-short={short || undefined}>{hint}</small>}
   </label>;
 }

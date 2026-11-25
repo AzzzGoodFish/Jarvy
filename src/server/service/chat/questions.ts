@@ -4,6 +4,7 @@ import {
   type ConnectorWriteAsk, type ConnectorWriteField,
   type EnterAsk, type MachineAsk, type Question, type QuestionAnswer, type QuestionExpiredReason, type QuestionSpec, type SecretAsk,
 } from "../../../contract/chat.js";
+import { SECRET_CATEGORIES, type SecretCategory, type SecretFieldInput } from "../../../contract/secrets.js";
 import type { ChatRepository } from "../../infra/storage/chat-repository.js";
 
 /** What the asking tool call gets back (A36). */
@@ -33,12 +34,42 @@ export function questionSpec(input: Record<string, unknown>): QuestionSpec {
     ...(input.connectorWrite === undefined ? {} : { connectorWrite: connectorWriteAsk(input.connectorWrite) }),
     ...(input.connectorBatchWrite === undefined ? {} : { connectorBatchWrite: connectorBatchWriteAsk(input.connectorBatchWrite) }) };
 }
-/** A secret request (secrets.request, A52), as built by the secrets service. */
+const SECRET_CATEGORY_SET = new Set<string>(SECRET_CATEGORIES);
+const SECRET_FIELD_KEY_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+/** A secret request (secrets.request, A52), as built by the secrets service. Secret field values never enter messages. */
 function secretAsk(value: unknown): SecretAsk {
   const ask = value as Record<string, unknown> | null;
   if (!ask || typeof ask !== "object" || typeof ask.name !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(ask.name) || !text(ask.purpose, 300)
-    || typeof ask.exists !== "boolean" || typeof ask.needsValue !== "boolean") throw new ChatError(400, "Invalid secret request");
-  return { name: ask.name, purpose: (ask.purpose as string).trim(), exists: ask.exists, needsValue: ask.needsValue };
+    || typeof ask.exists !== "boolean" || typeof ask.needsValue !== "boolean"
+    || (ask.category !== undefined && (typeof ask.category !== "string" || !SECRET_CATEGORY_SET.has(ask.category)))) {
+    throw new ChatError(400, "Invalid secret request");
+  }
+  let fields: SecretFieldInput[] | undefined;
+  if (ask.fields !== undefined) {
+    if (!Array.isArray(ask.fields) || ask.fields.length > 16) throw new ChatError(400, "Invalid secret request fields");
+    const seen = new Set<string>();
+    fields = ask.fields.map(raw => {
+      const entry = raw as Record<string, unknown> | null;
+      if (!entry || typeof entry !== "object" || typeof entry.key !== "string" || !SECRET_FIELD_KEY_RE.test(entry.key)
+        || seen.has(entry.key.toLowerCase()) || typeof entry.secret !== "boolean"
+        || (entry.label !== undefined && !text(entry.label, 60))
+        || (!entry.secret && entry.value !== undefined && !text(entry.value, 500))) {
+        throw new ChatError(400, "Invalid secret request field");
+      }
+      seen.add(entry.key.toLowerCase());
+      return {
+        key: entry.key,
+        ...(entry.label !== undefined ? { label: (entry.label as string).trim() } : {}),
+        secret: entry.secret,
+        ...(!entry.secret && entry.value !== undefined ? { value: (entry.value as string).trim() } : {}),
+      };
+    });
+  }
+  return {
+    name: ask.name, purpose: (ask.purpose as string).trim(), exists: ask.exists, needsValue: ask.needsValue,
+    ...(ask.category !== undefined ? { category: ask.category as SecretCategory } : {}),
+    ...(fields && fields.length > 0 ? { fields } : {}),
+  };
 }
 /** A machine request (environments.request, A57), as built by the machines service. */
 function machineAsk(value: unknown): MachineAsk {

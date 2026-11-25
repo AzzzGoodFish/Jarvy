@@ -10,11 +10,17 @@ export function secretRoutes(secrets: ApiServices["secrets"]) {
   routes.get("/", c => c.json(secrets.list()));
   routes.post("/", jsonBody, async c => {
     const input = await readJson(c);
-    return c.json(secrets.create({ name: input.name, description: input.description, value: input.value }), 201);
+    return c.json(secrets.create({
+      name: input.name, category: input.category, fields: input.fields,
+      description: input.description, value: input.value,
+    }), 201);
   });
   routes.put("/:id", jsonBody, async c => {
     const input = await readJson(c);
-    return c.json(secrets.update(c.req.param("id"), { description: input.description, value: input.value }));
+    return c.json(secrets.update(c.req.param("id"), {
+      category: input.category, fields: input.fields,
+      description: input.description, value: input.value,
+    }));
   });
   routes.delete("/:id", c => { secrets.delete(c.req.param("id")); return c.json({ ok: true }); });
   routes.put("/:id/grants/:botId", jsonBody, async c => {
@@ -26,7 +32,9 @@ export function secretRoutes(secrets: ApiServices["secrets"]) {
   /** The owner's answer on a Bot's request card: the value (when needed) and how long the Bot may use it. */
   routes.post("/requests/:chatId/:messageId", jsonBody, async c => {
     const input = await readJson(c);
-    return c.json(messageView(secrets.fulfil(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), { value: input.value, scope: input.scope })));
+    return c.json(messageView(secrets.fulfil(c.get("actorId"), c.req.param("chatId"), c.req.param("messageId"), {
+      value: input.value, scope: input.scope, category: input.category, fields: input.fields, description: input.description,
+    })));
   });
   return routes;
 }
