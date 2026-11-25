@@ -33,7 +33,10 @@ Important rules:
 
 /** Active context management: record a self-authored compaction checkpoint in the session (A99). */
 export const handoffTools = [
-  tool("context.handoff", DESCRIPTION, handoffSchema, (args, context) => {
+  tool("context.handoff", {
+    summary: "Start a fresh context stage carrying only active state when context grows large (optional continue=true).",
+    detail: DESCRIPTION,
+  }, handoffSchema, (args, context) => {
     const text = args.text.trim();
     if (!text) throw new ChatError(400, "Handoff text cannot be empty.");
     if (text.length > HANDOFF_MAX_CHARS) {

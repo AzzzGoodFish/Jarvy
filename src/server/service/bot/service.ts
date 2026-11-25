@@ -109,10 +109,6 @@ export class BotService {
     const { store, chats, files, credentials } = this.deps, live = this.live(id), skills = id === AGENT_BOT_ID ? this.skills : [];
     // Skills are read with skills.read (A55): the copies earlier versions kept in the workspace go.
     if (skills.length) void removeSkillCopies(record.workspacePath, skills).catch(() => {});
-    const here = () => {
-      const place = this.environments.here(id, record.workspacePath), problem = place.kind === "sandbox" ? this.computers.sandboxProblem(id) : null;
-      return { name: place.name, directory: place.directory, ...(problem ? { problem: `${problem}, so your file and command tools don't work here` } : {}) };
-    };
     const jobs = new BotJobs(payload => {
       if (this.closed || !this.deps.store.bots.get(id)) return;
       const to = chats.member(id);
@@ -120,7 +116,7 @@ export class BotService {
     });
     this.jobs.set(id, jobs);
     let runtime!: AgentRuntime;
-    const inbox = new BotInbox(id, store.runtime, chats, files, store.tasks, here, () => jobs.running(), () => runtime.contextUsage());
+    const inbox = new BotInbox(id, store.runtime, chats, files, store.tasks, () => jobs.running(), () => runtime.contextUsage());
     runtime = new AgentRuntime(inbox, (setup, model, reference, activity, shouldEndTurn) =>
       (this.deps.factory ?? PiSession.create)({ store, bot: record, selection: model.selection, reference, credentials,
         tools: setup.tools, systemPrompt: () => botPromptParts(setup, skills), onHistory: setup.onHistory, activity, live: event => live.event(event),

@@ -22,12 +22,18 @@ function row(context: ToolContext, port: PublishedPort) {
 
 /** The ports tools (A74): a Bot shows a web service in its sandbox to people and other Bots by publishing its port. */
 export const portTools = [
-  tool("ports.publish", "Publish a web service that runs in your sandbox, so people can open it in their browser and other Bots of this chat platform can reach it. You get a link (url) on this chat platform's own port for it: send it in the chat for people; other Bots use fromSandboxes. Only people signed in to this chat platform and its Bots can open it. The service has to listen on 0.0.0.0, not only on 127.0.0.1. Publishing a port again changes its name and description and keeps its link. It stays published until you unpublish it or your sandbox is reset; your owner sees it in your Bot info and can unpublish it there.",
+  tool("ports.publish", {
+    summary: "Expose a web service running in your sandbox (on 0.0.0.0) and get links for people and other Bots.",
+    detail: "Publish a web service that runs in your sandbox, so people can open it in their browser and other Bots of this chat platform can reach it. You get a link (url) on this chat platform's own port for it: send it in the chat for people; other Bots use fromSandboxes. Only people signed in to this chat platform and its Bots can open it. The service has to listen on 0.0.0.0, not only on 127.0.0.1. Publishing a port again changes its name and description and keeps its link. It stays published until you unpublish it or your sandbox is reset; your owner sees it in your Bot info and can unpublish it there.",
+  },
     Type.Object({ port: Port,
       name: Type.String({ minLength: 1, maxLength: 60, description: "A short name, in your owner's language, such as the app's name" }),
       description: Type.String({ minLength: 1, maxLength: 300, description: "What it is and what to look at there, in your owner's language" }) }, { additionalProperties: false }),
     async (input, context) => row(context, await context.scope.ports.publish(context.bot, input))),
-  tool("ports.list", "List the ports you published: each one's port, name, description, link, the link other Bots use (fromSandboxes), and state: live (reachable), local (listening on 127.0.0.1 only, which the link can't reach), idle (nothing listens), stopped (your sandbox isn't running).",
+  tool("ports.list", {
+    summary: "List your published sandbox ports, their links, and reachability state.",
+    detail: "List the ports you published: each one's port, name, description, link, the link other Bots use (fromSandboxes), and state: live (reachable), local (listening on 127.0.0.1 only, which the link can't reach), idle (nothing listens), stopped (your sandbox isn't running).",
+  },
     None, async (_args, context) => ({ ports: (await context.scope.ports.list(context.bot)).map(port => row(context, port)) })),
   tool("ports.unpublish", "Unpublish one of your ports: its link stops working. Your service keeps running in your sandbox.",
     Type.Object({ port: Port }, { additionalProperties: false }), ({ port }, context) => { context.scope.ports.unpublish(context.bot, port); return { port, unpublished: true }; }),

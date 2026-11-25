@@ -31,11 +31,10 @@ function remember(map: Map<string, string>, id: string, definition: string): voi
 }
 
 /** Batch tail for channels (A37): the Bot's unread counts, the notices it hasn't read where it is about to act
- * (A67); where its file and command tools run now (A50); running background jobs (A98); and context watermark (A99). */
+ * (A67), running background jobs (A98), and context watermark (A99). */
 export interface BatchDigest {
   unread: readonly { chatId: string; title: string; type: string; count: number }[];
   unreadNotes?: readonly UnreadNote[];
-  environment?: BatchEnvironment;
   runningJobs?: readonly RunningJobSummary[];
   /** Context watermark shown once usage reaches the autonomous handoff threshold (A99). */
   context?: { tokens: number; window: number };
@@ -49,10 +48,6 @@ const unreadNoteLine = (notes: readonly UnreadNote[]) => notes.length ? `<notice
   + `${attribute("title", note.title)}${attribute("type", note.type)}${attribute("version", String(note.version))}/>`).join("")}
 <note>You haven't read ${notes.map(noticeName).join(" or ")} yet. Read ${notes.length === 1 ? "it" : "them"} with chats.info `
   + `(${notes.map(note => `chatId: "${note.chatId}"`).join(", ")}), make sure your message follows ${notes.length === 1 ? "it" : "them"} before you send here.</note></notice_unread>` : "";
-/** Where the Bot works now; `problem` says why its file and command tools don't work there, such as Docker missing. */
-export interface BatchEnvironment { name: string; directory: string; problem?: string }
-const environmentLine = (place?: BatchEnvironment) => place
-  ? `<environment${attribute("name", place.name)}${attribute("directory", place.directory)}${place.problem ? attribute("problem", place.problem) : ""}/>` : "";
 const runningJobsLine = (jobs?: readonly RunningJobSummary[]) => jobs?.length
   ? `<running_jobs>${jobs.map(job => `<running_job${attribute("id", job.id)}${attribute("env", job.env)}${attribute("since", iso(job.startedAt))}>${escape(job.command)}</running_job>`).join("")}</running_jobs>` : "";
 const contextLine = (usage?: { tokens: number; window: number }) => usage
@@ -81,15 +76,15 @@ type FollowedThread = { id: string; title: string; channel: { id: string; title:
 const welcome = (owner: string, language: WelcomeLanguage) => `${owner} has just set up this chat platform and picked your model. You are their agent Bot. `
   + `Write to them in a DM (messages.send with to: "${owner}") and welcome them in ${WELCOME_LANGUAGES[language]}, the language of their interface: say in a few sentences what it is and how you can help, `
   + "such as building a team of Bots for their work and running the platform for them. Then ask what they want to get done: a software project, writing, research or something else. "
-  + "If the environment at the end of this batch names a problem, also tell them in a sentence what it means for the Bots and offer to help set it up, as your setup skill describes.";
+  + "Check environments.list first if you want to see whether the sandbox has any setup problem; if it does, briefly explain what it means and offer to help set it up as your setup skill describes.";
 /** The same compact shape as a batch, for a notice steered into a run or attached to the next one. */
-export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], environment?: BatchEnvironment, prompt?: PromptChange | null,
+export function encodeNoticeBatch(botId: string, notices: readonly EnvelopeNotice[], prompt?: PromptChange | null,
   unreadNotes?: readonly UnreadNote[], runningJobs?: readonly RunningJobSummary[], context?: { tokens: number; window: number }): string {
   if (!notices.length && !prompt) throw new Error("Empty notice batch");
   const chats = new Map<string, string>(), members = new Map<string, string>();
   const list = noticeTail(notices, chats, members);
   return `<notice_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${list}${instructionsLine(prompt)}`
-    + `${unreadNoteLine(unreadNotes ?? [])}${runningJobsLine(runningJobs)}${contextLine(context)}${environmentLine(environment)}</notice_batch>`;
+    + `${unreadNoteLine(unreadNotes ?? [])}${runningJobsLine(runningJobs)}${contextLine(context)}</notice_batch>`;
 }
 /** Your instructions changed (A56): the system prompt stays as the session has it, so that the conversation stays
  * cached; what changed comes with the batch, once. */
@@ -97,8 +92,7 @@ function instructionsLine(change?: PromptChange | null): string {
   if (!change) return "";
   const how = change.whole ? "The new text of the changed parts follows." : "Lines starting with - were removed and lines starting with + were added; the others are context.";
   return `<instructions_changed${attribute("parts", change.parts.join(", "))}>${escape(change.diff)}`
-    + `<note>Your instructions changed. ${how} Follow the new version from now on. Your system prompt is not rewritten yet, `
-    + "so that the conversation stays cached; it will be after the next compaction.</note></instructions_changed>";
+    + `<note>Your instructions changed. ${how} Follow the new version from now on; it overrides the earlier wording in your system prompt.</note></instructions_changed>`;
 }
 /** The tail shared by a steered notice batch and a chat batch (A39, A41). Tasks come first, so the Bot reads what it
  * is meant to do before anything else in the batch. New notice / summary versions as
@@ -135,10 +129,10 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
   const agent = changed.find(notice => notice.actor.kind === "bot")?.actor, byOwner = changed.some(notice => notice.actor.kind === "user");
   const onboard = notices.flatMap(notice => notice.kind !== "onboard" ? [] : [`<onboard${attribute("by", notice.actor.id)}`
     + `${attribute("at", iso(notice.createdAt))}><note>${escape(welcome(notice.actor.name, notice.language))}</note></onboard>`]).slice(-1);
-  // After a compaction (A73): what it follows and may have been doing, told once; the rest are counted.
+  // After a compaction or handoff (A73, A99): what it follows and may have been doing, told once; the rest are counted.
   const followed = notices.flatMap(notice => notice.kind !== "followed" ? [] : [`<followed${attribute("total", String(notice.total))}>`
     + notice.threads.map(thread => `<thread${attribute("chat", thread.id)}${attribute("at", iso(thread.lastReplyAt))}${thread.unread ? attribute("unread", String(thread.unread)) : ""}/>`).join("")
-    + `<note>Your conversation was compacted. These are the open threads you follow, most recently active first`
+    + `<note>You are starting a fresh context stage. These are the open threads you follow, most recently active first`
     + (notice.total > notice.threads.length ? ` (${notice.threads.length} of ${notice.total}; chats.list lists them all)` : "")
     + ". Before you act in one, read its summary with chats.info and what you missed with messages.read. Unfollow a thread that no longer concerns you "
     + "with threads.follow; one that is done leaves this list by itself.</note></followed>"]).slice(-1);
@@ -164,9 +158,8 @@ function noticeTail(notices: readonly EnvelopeNotice[], chats: Map<string, strin
     + (updates.length ? `<updates>${updates.join("")}</updates>` : "")
     + (marks.length ? `<notices>${marks.join("")}<note>These are reactions to your messages. Act on them if you need to; no reply is required.</note></notices>` : "")
     + (changes.length ? `<changes>${changes.join("")}`
-      + (agent ? "<note>The agent Bot changed your settings, and the changes already apply. A change to your name, description or persona is a change to your instructions too. "
-        + `If something is unclear, ask it in a DM (messages.send with to: "${escape(agent.name)}").</note>` : "")
-      + (byOwner ? "<note>Your owner changed where you work, and it already applies: environment is where your file and command tools run now, and access is what environments.switch can take you to. If you were in the middle of something, carry on where you are now.</note>" : "")
+      + (agent ? `<note>The agent Bot changed your settings, and the changes already apply. If something is unclear, ask it in a DM (messages.send with to: "${escape(agent.name)}").</note>` : "")
+      + (byOwner ? "<note>Your owner changed your work environment settings, and the changes already apply: environment is where your file and command tools run now, and access is what environments.switch can move to.</note>" : "")
       + "</changes>" : "")
     + onboard.join("") + followed.join("");
 }
@@ -202,6 +195,5 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
   tail += unreadNoteLine(digest?.unreadNotes ?? []);
   tail += runningJobsLine(digest?.runningJobs);
   tail += contextLine(digest?.context);
-  tail += environmentLine(digest?.environment);
   return `<chat_batch${attribute("bot", botId)}>${[...chats.values()].join("")}${[...members.values()].join("")}${encoded.join("")}${tail}</chat_batch>`;
 }

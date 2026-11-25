@@ -5,11 +5,20 @@ import { None, tool } from "./registry.js";
 
 /** Where the Bot's file and command tools run (A50), and SSH machines it asks its owner for (A57). */
 export const environmentTools = [
-  tool("environments.list", "List the work environments: your own sandbox, which is your default, and your owner's machines reached over SSH, with granted, whether you may use one. current is the id of the one you are in. Each has its id, name, the directory your file and command tools start in there, default=true for your default, state for a sandbox (it starts when you switch to it), and for an SSH machine its address and, when your owner wrote one, their description of it: what it is for and what to watch out for. For one with granted=false, ask with environments.request and its id.",
+  tool("environments.list", {
+    summary: "List your sandbox, granted/ungranted SSH machines, and connected desktop devices, plus which one is active.",
+    detail: "List work environments: your own sandbox (container or VM, your default), your owner's SSH machines, and connected desktop devices (Windows/macOS/Linux), with granted (whether you may use each) and current (the id you are in now). Entries include id, name, starting directory, platform/shell/state, limits or problems, address, and any owner description. For an ungranted external environment, ask with environments.request and its id.",
+  },
     None, (_args, context) => context.scope.places.list()),
-  tool("environments.switch", "Move your file and command tools (bash, read, write, edit) to another work environment you may use from environments.list, like cd one level up: you stay there, across turns, until you switch back. The result has your directory there and what you can do there. Commands already running finish where they started.",
+  tool("environments.switch", {
+    summary: "Move file and command tools (bash, read, write, edit) to another granted environment by id.",
+    detail: "Move your file and command tools (bash, read, write, edit) to another granted work environment from environments.list, like cd one level up: you stay there across turns until you switch back. The result includes your starting directory, OS/shell notes, and capabilities there. Commands already running finish where they started.",
+  },
     Type.Object({ id: Type.String({ minLength: 1, maxLength: 80, description: "The environment's id from environments.list" }) }, { additionalProperties: false }), ({ id }, context) => context.scope.places.switch(id)),
-  tool("environments.request", "Ask your owner for a machine you need to work on, reached over SSH, on a card in a chat with them, and wait for the answer, as messages.ask does: one of theirs from environments.list that you may not use yet, by its id, which they only have to allow, or a new one, by its host and user. For a new one the card shows the machine's host key fingerprints for them to check; they let you in there, with its login password or by adding a key made for it to the machine. You never see the password or the key, so never ask for that password in the chat. It returns {status:\"added\", id, name} or {status:\"granted\", id, name} when you may already use it, then environments.switch with that id moves your tools there; or {status:\"declined\"}.",
+  tool("environments.request", {
+    summary: "Ask your owner on a card for access to an ungranted machine/device (by id) or to add a new SSH machine.",
+    detail: "Ask your owner on a card in a chat with them for access to a work environment, and wait for the answer (as messages.ask does): pass id for an existing ungranted SSH machine or connected device from environments.list, or host and user to add a new SSH machine. For a new SSH machine the card shows host key fingerprints and takes its login password or key without exposing it in chat. Returns {status:\"added\"|\"granted\", id, name} (then call environments.switch) or {status:\"declined\"}.",
+  },
     Type.Object({ chatId: Type.String(), id: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "One of your owner's machines from environments.list; then leave out host, user, port, directory and name" })),
       host: Type.Optional(Type.String({ minLength: 1, maxLength: 253, description: "A new machine: its host name or IP address" })),
       user: Type.Optional(Type.String({ minLength: 1, maxLength: 64, description: "A new machine: the user to log in as" })), port: Type.Optional(Type.Integer({ minimum: 1, maximum: 65535, description: "Default 22" })),

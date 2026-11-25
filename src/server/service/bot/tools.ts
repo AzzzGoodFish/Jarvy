@@ -40,7 +40,7 @@ export class Tools implements ToolsPort {
   definitions(): readonly ToolDefinition[] {
     return [{
       name: "chat",
-      description: "Gateway to the chat and to your own History. Use list to see the tools, describe to check a tool's parameters, then call to run it. Only what messages.send or messages.ask sends successfully is visible in the chat.",
+      description: "Gateway to platform tools (chat, files, history, context, environments, ports, secrets, connectors, tasks). Use list for a compact tool index, describe for a tool's full usage and parameter schema, then call to run it. Only messages, cards, and reactions sent through this tool are visible in chat.",
       parameters: Gateway,
       execute: async (raw, { toolCallId, signal }) => {
         if (!Value.Check(Gateway, raw)) throw new ChatError(400, ["Invalid chat tool request:", ...argumentProblems(Gateway, raw).map(line => `- ${line}`),
@@ -48,7 +48,7 @@ export class Tools implements ToolsPort {
         signal?.throwIfAborted();
         if (raw.action === "list") {
           if (raw.tool !== undefined || raw.args !== undefined) throw new ChatError(400, "list does not accept tool or args");
-          return [...this.tools.values()].map(entry => ({ name: entry.name, description: entry.description }));
+          return [...this.tools.values()].map(entry => ({ name: entry.name, description: entry.summary }));
         }
         const found = raw.tool ? this.tools.get(raw.tool) : undefined;
         if (!found) throw new ChatError(400, unknownTool(raw.tool, [...this.tools.keys()]));

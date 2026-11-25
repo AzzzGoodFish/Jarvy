@@ -23,7 +23,7 @@ import type { LiveEvent } from "../../shared/live.js";
 import { LiveTranslator } from "./live.js";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import type { CommandJobs } from "../../shared/jobs.js";
-import { environmentTools } from "./environment-tools.js";
+import { EnvironmentAnnouncer, environmentTools } from "./environment-tools.js";
 import type { SecretAccess } from "../../shared/secret.js";
 
 export interface SessionOptions {
@@ -103,6 +103,7 @@ export class PiSession implements BotSession {
   private result: PromptResult = { outcome: "completed" };
   private signature = "";
   private readonly translator = new LiveTranslator();
+  private readonly envAnnouncer = new EnvironmentAnnouncer();
   private prompts!: PromptLog;
   private constructor(private readonly options: SessionOptions, private readonly models: ModelRuntime, private readonly credentials: CurrentCredentials) {}
   get context(): ContextUsage | undefined {
@@ -194,7 +195,7 @@ export class PiSession implements BotSession {
     await resourceLoader.reload();
     const result = await createAgentSession({ cwd: bot.workspacePath, agentDir, sessionManager, settingsManager, resourceLoader, modelRuntime: models, model,
       thinkingLevel: resolveThinking(model, selection.thinkingLevel), tools,
-      customTools: environmentTools(() => ({ env: options.environment(), name: options.environmentName?.() ?? "your sandbox" }), options.jobs, options.secrets) });
+      customTools: environmentTools(() => ({ env: options.environment(), name: options.environmentName?.() ?? "your sandbox" }), options.jobs, options.secrets, adapter.envAnnouncer) });
     adapter.session = result.session; adapter.settings = settingsManager;
     if (result.extensionsResult.errors.length || !tools.every(name => adapter.session.getActiveToolNames().includes(name))) {
       adapter.session.dispose(); throw new RuntimeFault("tools_missing", "Couldn't load the run's tools.");
@@ -245,6 +246,7 @@ export class PiSession implements BotSession {
     // A compaction rewrote the conversation, so nothing cached is left to keep: take up the live prompt (A56).
     if (event.type === "compaction_end" && event.result && !event.aborted && !event.errorMessage) {
       this.prompts.take(this.options.systemPrompt);
+      this.envAnnouncer.reset();
       // What a notice said is out of the conversation too; a Bot has to read it again (A67).
       this.options.onCompacted?.();
     }
@@ -282,6 +284,7 @@ export class PiSession implements BotSession {
   requestAbort(): void { this.wantsAbort = true; this.maybeAbort(); }
   async prompt(xml: string): Promise<PromptResult> {
     this.promptActive = true; this.started = false; this.settled = false; this.wantsAbort = false; this.abortFailure = undefined; this.result = { outcome: "completed" };
+    this.envAnnouncer.reset();
     const settled = new Promise<void>(resolve => { this.settledResolve = resolve; });
     this.options.live?.({ type: "start" });
     let outcome: PromptResult["outcome"] = "failed";
@@ -335,6 +338,7 @@ export class PiSession implements BotSession {
   handoff(summary: string, tokensBefore: number): void {
     this.session.sessionManager.appendCompaction(summary, null, tokensBefore, { handoff: true }, true);
     this.prompts.take(this.options.systemPrompt);
+    this.envAnnouncer.reset();
   }
   async dispose(): Promise<void> {
     this.requestAbort();
