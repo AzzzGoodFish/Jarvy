@@ -13,7 +13,13 @@ export default defineConfig({
   // Target ES2022+ (matching Tailwind v4 / CSS :has()) so esbuild does not lower ES2021 `||=`
   // inside @xterm/xterm@6.0.0's `requestMode`, which triggers an esbuild DCE bug (`ReferenceError`).
   optimizeDeps: { esbuildOptions: { target: "es2022" } },
-  build: { target: "es2022", outDir: "../../dist/web", emptyOutDir: true },
+  build: {
+    target: "es2022",
+    outDir: "../../dist/web",
+    emptyOutDir: true,
+    // Never inline fonts as `data:` URIs: Jarvy serves a strict `default-src 'self'` CSP with no `font-src data:`.
+    assetsInlineLimit: filePath => (/\.(woff2?|ttf|otf)$/i.test(filePath) ? false : undefined),
+  },
   server: {
     host: process.env.JARVY_WEB_HOST || "127.0.0.1", port: webPort, strictPort: true,
     // Match the API path segment, not frontend modules such as /api.ts.
