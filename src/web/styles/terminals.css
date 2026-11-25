@@ -1,5 +1,17 @@
 /* Persistent interactive terminals in the Environments page (A103). Uses --ui-* design tokens only. */
 
+/* Self-hosted geometric Box Drawing + Powerline font so TUI borders (Zellij, tmux, htop, Claude/agy) connect
+ * seamlessly across Jarvy's 1.25 lineHeight and Powerline separators render cleanly without Nerd Fonts.
+ * `unicode-range` restricts it strictly to U+2500-U+257F and Powerline PUA, keeping normal ASCII/CJK untouched. */
+@font-face {
+  font-family: 'Jarvy Powerline';
+  src: url('../assets/jarvy-powerline.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2500-257F, U+E0A0-E0A3, U+E0B0-E0BF;
+}
+
 /* Independent terminal surface themes: chrome tab bar and terminal canvas share one cohesive surface. */
 .jv-term-shell[data-term-theme="onedark"] {
   --jv-t-chrome: #1b1f26;

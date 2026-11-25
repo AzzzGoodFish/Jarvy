@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { TERMINAL_WS_PREFIX, TERMINAL_WS_SUFFIX, type TerminalServerMessage, type TerminalState } from "../../contract/terminal";
 import { t } from "../i18n";
@@ -110,12 +111,17 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     const container = hostRef.current;
     if (!container) return;
 
+    // Resolve CSS custom property to an actual font list: xterm.js measures cells on an OffscreenCanvas
+    // (`ctx.font`), which ignores `var(...)` and otherwise falls back to `10px sans-serif` metrics (causing
+    // bogus extra letter-spacing and broken horizontal box-drawing lines).
+    const fontFamily = getComputedStyle(container).getPropertyValue("--ui-font-terminal").trim() || "monospace";
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: "bar",
-      fontFamily: "var(--ui-font-mono)",
+      fontFamily,
       fontSize: 13,
       lineHeight: 1.25,
+      customGlyphs: true,
       scrollback: 5000,
       theme: TERMINAL_THEMES[themeRef.current],
       allowProposedApi: true,
@@ -331,6 +337,35 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   useEffect(() => {
     if (termRef.current) termRef.current.options.theme = TERMINAL_THEMES[theme];
   }, [theme]);
+
+  // Attach GPU WebGL renderer only while this terminal is visible so every column (CJK, ASCII, emoji, box borders)
+  // lands on exact pixel grid coordinates without exhausting browser WebGL contexts across background tabs.
+  // Automatically falls back to the DOM renderer + Jarvy Powerline font if WebGL is unavailable or context is lost.
+  useEffect(() => {
+    const term = termRef.current;
+    if (!visible || !term) return;
+    let webgl: WebglAddon | null = null;
+    let cancelled = false;
+    try {
+      webgl = new WebglAddon();
+      webgl.onContextLoss(() => {
+        webgl?.dispose();
+        webgl = null;
+      });
+      term.loadAddon(webgl);
+    } catch {
+      webgl?.dispose();
+      webgl = null;
+    }
+    void document.fonts?.load('13px "Jarvy Powerline"', "\uE0A0").then(() => {
+      if (!cancelled && termRef.current === term) term.clearTextureAtlas();
+    });
+    return () => {
+      cancelled = true;
+      webgl?.dispose();
+      webgl = null;
+    };
+  }, [visible, sessionId]);
 
   useEffect(() => {
     if (!visible) {
