@@ -110,10 +110,14 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     const container = hostRef.current;
     if (!container) return;
 
+    // Resolve CSS custom property to an actual font list: xterm.js measures cells on an OffscreenCanvas
+    // (`ctx.font`), which ignores `var(...)` and otherwise falls back to `10px sans-serif` metrics (causing
+    // bogus extra letter-spacing and broken horizontal box-drawing lines).
+    const fontFamily = getComputedStyle(container).getPropertyValue("--ui-font-terminal").trim() || "monospace";
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: "bar",
-      fontFamily: "var(--ui-font-terminal)",
+      fontFamily,
       fontSize: 13,
       lineHeight: 1.25,
       scrollback: 5000,
