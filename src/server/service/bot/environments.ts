@@ -25,7 +25,7 @@ interface Opened { id: string; env: WorkEnvironment; view: WorkEnvironment; busy
 export class BotEnvironments {
   private readonly open = new Map<string, Opened>();
   private readonly kinds: KindDeps;
-  constructor(private readonly store: Store, private readonly computers: Computers, machines: SshMachines, devices: Devices) {
+  constructor(private readonly store: Store, private readonly computers: Computers, machines: SshMachines, private readonly devices: Devices) {
     this.kinds = { computers, machines, devices };
   }
 
@@ -45,7 +45,7 @@ export class BotEnvironments {
     return { current: current.kind, ...(current.kind !== "computer" ? { currentName: current.name } : {}),
       computer: this.computers.info(botId), docker: this.computers.available,
       machines: environments.sshMachines().map(machine => ({ id: machine.id, name: machine.name, ...mark(machine.id) })),
-      devices: environments.devices().map(device => ({ id: device.id, name: device.name, ...mark(device.id) })),
+      devices: environments.devices().filter(d => this.devices.allowsHost(d)).map(device => ({ id: device.id, name: device.name, ...mark(device.id) })),
       // The agent Bot may be let into other Bots' sandboxes (A93).
       ...(botId === AGENT_BOT_ID ? { sandboxes: this.othersSandboxes(botId).map(record => ({ id: record.id, name: this.botName(record), ...mark(record.id) })) } : {}) };
   }
@@ -123,7 +123,7 @@ export class BotEnvironments {
   list(botId: string, workspacePath: string) {
     const { home } = this.store.environments.placement(botId), current = this.settled(botId), usable = this.usable(botId), mine = new Set(usable.map(record => record.id));
     const agent = botId === AGENT_BOT_ID;
-    const others = [...this.store.environments.sshMachines(), ...this.store.environments.devices(), ...(agent ? this.othersSandboxes(botId) : [])].filter(record => !mine.has(record.id));
+    const others = [...this.store.environments.sshMachines(), ...this.store.environments.devices().filter(d => this.devices.allowsHost(d)), ...(agent ? this.othersSandboxes(botId) : [])].filter(record => !mine.has(record.id));
     const entry = (record: EnvironmentRecord, granted: boolean) => ({ ...this.place(botId, record, workspacePath), ...(record.id === home.id ? { default: true } : {}),
       ...(record.kind === "computer" && record.botId !== botId ? { bot: this.botName(record) } : {}),
       ...(this.grantableTo(botId, record) ? { granted } : {}), ...KINDS[record.kind].describe(record, botId, this.kinds) });

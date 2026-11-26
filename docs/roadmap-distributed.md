@@ -105,7 +105,13 @@ Decouple Jarvy into three independent planes so a user can host the Jarvy platfo
 
 ### Phase 4 — Observability, Multi-Node Scheduling & Failover UX (Completed)
 - [x] **Cloud Storage Status UI** (`Settings → Storage`, `GET /api/cloud/status`, `POST /api/cloud/sync`): sync health, bucket/prefix/endpoint, active lease epoch, DB revision, last flush timestamp, error banner, and manual sync trigger.
-- [x] **Compute Pool View** (`Environments`, `Device.sandbox`, `ComputerInfo.computeNode`): online compute nodes, CPU/RAM capacity & live remote sandbox usage, active ephemeral sandboxes, and per-sandbox slot reclamation (`POST /api/bots/:id/computer/reclaim`).
-- [x] **Graceful Failover & Offline Workspace Browsing**:
-  - [x] Preferred compute node per Bot (`PUT /api/bots/:id/computer/compute-node`, `SandboxComputeNode`) with automatic fallback to another online node or Workspace-only mode when offline.
-  - [x] Offline `/workspace` browse/download backed by on-demand S3 workspace hydration (`CloudSync.ensureLocalWorkspace`) with clear offline-snapshot indicator even when Docker and all compute nodes are offline.
+- [x] **Compute Pool View & Role Separation** (`Environments`, `Device.sandbox`, `--sandbox-only`): separates **Bot Sandboxes**, **Compute Nodes**, and **Remote Hosts** (`desktop/host` + `SSH`); adds `--sandbox-only` client isolation disabling direct host access; displays live CPU/RAM capacity & remote sandbox usage with per-sandbox slot reclamation (`POST /api/bots/:id/computer/reclaim`).
+- [x] **Graceful Failover & Independent Bot Workspace UX**:
+  - [x] Unified Radix `<Select>` preferred compute node per Bot (`PUT /api/bots/:id/computer/compute-node`, `SandboxComputeNode`) with automatic fallback to another online node or Workspace-only mode when offline, plus accurate remote-container-only messaging in `SandboxType`.
+  - [x] Direct **Workspace** tab right inside `BotInfo` plus offline `/workspace` browse/download backed by on-demand S3 workspace hydration (`CloudSync.ensureLocalWorkspace`) with explicit offline-snapshot indicator.
+
+---
+
+### Phase 5 — Remote KVM/libvirt VM Compute Nodes (Planned)
+- [ ] Probe KVM/libvirt capability on `jarvy client --sandbox` compute nodes and advertise `vm` support in `SandboxNodeInfo`.
+- [ ] Extend compute-node RPCs for remote VM lifecycle + `workspace.qcow2` / `/workspace` S3 snapshot sync so physical compute nodes with KVM can host full Linux VM sandboxes for stateless cloud servers.

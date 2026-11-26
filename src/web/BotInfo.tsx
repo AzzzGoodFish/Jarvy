@@ -9,6 +9,7 @@ import { BotHeader } from "./bot/BotHeader";
 import { BotOverview } from "./bot/BotOverview";
 import { BotProfile } from "./bot/BotProfile";
 import { BotEnvironment } from "./environment/BotEnvironment";
+import { EnvironmentFiles } from "./environment/EnvironmentFiles";
 import { BotAccess } from "./bot/BotAccess";
 import { AgentLog } from "./bot/AgentLog";
 import { BotTasks } from "./tasks/BotTasks";
@@ -17,8 +18,8 @@ import { t } from "./i18n";
 import type { Key } from "./i18n/keys";
 import { Dialog, DialogContent } from "./components/ui/dialog";
 
-type Tab = "overview" | "profile" | "environment" | "access" | "tasks" | "activity" | "usage" | "log";
-const TABS: readonly (readonly [Tab, Key])[] = [["overview", "bot.tab.overview"], ["profile", "bot.tab.profile"], ["environment", "bot.tab.environment"], ["access", "bot.tab.access"],
+type Tab = "overview" | "workspace" | "profile" | "environment" | "access" | "tasks" | "activity" | "usage" | "log";
+const TABS: readonly (readonly [Tab, Key])[] = [["overview", "bot.tab.overview"], ["workspace", "bot.tab.workspace"], ["profile", "bot.tab.profile"], ["environment", "bot.tab.environment"], ["access", "bot.tab.access"],
   ["tasks", "bot.tab.tasks"], ["activity", "bot.tab.activity"], ["usage", "usage.title"]];
 /** The agent Bot also has its log (A93). */
 const AGENT_TABS: readonly (readonly [Tab, Key])[] = [...TABS, ["log", "bot.tab.log"]];
@@ -56,6 +57,16 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
           aria-selected={tab === id} aria-controls={`jv-bot-panel-${id}`} tabIndex={tab === id ? 0 : -1} onClick={() => open(id)}>{t(label)}</button>)}
       </div>
       {panel("overview", <BotOverview bot={bot} status={status} connections={connections} chats={chats} onSaved={onSaved} onManageModels={onManageModels} onOpenSubscription={onOpenSubscription}/>)}
+      {bot.environment.computer && panel("workspace", <EnvironmentFiles
+        environmentId={bot.environment.computer.id}
+        botId={bot.id}
+        availability={bot.environment.computer.type === "container" || bot.environment.computer.state === "running"
+          ? { kind: "ready" }
+          : bot.environment.computer.state === "unavailable" ? { kind: "sandbox_unavailable" }
+          : { kind: "sandbox_stopped", starting: bot.environment.computer.state === "preparing" }}
+        offlineSnapshot={bot.environment.computer.type === "container" && bot.environment.computer.state !== "running"}
+        maximized={false}
+        onToggleMaximize={() => {}}/>, true)}
       {panel("profile", <BotProfile bot={bot} onSaved={onSaved}/>)}
       {panel("environment", <><BotEnvironment bot={bot} onSaved={onSaved}/><BotPorts bot={bot} runs={runs}/></>)}
       {panel("access", <BotAccess bot={bot} onSaved={onSaved} onManageSecrets={onManageSecrets} onManageConnectors={onManageConnectors} onAddMachine={onAddMachine}/>)}

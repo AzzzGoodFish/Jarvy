@@ -79,8 +79,14 @@ export class Devices {
     return { open: () => createReadStream(daemon.path), sha256: daemon.sha256, size: daemon.size };
   }
   online(id: string): boolean { return this.links.online(id) && !this.links.paused(id); }
+  /** True unless the client explicitly connected with `--sandbox-only` to disable direct host access (A109). */
+  allowsHost(record: EnvironmentRecord): boolean {
+    return !(record.spec.capabilities ?? "").split(",").includes("sandbox-only");
+  }
   /** Verifies that a connected computer is online and not paused (A104). */
   verifyOnline(id: string): void {
+    const record = this.need(id);
+    if (!this.allowsHost(record)) throw new ChatError(403, `${record.name} is a sandbox-only compute node and does not expose direct host access`);
     if (!this.online(id)) throw new ChatError(409, this.offline(id), "device_offline");
   }
   /** Opens a dedicated file-browser `EnvironmentFs` on a connected computer (A104). */
@@ -94,6 +100,7 @@ export class Devices {
   }
   /** Opens an interactive PTY on a connected computer (A103): pi-env PTY on Linux/macOS, ConPTY on Windows. */
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell?: PtyShell }> {
+    if (!this.allowsHost(record)) throw new ChatError(403, `${record.name} is a sandbox-only compute node and does not expose direct host access`);
     if (!this.online(record.id)) throw new ChatError(409, this.offline(record.id), "device_offline");
     const platform = record.spec.platform ?? "";
     const windows = platform === "win32";

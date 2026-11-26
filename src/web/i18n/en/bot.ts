@@ -64,6 +64,7 @@ export const bot = {
   "bot.workspace": "Workspace",
   "bot.copyWorkspace": "Copy the workspace path",
   "bot.tab.overview": "Overview",
+  "bot.tab.workspace": "Workspace",
   "bot.tab.profile": "Profile",
   "bot.tab.environment": "Environment",
   "bot.tab.tasks": "Tasks",
