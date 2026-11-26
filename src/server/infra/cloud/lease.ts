@@ -24,7 +24,7 @@ export class CloudLease {
   private current: CloudLeaseSnapshot | null = null;
   private etag: string | null = null;
   private timer: NodeJS.Timeout | null = null;
-  private renewing = false;
+  private inflightRenew: Promise<boolean> | null = null;
   private lost = false;
   private released = false;
 
@@ -112,32 +112,33 @@ export class CloudLease {
   /** Verifies and renews the lease before sensitive writes or on the heartbeat interval. */
   async renew(): Promise<boolean> {
     if (!this.current || !this.etag || this.lost || this.released) return false;
-    if (this.renewing) return !this.lost;
-    this.renewing = true;
-    try {
-      const next: CloudLeaseSnapshot = { ...this.current, renewedAt: Date.now() };
-      const put = await this.options.s3.put(this.options.key, Buffer.from(JSON.stringify(next, null, 2)), {
-        ifMatch: this.etag,
-        contentType: "application/json",
-      });
-      this.current = next;
-      this.etag = put.etag;
-      return true;
-    } catch (error) {
-      if (error instanceof S3ConflictError) {
-        this.markLost("Another Jarvy server took over the cloud storage lease");
-        return false;
+    if (this.inflightRenew) return this.inflightRenew;
+    const task = (async () => {
+      try {
+        const next: CloudLeaseSnapshot = { ...this.current!, renewedAt: Date.now() };
+        const put = await this.options.s3.put(this.options.key, Buffer.from(JSON.stringify(next, null, 2)), {
+          ifMatch: this.etag!,
+          contentType: "application/json",
+        });
+        this.current = next;
+        this.etag = put.etag;
+        return true;
+      } catch (error) {
+        if (error instanceof S3ConflictError) {
+          this.markLost("Another Jarvy server took over the cloud storage lease");
+          return false;
+        }
+        const elapsed = Date.now() - this.current!.renewedAt;
+        if (elapsed >= this.ttlMs) {
+          this.markLost(`Cloud lease renewal failed past TTL (${error instanceof Error ? error.message : String(error)})`);
+          return false;
+        }
+        this.log(`lease renewal warning (will retry): ${error instanceof Error ? error.message : String(error)}`);
+        return true;
       }
-      const elapsed = Date.now() - this.current.renewedAt;
-      if (elapsed >= this.ttlMs) {
-        this.markLost(`Cloud lease renewal failed past TTL (${error instanceof Error ? error.message : String(error)})`);
-        return false;
-      }
-      this.log(`lease renewal warning (will retry): ${error instanceof Error ? error.message : String(error)}`);
-      return true;
-    } finally {
-      this.renewing = false;
-    }
+    })().finally(() => { this.inflightRenew = null; });
+    this.inflightRenew = task;
+    return task;
   }
 
   /** Throws immediately if this process no longer holds the active lease. */
@@ -148,6 +149,7 @@ export class CloudLease {
   /** Gracefully marks the lease released while keeping `epoch` monotonic for the next holder. */
   async release(): Promise<void> {
     this.stopHeartbeat();
+    if (this.inflightRenew) await this.inflightRenew.catch(() => {});
     if (!this.current || !this.etag || this.lost || this.released) return;
     this.released = true;
     const closed: CloudLeaseSnapshot = { ...this.current, renewedAt: 0, released: true };

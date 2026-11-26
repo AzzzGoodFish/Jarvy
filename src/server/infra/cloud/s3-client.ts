@@ -54,11 +54,27 @@ function formatAmzDate(date: Date): { amzDate: string; dateStamp: string } {
   return { amzDate: iso, dateStamp: iso.slice(0, 8) };
 }
 
-function signingKey(secret: string, dateStamp: string, region: string, service = "s3"): Buffer {
-  const kDate = hmac(`AWS4${secret}`, dateStamp);
+function signingKey(secret: string, dateStamp: string, region: string, keyPrefix: string, service: string, terminal: string): Buffer {
+  const kDate = hmac(`${keyPrefix}${secret}`, dateStamp);
   const kRegion = hmac(kDate, region);
   const kService = hmac(kRegion, service);
-  return hmac(kService, "aws4_request");
+  return hmac(kService, terminal);
+}
+
+interface SignScheme {
+  algo: string;
+  keyPrefix: string;
+  headerPrefix: string;
+  queryPrefix: string;
+  service: string;
+  terminal: string;
+}
+
+const AWS4_SCHEME: SignScheme = { algo: "AWS4-HMAC-SHA256", keyPrefix: "AWS4", headerPrefix: "x-amz", queryPrefix: "X-Amz", service: "s3", terminal: "aws4_request" };
+const GOOG4_SCHEME: SignScheme = { algo: "GOOG4-HMAC-SHA256", keyPrefix: "GOOG4", headerPrefix: "x-goog", queryPrefix: "X-Goog", service: "storage", terminal: "goog4_request" };
+
+function isGcsHost(hostname: string): boolean {
+  return hostname === "storage.googleapis.com" || hostname.endsWith(".storage.googleapis.com");
 }
 
 function shouldUsePathStyle(endpoint: URL, explicit?: boolean): boolean {
@@ -75,10 +91,22 @@ function normalizeEtag(raw: string | null): string {
 export class S3Client {
   private readonly endpointUrl: URL;
   private readonly pathStyle: boolean;
+  private readonly isGcs: boolean;
+  private readonly scheme: SignScheme;
 
   constructor(private readonly config: S3ClientConfig) {
     this.endpointUrl = new URL(config.endpoint);
     this.pathStyle = shouldUsePathStyle(this.endpointUrl, config.pathStyle);
+    this.isGcs = isGcsHost(this.endpointUrl.hostname);
+    this.scheme = this.isGcs ? GOOG4_SCHEME : AWS4_SCHEME;
+  }
+
+  private extractVersion(res: Response): string {
+    if (this.isGcs) {
+      const gen = res.headers.get("x-goog-generation")?.trim();
+      if (gen) return `gcs-gen:${gen}`;
+    }
+    return normalizeEtag(res.headers.get("etag"));
   }
 
   private target(key: string, query: Record<string, string> = {}): { url: URL; canonicalUri: string; canonicalQuery: string; host: string } {
@@ -113,10 +141,11 @@ export class S3Client {
     extra: Record<string, string> = {},
   ): Record<string, string> {
     const { amzDate, dateStamp } = formatAmzDate(new Date());
+    const s = this.scheme;
     const headers: Record<string, string> = {
       host,
-      "x-amz-content-sha256": payloadHash,
-      "x-amz-date": amzDate,
+      [`${s.headerPrefix}-content-sha256`]: payloadHash,
+      [`${s.headerPrefix}-date`]: amzDate,
     };
     for (const [k, v] of Object.entries(extra)) {
       headers[k.toLowerCase()] = v.trim();
@@ -125,12 +154,12 @@ export class S3Client {
     const canonicalHeaders = sortedKeys.map(k => `${k}:${headers[k]}\n`).join("");
     const signedHeaders = sortedKeys.join(";");
     const canonicalRequest = [method, canonicalUri, canonicalQuery, canonicalHeaders, signedHeaders, payloadHash].join("\n");
-    const scope = `${dateStamp}/${this.config.region}/s3/aws4_request`;
-    const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
-    const signature = createHmac("sha256", signingKey(this.config.secretAccessKey, dateStamp, this.config.region))
+    const scope = `${dateStamp}/${this.config.region}/${s.service}/${s.terminal}`;
+    const stringToSign = [s.algo, amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
+    const signature = createHmac("sha256", signingKey(this.config.secretAccessKey, dateStamp, this.config.region, s.keyPrefix, s.service, s.terminal))
       .update(stringToSign)
       .digest("hex");
-    headers.authorization = `AWS4-HMAC-SHA256 Credential=${this.config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+    headers.authorization = `${s.algo} Credential=${this.config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
     delete headers.host;
     return headers;
   }
@@ -163,7 +192,7 @@ export class S3Client {
     if (res.status === 404) return null;
     if (!res.ok) throw await toS3Error(res, `HEAD ${key}`);
     return {
-      etag: normalizeEtag(res.headers.get("etag")),
+      etag: this.extractVersion(res),
       size: Number(res.headers.get("content-length") ?? "0"),
       ...(res.headers.get("last-modified") ? { lastModified: res.headers.get("last-modified")! } : {}),
     };
@@ -179,7 +208,7 @@ export class S3Client {
     if (res.status === 404) return null;
     if (!res.ok) throw await toS3Error(res, `GET ${key}`);
     const body = Buffer.from(await res.arrayBuffer());
-    return { body, etag: normalizeEtag(res.headers.get("etag")), size: body.length };
+    return { body, etag: this.extractVersion(res), size: body.length };
   }
 
   async put(
@@ -190,15 +219,23 @@ export class S3Client {
     const headers: Record<string, string> = {
       "content-type": options.contentType ?? "application/octet-stream",
     };
-    if (options.ifMatch) headers["if-match"] = options.ifMatch;
-    if (options.ifNoneMatch) headers["if-none-match"] = options.ifNoneMatch;
+    if (this.isGcs) {
+      if (options.ifNoneMatch === "*") headers["x-goog-if-generation-match"] = "0";
+      else if (options.ifMatch) {
+        const gen = options.ifMatch.startsWith("gcs-gen:") ? options.ifMatch.slice(8) : /^\d+$/.test(options.ifMatch) ? options.ifMatch : "1";
+        headers["x-goog-if-generation-match"] = gen;
+      }
+    } else {
+      if (options.ifMatch) headers["if-match"] = options.ifMatch;
+      if (options.ifNoneMatch) headers["if-none-match"] = options.ifNoneMatch;
+    }
     const res = await this.send("PUT", key, { headers, body, signal: options.signal });
     if (res.status === 412 || res.status === 409) {
       const text = await res.text().catch(() => "");
       throw new S3ConflictError(res.status, `S3 conditional PUT conflict on ${key} (${res.status}): ${text.slice(0, 200)}`);
     }
     if (!res.ok) throw await toS3Error(res, `PUT ${key}`);
-    return { etag: normalizeEtag(res.headers.get("etag")) };
+    return { etag: this.extractVersion(res) };
   }
 
   async delete(key: string, signal?: AbortSignal): Promise<void> {
@@ -225,24 +262,25 @@ export class S3Client {
     return results;
   }
 
-  /** Generates a SigV4 query-authenticated Pre-signed URL (used by Phase 3 remote compute nodes for direct S3 sync). */
+  /** Generates a SigV4 / GOOG4 query-authenticated Pre-signed URL (used by Phase 3 remote compute nodes for direct S3 sync). */
   presign(method: "GET" | "PUT", key: string, expiresSeconds = 900): string {
     const { amzDate, dateStamp } = formatAmzDate(new Date());
-    const scope = `${dateStamp}/${this.config.region}/s3/aws4_request`;
+    const s = this.scheme;
+    const scope = `${dateStamp}/${this.config.region}/${s.service}/${s.terminal}`;
     const baseQuery: Record<string, string> = {
-      "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
-      "X-Amz-Credential": `${this.config.accessKeyId}/${scope}`,
-      "X-Amz-Date": amzDate,
-      "X-Amz-Expires": String(Math.max(1, Math.min(604_800, Math.floor(expiresSeconds)))),
-      "X-Amz-SignedHeaders": "host",
+      [`${s.queryPrefix}-Algorithm`]: s.algo,
+      [`${s.queryPrefix}-Credential`]: `${this.config.accessKeyId}/${scope}`,
+      [`${s.queryPrefix}-Date`]: amzDate,
+      [`${s.queryPrefix}-Expires`]: String(Math.max(1, Math.min(604_800, Math.floor(expiresSeconds)))),
+      [`${s.queryPrefix}-SignedHeaders`]: "host",
     };
     const { url, canonicalUri, canonicalQuery, host } = this.target(key, baseQuery);
     const canonicalRequest = [method, canonicalUri, canonicalQuery, `host:${host}\n`, "host", "UNSIGNED-PAYLOAD"].join("\n");
-    const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
-    const signature = createHmac("sha256", signingKey(this.config.secretAccessKey, dateStamp, this.config.region))
+    const stringToSign = [s.algo, amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
+    const signature = createHmac("sha256", signingKey(this.config.secretAccessKey, dateStamp, this.config.region, s.keyPrefix, s.service, s.terminal))
       .update(stringToSign)
       .digest("hex");
-    url.search = `?${canonicalQuery}&X-Amz-Signature=${signature}`;
+    url.search = `?${canonicalQuery}&${s.queryPrefix}-Signature=${signature}`;
     return url.toString();
   }
 }
