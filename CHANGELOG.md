@@ -2,6 +2,14 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.20.1 — 2026-11-26
+
+The database stays at v36 when upgrading from 0.20.0. A server restart ends open terminal sessions.
+
+### Fixed
+
+- Switching away from a terminal with dense output no longer forces the browser to redraw the hidden terminal. Jarvy keeps up to four recent WebGL renderers ready to reuse and falls back to DOM rendering when WebGL is unavailable. Switching views preserves terminal output, scrollback, and the connection.
+
 ## 0.20.0 — 2026-11-25
 
 **Before upgrading:** let active Bot work finish and back up the data directory and the separate master key. The first start upgrades the database from v35 to v36. Existing secrets and grants stay in place. A server restart ends open terminal sessions. To roll back, restore the pre-upgrade backup with the previous version.
