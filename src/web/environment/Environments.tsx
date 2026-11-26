@@ -143,6 +143,10 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
       : { kind: "ready" }
     : { kind: "ready" };
 
+  const filesAvailability: TerminalAvailability = bot?.environment.computer?.type === "container"
+    ? { kind: "ready" }
+    : availability;
+
   const availableShells = useMemo<ShellOption[]>(() => {
     if (!device) return [];
     const list: ShellOption[] = [];
@@ -258,7 +262,7 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
           onSelectSession={selectTermSession}
           onToggleMaximize={() => setMaximized(value => !value)}
           onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>}
-        {showFiles && <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={availability}
+        {showFiles && <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={filesAvailability}
           maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
           onOpenTerminal={openTerminalInDir} onSandboxStarted={refreshBot}/>}
         {!showTerminal && !showFiles && <div className="jv-envs-body">

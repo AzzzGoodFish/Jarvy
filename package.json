@@ -42,7 +42,7 @@
   "scripts": {
     "build": "npm run check:architecture && npm run lint && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json && vite build && node scripts/bundle-server.mjs",
     "dev:web": "vite",
-    "start": "node dist/server/cli.js run",
+    "start": "node dist/server/cli.js server run",
     "lint": "eslint src",
     "check:architecture": "node scripts/check-boundaries.mjs && node scripts/check-i18n.mjs && node scripts/check-design.mjs",
     "prepublishOnly": "npm run build"

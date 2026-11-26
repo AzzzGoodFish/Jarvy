@@ -33,14 +33,14 @@ Every Bot works in a sandbox of its own, a Docker container on the computer runn
 **Not allowed for the user Jarvy runs as.** Docker answers only root and the members of the `docker` group.
 - Say first what this gives: whoever can use Docker can become root on that computer, and so can every Bot through its sandbox. On a computer shared with others, or holding things the Bots shouldn't reach, suggest rootless Docker (https://docs.docker.com/engine/security/rootless/) or a separate machine.
 - To allow it: `sudo usermod -aG docker "$USER"`, run as that user.
-- A group is taken up when the user logs in, so they log out and in again (or restart the computer), check with `docker version` that the Server part now answers, and restart Jarvy from that new login: `jarvy off`, then `jarvy`.
+- A group is taken up when the user logs in, so they log out and in again (or restart the computer), check with `docker version` that the Server part now answers, and restart Jarvy from that new login: `jarvy server stop`, then `jarvy server start`.
 
 **Afterwards.** Jarvy looks for Docker again every 30 seconds, so after installing or starting it nothing needs restarting, except for the group change above. The first sandbox to start builds the sandboxes' image, which takes a few minutes and about 3 GB of disk. `docker version` failing in another way: ask for its whole output and read it with them.
 
 **Virtual machine sandboxes (optional, Linux only).** A Bot's sandbox can instead be a full Linux virtual machine (Ubuntu 24.04 with systemd, full Linux kernel, dedicated `/workspace` disk, swap, Docker and Docker Compose), managed by libvirt and QEMU (`qemu:///system`). Bot info › Environment (环境) › Type (类型) offers it once Jarvy finds that the computer can run KVM VMs, and says why not otherwise. VM sandboxes work even without Docker on the host.
 - It needs KVM: `ls -l /dev/kvm` exists, and `grep -cwE 'vmx|svm' /proc/cpuinfo` is above 0 (virtualization turned on in the firmware). Not on macOS or Windows.
 - Installing libvirt and QEMU (Ubuntu/Debian): `sudo apt-get update && sudo apt-get install -y libvirt-daemon-system qemu-system-x86 qemu-utils cloud-image-utils` and `sudo systemctl enable --now libvirtd`.
-- Allowing the user Jarvy runs as: `sudo usermod -aG libvirt "$USER"`, then log out and in again (or restart the computer) and restart Jarvy from that new login (`jarvy off`, then `jarvy`).
+- Allowing the user Jarvy runs as: `sudo usermod -aG libvirt "$USER"`, then log out and in again (or restart the computer) and restart Jarvy from that new login (`jarvy server stop`, then `jarvy server start`).
 - "Taken by other virtual machine software": while a VirtualBox machine runs, KVM can't, and the other way round. Stop that machine, or move it to KVM (virt-manager or libvirt).
 - Then Check again (重新检查) in Bot info. Each VM takes the memory and CPUs it is given (4 GB and 2 vCPUs by default), changed with its size, which takes effect at its next start. Switching type preserves `/workspace` files in both directions (imported into the VM disk when switching to VM, exported back to the host workspace when switching back to container); the first VM start builds a shared Ubuntu 24.04 base template, which takes a few minutes.
 

@@ -965,3 +965,17 @@ Over successive releases (background `bash_job`, `context.handoff`, VM sandboxes
 Why: separating static principles from on-demand tool manuals cuts prompt/list token noise without losing capability, keeps execution-environment awareness inside execution tools rather than chat messages, and aligns every layer with current platform features.
 
 Consequences: no database schema change and no new dependencies; existing sessions learn the updated static prompt cleanly via A56 `<instructions_changed>` on their next batch and adopt it on restart, model switch, compaction, or handoff.
+
+## A106 Workspace decoupling from sandbox runtime and dual-mode `server` / `client` CLI
+
+Running Jarvy on a lightweight cloud host without Docker previously rendered Bots' `/workspace` completely unusable (failing `read`, `write`, `edit`, chat attachment transfers, and the Environments Files tab), while connecting remote compute/device hosts relied on a separate `connector.mjs` script outside the main CLI.
+
+- **Pure-Node jailed Workspace fallback (`infra/env/workspace-fs.ts`, `service/bot/computer-workspace.ts`)**: container-type Bot sandboxes now route `/workspace` file operations (`WorkEnvironment` file methods and `EnvironmentFs` for the Files tab) directly to `bots/<botId>/workspace/` with strict `realpath` and dangling-symlink containment whenever Docker is unavailable or the container is stopped. Only `bash` (`exec`), interactive sandbox terminals, and paths outside `/workspace` require starting or having a Docker runtime. VM-type sandboxes keep their files inside `workspace.qcow2` and do not bypass to the host directory.
+- **Redesigned dual-mode CLI (`src/server/cli.ts`, `src/connect/client-cli.ts`, `src/server/daemon.ts`)**: replaces legacy top-level `jarvy on|off|run|init` with symmetrical role-first subcommands:
+  - `jarvy server <init|start|stop|run|status>` (control plane)
+  - `jarvy client <login|start|stop|run|status|logout>` (outbound WebSocket device / compute node, sharing the exact same background daemon helper and pairing core as standalone `connector.mjs`)
+- **Roadmap alignment**: establishes Phase 1 of [docs/roadmap-distributed.md](roadmap-distributed.md), laying clean groundwork for Phase 2 (encrypted S3 state sync + stateless server) and Phase 3 (remote on-demand sandbox compute pool via `jarvy client --sandbox`).
+
+Why: separating durable workspace file access from OS-level shell execution lets Bots remain productive on lightweight Dockerless hosts and prepares the single `jarvy` binary to act cleanly as either control plane or remote compute node.
+
+Supersedes: A27 (`jarvy on` / `jarvy off` command shape) and A84's assumption that file tools cannot work without Docker.

@@ -79,6 +79,7 @@ export const machines: Part<typeof en> = {
   "devices.kindMachine": "SSH 机器",
   "devices.kindDevice": "电脑",
   "devices.connectHint": "在要接入的电脑上，打开装有 Node 22 或更高版本的终端，运行下面的命令。首次运行时会核对 Jarvy 的证书指纹，并要求登录。",
+  "devices.connectCli": "已安装 Jarvy CLI",
   "devices.connectWindows": "Windows（PowerShell）",
   "devices.connectOther": "macOS 和 Linux",
   "devices.connectAfter": "接入后会出现在环境列表中。授权给 Bot 后，Bot 才能使用这台电脑，且仅在命令运行期间可用。",

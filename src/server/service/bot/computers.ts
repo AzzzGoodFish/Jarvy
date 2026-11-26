@@ -8,10 +8,12 @@ import {
   removeContainer, runContainer, startContainer, stopContainer, syncDaemon, updateLimits, type Capacity, type DockerProblem,
 } from "../../infra/env/docker.js";
 import { openContainerFs } from "../../infra/env/env-fs.js";
+import { openWorkspaceFs } from "../../infra/env/workspace-fs.js";
 import { hostCapacity } from "../../infra/env/libvirt.js";
 import { openSshFs, openSshPty } from "../../infra/env/ssh.js";
 import { openContainerPty } from "../../infra/env/terminal.js";
 import { ComputerImages, MIN_LIMITS, VmSandboxes, VmSupportCheck, computerLimits, computerType, dockerProblemMessage, parseComputerLimit, vmProblemMessage } from "./computer-vm.js";
+import { createSandboxEnvironment } from "./computer-workspace.js";
 import type { EnvironmentRecord, WorkEnvironment } from "../../shared/environment.js";
 import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
@@ -221,7 +223,8 @@ export class Computers {
     if (this.available) void this.ensure(botId).catch(() => {});
   }
 
-  /** What the Bot's tools use while it works on its computer: every call first makes sure the sandbox runs. */
+  /** What the Bot's tools use while it works on its computer (A106): `/workspace` file operations use the jailed
+   * pure-Node engine when Docker is unavailable or the container is stopped; `bash` and other paths start the sandbox. */
   environment(botId: string, record: EnvironmentRecord): WorkEnvironment {
     const run = async <T>(op: (env: WorkEnvironment) => Promise<T>): Promise<T> => {
       const current = this.deps.store.environments.computerOf(botId) ?? record;
@@ -237,19 +240,14 @@ export class Computers {
         return op(await this.connect(botId, current));
       }
     };
-    return {
-      id: record.id, kind: "computer", local: false, cwd: COMPUTER_CWD,
-      exec: (command, options) => run(env => env.exec(command, options)),
-      readFile: path => run(env => env.readFile(path)),
-      head: (path, bytes) => run(env => env.head(path, bytes)),
-      readRange: (path, offset, length) => run(env => env.readRange(path, offset, length)),
-      writeFile: (path, content) => run(env => env.writeFile(path, content)),
-      appendFile: (path, content) => run(env => env.appendFile(path, content)),
-      mkdir: path => run(env => env.mkdir(path)),
-      exists: path => run(env => env.exists(path)),
-      fileSize: path => run(env => env.fileSize(path)),
+    const isContainer = () => computerType(this.deps.store.environments.computerOf(botId) ?? record) === "container";
+    return createSandboxEnvironment(record, this.workspace(botId), {
+      useWorkspaceFallback: () => isContainer() && (!this.available || this.states.get(botId)?.state !== "running"),
+      runtimeUnavailable: () => isContainer() ? !this.available : !this.vms.available,
+      unavailableFault: () => this.unavailable(503),
+      runInSandbox: run,
       close: () => this.disconnect(botId),
-    };
+    });
   }
   private connect(botId: string, record: EnvironmentRecord): Promise<WorkEnvironment> {
     const existing = this.connections.get(botId) ?? this.connecting.get(botId);
@@ -375,23 +373,23 @@ export class Computers {
     this.preparing.set(botId, task);
     return task;
   }
-  /** Checks whether a Bot's sandbox is currently running and reachable for file browsing (A104). */
+  /** Checks whether a Bot's sandbox is reachable for file browsing (A104, A106). Container sandboxes fall back
+   * to the jailed host workspace directory when stopped or when Docker is unavailable. */
   verifyRunning(record: EnvironmentRecord): string {
     const botId = record.botId;
     if (!botId) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
     const current = this.deps.store.environments.computerOf(botId) ?? record, status = this.status(botId);
     if (!status) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
-    if (status.state === "unavailable") {
-      if (computerType(current) === "vm") throw new RuntimeFault("vm_unavailable", this.sandboxProblem(botId) ?? "Virtual machines are not available on this machine.", 503);
-      throw this.unavailable(503);
-    }
+    if (computerType(current) === "container" && status.state !== "running") return `workspace:${botId}`;
+    if (status.state === "unavailable") throw new RuntimeFault("vm_unavailable", this.sandboxProblem(botId) ?? "Virtual machines are not available on this machine.", 503);
     if (status.state !== "running") throw new ChatError(409, "Sandbox is not running", "sandbox_stopped");
     return `${computerType(current)}:${current.spec.container ?? ""}`;
   }
-  /** Opens a dedicated file-browser `EnvironmentFs` into an already-running container or VM sandbox (A104). */
+  /** Opens a dedicated file-browser `EnvironmentFs` into a sandbox or its jailed `/workspace` fallback (A104, A106). */
   async openFs(record: EnvironmentRecord): Promise<EnvironmentFs> {
-    this.verifyRunning(record);
+    const sig = this.verifyRunning(record);
     const botId = record.botId!, current = this.deps.store.environments.computerOf(botId) ?? record;
+    if (sig.startsWith("workspace:")) return openWorkspaceFs(current.id, this.workspace(botId));
     if (computerType(current) === "vm") {
       const access = await this.libvirt.runningAccess(current);
       if (!access) throw new ChatError(409, "Sandbox is not running", "sandbox_stopped");
@@ -454,7 +452,8 @@ export class Computers {
 
   private unavailable(status: number): RuntimeFault {
     const problem = this.dockerProblem;
-    return new RuntimeFault("docker_unavailable", problem ? `${problem[0]!.toUpperCase()}${problem.slice(1)}.` : "Docker is not available on this machine.", status);
+    const why = problem ? `${problem[0]!.toUpperCase()}${problem.slice(1)}` : "Docker is not available on this machine";
+    return new RuntimeFault("docker_unavailable", `${why}, so shell commands (bash) can't run in your sandbox right now. You can still read, write, and edit files inside /workspace, or switch to an authorized external machine.`, status);
   }
   private workspace(botId: string): string { return join(this.dataDir, "bots", botId, "workspace"); }
   private record(botId: string): EnvironmentRecord {

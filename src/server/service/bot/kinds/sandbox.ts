@@ -34,6 +34,6 @@ export const sandbox: EnvironmentKindEntry = {
   about: (record, botId, deps) => { const owner = record.botId ?? botId, most = limits(record), problem = deps.computers.sandboxProblem(owner);
     return (computerType(record) === "vm" ? VM : CONTAINER) + " You can install software there with sudo; it stays until the owner resets your sandbox, and /workspace, your home there, is kept when it is reset. Other Bots' sandboxes can't be reached from it; services of this machine that listen on all its addresses are at host.docker.internal. To show a web service of yours to people or other Bots, publish its port with ports.publish." +
     (most ? ` It may use at most ${most}; a process that takes more memory than that is ended.` : "") +
-    (problem ? ` ${sentence(problem)}, so your file and command tools don't work here; your chat tools work as usual.` : ""); },
+    (problem ? ` ${sentence(problem)}, so ${computerType(record) === "vm" ? "your file and command tools don't work here" : "shell commands (bash) can't run here, though your file tools (read, write, edit) still work inside /workspace"}; your chat tools work as usual.` : ""); },
   signature: record => record.id,
 };

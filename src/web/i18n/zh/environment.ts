@@ -44,7 +44,7 @@ export const environment: Part<typeof en> = {
   "environment.state.stopped": "已停止",
   "environment.state.failed": "启动失败",
   "environment.state.unavailable": "不可用",
-  "environment.unavailable": "{why}，无法为 Bot 启动沙箱（无沙箱时，Bot 无法进行文件读写和命令执行等操作）。",
+  "environment.unavailable": "{why}，无法为 Bot 启动沙箱（无沙箱时，Bot 仍可读写 /workspace 下的文件，但无法在此执行命令）。",
   "environment.unavailable.missing": "当前环境没有安装 Docker",
   "environment.unavailable.stopped": "当前环境的 Docker 服务未启动",
   "environment.unavailable.denied": "当前环境无 Docker 权限",
