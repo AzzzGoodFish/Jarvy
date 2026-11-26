@@ -14,6 +14,8 @@ import {
 import {
   defaultClientConfigDir, ensureClientPaired, loadClientConfig, pairClient, removeClientConfig, runClientForeground,
 } from "../connect/client-cli.js";
+import { loadServerCloud, runServerBackup, runServerRestore } from "./cli-cloud.js";
+import { cloudConfigPath } from "./infra/cloud/config.js";
 
 const SERVER_PID = "jarvy.pid";
 const SERVER_LOG = "jarvy.log";
@@ -115,13 +117,15 @@ function printRootHelp(): void {
     "Usage: jarvy <server|client> <command> [options]",
     "",
     "Server commands (control plane):",
-    "  jarvy server init    [--data-dir <path>]                         Set up the owner account",
-    "  jarvy server start   [--host <host>] [--port <port>] [--data-dir <path>]",
+    "  jarvy server init    [--data-dir <path>] [--storage <s3://...>]  Set up the owner account",
+    "  jarvy server start   [--host <host>] [--port <port>] [--data-dir <path>] [--storage <s3://...>]",
     "                                                                   Start the server in the background",
     "  jarvy server stop    [--data-dir <path>]                         Stop the background server",
-    "  jarvy server run     [--host <host>] [--port <port>] [--data-dir <path>]",
+    "  jarvy server run     [--host <host>] [--port <port>] [--data-dir <path>] [--storage <s3://...>]",
     "                                                                   Run the server in the foreground",
-    "  jarvy server status  [--data-dir <path>]                         Show server status",
+    "  jarvy server status  [--data-dir <path>]                         Show server & cloud sync status",
+    "  jarvy server backup  [--data-dir <path>] [--storage <s3://...>]  Run an on-demand encrypted backup to S3",
+    "  jarvy server restore --storage <s3://...> --recovery-key <key>   Restore data & master key from S3",
     "",
     "Client commands (remote device / compute node):",
     "  jarvy client login   <server-url> [--name <name>] [--config-dir <path>]",
@@ -143,27 +147,43 @@ async function handleServer(args: string[]): Promise<void> {
   const rest = args.slice(1);
   if (!action || action === "help" || action === "--help" || action === "-h" || rest.includes("--help") || rest.includes("-h")) {
     console.log([
-      "Usage: jarvy server <init|start|stop|run|status> [options]",
-      "  init    set up the owner account interactively",
-      "  start   start the server in the background (logs to <data-dir>/jarvy.log)",
-      "  stop    stop the background server cleanly",
-      "  run     run the server in the foreground (Ctrl+C stops)",
-      "  status  show whether the server is running",
+      "Usage: jarvy server <init|start|stop|run|status|backup|restore> [options]",
+      "  init     set up the owner account interactively",
+      "  start    start the server in the background (logs to <data-dir>/jarvy.log)",
+      "  stop     stop the background server cleanly (flushing final cloud sync)",
+      "  run      run the server in the foreground (Ctrl+C stops)",
+      "  status   show whether the server is running",
+      "  backup   run a standalone encrypted backup snapshot to S3",
+      "  restore  restore a Jarvy data directory and master key from S3",
       "Options:",
-      "  --data-dir <path>   data directory (default: ~/.jarvy or $JARVY_DATA_DIR)",
-      "  --host <host>       bind address (default: 127.0.0.1)",
-      "  --port <port>       listen port (default: 8080)",
+      "  --data-dir <path>           data directory (default: ~/.jarvy or $JARVY_DATA_DIR)",
+      "  --host <host>               bind address (default: 127.0.0.1)",
+      "  --port <port>               listen port (default: 8080)",
+      "  --storage <s3://...>        S3 bucket/prefix (or $JARVY_STORAGE_URL)",
+      "  --storage-endpoint <url>    S3 endpoint URL (or $JARVY_STORAGE_ENDPOINT)",
+      "  --storage-region <region>   S3 region (default: auto, or $JARVY_STORAGE_REGION)",
+      "  --storage-access-key <key>  S3 access key (or $JARVY_STORAGE_ACCESS_KEY)",
+      "  --storage-secret-key <sec>  S3 secret key (or $JARVY_STORAGE_SECRET_KEY)",
+      "  --storage-path-style        force path-style S3 URLs",
+      "  --recovery-key <key>        client-side encryption recovery key/passphrase (or $JARVY_RECOVERY_KEY)",
+      "  --takeover                  forcibly take over an active cloud lease from an unreachable server",
+      "  --force                     overwrite an existing local database during restore",
+      "  --include-attachments       pre-download all attachments during restore (default: lazy on-demand)",
     ].join("\n"));
     return;
   }
-  if (!["init", "start", "stop", "run", "status"].includes(action)) throw new Error(`Unknown server command: ${action}`);
+  if (!["init", "start", "stop", "run", "status", "backup", "restore"].includes(action)) throw new Error(`Unknown server command: ${action}`);
   const dir = option(rest, "--data-dir", defaultDataDir());
   const dataFlag = dir === defaultDataDir() ? "" : ` --data-dir ${dir}`;
 
+  if (action === "backup") return runServerBackup(dir, rest, SERVER_PID);
+  if (action === "restore") return runServerRestore(dir, rest, SERVER_PID);
+
   if (action === "status") {
     const running = runningDaemon(dir, SERVER_PID);
-    if (!running) { console.log(`Jarvy server is not running (data: ${resolve(dir)}).`); return; }
-    console.log(`Jarvy server is running at ${running.url} (pid ${running.pid}).\nData: ${resolve(dir)}\nLog: ${daemonLogPath(dir, SERVER_LOG)}`);
+    const cloudHint = existsSync(cloudConfigPath(dir)) ? `\nCloud config: ${cloudConfigPath(dir)}` : "";
+    if (!running) { console.log(`Jarvy server is not running (data: ${resolve(dir)}).${cloudHint}`); return; }
+    console.log(`Jarvy server is running at ${running.url} (pid ${running.pid}).\nData: ${resolve(dir)}\nLog: ${daemonLogPath(dir, SERVER_LOG)}${cloudHint}`);
     return;
   }
 
@@ -183,7 +203,8 @@ async function handleServer(args: string[]): Promise<void> {
       console.log(`Jarvy server is already running at ${running.url} (pid ${running.pid}). Stop it with: ${stopCommand}`);
       return;
     }
-    const app = await Application.open(dir);
+    const cloud = loadServerCloud(dir, rest, { persist: true, allowGenerateRecoveryKey: true });
+    const app = await Application.open(dir, { ...(cloud ? { cloud, startCloudSync: false } : {}) });
     let allowHttp = false;
     try {
       if (!app.store.account.isInitialized()) await initialize(app.store);
@@ -191,10 +212,12 @@ async function handleServer(args: string[]): Promise<void> {
     } finally {
       await app.close();
     }
-    const started = await startDaemon(process.argv[1]!, ["server", "run", ...rest], {
+    const childRest = rest.filter(arg => arg !== "--takeover");
+    const started = await startDaemon(process.argv[1]!, ["server", "run", ...childRest], {
       dir, pidFile: SERVER_PID, logFile: SERVER_LOG, label: "Jarvy server",
     });
     console.log(`Jarvy server running in background at ${started.url} (pid ${started.pid}, listening on ${host})`);
+    if (cloud) console.log(`Cloud storage: s3://${cloud.bucket}/${cloud.prefix} (endpoint: ${cloud.endpoint})`);
     const notes = reachNotes(host, port, allowHttp);
     for (const line of notes.info) console.log(line);
     console.log(`Log: ${daemonLogPath(dir, SERVER_LOG)}\nStop with: ${stopCommand}`);
@@ -202,8 +225,12 @@ async function handleServer(args: string[]): Promise<void> {
     return;
   }
 
+  const cloud = loadServerCloud(dir, rest, { persist: true, allowGenerateRecoveryKey: true });
   let closeHttp = () => {};
-  const app = await Application.open(dir, { onCompromised: () => { process.exitCode = 1; closeHttp(); } });
+  const app = await Application.open(dir, {
+    ...(cloud ? { cloud, startCloudSync: action === "run" } : {}),
+    onCompromised: () => { process.exitCode = 1; closeHttp(); },
+  });
   const store = app.store;
   if (action === "init") {
     try { await initialize(store); } finally { await app.close(); }
@@ -223,6 +250,7 @@ async function handleServer(args: string[]): Promise<void> {
     published.start();
     writePidFile(dir, SERVER_PID, { url });
     console.log(`Jarvy server running at ${url} (listening on ${host}, pid ${process.pid})`);
+    if (cloud) console.log(`Cloud storage: s3://${cloud.bucket}/${cloud.prefix} (epoch ${app.cloudStatus().epoch ?? 0})`);
     const notes = reachNotes(host, port, app.connection.allowHttp());
     for (const line of notes.info) console.log(line);
     console.log(`Data: ${store.path}`);

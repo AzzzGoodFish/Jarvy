@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, type Dirent } from "node:fs";
+import { createReadStream, existsSync, type Dirent } from "node:fs";
 import { mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
+import type { AttachmentCloudMirror } from "../../shared/cloud-storage.js";
 import { Thumbnails } from "./thumbnails.js";
 
 /** Where an attachment's bytes live under `root` (`<data>/attachments`): one folder per first two characters of the
@@ -25,7 +26,7 @@ export class FileTooLarge extends Error { constructor() { super("File is too lar
 export class AttachmentFiles {
   readonly root: string;
   private readonly thumbnails = new Thumbnails();
-  constructor(dataDir: string) { this.root = join(dataDir, "attachments"); }
+  constructor(dataDir: string, private readonly mirror?: AttachmentCloudMirror) { this.root = join(dataDir, "attachments"); }
 
   /** Writes `chunks` to a new file under a new id; past `limit` bytes it stops and throws FileTooLarge. Nothing is
    * left behind when it throws. */
@@ -52,29 +53,48 @@ export class AttachmentFiles {
     await handle.close();
     return { id, size, sha256: hash.digest("hex") };
   }
-  /** Moves a staged file into place. */
+  /** Moves a staged file into place and mirrors it to cloud storage if configured (A107). */
   async commit(id: string): Promise<void> {
     const target = this.path(id);
     await mkdir(dirname(target), { recursive: true, mode: 0o700 });
     await rename(this.part(id), target);
+    if (this.mirror) {
+      void this.mirror.uploadAttachment(id, target).catch(error => {
+        console.warn("[attachments] cloud upload deferred:", error instanceof Error ? error.message : String(error));
+      });
+    }
   }
   /** Drops files, staged or in place, with their thumbnails; ids with no file are skipped. */
   async discard(ids: readonly string[]): Promise<void> {
-    for (const id of ids) if (ID.test(id)) await Promise.all([rm(this.part(id), { force: true }), rm(this.path(id), { force: true }), rm(this.path(id) + THUMB, { force: true })]);
+    for (const id of ids) if (ID.test(id)) {
+      await Promise.all([rm(this.part(id), { force: true }), rm(this.path(id), { force: true }), rm(this.path(id) + THUMB, { force: true })]);
+      if (this.mirror) void this.mirror.deleteAttachment(id).catch(() => {});
+    }
   }
   /** A picture's thumbnail (A80), made the first time it is asked for; null when the original is to be shown. */
   async thumbnail(id: string): Promise<{ size: number; stream: Readable } | null> {
+    await this.ensureLocal(id);
     const path = await this.thumbnails.thumbnail(this.path(id), this.path(id) + THUMB);
     if (!path) return null;
     return { size: (await stat(path)).size, stream: createReadStream(path) };
   }
-  /** The file's bytes from `start` to `end` (inclusive), as a stream. */
+  /** The file's bytes from `start` to `end` (inclusive), as a stream; hydrates lazily from cloud storage if absent locally. */
   stream(id: string, range?: { start: number; end: number }): Readable {
-    return createReadStream(this.path(id), { ...range, highWaterMark: 1 << 20 });
+    const localPath = this.path(id);
+    if (existsSync(localPath) || !this.mirror) {
+      return createReadStream(localPath, { ...range, highWaterMark: 1 << 20 });
+    }
+    const mirror = this.mirror;
+    return Readable.from((async function* () {
+      const ok = await mirror.ensureLocalAttachment(id, localPath);
+      if (!ok) throw Object.assign(new Error(`Attachment ${id} not found`), { code: "ENOENT" });
+      for await (const chunk of createReadStream(localPath, { ...range, highWaterMark: 1 << 20 })) yield chunk;
+    })());
   }
   /** The whole file, for the few readers that need it in memory (a picture or text a Bot looks at); `limit` guards
    * against reading a large file by mistake. */
   async read(id: string, limit: number): Promise<Buffer> {
+    await this.ensureLocal(id);
     const handle = await open(this.path(id), "r");
     try {
       const { size } = await handle.stat();
@@ -84,6 +104,7 @@ export class AttachmentFiles {
   }
   /** The first bytes of the file, to tell what kind it is. */
   async head(id: string, bytes: number): Promise<Buffer> {
+    await this.ensureLocal(id);
     const handle = await open(this.path(id), "r");
     try {
       const buffer = Buffer.alloc(bytes), { bytesRead } = await handle.read(buffer, 0, bytes, 0);
@@ -91,7 +112,14 @@ export class AttachmentFiles {
     } finally { await handle.close(); }
   }
   async size(id: string): Promise<number | null> {
+    await this.ensureLocal(id).catch(() => false);
     try { return (await stat(this.path(id))).size; } catch { return null; }
+  }
+  private async ensureLocal(id: string): Promise<boolean> {
+    const localPath = this.path(id);
+    if (existsSync(localPath)) return true;
+    if (!this.mirror) return false;
+    return this.mirror.ensureLocalAttachment(id, localPath);
   }
   /** Removes what no attachment owns: files left in incoming/ by a stop mid-upload, files and thumbnails whose
    * attachment is gone (`known` says which ids still have one), and anything else under the root, such as the readable

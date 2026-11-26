@@ -74,6 +74,8 @@ To install your own build instead: `npm run build && npm pack --pack-destination
 | `jarvy server stop` | Stop the background server, waiting up to 30 seconds. |
 | `jarvy server run` | Run the server in the foreground. |
 | `jarvy server status` | Show whether the server is running. |
+| `jarvy server backup` | Run a standalone encrypted backup snapshot to S3 cloud storage. |
+| `jarvy server restore` | Restore Jarvy data and master key from S3 cloud storage (`--storage`, `--recovery-key`). |
 | `jarvy client login <url>` | Pair this machine with a Jarvy server (verify TLS cert, sign in, save token). |
 | `jarvy client start [url]` | Run the client node in the background (logs to `<config-dir>/client.log`). |
 | `jarvy client stop` | Stop the background client node. |

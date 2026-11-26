@@ -979,3 +979,20 @@ Running Jarvy on a lightweight cloud host without Docker previously rendered Bot
 Why: separating durable workspace file access from OS-level shell execution lets Bots remain productive on lightweight Dockerless hosts and prepares the single `jarvy` binary to act cleanly as either control plane or remote compute node.
 
 Supersedes: A27 (`jarvy on` / `jarvy off` command shape) and A84's assumption that file tools cannot work without Docker.
+
+## A107 Encrypted S3 cloud storage, fencing lease, and stateless `jarvy server`
+
+Hosting Jarvy on disposable or lightweight cloud VPS instances requires keeping all durable state (databases, Pi session logs, chat attachments, Bot workspaces, and the installation master key) outside any single server disk while preventing split-brain corruption when an unreachable server is replaced.
+
+- **Zero-dependency S3 SigV4 client (`infra/cloud/s3-client.ts`)**: supports all S3-compatible object stores (Cloudflare R2, Aliyun OSS, Tencent COS, Backblaze B2, AWS S3, MinIO) including conditional writes (`If-Match` / `If-None-Match`), paginated `ListObjectsV2`, Range reads, and query-authenticated Pre-signed URLs (ready for Phase 3 direct compute-node sync).
+- **Client-side AES-256-GCM envelope encryption (`infra/cloud/crypto.ts`)**: every object except the non-sensitive `lease.json` lock file is encrypted client-side with a `JVY1` header, optional gzip compression, and AAD bound to its object key (`jarvy-cloud:v1:<key>`). Keys derive from either a generated 256-bit `jarvy:v1:` recovery key or a user passphrase via `scrypt`. The local installation master key (`<config>/jarvy/<id>.key`) is sealed under the recovery key at `meta/master-key.enc` so rotated servers restore decryptable secrets, model credentials, and SSH/TLS keys automatically.
+- **Single-writer fencing lease (`infra/cloud/lease.ts`)**: `<prefix>/lease.json` carries a monotonic `epoch` renewed on a heartbeat using S3 `If-Match`. Starting a second server refuses while a lease is live unless `--takeover` is passed, which bumps `epoch` atomically; the displaced server fails its next `If-Match` renewal (`412`) and triggers `onCompromised` fencing shutdown before it can overwrite newer data.
+- **Tiered sync & lazy attachment hydration (`infra/cloud/sync.ts`, `workspace-sync.ts`, `infra/storage/snapshot.ts`, `infra/files/attachments.ts`)**:
+  - SQLite (`jarvy.db`, `bots/*/history.db`) stays on local disk and backs up atomically via Node's native `node:sqlite` `backup()` API (keeping the last 10 DB revisions).
+  - Pi `sessions/*.jsonl` sync incrementally by SHA-256; Bot `workspace/` syncs via content-addressed encrypted blobs (`workspaces/blobs/`) and versioned manifests (`workspace_rev`) with default `.jarvyignore` exclusions.
+  - Chat attachments upload immutably on commit and hydrate lazily on local cache miss (`AttachmentCloudMirror`), letting small-disk VPS instances serve large attachment histories.
+- **Server CLI**: `jarvy server <init|start|run|status>` accept `--storage`, `--storage-endpoint`, `--storage-region`, `--storage-access-key`, `--storage-secret-key`, `--storage-path-style`, `--recovery-key`, and `--takeover` (plus `JARVY_STORAGE_*` / `JARVY_RECOVERY_KEY` env vars), alongside standalone `jarvy server backup` and `jarvy server restore`.
+
+Why: S3-compatible object storage avoids the POSIX locking corruption, OAuth expiry, and QPS limits of mounted consumer cloud drives while giving atomic conditional writes for split-brain prevention and zero extra npm dependencies.
+
+Consequences: no database schema change and no new npm dependencies; pure local mode without `--storage` remains unchanged.

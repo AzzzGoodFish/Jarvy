@@ -70,20 +70,20 @@ Decouple Jarvy into three independent planes so a user can host the Jarvy platfo
 
 ---
 
-### Phase 2 — Encrypted S3 Cloud Storage & Stateless `jarvy server`
-- [ ] **S3 Storage Adapter** (`src/server/infra/cloud/`)
-  - [ ] Minimal zero-bloat S3 v4 signer client (`GET`/`PUT`/`HEAD`/`DELETE`/`LIST`, conditional `If-Match`/`If-None-Match`, Range reads, Pre-signed URL generator) compatible with R2, OSS, COS, B2, AWS S3, MinIO.
-  - [ ] Client-side AES-256-GCM envelope encryption bound to object key + Master Key / Recovery Passphrase (`jarvy server init --storage ...` / `--recovery-key`).
-- [ ] **Single-Writer Fencing Lease (`lease.json`)**
-  - [ ] Heartbeat renewal + epoch validation before every sync flush.
-  - [ ] `jarvy server start --storage s3://... --takeover` bumps epoch cleanly; orphaned instances detect lease loss and shut down read-only via `onCompromised`.
-- [ ] **Tiered Sync Engine**
-  - [ ] SQLite (`jarvy.db`, `bots/*/history.db`): atomic online backup snapshot + WAL incremental upload; automatic restore on fresh VPS boot.
-  - [ ] Pi Sessions (`bots/*/agent/pi/sessions/*.jsonl`): append-only sync at end of each Bot turn.
-  - [ ] Attachments (`attachments/`): immutable upload to S3 + bounded local LRU cache on VPS disk with on-demand Range/stream fetch.
-  - [ ] Workspaces (`bots/*/workspace/`): content-addressed chunk manifest (`workspace_rev`) + default `.jarvyignore` exclusions (`node_modules`, `.venv`, `target`, `__pycache__`, `.cache`).
-- [ ] **CLI & Recovery Tooling**
-  - [ ] `jarvy server backup` / `jarvy server restore` / `jarvy server status` (showing sync lag & lease state).
+### Phase 2 — Encrypted S3 Cloud Storage & Stateless `jarvy server` (Completed)
+- [x] **S3 Storage Adapter** (`src/server/infra/cloud/`)
+  - [x] Minimal zero-dependency S3 v4 signer client (`s3-client.ts`: `GET`/`PUT`/`HEAD`/`DELETE`/`LIST`, conditional `If-Match`/`If-None-Match`, Range reads, Pre-signed URL generator) compatible with R2, OSS, COS, B2, AWS S3, MinIO.
+  - [x] Client-side AES-256-GCM envelope encryption (`crypto.ts`, `JVY1` format + optional gzip + AAD bound to object key) with `jarvy:v1:` key or `scrypt` Recovery Passphrase, sealing the installation Master Key at `meta/master-key.enc`.
+- [x] **Single-Writer Fencing Lease (`lease.json`)** (`src/server/infra/cloud/lease.ts`)
+  - [x] Heartbeat renewal + `If-Match` ETag validation before every sync flush.
+  - [x] `jarvy server start --storage s3://... --takeover` bumps `epoch` atomically; displaced servers detect `412` conflict on renewal and shut down via `onCompromised`.
+- [x] **Tiered Sync Engine** (`sync.ts`, `restore.ts`, `workspace-sync.ts`, `infra/storage/snapshot.ts`)
+  - [x] SQLite (`jarvy.db`, `bots/*/history.db`): atomic online backup via `node:sqlite` `backup()` (retaining last 10 revisions); automatic restore on fresh VPS boot.
+  - [x] Pi Sessions (`bots/*/agent/pi/sessions/*.jsonl`): incremental SHA-256 sync.
+  - [x] Attachments (`attachments/`): immutable upload on commit + lazy on-demand hydration on local cache miss (`AttachmentCloudMirror`).
+  - [x] Workspaces (`bots/*/workspace/`): content-addressed blob store (`workspaces/blobs/`) + versioned manifest (`workspace_rev`) + default `.jarvyignore` exclusions (`node_modules`, `.venv`, `target`, `__pycache__`, `.cache`, `temp`).
+- [x] **CLI & Recovery Tooling** (`cli-cloud.ts`, `cli.ts`)
+  - [x] `jarvy server backup`, `jarvy server restore [--force] [--include-attachments]`, `--storage*`, `--recovery-key`, `--takeover`, and cloud config display in `jarvy server status`.
 
 ---
 
