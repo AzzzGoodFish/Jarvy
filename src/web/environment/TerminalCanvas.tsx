@@ -1,14 +1,14 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { TERMINAL_WS_PREFIX, TERMINAL_WS_SUFFIX, type TerminalServerMessage, type TerminalState } from "../../contract/terminal";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
 import { TERMINAL_THEMES, type ResolvedTerminalTheme } from "./terminal-themes";
+import { acquireTerminalWebgl, forgetTerminalWebgl, markTerminalHidden } from "./terminal-webgl";
 
 export interface TerminalCanvasHandle {
   focus(): void;
@@ -136,6 +136,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     term.loadAddon(unicode);
     term.unicode.activeVersion = "11";
     term.open(container);
+    if (visibleRef.current) acquireTerminalWebgl(term);
     termRef.current = term;
     fitRef.current = fit;
 
@@ -328,6 +329,7 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       const ws = wsRef.current;
       wsRef.current = null;
       if (ws) ws.close(1000, "detached");
+      forgetTerminalWebgl(term);
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
@@ -338,33 +340,13 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
     if (termRef.current) termRef.current.options.theme = TERMINAL_THEMES[theme];
   }, [theme]);
 
-  // Attach GPU WebGL renderer only while this terminal is visible so every column (CJK, ASCII, emoji, box borders)
-  // lands on exact pixel grid coordinates without exhausting browser WebGL contexts across background tabs.
-  // Automatically falls back to the DOM renderer + Jarvy Powerline font if WebGL is unavailable or context is lost.
-  useEffect(() => {
+  // Keep each terminal's GPU WebGL renderer alive in an LRU pool instead of disposing on every visibility toggle:
+  // disposing WebglAddon synchronously instantiates DomRenderer + WidthCache._measure reflows across every visible glyph.
+  useLayoutEffect(() => {
     const term = termRef.current;
-    if (!visible || !term) return;
-    let webgl: WebglAddon | null = null;
-    let cancelled = false;
-    try {
-      webgl = new WebglAddon();
-      webgl.onContextLoss(() => {
-        webgl?.dispose();
-        webgl = null;
-      });
-      term.loadAddon(webgl);
-    } catch {
-      webgl?.dispose();
-      webgl = null;
-    }
-    void document.fonts?.load('13px "Jarvy Powerline"', "\uE0A0").then(() => {
-      if (!cancelled && termRef.current === term) term.clearTextureAtlas();
-    });
-    return () => {
-      cancelled = true;
-      webgl?.dispose();
-      webgl = null;
-    };
+    if (!term) return;
+    if (visible) acquireTerminalWebgl(term);
+    else markTerminalHidden(term);
   }, [visible, sessionId]);
 
   useEffect(() => {

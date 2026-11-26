@@ -2,7 +2,7 @@
    terminals on the left, status-first Overview / unified Terminal / Files on the right. */
 .jv-envs { display: grid; grid-template-columns: var(--ui-sidebar) minmax(0, 1fr); min-width: 0; min-height: 0; background: var(--ui-bg-base); transition: grid-template-columns 160ms var(--ui-ease-out); }
 /* Keep Environments mounted off-flow when switching to Chats/Home so live terminal canvases keep their size, scroll and WebSocket. */
-.jv-envs[data-inactive] { position: absolute; inset: 0 0 0 var(--ui-rail); visibility: hidden; pointer-events: none; z-index: -1; }
+.jv-envs[data-inactive] { position: absolute; inset: 0 0 0 var(--ui-rail); visibility: hidden; content-visibility: hidden; pointer-events: none; z-index: -1; }
 .jv-envs[data-collapsed] { grid-template-columns: 0 minmax(0, 1fr); }
 
 .jv-envs-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--ui-bg-subtle); border-right: 1px solid var(--ui-border-weak); }
