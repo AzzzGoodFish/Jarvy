@@ -4,10 +4,12 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { connect as tcpConnect, type Socket as NetSocket } from "node:net";
 import { homedir, hostname } from "node:os";
 import { delimiter, join } from "node:path";
 import WebSocket from "ws";
 import { DEVICE_DAEMON_PATH, DEVICE_PATH, DEVICE_PROTOCOL, type DeviceToJarvy, type JarvyToDevice } from "../contract/device.js";
+import type { SandboxHost } from "./sandbox-host.js";
 import { spawnWinPty, type WinPtyProcess } from "./win-pty.js";
 
 /** The part of the desktop client that connects a computer to Jarvy (A96), with no window: the Electron app runs it in
@@ -97,6 +99,8 @@ export interface ConnectorOptions {
   /** Where downloaded daemons are kept. */
   cache: string;
   client: string; capabilities?: string[];
+  /** Optional compute-node Docker sandbox provider (`jarvy client --sandbox`, A108). */
+  sandboxHost?: SandboxHost;
   onStatus?(status: Status): void;
   log?(text: string): void;
 }
@@ -105,8 +109,9 @@ export interface ConnectorOptions {
  * computer, or a Jarvy that speaks another protocol, stops it. */
 export class Connector {
   private socket: WebSocket | null = null;
-  private readonly daemons = new Map<number, { child: ChildProcess; bot: string }>();
+  private readonly daemons = new Map<number, { child: ChildProcess; bot: string; container?: string }>();
   private readonly ptys = new Map<number, WinPtyProcess>();
+  private readonly tunnels = new Map<number, NetSocket>();
   private stopped = false;
   private paused = false;
   private wait = 1000;
@@ -120,6 +125,7 @@ export class Connector {
   stop(): void {
     this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
+    this.options.sandboxHost?.stop();
     this.killAll();
     this.socket?.close(1000, "stopped");
   }
@@ -127,8 +133,13 @@ export class Connector {
   setPaused(paused: boolean): void {
     this.paused = paused;
     if (paused) this.killAll();
-    this.send({ t: "state", paused });
+    this.send({ t: "state", paused, ...(this.options.sandboxHost ? { sandbox: this.options.sandboxHost.info() } : {}) });
     this.report();
+  }
+  /** Broadcasts updated sandbox capacity/active count to Jarvy. */
+  notifySandboxState(): void {
+    if (!this.options.sandboxHost) return;
+    this.send({ t: "state", paused: this.paused, sandbox: this.options.sandboxHost.info() });
   }
 
   private async connect(): Promise<void> {
@@ -137,6 +148,7 @@ export class Connector {
     let program: string;
     try { this.program = await daemon(this.options.server, this.options.trust, this.options.token, this.options.cache, this.program); program = this.program.path; }
     catch (error) { return this.retry(error instanceof Error ? error.message : String(error)); }
+    const sandboxInfo = this.options.sandboxHost ? await this.options.sandboxHost.probe(program) : undefined;
     const url = new URL(DEVICE_PATH, this.options.server);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(url, { headers: { Authorization: `Device ${this.options.token}` }, handshakeTimeout: 15_000, maxPayload: 64 * 2 ** 20,
@@ -144,9 +156,13 @@ export class Connector {
     this.socket = socket;
     socket.on("open", () => {
       this.wait = 1000;
-      const capabilities = [...new Set([...(this.options.capabilities ?? []), ...(process.platform === "win32" ? ["pty"] : [])])];
+      const capabilities = [...new Set([
+        ...(this.options.capabilities ?? []),
+        ...(process.platform === "win32" ? ["pty"] : []),
+        ...(sandboxInfo?.docker ? ["sandbox"] : []),
+      ])];
       this.send({ t: "hello", protocol: DEVICE_PROTOCOL, platform: process.platform, arch: process.arch, home: homedir(), hostname: hostname(),
-        shells: findShells(), client: this.options.client, capabilities, paused: this.paused });
+        shells: findShells(), client: this.options.client, capabilities, paused: this.paused, ...(sandboxInfo ? { sandbox: sandboxInfo } : {}) });
     });
     socket.on("message", (data: Buffer, binary: boolean) => {
       if (binary) {
@@ -154,16 +170,20 @@ export class Connector {
         const ch = data.readUInt32BE(0), body = data.subarray(4);
         const entry = this.daemons.get(ch);
         if (entry) { entry.child.stdin?.write(body); return; }
-        this.ptys.get(ch)?.write(body);
+        const pty = this.ptys.get(ch);
+        if (pty) { pty.write(body); return; }
+        this.tunnels.get(ch)?.write(body);
         return;
       }
       let message: JarvyToDevice;
       try { message = JSON.parse(data.toString("utf8")) as JarvyToDevice; } catch { return; }
       if (message.t === "welcome") { this.name = message.name; this.report(); }
       else if (message.t === "error" && message.code === "protocol") { this.stopped = true; this.options.onStatus?.({ state: "outdated", protocol: message.protocol }); }
-      else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "");
+      else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "", message.container);
       else if (message.t === "pty_open") void this.runPty(message);
       else if (message.t === "pty_resize") this.ptys.get(message.ch)?.resize(message.cols, message.rows);
+      else if (message.t === "rpc") void this.runRpc(message);
+      else if (message.t === "tcp_open") this.runTcpTunnel(message);
       else if (message.t === "close") this.kill(message.ch);
     });
     socket.on("unexpected-response", (_request, response) => {
@@ -186,22 +206,61 @@ export class Connector {
     this.timer = setTimeout(() => void this.connect(), this.wait);
     this.wait = Math.min(this.wait * 2, 30_000);
   }
-  /** Runs the daemon for one channel, in the person's own session, with their environment. */
-  private run(program: string, ch: number, args: string[], bot: string): void {
+  /** Runs the daemon for one channel (on the host, or inside a remote sandbox container via `docker exec`). */
+  private run(program: string, ch: number, args: string[], bot: string, container?: string): void {
     if (this.paused) { this.send({ t: "exit", ch, code: null, error: "paused" }); return; }
-    const child = spawn(program, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, cwd: homedir() });
-    this.daemons.set(ch, { child, bot });
+    if (container && !this.options.sandboxHost) { this.send({ t: "exit", ch, code: null, error: "sandbox_disabled" }); return; }
+    const child = container
+      ? spawn("docker", ["exec", "-i", container, "/opt/jarvy/pi-env", ...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
+      : spawn(program, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, cwd: homedir() });
+    if (container) this.options.sandboxHost?.markChannel(container, 1);
+    this.daemons.set(ch, { child, bot, ...(container ? { container } : {}) });
     this.report();
     child.stdout.on("data", (chunk: Buffer) => { const head = Buffer.alloc(4); head.writeUInt32BE(ch); this.socket?.send(Buffer.concat([head, chunk])); });
     child.stderr.on("data", (chunk: Buffer) => this.options.log?.(`daemon: ${chunk.toString().trim()}`));
     child.stdin.on("error", () => {});
     const done = (code: number | null, error?: string) => {
-      if (!this.daemons.delete(ch)) return;
+      const removed = this.daemons.get(ch);
+      if (!removed) return;
+      this.daemons.delete(ch);
+      if (removed.container) this.options.sandboxHost?.markChannel(removed.container, -1);
       this.send({ t: "exit", ch, code, ...(error ? { error } : {}) });
       this.report();
     };
     child.on("exit", code => done(code));
     child.on("error", error => done(null, error.message));
+  }
+  private async runRpc(message: Extract<JarvyToDevice, { t: "rpc" }>): Promise<void> {
+    if (this.paused) { this.send({ t: "rpc_result", id: message.id, ok: false, error: "Compute node is paused" }); return; }
+    if (!this.options.sandboxHost) { this.send({ t: "rpc_result", id: message.id, ok: false, error: "Sandbox mode not enabled on this client" }); return; }
+    try {
+      const result = await this.options.sandboxHost.handleRpc(message.op, message.params ?? {});
+      this.send({ t: "rpc_result", id: message.id, ok: true, result });
+    } catch (error) {
+      this.send({ t: "rpc_result", id: message.id, ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  /** Opens a TCP tunnel strictly to an IP belonging to a managed sandbox container (remote `ports.publish`, A108). */
+  private runTcpTunnel(message: Extract<JarvyToDevice, { t: "tcp_open" }>): void {
+    if (this.paused || !this.options.sandboxHost?.isAllowedTunnelHost(message.host)) {
+      this.send({ t: "exit", ch: message.ch, code: null, error: "tunnel_denied" });
+      return;
+    }
+    const sock = tcpConnect(message.port, message.host);
+    this.tunnels.set(message.ch, sock);
+    sock.once("connect", () => this.send({ t: "tcp_ready", ch: message.ch }));
+    sock.on("data", (chunk: Buffer) => {
+      if (this.socket?.readyState !== WebSocket.OPEN) return;
+      const head = Buffer.alloc(4); head.writeUInt32BE(message.ch);
+      this.socket.send(Buffer.concat([head, chunk]));
+    });
+    const finish = (error?: string) => {
+      if (!this.tunnels.delete(message.ch)) return;
+      this.send({ t: "exit", ch: message.ch, code: null, ...(error ? { error } : {}) });
+    };
+    sock.on("end", () => finish());
+    sock.on("close", () => finish());
+    sock.on("error", error => finish(error.message));
   }
   /** Opens an interactive ConPTY shell on Windows (A103), piped directly over its WebSocket channel. */
   private async runPty(message: Extract<JarvyToDevice, { t: "pty_open" }>): Promise<void> {
@@ -239,10 +298,13 @@ export class Connector {
     if (entry) { entry.child.stdin?.end(); entry.child.kill(); }
     const pty = this.ptys.get(ch);
     if (pty) { this.ptys.delete(ch); pty.kill(); }
+    const tunnel = this.tunnels.get(ch);
+    if (tunnel) { this.tunnels.delete(ch); tunnel.destroy(); }
   }
   private killAll(): void {
     for (const ch of [...this.daemons.keys()]) this.kill(ch);
     for (const ch of [...this.ptys.keys()]) this.kill(ch);
+    for (const ch of [...this.tunnels.keys()]) this.kill(ch);
   }
   private send(message: DeviceToJarvy): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private report(): void {

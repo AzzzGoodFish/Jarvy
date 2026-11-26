@@ -2,7 +2,8 @@ import type { Store } from "../../infra/storage/store.js";
 import type { PortRecord } from "../../infra/storage/port-repository.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
-import { forward, forwardUpgrade, portFree, type ForwardPolicy } from "../../infra/net/proxy.js";
+import type { Duplex } from "node:stream";
+import { forward, forwardUpgrade, portFree, type ForwardPolicy, type Upstream } from "../../infra/net/proxy.js";
 import type { PortState, PublishedPort } from "../../../contract/ports.js";
 import type { Listening } from "../connection.js";
 import { ValidationError } from "../../shared/errors.js";
@@ -17,8 +18,8 @@ type Client = { address: string; secure: boolean };
 const policy = (client: Client): ForwardPolicy => ({ cookie: name => !SESSION_COOKIE.test(name), setCookie: name => !SESSION_COOKIE.test(name), client });
 const wildcard = (host: string) => host === "0.0.0.0" || host === "::";
 
-/** Where a request to a published port goes: the Bot's running sandbox, or why it can't. */
-export type PortTarget = { kind: "open"; botId: string; host: string; port: number } | { kind: "stopped" | "missing" };
+/** Where a request to a published port goes: the Bot's running sandbox (local or tunneled via compute node), or why it can't. */
+export type PortTarget = { kind: "open"; botId: string; host: string; port: number; connect?: () => Duplex } | { kind: "stopped" | "missing" };
 
 /** Ports Bots publish from their sandboxes (A74). A Bot publishes one with ports.publish and gets a port of Jarvy's
  * for it, from the owner's range; the API layer listens there and forwards to the sandbox, letting in the owner's
@@ -74,14 +75,14 @@ export class PublishedPorts {
   async target(hostPort: number): Promise<PortTarget> {
     const record = this.store.ports.byHostPort(hostPort);
     if (!record) return { kind: "missing" };
-    const host = await this.computers.address(record.botId);
-    return host ? { kind: "open", botId: record.botId, host, port: record.port } : { kind: "stopped" };
+    const upstream = await this.computers.portTarget(record.botId, record.port);
+    return upstream ? { kind: "open", botId: record.botId, ...upstream } : { kind: "stopped" };
   }
   /** Forwards a request the API layer let through to the sandbox; `failed` when nothing answers there. */
-  forward(request: IncomingMessage, response: ServerResponse, to: { host: string; port: number }, client: Client, failed: (error: Error) => void): void {
+  forward(request: IncomingMessage, response: ServerResponse, to: Upstream, client: Client, failed: (error: Error) => void): void {
     forward(request, response, to, policy(client), failed);
   }
-  forwardUpgrade(request: IncomingMessage, socket: Socket, head: Buffer, to: { host: string; port: number }, client: Client, failed: (error: Error) => void): void {
+  forwardUpgrade(request: IncomingMessage, socket: Socket, head: Buffer, to: Upstream, client: Client, failed: (error: Error) => void): void {
     forwardUpgrade(request, socket, head, to, policy(client), failed);
   }
   /** The Bot whose sandbox a request came from, if it is one of this Jarvy's. */

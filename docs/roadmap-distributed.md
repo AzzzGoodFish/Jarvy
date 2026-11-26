@@ -87,19 +87,19 @@ Decouple Jarvy into three independent planes so a user can host the Jarvy platfo
 
 ---
 
-### Phase 3 — Remote On-Demand Sandbox Compute Pool (`jarvy client --sandbox`)
-- [ ] **Connector Compute Protocol Extension** (`src/connect/connector.ts`, `src/server/infra/env/device-link.ts`)
-  - [ ] Advertise `capabilities.sandbox` (`docker`, `cpus`, `memory`, active containers) in device `hello` & periodic telemetry.
-  - [ ] Multiplex sandbox lifecycle RPCs (`sandbox_ensure`, `sandbox_stop`, `sandbox_pause`, `sandbox_remove`, `sandbox_stats`) and per-container `pi-env` + PTY channels over the existing outbound WSS tunnel.
-- [ ] **Ephemeral / Warm-Pooled Sandbox Scheduler**
-  - [ ] On-demand container provisioning on any online compute node when a Bot invokes `bash` (or owner opens a sandbox terminal).
-  - [ ] Shared host package cache mounts (`uv`/`pip`, `npm`/`pnpm`, `apt`) on compute nodes to keep fresh container installs fast.
-  - [ ] Idle warm-pause + LRU reclamation (never reclaiming containers with active `bash_job`, running terminals, active `ports.publish` traffic, or owner pin).
-- [ ] **Direct Compute-Node ↔ S3 Workspace Sync**
-  - [ ] Server issues short-lived S3 Pre-signed URLs to `jarvy client` so large workspace Pull/Push flows directly between compute node and S3 without traversing the lightweight VPS.
-  - [ ] Strict `workspace_rev` check before `bash` execution and debounced Push on turn end / stop / migrate; preserve divergent dirty state under `recovered/` on unexpected power loss.
-- [ ] **Remote Published Port Tunneling**
-  - [ ] Tunnel `ports.publish` HTTP/WS traffic from `jarvy server` over WSS into the remote compute node's container IP so web previews work anywhere without VPN.
+### Phase 3 — Remote On-Demand Sandbox Compute Pool (`jarvy client --sandbox`) (Completed)
+- [x] **Connector Compute Protocol Extension** (`src/contract/device.ts`, `src/connect/connector.ts`, `src/server/infra/env/device-link.ts`)
+  - [x] Advertise `capabilities: ["sandbox"]` and `SandboxNodeInfo` (`docker`, `cpus`, `memory`, `image`, `activeContainers`, `maxContainers`) in device `hello` & `state` updates.
+  - [x] Multiplex sandbox lifecycle RPCs (`sandbox_ensure`, `sandbox_stop`, `sandbox_pause`, `sandbox_remove`, `sandbox_stats`, `workspace_pull`, `workspace_push_plan`, `workspace_push_exec`) and per-container `pi-env` + PTY channels (`open { container }`) over the existing outbound WSS tunnel.
+- [x] **Ephemeral / Warm-Pooled Sandbox Scheduler** (`src/connect/sandbox-host.ts`, `src/server/service/bot/compute-pool.ts`, `computers.ts`)
+  - [x] On-demand container provisioning on any online `--sandbox` compute node when local Docker is unavailable (`jarvy client start --sandbox`).
+  - [x] Shared host package cache mounts (`uv`/`pip`, `npm`, `cargo`) on compute nodes to keep fresh container installs fast.
+  - [x] Idle warm-pause (`--idle-pause-min`) + LRU reclamation (`--idle-reclaim-min`, `--max-sandboxes`) preserving containers with active channels, listening ports, or pins.
+- [x] **Direct Compute-Node ↔ S3 Workspace Sync** (`src/connect/workspace-direct.ts`, `src/server/infra/cloud/sync.ts`)
+  - [x] Server issues short-lived S3 Pre-signed GET/PUT URLs to `jarvy client` so encrypted workspace blobs flow directly between compute node and S3 without traversing the lightweight VPS.
+  - [x] Strict `workspace_rev` check before `bash` / sandbox start and debounced Push on exec / stop / reset; preserves divergent dirty files under `recovered/<timestamp>/` on unexpected power loss.
+- [x] **Remote Published Port Tunneling** (`src/server/infra/net/proxy.ts`, `src/server/service/bot/ports.ts`, `device-link.ts`, `connector.ts`)
+  - [x] Tunnels `ports.publish` HTTP/WS traffic from `jarvy server` over WSS `tcp_open` into the remote compute node's container IP with strict container-IP allowlisting (`tunnel_denied` for non-container intranet IPs).
 
 ---
 

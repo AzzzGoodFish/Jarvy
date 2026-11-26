@@ -76,7 +76,7 @@ export class Application {
     this.tasks = new TaskService(store, this.deliveries);
     // One model catalog: the settings' provider lists and the models a Bot's session installs read the same entries.
     const catalog = new ModelCatalog(dataDir);
-    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, connectors: this.connectors, tasks: this.tasks, catalog,
+    this.bots = new BotService({ store, chats: this.chats, deliveries: this.deliveries, files: this.files, credentials: this.credentials, secrets: this.secrets, connectors: this.connectors, tasks: this.tasks, catalog, cloud,
       changed: id => this.events.publish({ kind: "bot", id, status: this.bots.status(id) }), listChanged: () => this.events.publish({ kind: "bots" }), factory,
       listening: () => this.connection.where(), onReply: (connectionId, provider, headers) => this.models.observeReply(connectionId, provider, headers),
       onEnvironmentClosed: id => { this.terminals.closeForEnvironment(id); this.envFiles.closeForEnvironment(id); } });

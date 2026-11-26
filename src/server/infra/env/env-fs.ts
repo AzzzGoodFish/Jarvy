@@ -162,6 +162,21 @@ export function openDeviceFs(
   return overExecutionEnvFs(id, env, { cwd, home, separator, close: () => connection.close() });
 }
 
+/** Opens a dedicated file-browser `EnvironmentFs` into a remote sandbox container on a compute node (A108). */
+export function openRemoteContainerFs(
+  links: DeviceLinks,
+  deviceId: string,
+  envId: string,
+  container: string,
+  cwd: string,
+  home: string,
+  onLog?: (text: string) => void,
+): EnvironmentFs {
+  const connection = links.openConnection(deviceId, onLog, container);
+  const env = new RemoteExecutionEnv({ connection, id: `files:remote-computer:${deviceId}:${container}`, cwd });
+  return overExecutionEnvFs(envId, env, { cwd, home, separator: "/", close: () => connection.close() });
+}
+
 const context = (signal?: AbortSignal): Context => signal ? withAbortSignal(signal, BACKGROUND_CONTEXT) : BACKGROUND_CONTEXT;
 
 interface WireDirEntry {

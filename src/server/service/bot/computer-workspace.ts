@@ -57,3 +57,22 @@ export function createSandboxEnvironment(
     close: () => options.close(),
   };
 }
+
+/** Retries a container/VM sandbox operation once if the underlying container or VM stopped behind Jarvy's back. */
+export async function runWithSandboxRecovery<T>(
+  op: (env: WorkEnvironment) => Promise<T>,
+  hooks: {
+    connect: () => Promise<WorkEnvironment>;
+    isRunning: () => Promise<boolean>;
+    resetStopped: () => Promise<void>;
+  },
+): Promise<T> {
+  try {
+    return await op(await hooks.connect());
+  } catch (error) {
+    if (error instanceof RuntimeFault) throw error;
+    if (await hooks.isRunning()) throw error;
+    await hooks.resetStopped();
+    return op(await hooks.connect());
+  }
+}
