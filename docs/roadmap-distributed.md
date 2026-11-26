@@ -112,6 +112,7 @@ Decouple Jarvy into three independent planes so a user can host the Jarvy platfo
 
 ---
 
-### Phase 5 — Remote KVM/libvirt VM Compute Nodes (Planned)
-- [ ] Probe KVM/libvirt capability on `jarvy client --sandbox` compute nodes and advertise `vm` support in `SandboxNodeInfo`.
-- [ ] Extend compute-node RPCs for remote VM lifecycle + `workspace.qcow2` / `/workspace` S3 snapshot sync so physical compute nodes with KVM can host full Linux VM sandboxes for stateless cloud servers.
+### Phase 5 — Remote KVM/libvirt VM Compute Nodes (Completed)
+- [x] Probe KVM/libvirt capability on `jarvy client --sandbox` compute nodes (`src/connect/vm-host.ts`) and advertise `vm`, `vmReason`, `vmImage`, `activeVms` in `SandboxNodeInfo` (`src/contract/device.ts`).
+- [x] Extend compute-node RPCs (`vm_ensure`, `vm_stop`, `vm_remove`, `vm_resize`, `vm_stats`, `vm_sync_in`, `vm_sync_out`) and WSS `open { sandboxKind: "vm" }` channel so physical compute nodes with KVM host full Linux VM sandboxes (reusing existing local `base-*.qcow2` templates when available) with direct S3 Pre-signed URL `/workspace` sync, remote PTY terminals, Files browsing, and published port tunneling.
+- [x] Update `ComputePool`, `Computers`, `SandboxType`, `SandboxComputeNode`, and `DeviceDetail` so Bots on stateless cloud VPS servers without KVM can switch seamlessly to remote KVM VM sandboxes and pick preferred KVM compute nodes.

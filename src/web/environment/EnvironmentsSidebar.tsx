@@ -181,9 +181,10 @@ export function EnvironmentsSidebar({
           const dotState = state === "online" ? "running" : state === "paused" ? "preparing" : "stopped";
           const picked: PickedEnv = { kind: "device", id: item.id };
           const dimmed = state === "offline";
-          const roleNote = isDualRole(item) ? t("devices.roleDualShort") : undefined;
-          const cap = state === "online" && item.sandbox?.docker
-            ? `${item.sandbox.activeContainers}/${item.sandbox.maxContainers} · ${item.sandbox.cpus}C/${short(item.sandbox.memory / GB, 0)}G`
+          const roleNote = isDualRole(item) ? t("devices.roleDualShort") : item.sandbox?.vm ? "Docker · KVM" : undefined;
+          const activeTotal = (item.sandbox?.activeContainers ?? 0) + (item.sandbox?.activeVms ?? 0);
+          const cap = state === "online" && item.sandbox && (item.sandbox.docker || item.sandbox.vm)
+            ? `${activeTotal}/${item.sandbox.maxContainers} · ${item.sandbox.cpus}C/${short(item.sandbox.memory / GB, 0)}G`
             : t(`devices.${state}`);
           const sub = [cap, roleNote].filter(Boolean).join(" · ");
           return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>

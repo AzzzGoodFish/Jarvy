@@ -162,7 +162,7 @@ export function openDeviceFs(
   return overExecutionEnvFs(id, env, { cwd, home, separator, close: () => connection.close() });
 }
 
-/** Opens a dedicated file-browser `EnvironmentFs` into a remote sandbox container on a compute node (A108). */
+/** Opens a dedicated file-browser `EnvironmentFs` into a remote sandbox container or KVM VM on a compute node (A108, A110). */
 export function openRemoteContainerFs(
   links: DeviceLinks,
   deviceId: string,
@@ -171,8 +171,9 @@ export function openRemoteContainerFs(
   cwd: string,
   home: string,
   onLog?: (text: string) => void,
+  sandboxKind: "container" | "vm" = "container",
 ): EnvironmentFs {
-  const connection = links.openConnection(deviceId, onLog, container);
+  const connection = links.openConnection(deviceId, onLog, container, sandboxKind);
   const env = new RemoteExecutionEnv({ connection, id: `files:remote-computer:${deviceId}:${container}`, cwd });
   return overExecutionEnvFs(envId, env, { cwd, home, separator: "/", close: () => connection.close() });
 }

@@ -1021,3 +1021,16 @@ With encrypted S3 persistence (A107) and remote sandbox compute pools (A108) in 
 Why: exposing sync health, lease fencing epoch, compute node capacity, preferred placement, and offline workspace browsing in the existing Settings and Environments surfaces completes the distributed deployment workflow without adding new screens or schema migrations.
 
 Consequences: no database schema change and no new npm dependencies; single-machine local installations without `--storage` or `--sandbox` nodes remain clean and uncluttered.
+
+## A110 Remote KVM/libvirt VM compute nodes (`jarvy client --sandbox`)
+
+Lightweight cloud VPS control planes rarely offer nested KVM virtualization, whereas physical compute nodes (e.g. intranet Linux servers or home workstations) connected via `jarvy client --sandbox` often have `/dev/kvm` and libvirt ready.
+
+- **Compute-node VM probing & protocol extension (`contract/device.ts`, `connect/vm-host.ts`, `connect/sandbox-host.ts`)**: keeping `DEVICE_PROTOCOL = 1`, `SandboxNodeInfo` advertises `vm`, `vmReason`, `vmImage`, and `activeVms`, and `capabilities` includes `"vm"` when KVM/libvirt is usable. `open` frames carry optional `sandboxKind: "container" | "vm"`; for `"vm"`, `Connector` bridges `/usr/local/bin/jarvy-pi-env` inside the managed VM over SSH directly into the existing multiplexed WSS channel, so `WorkEnvironment`, `EnvironmentFs`, interactive PTYs, and `tcp_open` port tunneling work identically across containers and remote VMs.
+- **Zero-dependency client VM lifecycle & template reuse (`connect/vm-host.ts`)**: reuses `infra/env/libvirt.ts` (pure Node + `virsh`/`qemu-img`/`cloud-localds`), automatically detects and backs onto any existing `base-*.qcow2` Jarvy VM template across active libvirt pools on the host, manages per-VM ed25519 SSH credentials and `workspace.qcow2`, and adds `vm_ensure`, `vm_stop`, `vm_remove`, `vm_resize`, `vm_stats`, `vm_sync_in`, and `vm_sync_out` RPCs.
+- **Direct S3 Pre-signed URL sync for remote VMs (`service/bot/compute-pool.ts`, `service/bot/computers.ts`)**: before VM boot/exec, `workspace_pull` hydrates the compute node staging folder directly from S3 and `vm_ensure`/`vm_sync_in` imports it into `/workspace`; on push/stop/reclaim/type-switch, `vm_sync_out` exports `/workspace` atomically to staging before the existing direct S3 Pre-signed URL push uploads changed blobs.
+- **Transparent UI enablement (`SandboxType.tsx`, `SandboxComputeNode.tsx`, `DeviceDetail.tsx`)**: when `remoteVmAvailable` is true, switching a Bot to VM sandbox is enabled directly from a stateless VPS with no local KVM, showing KVM-capable compute nodes in the unified preferred-node selector and `Docker · KVM` runtime badges on compute nodes.
+
+Why: reusing the same WSS channel, `pi-env` protocol, and direct S3 Pre-signed URL workspace pipeline delivers full systemd + nested-Docker Linux VMs on remote physical hosts with zero new npm dependencies and zero database schema migrations.
+
+Consequences: remote VM sandboxes require a `base-*.qcow2` template in libvirt on the compute node (reused automatically from any existing local Jarvy pool); existing Docker-only compute nodes remain 100% compatible.

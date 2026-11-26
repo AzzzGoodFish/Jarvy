@@ -125,109 +125,89 @@ export class Computers {
   sandboxProblem(botId: string): string | null {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) return null;
-    if (computerType(computer) !== "vm") return this.dockerProblem && !this.hasRemoteCompute() ? this.dockerProblem : null;
-    if (this.vms.current.state !== "unavailable") return null;
+    if (computerType(computer) !== "vm") return this.dockerProblem && !this.hasRemoteCompute("container") ? this.dockerProblem : null;
+    if (this.vms.current.state !== "unavailable" || this.hasRemoteCompute("vm")) return null;
     return vmProblemMessage(this.vms.reason, userInfo().username, this.vms.current.detail);
   }
-  private hasRemoteCompute(): boolean { return Boolean(this.deps.compute?.hasOnlineNode()); }
-  get available(): boolean { return this.docker === true || this.hasRemoteCompute(); }
-  canRun(record: EnvironmentRecord): boolean { return computerType(record) === "vm" ? this.vms.available : this.available; }
+  private hasRemoteCompute(type: ComputerType = "container"): boolean { return Boolean(this.deps.compute?.hasOnlineNode(type)); }
+  private useRemote(type: ComputerType): boolean { return type === "vm" ? !this.vms.available && this.hasRemoteCompute("vm") : this.docker !== true && this.hasRemoteCompute("container"); }
+  get available(): boolean { return this.docker === true || this.hasRemoteCompute("container"); }
+  canRun(record: EnvironmentRecord): boolean { return computerType(record) === "vm" ? this.vms.available || this.hasRemoteCompute("vm") : this.available; }
 
   status(botId: string): ComputerStatus | null {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) return null;
-    if (computerType(computer) === "vm") {
-      if (this.vms.current.state === "unavailable") return { state: "unavailable", error: this.vms.reason ?? "failed" };
-      return this.states.get(botId) ?? { state: "stopped" };
-    }
-    if (this.docker !== true && this.hasRemoteCompute()) {
+    const type = computerType(computer);
+    if (this.useRemote(type)) {
+      if (this.preparing.has(botId)) return { state: "preparing" };
       const remote = this.deps.compute!.placement(botId);
-      return remote?.state === "running" ? { state: "running" } : { state: "stopped" };
+      return remote?.type === type && remote.state === "running" ? { state: "running" } : { state: "stopped" };
     }
+    if (type === "vm") return this.vms.current.state === "unavailable" ? { state: "unavailable", error: this.vms.reason ?? "failed" } : (this.states.get(botId) ?? { state: "stopped" });
     if (this.docker !== true) return { state: "unavailable", ...(this.problem ? { error: this.problem.reason } : {}) };
     return this.states.get(botId) ?? { state: "stopped" };
   }
   info(botId: string): ComputerInfo | null {
     const computer = this.deps.store.environments.computerOf(botId), status = this.status(botId);
     if (!computer || !status) return null;
-    const type = computerType(computer), remote = type === "container" && this.docker !== true ? this.deps.compute?.placement(botId) : null;
+    const type = computerType(computer), remote = (type === "vm" ? !this.vms.available : this.docker !== true) ? this.deps.compute?.placement(botId) : null;
     return { id: computer.id, ...status, type, container: remote?.container ?? computer.spec.container!, image: remote?.image ?? this.images.tag(type), workspace: this.workspace(botId), mount: COMPUTER_CWD,
       limits: computerLimits(computer), ...(this.resized.has(botId) ? { restartNeeded: true } : {}),
       ...(remote ? { computeNode: { id: remote.deviceId, name: remote.deviceName } } : {}),
-      ...(type === "container" ? { preferredComputeNode: computer.spec.computeNode ?? null, localDocker: this.docker === true } : {}) };
+      preferredComputeNode: computer.spec.computeNode ?? null, localDocker: this.docker === true, localVm: this.vms.available, remoteVmAvailable: this.hasRemoteCompute("vm") };
   }
   get vmSupport(): VmSupport { return this.vms.current; }
   checkVms(again = false): Promise<VmSupport> { return this.vms.check(again); }
 
-  /** Switches a Bot's sandbox between container and system VM (A101): preserves `/workspace` losslessly in both
-   * directions (importing into `workspace.qcow2` on container→VM, exporting back to host before destroying on VM→container). */
+  /** Switches a Bot's sandbox between container and system VM (A101, A110), preserving `/workspace`. */
   async setType(botId: string, type: ComputerType): Promise<void> {
     const computer = this.record(botId), current = computerType(computer);
     if (current === type) return;
     if (type === "vm") {
       const support = await this.vms.check();
-      if (support.state !== "available") throw new ValidationError("This machine can't run VM sandboxes", "vm_unavailable", { reason: support.reason ?? "failed" });
-    } else if (!this.available) {
-      throw this.unavailable(409);
-    }
-    await this.settled(botId);
-    this.deps.onEnvironmentClosed?.(computer.id);
-    await this.disconnect(botId);
-    if (current === "vm") {
-      await this.libvirt.remove(computer, computerLimits(computer), this.workspace(botId), true);
-    } else if (this.available) {
-      await removeContainer(computer.spec.container!);
+      if (support.state !== "available" && !this.hasRemoteCompute("vm")) throw new ValidationError("This machine can't run VM sandboxes", "vm_unavailable", { reason: support.reason ?? "failed" });
+    } else if (!this.available) throw this.unavailable(409);
+    await this.settled(botId); this.deps.onEnvironmentClosed?.(computer.id); await this.disconnect(botId);
+    if (!(await this.deps.compute?.remove(botId, true))) {
+      if (current === "vm") await this.libvirt.remove(computer, computerLimits(computer), this.workspace(botId), true);
+      else if (this.docker === true) await removeContainer(computer.spec.container!);
     }
     this.homes.delete(computer.spec.container!); this.resized.delete(botId);
     this.deps.store.environments.setType(computer.id, type);
-    this.set(botId, { state: "stopped" });
-    this.deps.changed();
+    this.set(botId, { state: "stopped" }); this.deps.changed();
   }
 
   async resources(botId: string): Promise<ComputerResources> {
-    const computer = this.record(botId), name = computer.spec.container!, type = computerType(computer);
-    const remote = type === "container" && this.docker !== true && this.deps.compute;
-    const usage = this.status(botId)?.state !== "running" ? null
-      : type === "vm" ? await this.libvirt.resources(computer).catch(() => null)
-      : remote ? await remote.usage(botId).catch(() => null)
-      : await containerUsage(name).catch(() => null);
-    const capacity = remote ? remote.capacity(botId, computer.spec.computeNode) : await this.capacity(type).catch(() => null);
-    return { usage, capacity };
+    const computer = this.record(botId), name = computer.spec.container!, type = computerType(computer), remote = this.useRemote(type) ? this.deps.compute : undefined;
+    const usage = this.status(botId)?.state !== "running" ? null : remote ? await remote.usage(botId).catch(() => null)
+      : type === "vm" ? await this.libvirt.resources(computer).catch(() => null) : await containerUsage(name).catch(() => null);
+    return { usage, capacity: remote ? remote.capacity(botId, computer.spec.computeNode, type) : await this.capacity(type).catch(() => null) };
   }
   async setComputeNode(botId: string, deviceId: string | null): Promise<void> {
     const computer = this.record(botId);
-    if (computerType(computer) !== "container") throw new ValidationError("Only container sandboxes can use a compute node", "type_invalid");
     if (deviceId !== null && this.deps.store.environments.get(deviceId)?.kind !== "device") throw new ChatError(404, "No computer with this id", "device_missing");
     this.deps.store.environments.setComputeNode(computer.id, deviceId);
-    this.deps.compute?.clearStoppedPlacement(botId);
-    this.deps.changed();
+    this.deps.compute?.clearStoppedPlacement(botId); this.deps.changed();
   }
   async reclaim(botId: string): Promise<void> {
     const computer = this.record(botId);
     await this.settled(botId); this.deps.onEnvironmentClosed?.(computer.id); await this.disconnect(botId);
     await this.deps.compute?.reclaim(botId);
   }
-
   async setLimits(botId: string, input: { memory: unknown; cpus: unknown }): Promise<void> {
-    const computer = this.record(botId), type = computerType(computer), remote = type === "container" && this.docker !== true ? this.deps.compute : undefined;
-    const machine = remote ? (remote.capacity(botId, computer.spec.computeNode) ?? (() => { throw this.unavailable(409); })()) : await this.capacity(type);
+    const computer = this.record(botId), type = computerType(computer), remote = this.useRemote(type) ? this.deps.compute : undefined;
+    const machine = remote ? (remote.capacity(botId, computer.spec.computeNode, type) ?? (() => { throw this.unavailable(409); })()) : await this.capacity(type);
     const least = MIN_LIMITS[type], memory = parseComputerLimit(input.memory, least.memory, machine.memory, 2 ** 20), cpus = parseComputerLimit(input.cpus, least.cpus, machine.cpus, type === "vm" ? 1 : 0.01);
     if (memory === undefined || cpus === undefined) throw new ValidationError("Limits are null or a number within this machine's size", type === "vm" ? "vm_size_invalid" : "limits_invalid",
       { memory: Math.floor(machine.memory / 2 ** 30 * 10) / 10, cpus: machine.cpus });
     const next = computerLimits({ ...computer, spec: { ...computer.spec, memory: memory === null ? "" : String(memory), cpus: cpus === null ? "" : String(cpus) } });
     const before = computerLimits(computer), change = { ...(next.memory !== before.memory ? { memory: next.memory } : {}), ...(next.cpus !== before.cpus ? { cpus: next.cpus } : {}) };
     if (Object.keys(change).length) {
-      if (type === "vm") {
-        const state = await this.libvirt.state(computer.spec.container!);
-        if (state !== "missing") await this.libvirt.updateLimits(computer.spec.container!, next);
-        if (state === "running") this.resized.add(botId);
-      } else if (!remote) {
-        if (!this.available) throw this.unavailable(409);
-        if (await containerState(computer.spec.container!) !== "missing") await updateLimits(computer.spec.container!, change, machine);
-      } else if (this.status(botId)?.state === "running") this.resized.add(botId);
+      if (remote) { await remote.updateLimits(botId, next); if (this.status(botId)?.state === "running") this.resized.add(botId); }
+      else if (type === "vm") { const state = await this.libvirt.state(computer.spec.container!); if (state !== "missing") await this.libvirt.updateLimits(computer.spec.container!, next); if (state === "running") this.resized.add(botId); }
+      else { if (!this.available) throw this.unavailable(409); if (await containerState(computer.spec.container!) !== "missing") await updateLimits(computer.spec.container!, change, machine); }
     }
-    this.deps.store.environments.setLimits(computer.id, { memory, cpus });
-    this.deps.changed();
+    this.deps.store.environments.setLimits(computer.id, { memory, cpus }); this.deps.changed();
   }
   private capacity(type: ComputerType): Promise<Capacity> {
     if (type === "vm") return Promise.resolve(hostCapacity());
@@ -246,11 +226,11 @@ export class Computers {
 
   environment(botId: string, record: EnvironmentRecord): WorkEnvironment {
     const run = async <T>(op: (env: WorkEnvironment) => Promise<T>): Promise<T> => {
-      const current = this.deps.store.environments.computerOf(botId) ?? record;
-      if (computerType(current) === "container" && this.docker !== true && this.hasRemoteCompute()) return op(this.deps.compute!.environment(botId, current));
+      const current = this.deps.store.environments.computerOf(botId) ?? record, type = computerType(current);
+      if (this.useRemote(type)) return op(this.deps.compute!.environment(botId, current));
       return runWithSandboxRecovery(op, {
         connect: () => this.connect(botId, current),
-        isRunning: async () => (computerType(current) === "vm"
+        isRunning: async () => (type === "vm"
           ? await this.libvirt.state(current.spec.container!).catch(() => "missing")
           : await containerState(current.spec.container!).catch(() => "missing")) === "running",
         resetStopped: async () => { await this.disconnect(botId); this.set(botId, { state: "stopped" }); },
@@ -258,8 +238,8 @@ export class Computers {
     };
     const isContainer = () => computerType(this.deps.store.environments.computerOf(botId) ?? record) === "container";
     return createSandboxEnvironment(record, this.workspace(botId), {
-      useWorkspaceFallback: () => isContainer() && this.status(botId)?.state !== "running",
-      runtimeUnavailable: () => isContainer() ? !this.available : !this.vms.available,
+      useWorkspaceFallback: () => (isContainer() || !this.vms.available) && this.status(botId)?.state !== "running",
+      runtimeUnavailable: () => isContainer() ? !this.available : !(this.vms.available || this.hasRemoteCompute("vm")),
       unavailableFault: () => this.unavailable(503), runInSandbox: run, close: () => this.disconnect(botId),
     });
   }
@@ -335,8 +315,9 @@ export class Computers {
   async listening(botId: string): Promise<Map<number, { loopbackOnly: boolean }> | null> {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer || this.status(botId)?.state !== "running") return null;
-    if (computerType(computer) === "vm") return this.libvirt.listening(computer);
-    if (this.docker !== true && this.hasRemoteCompute()) return this.deps.compute!.listening(botId);
+    const type = computerType(computer);
+    if (this.useRemote(type)) return this.deps.compute!.listening(botId);
+    if (type === "vm") return this.libvirt.listening(computer);
     return listeningPorts(computer.spec.container!);
   }
   get hostName(): string { return HOST_NAME; }
@@ -359,6 +340,11 @@ export class Computers {
     const task = (async () => {
       try {
         await this.start();
+        if (this.useRemote(type)) {
+          const placed = await this.deps.compute!.ensure(botId, computer);
+          this.resized.delete(botId);
+          return placed.container;
+        }
         if (type === "vm") {
           const support = await this.vms.check();
           if (support.state !== "available") throw new RuntimeFault("vm_unavailable", this.sandboxProblem(botId) ?? "Virtual machines are not available on this machine.", 503);
@@ -366,10 +352,6 @@ export class Computers {
           this.resized.delete(botId);
           this.set(botId, { state: "running" });
           return container;
-        }
-        if (this.docker !== true && this.hasRemoteCompute()) {
-          const placed = await this.deps.compute!.ensure(botId, computer);
-          return placed.container;
         }
         if (this.docker !== true) throw this.unavailable(503);
         const image = await this.images.ready();
@@ -395,13 +377,13 @@ export class Computers {
   verifyRunning(record: EnvironmentRecord): string {
     const botId = record.botId;
     if (!botId) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
-    const current = this.deps.store.environments.computerOf(botId) ?? record, status = this.status(botId);
+    const current = this.deps.store.environments.computerOf(botId) ?? record, status = this.status(botId), type = computerType(current);
     if (!status) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
-    if (computerType(current) === "container" && status.state !== "running") return `workspace:${botId}`;
+    if ((type === "container" || !this.vms.available) && status.state !== "running") return `workspace:${botId}`;
     if (status.state === "unavailable") throw new RuntimeFault("vm_unavailable", this.sandboxProblem(botId) ?? "Virtual machines are not available on this machine.", 503);
     if (status.state !== "running") throw new ChatError(409, "Sandbox is not running", "sandbox_stopped");
-    const remote = computerType(current) === "container" && this.docker !== true ? this.deps.compute?.placement(botId) : null;
-    return remote ? `remote:${remote.deviceId}:${remote.container}` : `${computerType(current)}:${current.spec.container ?? ""}`;
+    const remote = this.useRemote(type) ? this.deps.compute?.placement(botId) : null;
+    return remote ? `remote:${remote.deviceId}:${remote.container}` : `${type}:${current.spec.container ?? ""}`;
   }
   async openFs(record: EnvironmentRecord): Promise<EnvironmentFs> {
     const sig = this.verifyRunning(record), botId = record.botId!, current = this.deps.store.environments.computerOf(botId) ?? record;
@@ -417,13 +399,13 @@ export class Computers {
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell: "bash" }> {
     const botId = record.botId;
     if (!botId) throw new RuntimeFault("computer_missing", "This Bot has no sandbox.", 404);
-    const current = this.deps.store.environments.computerOf(botId) ?? record, cwd = options.cwd && options.cwd.startsWith("/") ? options.cwd : COMPUTER_CWD;
-    if (computerType(current) === "vm") {
+    const current = this.deps.store.environments.computerOf(botId) ?? record, type = computerType(current), cwd = options.cwd && options.cwd.startsWith("/") ? options.cwd : COMPUTER_CWD;
+    if (this.useRemote(type)) return this.deps.compute!.openPty(botId, current, options);
+    if (type === "vm") {
       await this.ensure(botId);
       const access = await this.libvirt.ensure(current, computerLimits(current), this.workspace(botId));
       return { pty: await openSshPty(current.id, access, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd, shell: "bash" };
     }
-    if (this.docker !== true && this.hasRemoteCompute()) return this.deps.compute!.openPty(botId, current, options);
     const container = await this.ensure(botId);
     await this.ensureHome(botId, container);
     return { pty: await openContainerPty(container, { ...options, cwd, argv: ["/bin/bash", "-l"] }, text => this.log(`[pty ${botId.slice(0, 8)}] ${text}`)), cwd, shell: "bash" };
@@ -431,7 +413,7 @@ export class Computers {
   async stop(botId: string): Promise<void> {
     const computer = this.record(botId);
     this.deps.onEnvironmentClosed?.(computer.id); await this.disconnect(botId);
-    if (computerType(computer) === "container" && await this.deps.compute?.stop(botId)) return;
+    if (await this.deps.compute?.stop(botId)) return;
     if (computerType(computer) === "vm") await this.libvirt.stop(computer.spec.container!);
     else { if (this.docker !== true) throw this.unavailable(409); await stopContainer(computer.spec.container!); }
     this.resized.delete(botId); this.set(botId, { state: "stopped" });
@@ -439,7 +421,7 @@ export class Computers {
   async reset(botId: string): Promise<void> {
     const computer = this.record(botId);
     await this.settled(botId); this.deps.onEnvironmentClosed?.(computer.id); await this.disconnect(botId);
-    if (computerType(computer) === "container" && await this.deps.compute?.reset(botId)) return;
+    if (await this.deps.compute?.reset(botId)) return;
     if (computerType(computer) === "vm") await this.libvirt.reset(computer);
     else { if (this.docker !== true) throw this.unavailable(409); await removeContainer(computer.spec.container!); }
     this.homes.delete(computer.spec.container!); this.resized.delete(botId); this.set(botId, { state: "stopped" });
@@ -448,7 +430,7 @@ export class Computers {
     const computer = this.deps.store.environments.computerOf(botId);
     if (!computer) return;
     await this.settled(botId); this.deps.onEnvironmentClosed?.(computer.id); await this.disconnect(botId);
-    if (computerType(computer) === "container") await this.deps.compute?.remove(botId, keepFiles);
+    await this.deps.compute?.remove(botId, keepFiles);
     if (computerType(computer) === "vm") await this.libvirt.remove(computer, computerLimits(computer), this.workspace(botId), keepFiles);
     else if (this.docker === true) await removeContainer(computer.spec.container!);
     this.deps.store.environments.dropComputer(botId); this.states.delete(botId);
