@@ -1,3 +1,5 @@
+import type { SandboxNodeInfo } from "./device.js";
+
 /** Work environments as the interface sees them (A50, A57, A68, A96). `computer` is a Bot's sandbox, a Docker
  * container only it uses and its only default; `ssh` a machine the owner added, reached over SSH (A57), granted to a
  * Bot and switched to. The owner's computer is one of those when the owner adds it. `device` is a computer that
@@ -23,6 +25,8 @@ export interface Device {
   capabilities: string[];
   /** The client's version. */
   client: string;
+  /** Live compute-pool capacity when this computer connected with `--sandbox` (A108, A109). */
+  sandbox?: SandboxNodeInfo;
   botIds: string[];
 }
 /** An SSH machine (A57) as Settings shows it: never its key. */
@@ -57,7 +61,13 @@ export type ComputerType = "container" | "vm";
  * from, and the folder on this machine mounted as its workspace. `restartNeeded`: a VM's size was changed while it
  * ran, which takes effect at its next start. */
 export interface ComputerInfo extends ComputerStatus { id: string; type: ComputerType; container: string; image: string; workspace: string; mount: string; limits: ComputerLimits;
-  restartNeeded?: boolean }
+  restartNeeded?: boolean;
+  /** Remote compute node currently hosting this sandbox when running via the compute pool (A108, A109). */
+  computeNode?: { id: string; name: string };
+  /** Owner's preferred compute node device ID for automatic failover scheduling, or null for automatic (A109). */
+  preferredComputeNode?: string | null;
+  /** Whether local Docker is usable on the control-plane server itself (A109). */
+  localDocker?: boolean }
 /** Why this machine can't run VM sandboxes (A101): libvirt/QEMU isn't installed, libvirtd isn't running, this user lacks
  * permission to use libvirt, helper tools (qemu-img / cloud-localds) are missing, there is no KVM, KVM is held by
  * another hypervisor (such as VirtualBox), or something else. */

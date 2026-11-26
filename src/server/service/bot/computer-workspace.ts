@@ -76,3 +76,13 @@ export async function runWithSandboxRecovery<T>(
     return op(await hooks.connect());
   }
 }
+
+/** Builds the user/Bot-facing RuntimeFault when neither local Docker nor any remote compute node is usable. */
+export function dockerUnavailableFault(problem: string | null, status: number): RuntimeFault {
+  const why = problem ? `${problem[0]!.toUpperCase()}${problem.slice(1)}` : "Docker is not available on this machine";
+  return new RuntimeFault(
+    "docker_unavailable",
+    `${why}, so shell commands (bash) can't run in your sandbox right now. You can still read, write, and edit files inside /workspace, or switch to an authorized external machine.`,
+    status,
+  );
+}

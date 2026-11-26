@@ -150,10 +150,13 @@ export function EnvironmentsSidebar({
           const dotState = state === "online" ? "running" : state === "paused" ? "preparing" : "stopped";
           const picked: PickedEnv = { kind: "device", id: item.id };
           const dimmed = state === "offline";
+          const poolSub = state === "online" && item.sandbox?.docker
+            ? `${deviceSystem(item) || t("devices.kindDevice")} · ${item.sandbox.activeContainers}/${item.sandbox.maxContainers}`
+            : deviceSystem(item) || t("devices.kindDevice");
           return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
             <ListRow active={!adding && selectedKind === "device" && selectedId === item.id} onClick={() => onPick(picked)}
               leading={<EnvKindTile type="device" dotState={dotState} dotLabel={t(`devices.${state}`)}/>}
-              title={item.name} sub={deviceSystem(item) || t("devices.kindDevice")}
+              title={item.name} sub={poolSub}
               trailing={<EnvFaces bots={botsOnDevice(item)} statuses={statuses}/>}/>
             {renderSubTerms(picked, item.id, item.platform)}
           </div>;
@@ -180,11 +183,16 @@ export function EnvironmentsSidebar({
           const computer = item.environment.computer!;
           const picked: PickedEnv = { kind: "sandbox", id: item.id };
           const dimmed = computer.state === "stopped" || computer.state === "failed" || computer.state === "unavailable";
+          const sandboxSub = [
+            t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container"),
+            t(STATE[computer.state]),
+            computer.computeNode?.name,
+          ].filter(Boolean).join(" · ");
           return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
             <ListRow active={!adding && selectedKind === "sandbox" && selectedId === item.id} onClick={() => onPick(picked)}
               leading={<EnvKindTile type={computer.type} dotState={computer.state} dotLabel={t(STATE[computer.state])}/>}
               title={t("envs.sandboxOf", { name: item.name })}
-              sub={`${t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container")} · ${t(STATE[computer.state])}`}
+              sub={sandboxSub}
               trailing={<EnvFaces bots={botsInSandbox(item)} statuses={statuses}/>}/>
             {renderSubTerms(picked, computer.id)}
           </div>;

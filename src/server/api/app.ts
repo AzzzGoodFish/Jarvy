@@ -12,6 +12,7 @@ import { eventRoutes } from "./routes/events.js";
 import { channelRoutes } from "./routes/channels.js";
 import { liveRoutes } from "./routes/live.js";
 import { connectionRoutes, rootCertificateRoute } from "./routes/connection.js";
+import { cloudRoutes } from "./routes/cloud.js";
 import { secretRoutes } from "./routes/secrets.js";
 import { connectorCallbackRoute, connectorRoutes } from "./routes/connectors.js";
 import { deviceDaemonRoute, environmentRoutes } from "./routes/environments.js";
@@ -43,6 +44,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   api.route("/", eventRoutes(services));
   api.route("/", liveRoutes(services));
   api.route("/", connectionRoutes(services.connection));
+  api.route("/cloud", cloudRoutes(services.storage));
   api.route("/secrets", secretRoutes(services.secrets));
   api.route("/connectors", connectorRoutes(services.connectors));
   api.route("/environments", environmentRoutes(services.bots));

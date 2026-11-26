@@ -1009,3 +1009,15 @@ A lightweight cloud `jarvy server` with no local Docker still needs isolated con
 Why: reusing the authenticated outbound WebSocket tunnel and `pi-env` protocol avoids inbound firewall/VPN requirements, keeps the VPS stateless and low-bandwidth via direct S3 Pre-signed URLs, and gives Bots isolated Linux sandboxes on disposable remote compute nodes.
 
 Consequences: no database schema change and no new npm dependencies; existing desktop/host clients remain 100% compatible.
+
+## A109 Cloud storage observability, compute-pool UI, and failover UX
+
+With encrypted S3 persistence (A107) and remote sandbox compute pools (A108) in place, operators need visibility and control directly in the Web UI without inspecting CLI logs or config files.
+
+- **Cloud Storage status & manual sync (`contract/cloud.ts`, `service/cloud.ts`, `api/routes/cloud.ts`, `web/StorageSettings.tsx`)**: adds `GET /api/cloud/status` and `POST /api/cloud/sync` surfaced under `Settings → Storage`, showing local-only vs encrypted S3 mode, bucket/prefix, endpoint, active fencing lease `epoch`, SQLite `dbRev`, last sync timestamp, sync errors, and a one-click **Sync now** action.
+- **Compute pool visibility & slot reclamation (`contract/environment.ts`, `service/bot/compute-pool.ts`, `web/environment/DeviceDetail.tsx`, `EnvironmentHero.tsx`, `EnvironmentsSidebar.tsx`)**: enriches `Device` with live `SandboxNodeInfo` (`activeContainers / maxContainers`, CPU/memory capacity, image) and `ComputerInfo` with `computeNode`, `preferredComputeNode`, and `localDocker`. Remote sandboxes now report live CPU/RAM usage and remote host capacity through `GET /api/bots/:id/computer/resources`, and operators can reclaim any remote container slot via `POST /api/bots/:id/computer/reclaim` (flushing `/workspace` to S3 first).
+- **Preferred compute node & offline workspace snapshot browsing (`PUT /api/bots/:id/computer/compute-node`, `web/environment/SandboxComputeNode.tsx`, `CloudSync.ensureLocalWorkspace`)**: stores per-Bot `computeNode` preference inside `environments.connection` JSON (zero DB migration) with automatic failover to other online compute nodes or Workspace-only mode when offline. On container sandboxes, **Browse files** stays enabled even when Docker and all compute nodes are offline, hydrating `/workspace` on demand from the latest S3 snapshot if the local folder is empty and displaying an explicit offline-snapshot banner in `EnvironmentFiles`.
+
+Why: exposing sync health, lease fencing epoch, compute node capacity, preferred placement, and offline workspace browsing in the existing Settings and Environments surfaces completes the distributed deployment workflow without adding new screens or schema migrations.
+
+Consequences: no database schema change and no new npm dependencies; single-machine local installations without `--storage` or `--sandbox` nodes remain clean and uncluttered.

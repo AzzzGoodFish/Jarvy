@@ -15,6 +15,7 @@ import { Changes } from "./service/events.js";
 import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
 import { ConnectionService } from "./service/connection.js";
+import { CloudService } from "./service/cloud.js";
 import { SecretService } from "./service/secrets.js";
 import { ConnectorService } from "./service/connectors.js";
 import { createConnectorRegistry } from "./infra/connectors/registry.js";
@@ -52,9 +53,12 @@ export class Application {
   readonly envFiles: EnvFileService;
   /** Optional encrypted S3 cloud sync engine (A107). */
   readonly cloud: CloudSync | null;
+  /** Cloud storage observability & manual sync service for Settings → Storage (A109). */
+  readonly storage: CloudService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, cloud: CloudSync | null, factory?: SessionFactory) {
     this.cloud = cloud;
+    this.storage = new CloudService(cloud);
     // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
     this.deliveries = new Deliveries(store.chats.inbox, {
       bot: (id, urgency) => this.bots.deliver(id, urgency), user: id => { if (id === this.user.id) this.user.deliver(); } });

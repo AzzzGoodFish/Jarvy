@@ -263,6 +263,7 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
           onToggleMaximize={() => setMaximized(value => !value)}
           onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>}
         {showFiles && <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={filesAvailability}
+          offlineSnapshot={bot?.environment.computer?.type === "container" && bot.environment.computer.state !== "running"}
           maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
           onOpenTerminal={openTerminalInDir} onSandboxStarted={refreshBot}/>}
         {!showTerminal && !showFiles && <div className="jv-envs-body">
@@ -279,12 +280,13 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
               }}/>
               : device ? <DeviceDetail key={device.id} device={device} bots={bots}
                 onChanged={saved => setDevices(list => list && list.map(item => item.id === saved.id ? saved : item))}
+                onBotChanged={onSaved}
                 onDeleted={() => { kept = null; setPicked(null); setOpen(false); setDevices(list => list && list.filter(item => item.id !== device.id)); }}/>
               : machine ? <MachineDetail key={machine.id} machine={machine} bots={bots}
                 onChanged={saved => setMachines(list => list && list.map(item => item.id === saved.id ? saved : item))}
                 onDeleted={() => { kept = null; setPicked(null); setOpen(false); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>
               : bot ? <div className="jv-ov-grid">
-                <div className="jv-ov-col"><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={true} showSpecs={false}/></div>
+                <div className="jv-ov-col"><BotEnvironment key={bot.id} bot={bot} devices={devices ?? undefined} onSaved={onSaved} heading={true} showSpecs={false}/></div>
                 <div className="jv-ov-col"><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></div>
               </div> : null}
           </div>

@@ -77,6 +77,7 @@ export const machines = {
   "devices.kindDevice": "Computer",
   "devices.connectHint": "On the computer to connect, run this in a terminal that has Node 22 or later. The first run checks Jarvy's certificate fingerprint and asks you to sign in.",
   "devices.connectCli": "With Jarvy CLI installed",
+  "devices.connectComputeCli": "As a sandbox compute node (--sandbox)",
   "devices.connectWindows": "Windows (PowerShell)",
   "devices.connectOther": "macOS and Linux",
   "devices.connectAfter": "Once connected it appears among the environments. Bots can use it after you grant it to them, and only while the command runs.",
@@ -102,4 +103,10 @@ export const machines = {
   "devices.platform.darwin": "macOS",
   "devices.platform.linux": "Linux",
   "devices.copied": "Copied",
+  "devices.computeNodeBadge": "Compute pool",
+  "devices.poolSection": "Compute pool",
+  "devices.poolSandboxes": "Active sandboxes",
+  "devices.poolCapacity": "Node capacity",
+  "devices.poolOffline": "Node is offline; remote sandboxes will schedule onto other online compute nodes.",
+  "devices.poolEmpty": "No active Bot sandboxes hosted on this node right now.",
 } as const;

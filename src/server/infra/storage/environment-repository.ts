@@ -52,6 +52,13 @@ export class EnvironmentRepository {
     this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec,
       ...(limits.memory !== null ? { memory: String(limits.memory) } : {}), ...(limits.cpus !== null ? { cpus: String(limits.cpus) } : {}) }), id);
   }
+  /** Stores or clears a container sandbox's preferred remote compute node device ID (A109). */
+  setComputeNode(id: string, deviceId: string | null): void {
+    const computer = this.get(id);
+    if (computer?.kind !== "computer") return;
+    const { computeNode: _prev, ...spec } = computer.spec;
+    this.db.prepare("UPDATE environments SET connection=? WHERE id=?").run(JSON.stringify({ ...spec, ...(deviceId ? { computeNode: deviceId } : {}) }), id);
+  }
   /** Keeps what a computer is (A85, A101): a VM, or left out for a container. Switching to container clears any VM
    * workspace-import completion marker so a later switch back to VM imports fresh host files. */
   setType(id: string, type: "container" | "vm"): void {

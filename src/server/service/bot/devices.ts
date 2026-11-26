@@ -246,13 +246,14 @@ export class Devices {
     throw new ChatError(400, "directory must be an absolute path or start with ~/");
   }
   private view(record: EnvironmentRecord): Device {
-    const { spec } = record;
+    const { spec } = record, sandbox = this.links.sandboxInfo(record.id);
     return { id: record.id, name: record.name, description: record.description, platform: spec.platform ?? "", arch: spec.arch ?? "",
       home: spec.home ?? "", directory: record.directory || spec.home || "", online: this.links.online(record.id), paused: this.links.paused(record.id),
       seenAt: this.links.online(record.id) ? Date.now() : spec.seenAt ? Number(spec.seenAt) : null,
       shells: { ...(spec.shellBash ? { bash: spec.shellBash } : {}), ...(spec.shellPowershell ? { powershell: spec.shellPowershell } : {}) },
       shell: (spec.shell as Device["shell"]) ?? "auto", activeShell: activeShell(record),
-      capabilities: spec.capabilities ? spec.capabilities.split(",").filter(Boolean) : [], client: spec.client ?? "", botIds: this.store.environments.grantees(record.id) };
+      capabilities: spec.capabilities ? spec.capabilities.split(",").filter(Boolean) : [], client: spec.client ?? "",
+      ...(sandbox ? { sandbox } : {}), botIds: this.store.environments.grantees(record.id) };
   }
   private need(id: string): EnvironmentRecord {
     const record = this.store.environments.get(id);

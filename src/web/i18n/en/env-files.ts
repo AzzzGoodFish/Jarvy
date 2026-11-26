@@ -73,6 +73,7 @@ export const envFiles = {
   "envFiles.devicePausedTitle": "Computer is paused",
   "envFiles.devicePausedBody": "Resume this computer in its Jarvy client tray to browse and transfer files.",
   "envFiles.symlink": "Link",
+  "envFiles.offlineSnapshot": "Sandbox is offline — browsing the /workspace snapshot (backed by local cache / last-synced cloud storage).",
   "error.fileAlreadyExists": "A file or folder with that name already exists.",
   "error.fileInvalidPath": "The path or name is not valid.",
   "error.fileIsDirectory": "That path is a folder, not a file.",

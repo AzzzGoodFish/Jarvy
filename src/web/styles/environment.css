@@ -42,3 +42,13 @@
 .jv-env-bar > span[data-high] { background: var(--ui-text-warning); }
 button.jv-env-meter { width: 100%; text-align: left; cursor: help; }
 .jv-env-tip { z-index: 100; max-width: min(280px, calc(100vw - 24px)); padding: var(--ui-space-6) var(--ui-space-12); background: var(--jv-panel); border: 1px solid var(--jv-line-strong); border-radius: var(--ui-radius-md); box-shadow: 0 12px 32px -8px #00000040; color: var(--jv-text); font-size: var(--ui-text-md); line-height: 1.5; }
+/* Phase 4: preferred compute node selector, compute pool rows, cloud storage settings & offline snapshot banner (A109). */
+.jv-env-select { margin-left: auto; max-width: 240px; height: var(--ui-control-sm); padding: 0 var(--ui-space-8); border: 1px solid var(--jv-line); border-radius: var(--ui-radius-md); background: var(--jv-field); color: var(--jv-text); font-size: var(--ui-text-md); }
+.jv-env-select:focus-visible { outline: 2px solid var(--ui-focus-ring); outline-offset: 1px; }
+.jv-storage-cmd { display: block; padding: var(--ui-space-8) var(--ui-space-12); border: 1px solid var(--jv-line); border-radius: var(--ui-radius-md); background: var(--jv-field); font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); color: var(--jv-text); overflow-x: auto; user-select: text; }
+.jv-storage-actions { display: flex; align-items: center; gap: var(--ui-space-12); flex-wrap: wrap; }
+.jv-storage-actions svg { width: 14px; height: 14px; }
+.jv-pool-bot-row { justify-content: space-between; gap: var(--ui-space-12); }
+.jv-files-snapshot-note { padding: var(--ui-space-8) var(--ui-space-16); border-bottom: 1px solid var(--ui-border-weak); background: var(--ui-bg-subtle); color: var(--ui-text-secondary); font-size: var(--ui-text-sm); line-height: var(--ui-leading-sm); }
+.jv-spin { animation: jv-spin 1s linear infinite; }
+@keyframes jv-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

@@ -1,5 +1,6 @@
 import type { Duplex } from "node:stream";
 import type { SandboxNodeInfo } from "../../../contract/device.js";
+import type { ComputerCapacity, ComputerUsage } from "../../../contract/environment.js";
 import type { CloudSync } from "../../infra/cloud/sync.js";
 import { COMPUTER_CWD } from "../../infra/env/docker.js";
 import type { DeviceLinks } from "../../infra/env/device-link.js";
@@ -254,6 +255,37 @@ export class ComputePool {
     if (!stats || stats.state !== "running") return null;
     if (stats.ip && stats.ip !== p.ip) p.ip = stats.ip;
     return new Map(stats.listening.map(item => [item.port, { loopbackOnly: item.loopbackOnly }]));
+  }
+
+  /** Live CPU/RAM usage for a Bot sandbox running on a remote compute node (A109). */
+  async usage(botId: string): Promise<ComputerUsage | null> {
+    const p = this.placement(botId);
+    if (!p || p.state !== "running") return null;
+    const stats = await this.deps.links.callRpc<StatsReply>(p.deviceId, "sandbox_stats", { container: p.container }, 15_000).catch(() => null);
+    if (!stats || stats.state !== "running") return null;
+    return { cpu: stats.cpu, memory: stats.memory };
+  }
+
+  /** Capacity of the compute node hosting `botId` (or the best online candidate node, A109). */
+  capacity(botId: string, preferredDeviceId?: string): ComputerCapacity | null {
+    const node = this.pickNode(botId, preferredDeviceId);
+    return node ? { cpus: node.sandbox.cpus, memory: node.sandbox.memory } : null;
+  }
+
+  /** Pushes workspace to S3, removes the ephemeral container on the compute node, and clears placement (A109). */
+  async reclaim(botId: string): Promise<boolean> {
+    return this.reset(botId);
+  }
+
+  /** Clears a stopped placement so changing preferred compute node takes effect on the next start (A109). */
+  clearStoppedPlacement(botId: string): void {
+    const p = this.placements.get(botId);
+    if (p && p.state !== "running") this.placements.delete(botId);
+  }
+
+  /** Hydrates local `/workspace` from last-synced S3 snapshot when offline browsing is requested (A109). */
+  async hydrateWorkspace(botId: string): Promise<void> {
+    await this.deps.cloud?.ensureLocalWorkspace(botId).catch(() => {});
   }
 
   async stop(botId: string): Promise<boolean> {

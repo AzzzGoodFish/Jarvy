@@ -16,10 +16,12 @@ import { copyToClipboard, renameSelectionEnd, sortEntries, splitBreadcrumbs, typ
 import { useFileUploads } from "./useFileUploads";
 
 /** Direct file browser & streaming transfer pane for one work environment (A104). */
-export function EnvironmentFiles({ environmentId, botId, availability, maximized, onToggleMaximize, onOpenTerminal, onSandboxStarted }: {
+export function EnvironmentFiles({ environmentId, botId, availability, offlineSnapshot = false, maximized, onToggleMaximize, onOpenTerminal, onSandboxStarted }: {
   environmentId: string;
   botId?: string;
   availability: TerminalAvailability;
+  /** True when viewing a container sandbox's `/workspace` while the sandbox itself is offline (A106, A109). */
+  offlineSnapshot?: boolean;
   maximized: boolean;
   onToggleMaximize: () => void;
   onOpenTerminal?: (path: string) => void;
@@ -314,6 +316,8 @@ export function EnvironmentFiles({ environmentId, botId, availability, maximized
         </button>
       </div>
     </div>
+
+    {offlineSnapshot && <div className="jv-files-snapshot-note" role="status">{t("envFiles.offlineSnapshot")}</div>}
 
     <FilesInlineBanners
       creatingDir={creatingDir} newDirName={newDirName} onNewDirChange={setNewDirName}

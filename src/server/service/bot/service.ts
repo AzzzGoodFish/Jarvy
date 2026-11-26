@@ -353,6 +353,20 @@ export class BotService {
     await this.computers.setLimits(id, limits);
     return this.describe(id);
   }
+  /** Sets or clears a container sandbox's preferred remote compute node (A109). */
+  async setComputerNode(id: string, deviceId: unknown) {
+    this.describe(id);
+    if (deviceId !== null && typeof deviceId !== "string") throw new ValidationError("deviceId must be a string or null");
+    await this.computers.setComputeNode(id, deviceId && deviceId.trim() ? deviceId.trim() : null);
+    return this.describe(id);
+  }
+  /** Flushes workspace to S3 and reclaims a Bot's remote ephemeral sandbox slot (A109). */
+  async reclaimComputer(id: string) {
+    this.describe(id);
+    await this.computers.reclaim(id);
+    this.ports.unpublishAll(id);
+    return this.describe(id);
+  }
   /** What the sandbox uses now, and this machine's size. */
   computerResources(id: string) { this.describe(id); return this.computers.resources(id); }
   describe(id: string) { return this.details(this.record(id)); }

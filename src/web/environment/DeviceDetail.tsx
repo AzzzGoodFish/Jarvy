@@ -8,6 +8,7 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { useAction } from "../action";
 import { BotGrants } from "../secrets/SecretGrants";
+import { GB, short } from "./amounts";
 import { MachineKeyLine } from "./MachineKey";
 
 const SHELLS: readonly (DeviceShell | "auto")[] = ["auto", "bash", "powershell"];
@@ -20,9 +21,12 @@ const shellName = (device: Device, shell: DeviceShell) => t(shell === "powershel
 
 /** One computer the desktop client connected (A96), on the Environments page Overview tab:
  * two-column layout with runtime configuration on the left and Bot grants + device details on the right. */
-export function DeviceDetail({ device, bots, onChanged, onDeleted }: { device: Device; bots: Bot[]; onChanged: (device: Device) => void; onDeleted: () => void }) {
+export function DeviceDetail({ device, bots, onChanged, onBotChanged, onDeleted }: { device: Device; bots: Bot[]; onChanged: (device: Device) => void; onBotChanged?: (bot: Bot) => void; onDeleted: () => void }) {
   const [name, setName] = useState(device.name), [directory, setDirectory] = useState(device.directory), [description, setDescription] = useState(device.description);
-  const [confirming, setConfirming] = useState(false), { busy, error, setError, run: act } = useAction<"save" | "shell" | "delete">();
+  const [confirming, setConfirming] = useState(false), [reclaimingId, setReclaimingId] = useState<string | null>(null);
+  const { busy, error, setError, run: act } = useAction<"save" | "shell" | "delete" | "reclaim">();
+  const hostedBots = bots.filter(b => b.environment.computer?.computeNode?.id === device.id);
+  const isComputeNode = Boolean(device.sandbox) || device.capabilities.includes("sandbox");
   const save = (event: FormEvent) => { event.preventDefault(); void act("save", async () => {
     const saved = await api.updateDevice(device.id, { name: name.trim(), directory: directory.trim(), description: description.trim() });
     onChanged(saved); setName(saved.name); setDirectory(saved.directory); setDescription(saved.description);
@@ -70,6 +74,37 @@ export function DeviceDetail({ device, bots, onChanged, onDeleted }: { device: D
         </div>
       </section>
 
+      {isComputeNode && <section aria-label={t("devices.poolSection")}>
+        <h3 className="jv-ov-heading">{t("devices.poolSection")}</h3>
+        <div className="jv-list jv-machine-detail">
+          {device.sandbox ? <>
+            <div className="jv-list-row jv-static-row jv-env-fact">
+              <span>{t("devices.poolSandboxes")}</span>
+              <code>{device.sandbox.activeContainers} / {device.sandbox.maxContainers}</code>
+            </div>
+            <div className="jv-list-row jv-static-row jv-env-fact">
+              <span>{t("devices.poolCapacity")}</span>
+              <span className="jv-env-value">{t("environment.limits.machine", { cpus: device.sandbox.cpus, memory: short(device.sandbox.memory / GB, 1) })}</span>
+            </div>
+            {device.sandbox.image && <div className="jv-list-row jv-static-row jv-env-fact">
+              <span>{t("environment.image")}</span>
+              <code>{device.sandbox.image}</code>
+            </div>}
+          </> : <div className="jv-list-row jv-static-row"><p className="jv-hint">{t("devices.poolOffline")}</p></div>}
+          {hostedBots.length > 0 ? hostedBots.map(bot => <div key={bot.id} className="jv-list-row jv-static-row jv-pool-bot-row">
+            <span className="jv-row-text"><strong>{t("envs.sandboxOf", { name: bot.name })}</strong>
+              <span className="jv-mono">{bot.environment.computer?.container}</span></span>
+            <Button type="button" variant="outline" size="sm" disabled={busy || reclaimingId === bot.id} onClick={() => {
+              setReclaimingId(bot.id);
+              void act("reclaim", async () => {
+                const updated = await api.reclaimComputer(bot.id);
+                onBotChanged?.(updated);
+              }).finally(() => setReclaimingId(null));
+            }}>{t(reclaimingId === bot.id ? "environment.reclaiming" : "environment.reclaim")}</Button>
+          </div>) : <div className="jv-list-row jv-static-row"><p className="jv-hint">{t("devices.poolEmpty")}</p></div>}
+        </div>
+      </section>}
+
       <section aria-label={t("envs.sectionDanger")}>
         <h3 className="jv-ov-heading">{t("envs.sectionDanger")}</h3>
         <div className="jv-list jv-machine-detail jv-ov-danger-card">
@@ -103,6 +138,8 @@ export function DeviceConnect() {
     <p className="jv-hint">{t("devices.connectHint")}</p>
     <h4 className="jv-secret-heading">{t("devices.connectCli")}</h4>
     <MachineKeyLine publicKey={`jarvy client start ${origin}`}/>
+    <h4 className="jv-secret-heading">{t("devices.connectComputeCli")}</h4>
+    <MachineKeyLine publicKey={`jarvy client start --sandbox ${origin}`}/>
     <h4 className="jv-secret-heading">{t("devices.connectWindows")}</h4>
     <MachineKeyLine publicKey={`curl.exe${insecure} -o connector.mjs ${url}; node connector.mjs ${origin}`}/>
     <h4 className="jv-secret-heading">{t("devices.connectOther")}</h4>

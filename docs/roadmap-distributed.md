@@ -103,9 +103,9 @@ Decouple Jarvy into three independent planes so a user can host the Jarvy platfo
 
 ---
 
-### Phase 4 — Observability, Multi-Node Scheduling & Failover UX
-- [ ] **Cloud Storage Status UI** (Settings → Storage): sync health, last flush timestamp, active lease epoch, manual sync/verify trigger.
-- [ ] **Compute Pool View** (Environments): online compute nodes, CPU/RAM utilization, active ephemeral sandboxes, pin/reclaim controls.
-- [ ] **Graceful Failover & Offline Workspace Browsing**:
-  - [ ] Preferred compute node per Bot with automatic fallback to another online node or Workspace-only mode when offline.
-  - [ ] Read-only browse/download of last-synced S3 workspace snapshot even when all compute nodes are offline.
+### Phase 4 — Observability, Multi-Node Scheduling & Failover UX (Completed)
+- [x] **Cloud Storage Status UI** (`Settings → Storage`, `GET /api/cloud/status`, `POST /api/cloud/sync`): sync health, bucket/prefix/endpoint, active lease epoch, DB revision, last flush timestamp, error banner, and manual sync trigger.
+- [x] **Compute Pool View** (`Environments`, `Device.sandbox`, `ComputerInfo.computeNode`): online compute nodes, CPU/RAM capacity & live remote sandbox usage, active ephemeral sandboxes, and per-sandbox slot reclamation (`POST /api/bots/:id/computer/reclaim`).
+- [x] **Graceful Failover & Offline Workspace Browsing**:
+  - [x] Preferred compute node per Bot (`PUT /api/bots/:id/computer/compute-node`, `SandboxComputeNode`) with automatic fallback to another online node or Workspace-only mode when offline.
+  - [x] Offline `/workspace` browse/download backed by on-demand S3 workspace hydration (`CloudSync.ensureLocalWorkspace`) with clear offline-snapshot indicator even when Docker and all compute nodes are offline.

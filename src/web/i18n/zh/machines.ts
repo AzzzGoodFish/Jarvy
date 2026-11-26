@@ -80,6 +80,7 @@ export const machines: Part<typeof en> = {
   "devices.kindDevice": "电脑",
   "devices.connectHint": "在要接入的电脑上，打开装有 Node 22 或更高版本的终端，运行下面的命令。首次运行时会核对 Jarvy 的证书指纹，并要求登录。",
   "devices.connectCli": "已安装 Jarvy CLI",
+  "devices.connectComputeCli": "作为沙箱算力节点接入（--sandbox）",
   "devices.connectWindows": "Windows（PowerShell）",
   "devices.connectOther": "macOS 和 Linux",
   "devices.connectAfter": "接入后会出现在环境列表中。授权给 Bot 后，Bot 才能使用这台电脑，且仅在命令运行期间可用。",
@@ -105,4 +106,10 @@ export const machines: Part<typeof en> = {
   "devices.platform.darwin": "macOS",
   "devices.platform.linux": "Linux",
   "devices.copied": "已复制",
+  "devices.computeNodeBadge": "算力池节点",
+  "devices.poolSection": "算力池状态",
+  "devices.poolSandboxes": "活跃沙箱",
+  "devices.poolCapacity": "节点算力",
+  "devices.poolOffline": "节点当前离线；远端沙箱会自动调度到其他在线算力节点。",
+  "devices.poolEmpty": "当前没有 Bot 沙箱运行在此算力节点上。",
 };
