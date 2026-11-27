@@ -2,6 +2,15 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.21.2 — 2026-11-27
+
+The database stays at v37 when upgrading from 0.21.0 or 0.21.1. A server restart ends open terminal sessions.
+
+### Fixed
+
+- **Phased, time-budgeted server shutdown and restart (A114).** Replaces the flat unbounded shutdown chain with a four-phase coordinator (Drain → Services → Network Drop → Storage & Lock/Lease Release) backed by a 20 s hard watchdog and double-signal escalation. In-flight HTTP responses (such as `202 Accepted` from **Settings → About** updates) and WebSocket `1001` close frames now flush cleanly before sockets are destroyed; a stalled Bot, remote environment, or S3 request can no longer block final cloud sync, cloud lease release, `.runtime.lock` cleanup, or systemd restarts.
+- **Default timeouts on S3 client requests and Bot session disposal.** Adds a 30 s default timeout on all S3 requests (with tighter shutdown budgets for final sync and unconditional lease release), bounds `PiSession.dispose()` idle waits, and immediately expires pending interactive question cards on server shutdown.
+
 ## 0.21.1 — 2026-11-27
 
 The database stays at v37 when upgrading from 0.21.0. A server restart ends open terminal sessions.
