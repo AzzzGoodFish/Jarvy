@@ -24,7 +24,7 @@ export interface ParsedChat { id: string; type: string; title?: string }
 export interface ParsedPerson { id: string; name: string; kind: string }
 export interface ParsedFile { name: string; type?: string; size?: string }
 export type ParsedItem =
-  | { kind: "message"; id: string; chat?: string; from?: string; at?: number; text: string; replyTo?: { text: string; from?: string }; files: ParsedFile[] }
+  | { kind: "message"; id: string; chat?: string; from?: string; at?: number; via?: string; env?: string; text: string; replyTo?: { text: string; from?: string }; files: ParsedFile[] }
   /** One of the Bot's scheduled tasks come due. */
   | { kind: "task"; name: string; schedule: string; due?: number; text: string }
   /** A mark on a message the Bot sent; `text` quotes the start of that message. */

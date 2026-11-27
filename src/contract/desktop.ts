@@ -14,4 +14,6 @@ export interface JarvyDesktop {
   setTheme?(mode: "light" | "dark", frame?: { background: string; symbol: string; height?: number }): void;
   /** The client asks the page to open a chat (a notification was chosen). */
   onOpenChat(listener: (chatId: string) => void): void;
+  /** The computer running this desktop client (A106): its paired device id (when registered) and OS platform; never exposes the token. */
+  client?(): { deviceId?: string; platform: string };
 }

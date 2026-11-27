@@ -21,7 +21,7 @@ export interface Trust {
 }
 export type Status =
   | { state: "connecting" }
-  | { state: "online"; name: string; working: string[] }
+  | { state: "online"; id?: string; name: string; working: string[] }
   | { state: "offline"; reason: string; retryIn: number }
   | { state: "unpaired" } | { state: "outdated"; protocol: number };
 
@@ -111,6 +111,7 @@ export class Connector {
   private paused = false;
   private wait = 1000;
   private timer: NodeJS.Timeout | null = null;
+  private id = "";
   private name = "";
   /** The daemon fetched last, checked again (without its body when unchanged) on every connection. */
   private program: { path: string; sha256: string } | undefined;
@@ -159,7 +160,7 @@ export class Connector {
       }
       let message: JarvyToDevice;
       try { message = JSON.parse(data.toString("utf8")) as JarvyToDevice; } catch { return; }
-      if (message.t === "welcome") { this.name = message.name; this.report(); }
+      if (message.t === "welcome") { this.id = message.id; this.name = message.name; this.report(); }
       else if (message.t === "error" && message.code === "protocol") { this.stopped = true; this.options.onStatus?.({ state: "outdated", protocol: message.protocol }); }
       else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "");
       else if (message.t === "pty_open") void this.runPty(message);
@@ -247,7 +248,7 @@ export class Connector {
   private send(message: DeviceToJarvy): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private report(): void {
     if (this.socket?.readyState !== WebSocket.OPEN || !this.name) return;
-    this.options.onStatus?.({ state: "online", name: this.name, working: [...new Set([...this.daemons.values()].map(entry => entry.bot).filter(Boolean))] });
+    this.options.onStatus?.({ state: "online", ...(this.id ? { id: this.id } : {}), name: this.name, working: [...new Set([...this.daemons.values()].map(entry => entry.bot).filter(Boolean))] });
   }
 }
 

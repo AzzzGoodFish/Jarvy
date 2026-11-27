@@ -45,6 +45,9 @@ function ipc(): void {
   ipcMain.on("jarvy:origin", event => { event.returnValue = origin(); });
   ipcMain.on("jarvy:version", event => { event.returnValue = JARVY_VERSION; });
   ipcMain.on("jarvy:frameless", event => { event.returnValue = event.sender === win?.webContents && frameless; });
+  ipcMain.on("jarvy:client", event => {
+    event.returnValue = { ...(config?.deviceId ? { deviceId: config.deviceId } : {}), platform: process.platform };
+  });
   ipcMain.on("setup:chinese", event => { event.returnValue = chinese(); });
   const fromPage = (event: Electron.IpcMainEvent) => !!origin() && event.senderFrame?.url.startsWith(`${origin()}/`) === true;
   ipcMain.on("jarvy:notify", (event, notice: { title: string; body: string; chatId: string }) => {
@@ -181,8 +184,8 @@ async function register(again: boolean): Promise<void> {
     const created = await ses.fetch(`${server}/api/environments/devices`, { method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json", Origin: new URL(server).origin }, body: JSON.stringify({ name: hostname() }) });
     if (created.status !== 201) throw new Error(`HTTP ${created.status}: ${(await created.text()).slice(0, 200)}`);
-    const { token } = await created.json() as { token: string };
-    config = { ...config, token: seal(token) };
+    const { device, token } = await created.json() as { device?: { id?: string }; token: string };
+    config = { ...config, token: seal(token), ...(device?.id ? { deviceId: device.id } : {}) };
     await save(config);
     if (Notification.isSupported()) new Notification({ title: say("registered"), body: say("registeredBody"), icon: ICON }).show();
     connect(token);
@@ -197,7 +200,10 @@ function connect(token: string): void {
     client: `desktop-${JARVY_VERSION}`, capabilities: [], log: text => console.error(text),
     onStatus: next => {
       report(next);
-      if (next.state === "unpaired") { config = { ...config!, token: undefined }; void save(config); connector = null; }
+      if (next.state === "online" && next.id && config && config.deviceId !== next.id) {
+        config = { ...config, deviceId: next.id }; void save(config);
+      }
+      if (next.state === "unpaired") { config = { ...config!, token: undefined, deviceId: undefined }; void save(config); connector = null; }
     } });
   if (paused) connector.setPaused(true);
   connector.start();
