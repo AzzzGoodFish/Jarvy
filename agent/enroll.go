@@ -174,7 +174,24 @@ func loginWithPassword(server, expectedFP, deviceName string) (*DeviceConfig, er
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	rawLogin, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		var loginErr struct {
+			Code string `json:"code"`
+		}
+		if json.Unmarshal(rawLogin, &loginErr) == nil && loginErr.Code == "totp_required" {
+			fmt.Print("2FA code (or recovery code): ")
+			totp, _ := reader.ReadString('\n')
+			totp = strings.TrimSpace(totp)
+			loginBody, _ = json.Marshal(map[string]string{"username": username, "password": password, "totp": totp})
+			resp, err = client.Post(server+"/api/login", "application/json", bytes.NewReader(loginBody))
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+		}
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("sign-in failed (HTTP %d)", resp.StatusCode)
 	}

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import type { ApiEnv, ApiServices } from "./context.js";
-import { headers, apiSecurity } from "./middleware/security.js";
+import { createSecurityHeaders, apiSecurity } from "./middleware/security.js";
 import { handleError } from "./middleware/errors.js";
 import { installAuthentication } from "./routes/account.js";
 import { botRoutes } from "./routes/bots.js";
@@ -22,15 +22,20 @@ import { terminalRoutes } from "./routes/terminals.js";
 import { portRoutes } from "./routes/ports.js";
 import { usageRoutes } from "./routes/usage.js";
 
-export function createHttpApp(services: ApiServices, webRoot: string) {
+export interface HttpAppOptions {
+  /** Disable serving the web frontend static assets (`--no-web`, A112) to minimize public attack surface. */
+  noWeb?: boolean;
+}
+
+export function createHttpApp(services: ApiServices, webRoot: string | null, options: HttpAppOptions = {}) {
   const app = new Hono<ApiEnv>();
-  app.use("*", headers);
+  app.use("*", createSecurityHeaders(() => services.connection.allowHttp()));
   app.onError(handleError);
 
   const api = new Hono<ApiEnv>();
   api.use("*", apiSecurity);
-  api.route("/", rootCertificateRoute(services.connection));
-  api.route("/", deviceDaemonRoute(services.bots));
+  api.route("/", rootCertificateRoute(services.connection, services.account));
+  api.route("/", deviceDaemonRoute(services.bots, services.account));
   api.route("/", connectorCallbackRoute(services.connectors));
   installAuthentication(api, services.account);
   api.route("/", taskRoutes(services));
@@ -52,6 +57,12 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   api.route("/terminals", terminalRoutes(services.terminals));
   api.all("*", () => { throw new HTTPException(404, { message: "API route not found" }); });
   app.route("/api", api);
+
+  if (options.noWeb || !webRoot) {
+    // Headless API-only mode: return minimal 404 without HTML or Jarvy fingerprint.
+    app.all("*", c => c.text("Not Found", 404));
+    return app;
+  }
 
   app.get("*", serveStatic({ root: webRoot, onFound: (path, c) => {
     c.header("Cache-Control", path.endsWith("index.html") ? "no-store" : "public, max-age=3600");

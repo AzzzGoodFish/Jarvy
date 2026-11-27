@@ -2,10 +2,17 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
+import { IpRateLimiter, rateLimitMiddleware } from "../middleware/rate-limit.js";
 
-/** The root certificate is public, so devices can fetch it before signing in (A51). */
-export function rootCertificateRoute(connection: ApiServices["connection"]) {
+/** The root certificate is public, so devices can fetch it before signing in (A51), rate-limited against floods (A112). */
+export function rootCertificateRoute(connection: ApiServices["connection"], account?: ApiServices["account"]) {
   const routes = new Hono<ApiEnv>();
+  const limiter = new IpRateLimiter({ maxPerWindow: 30, windowMs: 60_000, burst: 15 });
+  routes.use("/connection/root.crt", rateLimitMiddleware(
+    limiter,
+    () => account?.runtimeSecurityFlags().trustProxy ?? false,
+    (ip, path) => account?.audit("rate_limited", ip, `GET ${path}`),
+  ));
   routes.get("/connection/root.crt", c => {
     const der = connection.rootCertificate();
     if (!der) throw new HTTPException(404, { message: "Jarvy serves HTTPS only when it listens beyond this machine" });

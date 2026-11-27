@@ -223,6 +223,7 @@ s.on("error",()=>process.exit(1));s.on("close",()=>process.exit(0));process.stdi
 export class DeviceLinks {
   private readonly server = new WebSocketServer({ noServer: true, maxPayload: 64 * 2 ** 20 });
   private readonly links = new Map<string, Link>();
+  private readonly wsAuthFails = new Map<string, { fails: number[]; blockedUntil: number }>();
   private readonly folder = mkdtempSync(join(tmpdir(), "jarvy-devices-"));
   private readonly path = join(this.folder, "relay.sock");
   private readonly key = randomBytes(16).toString("hex");
@@ -280,11 +281,32 @@ export class DeviceLinks {
     return link.openPty(options);
   }
 
-  upgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean {
+  upgrade(request: IncomingMessage, socket: Duplex, head: Buffer, remoteIp?: string, onAuthFailed?: (ip: string, reason: string) => void): boolean {
     if (new URL(request.url ?? "/", "http://jarvy").pathname !== DEVICE_PATH) return false;
+    const ip = (remoteIp ?? request.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, "");
+    const now = Date.now();
+    const record = this.wsAuthFails.get(ip);
+    if (record && record.blockedUntil > now) {
+      onAuthFailed?.(ip, "ws_rate_limited");
+      socket.end("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return true;
+    }
     const auth = /^Device\s+(\S+)$/.exec(request.headers.authorization ?? "")?.[1];
     const device = auth ? this.hooks.authenticate(tokenHash(auth)) : null;
-    if (!device) { socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"); return true; }
+    if (!device) {
+      const fails = (record?.fails ?? []).filter(ts => now - ts < 5 * 60_000);
+      fails.push(now);
+      const blockedUntil = fails.length >= 15 ? now + 15 * 60_000 : 0;
+      if (this.wsAuthFails.size >= 4000) {
+        const oldest = this.wsAuthFails.keys().next().value;
+        if (oldest !== undefined) this.wsAuthFails.delete(oldest);
+      }
+      this.wsAuthFails.set(ip, { fails, blockedUntil });
+      onAuthFailed?.(ip, blockedUntil > now ? "ws_auth_blocked" : "ws_auth_failed");
+      socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return true;
+    }
+    if (record) this.wsAuthFails.delete(ip);
     this.server.handleUpgrade(request, socket, head, ws => this.accept(device, ws));
     return true;
   }

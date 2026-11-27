@@ -1,0 +1,73 @@
+.jv-sec-qr-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-16);
+  align-items: center;
+  margin: var(--ui-space-8) 0;
+}
+.jv-sec-qr {
+  width: 176px;
+  height: 176px;
+  border-radius: var(--ui-radius-md);
+  border: 1px solid var(--ui-border-default);
+  background: #fff;
+  padding: 6px;
+}
+.jv-sec-setup-meta {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-8);
+}
+.jv-sec-secret {
+  display: block;
+  padding: var(--ui-space-8) var(--ui-space-10);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-subtle);
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-text-sm);
+  letter-spacing: 0.08em;
+  word-break: break-all;
+}
+.jv-sec-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-10);
+  margin-top: var(--ui-space-8);
+}
+.jv-sec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-space-8);
+}
+.jv-sec-recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--ui-space-6);
+  margin: var(--ui-space-8) 0;
+}
+.jv-sec-recovery-grid code {
+  padding: var(--ui-space-6) var(--ui-space-8);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-subtle);
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-text-sm);
+  text-align: center;
+}
+.jv-sec-event-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--ui-space-8);
+  font-size: var(--ui-text-sm);
+}
+.jv-sec-event-kind {
+  font-family: var(--ui-font-mono);
+  font-weight: 500;
+}
+.jv-sec-event-meta {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-text-xs);
+}

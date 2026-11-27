@@ -63,6 +63,24 @@ export class DevicePairingStore {
     return true;
   }
 
+  /** Non-destructive validation used to gate installer/binary downloads before `/enroll` burns the token (A112). */
+  verifyActive(rawToken: unknown, remoteIp: string): boolean {
+    this.prune();
+    this.assertRateLimit(remoteIp);
+    const token = typeof rawToken === "string" ? rawToken.trim() : "";
+    if (!token.startsWith(TOKEN_PREFIX) || token.length < TOKEN_PREFIX.length + 16) {
+      this.recordFailure(remoteIp);
+      return false;
+    }
+    const entry = this.byHash.get(sha256(token));
+    if (!entry || entry.expiresAt <= Date.now()) {
+      if (entry) this.delete(entry);
+      this.recordFailure(remoteIp);
+      return false;
+    }
+    return true;
+  }
+
   redeem(rawToken: unknown, remoteIp: string): { name: string } {
     this.prune();
     this.assertRateLimit(remoteIp);
@@ -143,10 +161,12 @@ export function renderInstallSh(): string {
 set -eu
 
 SERVER=""
+TOKEN=""
 FINGERPRINT=""
 for arg in "$@"; do
   case "$arg" in
     --server=*) SERVER="\${arg#--server=}" ;;
+    --token=*) TOKEN="\${arg#--token=}" ;;
     --fingerprint=*) FINGERPRINT="\${arg#--fingerprint=}" ;;
   esac
 done
@@ -154,6 +174,13 @@ if [ -z "$SERVER" ]; then
   PREV=""
   for arg in "$@"; do
     if [ "$PREV" = "--server" ]; then SERVER="$arg"; break; fi
+    PREV="$arg"
+  done
+fi
+if [ -z "$TOKEN" ]; then
+  PREV=""
+  for arg in "$@"; do
+    if [ "$PREV" = "--token" ]; then TOKEN="$arg"; break; fi
     PREV="$arg"
   done
 fi
@@ -207,7 +234,9 @@ case "$SERVER" in
 esac
 
 echo "Downloading jarvy-agent (\${PLATFORM}/\${ARCH}) -> \${DEST}..."
-curl $CURL_FLAGS "\${SERVER}/api/devices/agent?platform=\${PLATFORM}&arch=\${ARCH}" -o "$TMP"
+TOKEN_QS=""
+if [ -n "$TOKEN" ]; then TOKEN_QS="&token=\${TOKEN}"; fi
+curl $CURL_FLAGS "\${SERVER}/api/devices/agent?platform=\${PLATFORM}&arch=\${ARCH}\${TOKEN_QS}" -o "$TMP"
 chmod 755 "$TMP"
 mv -f "$TMP" "$DEST"
 
@@ -238,7 +267,7 @@ $Tmp = "$Dest.part"
 $CurlArgs = @("-fsSL")
 if ($Server.StartsWith("https://") -and $Fingerprint) { $CurlArgs = @("-kfsSL") }
 Write-Host "Downloading jarvy-agent (win32/x64) -> $Dest..."
-& curl.exe @CurlArgs "$Server/api/devices/agent?platform=win32&arch=x64" -o $Tmp
+& curl.exe @CurlArgs "$Server/api/devices/agent?platform=win32&arch=x64&token=$Token" -o $Tmp
 Move-Item -Force $Tmp $Dest
 
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")

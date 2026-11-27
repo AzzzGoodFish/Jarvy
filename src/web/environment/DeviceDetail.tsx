@@ -200,15 +200,16 @@ export function DeviceConnect({ mode }: { mode: "compute" | "host" }) {
   };
 
   const curlFlag = origin.startsWith("https:") && pairing?.fingerprint ? "-kfsSL" : "-fsSL";
+  const tokenQuery = pairing ? `?token=${encodeURIComponent(pairing.token)}` : "";
   const shParts = [
-    `curl ${curlFlag} ${origin}/api/devices/install.sh | sh -s --`,
+    `curl ${curlFlag} "${origin}/api/devices/install.sh${tokenQuery}" | sh -s --`,
     `--server ${origin}`,
     pairing ? `--token ${pairing.token}` : "",
     pairing?.fingerprint ? `--fingerprint ${pairing.fingerprint}` : "",
     pairing?.name ? `--name ${shQuote(pairing.name)}` : "",
   ].filter(Boolean).join(" ");
   const psParts = [
-    `& ([scriptblock]::Create((curl.exe ${curlFlag} ${origin}/api/devices/install.ps1)))`,
+    `& ([scriptblock]::Create((curl.exe ${curlFlag} "${origin}/api/devices/install.ps1${tokenQuery}")))`,
     `-Server ${origin}`,
     pairing ? `-Token ${pairing.token}` : "",
     pairing?.fingerprint ? `-Fingerprint ${pairing.fingerprint}` : "",

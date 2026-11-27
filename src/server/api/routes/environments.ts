@@ -1,8 +1,11 @@
 import { Readable } from "node:stream";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { getCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
+import { clientIp, IpRateLimiter } from "../middleware/rate-limit.js";
+import { sessionCookieName } from "./account.js";
 import { messageView } from "../views/chat.js";
 import type { HostKeys } from "../../../contract/environment.js";
 import { renderInstallPs1, renderInstallSh } from "../../service/bot/device-pairing.js";
@@ -97,11 +100,39 @@ function hostKeys(value: unknown): HostKeys {
   return { keys: keys.keys, fingerprints: keys.fingerprints };
 }
 
+/** Checks whether a request is authorized to download device installers/binaries: owner session cookie, registered
+ * `Authorization: Device <token>`, or an active one-time pairing token (`?token=` / `X-Pairing-Token`) (A112). */
+function assertDeviceDownloadAccess(c: Context<ApiEnv>, bots: ApiServices["bots"], account: ApiServices["account"], ip: string): void {
+  const isTls = !!(c.env.incoming.socket as { encrypted?: boolean }).encrypted;
+  const sessionToken = getCookie(c, sessionCookieName(account.instance, isTls));
+  if (account.authenticated(sessionToken)) return;
+  const deviceToken = /^Device\s+(\S+)$/.exec(c.req.header("authorization") ?? "")?.[1];
+  if (bots.devices.hasDeviceToken(deviceToken)) return;
+  const pairingToken = c.req.query("token") ?? c.req.header("x-pairing-token");
+  if (pairingToken && bots.devices.hasValidPairingToken(pairingToken, ip)) return;
+  account.audit("download_denied", ip, `GET ${c.req.path}`);
+  throw new HTTPException(403, { message: "Valid session, device token, or active pairing token required" });
+}
+
 /** The pi-env daemon for a computer's system, which its client runs (A96): asked for with the computer's own token,
  * before any sign-in, so it sits outside the session check. */
-export function deviceDaemonRoute(bots: ApiServices["bots"]) {
+export function deviceDaemonRoute(bots: ApiServices["bots"], account: ApiServices["account"]) {
   const routes = new Hono<ApiEnv>();
+  const downloadLimiter = new IpRateLimiter({ maxPerWindow: 20, windowMs: 60_000, burst: 10 });
+  const enrollLimiter = new IpRateLimiter({ maxPerWindow: 15, windowMs: 60_000, burst: 8 });
+  const checkLimit = (c: Context<ApiEnv>, limiter: IpRateLimiter) => {
+    const ip = clientIp(c, account.runtimeSecurityFlags().trustProxy);
+    const retry = limiter.take(ip);
+    if (retry > 0) {
+      c.header("Retry-After", String(retry));
+      account.audit("rate_limited", ip, `${c.req.method} ${c.req.path}`);
+      throw new HTTPException(429, { message: "Too many requests; try again later" });
+    }
+    return ip;
+  };
+
   routes.get("/devices/daemon", c => {
+    checkLimit(c, downloadLimiter);
     const token = /^Device\s+(\S+)$/.exec(c.req.header("authorization") ?? "")?.[1];
     const { open, sha256, size } = bots.devices.daemon(token, c.req.query("platform") ?? "", c.req.query("arch") ?? "");
     // A client that has this one already (it reconnects often) gets no body.
@@ -109,20 +140,31 @@ export function deviceDaemonRoute(bots: ApiServices["bots"]) {
     return new Response(Readable.toWeb(Readable.from(open())) as ReadableStream, { headers: { "Content-Type": "application/octet-stream",
       "Content-Length": String(size), "X-Daemon-Sha256": sha256, ETag: `"${sha256}"`, "Cache-Control": "no-store" } });
   });
-  /** The command-line client, for a computer to connect itself with `node connector.mjs <address>`. */
+  /** The command-line client, for a computer to connect itself with `node connector.mjs <address>` (gated in A112). */
   routes.get("/devices/connector.mjs", c => {
+    const ip = checkLimit(c, downloadLimiter);
+    assertDeviceDownloadAccess(c, bots, account, ip);
     const script = bots.devices.connector();
     if (!script) throw new HTTPException(404, { message: "The connector is built with npm run build" });
     return c.body(new Uint8Array(script), 200, { "Content-Type": "text/javascript; charset=utf-8", "Content-Disposition": 'attachment; filename="connector.mjs"', "Cache-Control": "no-store" });
   });
   /** Redeems a short-lived single-use pairing token to enroll a remote computer without owner password (A111). */
   routes.post("/devices/enroll", jsonBody, async c => {
+    const ip = checkLimit(c, enrollLimiter);
     const input = await readJson(c);
-    const ip = c.env.incoming.socket.remoteAddress ?? "unknown";
-    return c.json(bots.devices.enroll({ token: input.token, name: input.name }, ip), 201);
+    try {
+      const enrolled = bots.devices.enroll({ token: input.token, name: input.name }, ip);
+      account.audit("device_enrolled", ip, `name=${enrolled.device.name}`);
+      return c.json(enrolled, 201);
+    } catch (error) {
+      account.audit("enroll_failed", ip, error instanceof Error ? error.message : "invalid token");
+      throw error;
+    }
   });
-  /** Native zero-Node `jarvy-agent` binary download (A111). */
+  /** Native zero-Node `jarvy-agent` binary download (A111, gated in A112). */
   routes.get("/devices/agent", c => {
+    const ip = checkLimit(c, downloadLimiter);
+    assertDeviceDownloadAccess(c, bots, account, ip);
     const { open, filename, size } = bots.devices.agentBinary(c.req.query("platform") ?? "", c.req.query("arch") ?? "");
     return new Response(Readable.toWeb(Readable.from(open())) as ReadableStream, {
       headers: {
@@ -133,8 +175,16 @@ export function deviceDaemonRoute(bots: ApiServices["bots"]) {
       },
     });
   });
-  /** One-line installer scripts for Linux/macOS (`install.sh`) and Windows (`install.ps1`) (A111). */
-  routes.get("/devices/install.sh", c => c.body(renderInstallSh(), 200, { "Content-Type": "text/x-shellscript; charset=utf-8", "Cache-Control": "no-store" }));
-  routes.get("/devices/install.ps1", c => c.body(renderInstallPs1(), 200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }));
+  /** One-line installer scripts for Linux/macOS (`install.sh`) and Windows (`install.ps1`) (A111, gated in A112). */
+  routes.get("/devices/install.sh", c => {
+    const ip = checkLimit(c, downloadLimiter);
+    assertDeviceDownloadAccess(c, bots, account, ip);
+    return c.body(renderInstallSh(), 200, { "Content-Type": "text/x-shellscript; charset=utf-8", "Cache-Control": "no-store" });
+  });
+  routes.get("/devices/install.ps1", c => {
+    const ip = checkLimit(c, downloadLimiter);
+    assertDeviceDownloadAccess(c, bots, account, ip);
+    return c.body(renderInstallPs1(), 200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+  });
   return routes;
 }

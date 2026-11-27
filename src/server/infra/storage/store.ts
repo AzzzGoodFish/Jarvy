@@ -16,6 +16,7 @@ import { SecretRepository } from "./secret-repository.js";
 import { TaskRepository } from "./task-repository.js";
 import { PortRepository } from "./port-repository.js";
 import { ConnectorRepository } from "./connector-repository.js";
+import { SecurityRepository } from "./security-repository.js";
 import { Cipher } from "../vault/cipher.js";
 import { masterKey } from "../vault/master-key.js";
 
@@ -44,6 +45,8 @@ export class Store {
   readonly secrets: SecretRepository;
   /** External service connectors (A102). */
   readonly connectors: ConnectorRepository;
+  /** Login throttling and security audit events (A112). */
+  readonly security: SecurityRepository;
   /** Seals secrets and model credentials under the master key (A52). */
   readonly cipher: Cipher;
 
@@ -71,6 +74,7 @@ export class Store {
     this.ports = new PortRepository(this.db);
     this.secrets = new SecretRepository(this.db, this.cipher, ownerId);
     this.connectors = new ConnectorRepository(this.db, this.cipher, ownerId);
+    this.security = new SecurityRepository(this.db);
     this.agent.ensure();
   }
 

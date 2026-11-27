@@ -60,9 +60,17 @@ export async function pairClient(dir: string, serverInput: string, name?: string
     }
     const username = (await ask.line("Jarvy username: ")).trim();
     const password = await ask.hidden("Password: ");
+    let login = await call(server, trust, "POST", "/api/login", { body: JSON.stringify({ username, password }) });
+    if (login.status === 401) {
+      let code: string | undefined;
+      try { code = (JSON.parse(login.body.toString()) as { code?: string }).code; } catch { /* ignore */ }
+      if (code === "totp_required") {
+        const totp = (await ask.line("2FA code (or recovery code): ")).trim();
+        login = await call(server, trust, "POST", "/api/login", { body: JSON.stringify({ username, password, totp }) });
+      }
+    }
     ask.close();
-    const login = await call(server, trust, "POST", "/api/login", { body: JSON.stringify({ username, password }) });
-    if (login.status !== 200) throw new Error(login.status === 401 ? "Wrong username or password" : `Sign-in failed (${login.status})`);
+    if (login.status !== 200) throw new Error(login.status === 401 ? "Wrong username, password, or 2FA code" : `Sign-in failed (${login.status})`);
     const cookie = ([] as string[]).concat(login.headers["set-cookie"] ?? []).map(line => line.split(";")[0]).join("; ");
     const created = await call(server, trust, "POST", "/api/environments/devices", { headers: { Cookie: cookie }, body: JSON.stringify({ name: deviceName }) });
     if (created.status !== 201) throw new Error(`Couldn't register this computer (${created.status}): ${created.body.toString().slice(0, 200)}`);

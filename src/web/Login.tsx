@@ -7,6 +7,8 @@ import type { Key } from "./i18n/keys";
 export function Login({ onLogin }: { onLogin: (username: string) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [totp, setTotp] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   // A key, not text: switching the language here re-renders the message too.
@@ -16,10 +18,18 @@ export function Login({ onLogin }: { onLogin: (username: string) => void }) {
     event.preventDefault(); if (loading) return;
     setLoading(true); setError(null);
     try {
-      const result = await api.login(username.trim(), password);
-      setPassword(""); onLogin(result.username);
+      const result = await api.login(username.trim(), password, needsTotp ? totp.trim() : undefined);
+      setPassword(""); setTotp(""); onLogin(result.username);
     } catch (reason) {
-      setError(reason instanceof ApiError && reason.status === 401 ? "login.wrong" : reason instanceof ApiError && reason.status === 429 ? "login.tooMany" : "login.offline");
+      if (reason instanceof ApiError && reason.status === 401 && reason.code === "totp_required") {
+        setNeedsTotp(true);
+        setError(null);
+      } else if (reason instanceof ApiError && reason.status === 401 && reason.code === "totp_invalid") {
+        setNeedsTotp(true);
+        setError("login.totpInvalid");
+      } else {
+        setError(reason instanceof ApiError && reason.status === 401 ? "login.wrong" : reason instanceof ApiError && reason.status === 429 ? "login.tooMany" : "login.offline");
+      }
     } finally { setLoading(false); }
   }
   return <div className="jv-login">
@@ -37,11 +47,13 @@ export function Login({ onLogin }: { onLogin: (username: string) => void }) {
       <header className="jv-login-brand"><img className="jv-login-logo" src="/icon.svg" alt="" width={64} height={64}/><h1>Jarvy</h1><p>{t("login.subtitle")}</p></header>
       <form className="jv-login-form" onSubmit={event => void submit(event)} aria-label={t("login.form")} aria-busy={loading}>
         <div className="jv-login-field"><label htmlFor="login-username">{t("login.username")}</label>
-          <input id="login-username" autoComplete="username" autoFocus required disabled={loading} value={username} onChange={event => setUsername(event.target.value)}/></div>
+          <input id="login-username" autoComplete="username" autoFocus={!needsTotp} required disabled={loading} value={username} onChange={event => setUsername(event.target.value)}/></div>
         <div className="jv-login-field"><label htmlFor="login-password">{t("login.password")}</label><div className="jv-login-password">
           <input id="login-password" type={visible ? "text" : "password"} autoComplete="current-password" required disabled={loading} value={password} onChange={event => setPassword(event.target.value)}/>
           <button type="button" className="jv-login-visibility" aria-label={t(visible ? "login.hidePassword" : "login.showPassword")} onClick={() => setVisible(!visible)}><Icon name={visible ? "eye-slash" : "eye"}/></button>
         </div></div>
+        {needsTotp && <div className="jv-login-field"><label htmlFor="login-totp">{t("login.totp")}</label>
+          <input id="login-totp" autoComplete="one-time-code" autoFocus required disabled={loading} placeholder={t("login.totpPlaceholder")} value={totp} onChange={event => setTotp(event.target.value)}/></div>}
         {error && <p className="jv-login-error" role="alert">{t(error)}</p>}
         <button className="jv-login-submit" type="submit" disabled={loading}>{t(loading ? "login.submitting" : "login.submit")}</button>
       </form>
