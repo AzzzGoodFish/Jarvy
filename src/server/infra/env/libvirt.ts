@@ -6,7 +6,11 @@ import { join } from "node:path";
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import type { VmProblemReason } from "../../../contract/environment.js";
-import type { Capacity, ContainerState } from "./docker.js";
+
+/** Standalone copies of Capacity and ContainerState so `src/connect/vm-host.ts` (and the Electron desktop client
+ * type-check) never transitively pull in `docker.ts` or `@earendil-works/pi-env`. */
+export type ContainerState = "running" | "stopped" | "missing";
+export interface Capacity { cpus: number; memory: number }
 
 /** System VM sandboxes (A101): full Linux virtual machines managed through libvirt (`qemu:///system`), each with a
  * thin-provisioned qcow2 OS disk (backed by a shared template), a dedicated qcow2 `/workspace` disk, and an isolated
