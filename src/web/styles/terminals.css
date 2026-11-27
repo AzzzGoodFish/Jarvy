@@ -175,10 +175,12 @@
  * rendering and any LRU WebGL eviction avoids synchronous DomRenderer layout reflows. */
 .jv-term-stage[data-inactive] { display: none; }
 
-/* xterm.js handles terminal selection internally; keep container padding unselectable so only terminal text selects. */
-.jv-term-canvas { flex: 1; min-width: 0; min-height: 0; padding: var(--ui-space-8) var(--ui-space-12); overflow: hidden; user-select: none; -webkit-user-select: none; }
-.jv-term-canvas .xterm { height: 100%; }
-.jv-term-canvas .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--ui-border-default) transparent; }
+/* xterm.js handles terminal selection internally; keep outer padding unselectable while mounting xterm inside
+ * a zero-padding inner box so FitAddon's border-box height calculation never over-allocates a clipped bottom row. */
+.jv-term-canvas { display: flex; flex: 1; min-width: 0; min-height: 0; padding: var(--ui-space-8) var(--ui-space-12); overflow: hidden; user-select: none; -webkit-user-select: none; }
+.jv-term-mount { flex: 1; min-width: 0; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
+.jv-term-mount .xterm { height: 100%; }
+.jv-term-mount .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--ui-border-default) transparent; }
 
 .jv-term-overlay {
   position: absolute; top: var(--ui-space-12); right: var(--ui-space-12); display: inline-flex; align-items: center; gap: var(--ui-space-8);
