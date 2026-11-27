@@ -16,6 +16,7 @@ import { CredentialCoordinator } from "./infra/credentials/coordinator.js";
 import { BotService } from "./service/bot/service.js";
 import { ConnectionService } from "./service/connection.js";
 import { CloudService } from "./service/cloud.js";
+import { UpdateService } from "./service/update.js";
 import { SecretService } from "./service/secrets.js";
 import { ConnectorService } from "./service/connectors.js";
 import { createConnectorRegistry } from "./infra/connectors/registry.js";
@@ -55,10 +56,13 @@ export class Application {
   readonly cloud: CloudSync | null;
   /** Cloud storage observability & manual sync service for Settings → Storage (A109). */
   readonly storage: CloudService;
+  /** Release checker & safe flush-and-restart service (A113). */
+  readonly update: UpdateService;
   private closing?: Promise<void>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, cloud: CloudSync | null, factory?: SessionFactory) {
     this.cloud = cloud;
     this.storage = new CloudService(cloud);
+    this.update = new UpdateService();
     // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
     this.deliveries = new Deliveries(store.chats.inbox, {
       bot: (id, urgency) => this.bots.deliver(id, urgency), user: id => { if (id === this.user.id) this.user.deliver(); } });
@@ -135,10 +139,10 @@ export class Application {
     }
   }
   cloudStatus(): CloudSyncStatus { return this.cloud ? this.cloud.status() : { enabled: false }; }
-  start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); }
+  start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); this.update.start(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
-      this.tasks.stop(); this.models.stopCatalog(); this.terminals.closeAll(); this.envFiles.closeAll(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close();
+      this.update.stop(); this.tasks.stop(); this.models.stopCatalog(); this.terminals.closeAll(); this.envFiles.closeAll(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close();
       await this.cloud?.close();
       this.store.close(); await this.release();
     })();

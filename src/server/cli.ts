@@ -15,6 +15,7 @@ import {
   defaultClientConfigDir, ensureClientPaired, loadClientConfig, pairClient, removeClientConfig, runClientForeground,
 } from "../connect/client-cli.js";
 import { loadServerCloud, runServerBackup, runServerRestore } from "./cli-cloud.js";
+import { respawnServerAfterShutdown, runClientUpdate, runServerUpdate } from "./cli-update.js";
 import { cloudConfigPath } from "./infra/cloud/config.js";
 
 const SERVER_PID = "jarvy.pid";
@@ -142,6 +143,7 @@ function printRootHelp(): void {
     "  jarvy server backup  [--data-dir <path>] [--storage <s3://...>]  Run an on-demand encrypted backup to S3",
     "  jarvy server restore --storage <s3://...> --recovery-key <key>   Restore data & master key from S3",
     "  jarvy server reset-2fa [--data-dir <path>]                       Disable 2FA locally (recovery escape hatch)",
+    "  jarvy server update  [--data-dir <path>] [--check]               Check for or install the latest Jarvy release",
     "",
     "Client commands (remote device / compute node):",
     "  jarvy client login   <server-url> [--name <name>] [--config-dir <path>]",
@@ -153,6 +155,7 @@ function printRootHelp(): void {
     "                                                                   Run the client in the foreground",
     "  jarvy client status  [--config-dir <path>]                       Show client status",
     "  jarvy client logout  [--config-dir <path>]                       Stop client and remove saved pairing",
+    "  jarvy client update  [--config-dir <path>] [--check]             Check for or install the latest client release",
     "",
     "Run `jarvy server --help` or `jarvy client --help` for details.",
   ].join("\n"));
@@ -193,12 +196,13 @@ async function handleServer(args: string[]): Promise<void> {
     ].join("\n"));
     return;
   }
-  if (!["init", "start", "stop", "run", "status", "backup", "restore", "reset-2fa"].includes(action)) throw new Error(`Unknown server command: ${action}`);
+  if (!["init", "start", "stop", "run", "status", "backup", "restore", "reset-2fa", "update"].includes(action)) throw new Error(`Unknown server command: ${action}`);
   const dir = option(rest, "--data-dir", defaultDataDir());
   const dataFlag = dir === defaultDataDir() ? "" : ` --data-dir ${dir}`;
 
   if (action === "backup") return runServerBackup(dir, rest, SERVER_PID);
   if (action === "restore") return runServerRestore(dir, rest, SERVER_PID);
+  if (action === "update") return runServerUpdate(dir, rest, SERVER_PID);
   if (action === "reset-2fa") {
     const running = runningDaemon(dir, SERVER_PID);
     if (running) throw new Error(`Stop the running Jarvy server first (pid ${running.pid}): jarvy server stop${dataFlag}`);
@@ -306,18 +310,23 @@ async function handleServer(args: string[]): Promise<void> {
     if (notes.warning) console.warn(notes.warning);
     signalDaemonReady({ url });
     let shuttingDown = false;
-    const shutdown = () => {
+    const shutdown = (restart = false) => {
       if (shuttingDown) return;
       shuttingDown = true;
       server.close();
       localWeb?.close();
       published.close();
-      void app.close().then(() => { removePidFile(dir, SERVER_PID); console.log("Jarvy server stopped."); })
+      void app.close().then(() => {
+        removePidFile(dir, SERVER_PID);
+        console.log(restart ? "Jarvy server stopped for update; restarting..." : "Jarvy server stopped.");
+        if (restart) respawnServerAfterShutdown();
+      })
         .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; })
         .finally(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 500).unref(); });
     };
-    process.once("SIGINT", shutdown);
-    process.once("SIGTERM", shutdown);
+    app.update.setRestartHandler(() => shutdown(true));
+    process.once("SIGINT", () => shutdown(false));
+    process.once("SIGTERM", () => shutdown(false));
   } catch (error) {
     await app.close();
     throw error;
@@ -349,10 +358,12 @@ async function handleClient(args: string[]): Promise<void> {
     ].join("\n"));
     return;
   }
-  if (!["login", "start", "stop", "run", "status", "logout"].includes(action)) throw new Error(`Unknown client command: ${action}`);
+  if (!["login", "start", "stop", "run", "status", "logout", "update"].includes(action)) throw new Error(`Unknown client command: ${action}`);
   const dir = option(rest, "--config-dir", defaultClientConfigDir());
+  if (action === "update") return runClientUpdate(dir, rest, CLIENT_PID);
   const name = optionalOption(rest, "--name");
   const reset = rest.includes("--reset");
+  const noAutoUpdate = rest.includes("--no-auto-update");
   const sandboxOnly = rest.includes("--sandbox-only");
   const sandboxEnabled = rest.includes("--sandbox") || sandboxOnly;
   const sandboxImage = optionalOption(rest, "--sandbox-image");
@@ -414,6 +425,7 @@ async function handleClient(args: string[]): Promise<void> {
     if (maxSandboxes) childArgs.push("--max-sandboxes", maxSandboxes);
     if (idlePauseMin) childArgs.push("--idle-pause-min", idlePauseMin);
     if (idleReclaimMin) childArgs.push("--idle-reclaim-min", idleReclaimMin);
+    if (noAutoUpdate) childArgs.push("--no-auto-update");
     const started = await startDaemon(process.argv[1]!, childArgs, {
       dir, pidFile: CLIENT_PID, logFile: CLIENT_LOG, label: "Jarvy client",
     });
@@ -429,6 +441,7 @@ async function handleClient(args: string[]): Promise<void> {
   await runClientForeground({
     dir,
     saved,
+    autoUpdate: !noAutoUpdate,
     ...(sandboxEnabled ? {
       sandbox: {
         enabled: true,

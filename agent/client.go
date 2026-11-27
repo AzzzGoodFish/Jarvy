@@ -38,13 +38,14 @@ type exitMsg struct {
 }
 
 type serverMsg struct {
-	T        string   `json:"t"`
-	ID       string   `json:"id,omitempty"`
-	Name     string   `json:"name,omitempty"`
-	Protocol int      `json:"protocol,omitempty"`
-	Code     string   `json:"code,omitempty"`
-	Ch       uint32   `json:"ch,omitempty"`
-	Args     []string `json:"args,omitempty"`
+	T             string   `json:"t"`
+	ID            string   `json:"id,omitempty"`
+	Name          string   `json:"name,omitempty"`
+	Protocol      int      `json:"protocol,omitempty"`
+	ServerVersion string   `json:"serverVersion,omitempty"`
+	Code          string   `json:"code,omitempty"`
+	Ch            uint32   `json:"ch,omitempty"`
+	Args          []string `json:"args,omitempty"`
 }
 
 type channelProc struct {
@@ -162,8 +163,8 @@ func ensureDaemon(cfg *DeviceConfig, configDir string) (string, error) {
 	return binPath, nil
 }
 
-func runAgentLoop(ctx context.Context, cfg *DeviceConfig, configDir string) error {
-	logLine("jarvy-agent starting for %q -> %s (pid %d)", cfg.Name, cfg.Server, os.Getpid())
+func runAgentLoop(ctx context.Context, cfg *DeviceConfig, configDir string, autoUpdate bool) error {
+	logLine("jarvy-agent %s starting for %q -> %s (pid %d, autoUpdate=%v)", AgentVersion, cfg.Name, cfg.Server, os.Getpid(), autoUpdate)
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 
@@ -185,7 +186,13 @@ func runAgentLoop(ctx context.Context, cfg *DeviceConfig, configDir string) erro
 			continue
 		}
 
-		stopForever, connected, err := runOnce(ctx, cfg, daemonPath)
+		stopForever, connected, pendingUpdate, err := runOnce(ctx, cfg, daemonPath, autoUpdate)
+		if pendingUpdate != nil {
+			logLine("applying staged update (%s) and restarting...", pendingUpdate.version)
+			if applyErr := applyAndExecSelf(pendingUpdate, configDir); applyErr != nil {
+				logLine("self-update restart failed: %v (continuing on current binary)", applyErr)
+			}
+		}
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -207,12 +214,12 @@ func runAgentLoop(ctx context.Context, cfg *DeviceConfig, configDir string) erro
 	}
 }
 
-func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string) (stopForever bool, connected bool, err error) {
+func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string, autoUpdate bool) (stopForever bool, connected bool, pendingUpdate *stagedUpdate, err error) {
 	wsURL := strings.Replace(cfg.Server, "https://", "wss://", 1)
 	wsURL = strings.Replace(wsURL, "http://", "ws://", 1) + "/api/devices/connect"
 	tlsCfg, err := buildTLSConfig(cfg.CA, false)
 	if err != nil {
-		return true, false, err
+		return true, false, nil, err
 	}
 	hdr := http.Header{}
 	hdr.Set("Authorization", "Device "+cfg.Token)
@@ -220,7 +227,7 @@ func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string) (stopFor
 	logLine("connecting to %s...", cfg.Server)
 	ws, err := dialWS(wsURL, hdr, tlsCfg, 20*time.Second)
 	if err != nil {
-		return false, false, err
+		return false, false, nil, err
 	}
 	defer ws.Close()
 
@@ -239,11 +246,16 @@ func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string) (stopFor
 		Paused:       false,
 	})
 	if err := ws.WriteText(hello); err != nil {
-		return false, false, err
+		return false, false, nil, err
 	}
 
 	var chMu sync.Mutex
 	channels := make(map[uint32]*channelProc)
+	activeCount := func() int {
+		chMu.Lock()
+		defer chMu.Unlock()
+		return len(channels)
+	}
 	closeAll := func() {
 		chMu.Lock()
 		defer chMu.Unlock()
@@ -256,6 +268,63 @@ func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string) (stopFor
 
 	sessionCtx, cancelSession := context.WithCancel(ctx)
 	defer cancelSession()
+
+	var updateMu sync.Mutex
+	var readyUpdate *stagedUpdate
+	checkTrigger := make(chan struct{}, 1)
+	triggerUpdateCheck := func() {
+		if !autoUpdate {
+			return
+		}
+		select {
+		case checkTrigger <- struct{}{}:
+		default:
+		}
+	}
+
+	// Idle auto-update watcher: checks server binary SHA-256 on welcome & every 30 min, stages new binary,
+	// waits until active channels == 0 (idle), then closes WS cleanly so runAgentLoop performs atomic self-restart.
+	if autoUpdate {
+		go func() {
+			ticker := time.NewTicker(30 * time.Minute)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-sessionCtx.Done():
+					return
+				case <-checkTrigger:
+				case <-ticker.C:
+				}
+				staged, ver, uerr := stageAgentUpdate(cfg, false)
+				if uerr != nil {
+					logLine("auto-update check failed: %v", uerr)
+					continue
+				}
+				if staged == nil {
+					continue
+				}
+				logLine("downloaded jarvy-agent update (%s); waiting for idle before restart...", ver)
+				for {
+					if sessionCtx.Err() != nil {
+						_ = os.Remove(staged.newPath)
+						return
+					}
+					if activeCount() == 0 {
+						updateMu.Lock()
+						readyUpdate = staged
+						updateMu.Unlock()
+						_ = ws.WriteClose(1000, "updating")
+						_ = ws.Close()
+						return
+					}
+					if !sleepCtx(sessionCtx, 2*time.Second) {
+						_ = os.Remove(staged.newPath)
+						return
+					}
+				}
+			}
+		}()
+	}
 
 	// Shutdown watcher + keepalive pings.
 	go func() {
@@ -279,18 +348,24 @@ func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string) (stopFor
 	for {
 		op, payload, closeCode, err := ws.ReadMessage()
 		if err != nil {
+			updateMu.Lock()
+			staged := readyUpdate
+			updateMu.Unlock()
+			if staged != nil {
+				return false, connected, staged, nil
+			}
 			if closeCode == 4003 {
 				logLine("this computer was unpaired in Jarvy; stopping")
-				return true, connected, errors.New("unpaired")
+				return true, connected, nil, errors.New("unpaired")
 			}
 			if closeCode == 4001 {
 				logLine("protocol mismatch; please update jarvy-agent")
-				return true, connected, errors.New("protocol mismatch")
+				return true, connected, nil, errors.New("protocol mismatch")
 			}
 			if closeCode == 4000 {
-				return false, connected, errors.New("replaced by newer connection")
+				return false, connected, nil, errors.New("replaced by newer connection")
 			}
-			return false, connected, err
+			return false, connected, nil, err
 		}
 
 		if op == wsOpBinary {
@@ -314,11 +389,12 @@ func runOnce(ctx context.Context, cfg *DeviceConfig, daemonPath string) (stopFor
 		switch msg.T {
 		case "welcome":
 			connected = true
-			logLine("connected as %q", msg.Name)
+			logLine("connected as %q (server=%s)", msg.Name, msg.ServerVersion)
+			triggerUpdateCheck()
 		case "error":
 			if msg.Code == "protocol" {
 				logLine("server requires protocol %d (agent has %d); update jarvy-agent", msg.Protocol, DeviceProtocol)
-				return true, connected, errors.New("protocol mismatch")
+				return true, connected, nil, errors.New("protocol mismatch")
 			}
 		case "open":
 			ch := msg.Ch

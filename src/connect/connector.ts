@@ -104,6 +104,7 @@ export interface ConnectorOptions {
   /** When true (`--sandbox-only`), disables direct host file/shell/PTY access so this node acts strictly as an isolated sandbox compute provider (A109). */
   disableHost?: boolean;
   onStatus?(status: Status): void;
+  onServerVersion?(version?: string): void;
   log?(text: string): void;
 }
 
@@ -123,6 +124,11 @@ export class Connector {
   /** The daemon fetched last, checked again (without its body when unchanged) on every connection. */
   private program: { path: string; sha256: string } | undefined;
   constructor(private readonly options: ConnectorOptions) {}
+
+  /** True when no host/sandbox command channels, PTYs, or TCP tunnels are active (safe window for idle self-restart, A113). */
+  isIdle(): boolean {
+    return this.daemons.size === 0 && this.ptys.size === 0 && this.tunnels.size === 0;
+  }
 
   start(): void { this.stopped = false; void this.connect(); }
   stop(): void {
@@ -182,7 +188,7 @@ export class Connector {
       }
       let message: JarvyToDevice;
       try { message = JSON.parse(data.toString("utf8")) as JarvyToDevice; } catch { return; }
-      if (message.t === "welcome") { this.id = message.id; this.name = message.name; this.report(); }
+      if (message.t === "welcome") { this.id = message.id; this.name = message.name; this.report(); this.options.onServerVersion?.(message.serverVersion); }
       else if (message.t === "error" && message.code === "protocol") { this.stopped = true; this.options.onStatus?.({ state: "outdated", protocol: message.protocol }); }
       else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "", message.container, message.sandboxKind);
       else if (message.t === "pty_open") void this.runPty(message);

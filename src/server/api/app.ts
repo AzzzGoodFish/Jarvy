@@ -21,6 +21,7 @@ import { taskRoutes } from "./routes/tasks.js";
 import { terminalRoutes } from "./routes/terminals.js";
 import { portRoutes } from "./routes/ports.js";
 import { usageRoutes } from "./routes/usage.js";
+import { systemUpdateDeviceRoute, systemUpdateRoutes } from "./routes/update.js";
 
 export interface HttpAppOptions {
   /** Disable serving the web frontend static assets (`--no-web`, A112) to minimize public attack surface. */
@@ -36,8 +37,10 @@ export function createHttpApp(services: ApiServices, webRoot: string | null, opt
   api.use("*", apiSecurity);
   api.route("/", rootCertificateRoute(services.connection, services.account));
   api.route("/", deviceDaemonRoute(services.bots, services.account));
+  api.route("/", systemUpdateDeviceRoute(services));
   api.route("/", connectorCallbackRoute(services.connectors));
   installAuthentication(api, services.account);
+  api.route("/system/update", systemUpdateRoutes(services.update));
   api.route("/", taskRoutes(services));
   api.route("/", portRoutes(services));
   api.route("/", usageRoutes(services.bots));

@@ -1,12 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Cross-compiles the zero-dependency Go `jarvy-agent` binary into `dist/agent/` for all major targets (A111). */
+/** Cross-compiles the zero-dependency Go `jarvy-agent` binary into `dist/agent/` for all major targets (A111, A113). */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const agentDir = join(root, "agent");
 const outDir = join(root, "dist", "agent");
+const pkgVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version || "0.0.0";
+const agentVersion = `jarvy-agent-${pkgVersion}`;
 
 const TARGETS = [
   { goos: "linux", goarch: "amd64", file: "jarvy-agent-linux-x64" },
@@ -45,7 +47,7 @@ if (!existsSync(join(agentDir, "go.mod"))) {
 mkdirSync(outDir, { recursive: true });
 for (const target of TARGETS) {
   const dest = join(outDir, target.file);
-  execFileSync(goBin, ["build", "-trimpath", "-ldflags=-s -w", "-o", dest, "."], {
+  execFileSync(goBin, ["build", "-trimpath", `-ldflags=-s -w -X main.AgentVersion=${agentVersion}`, "-o", dest, "."], {
     cwd: agentDir,
     env: {
       ...process.env,

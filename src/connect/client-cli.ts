@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { call, Connector, fetchRoot, findShells, type Status, type Trust } from "./connector.js";
 import { SandboxHost } from "./sandbox-host.js";
+import { ClientAutoUpdater } from "./updater.js";
 
 /** Shared client node CLI core (A96, A106): used by `jarvy client <login|start|stop|run|status|logout>`
  * and the standalone zero-install `connector.mjs` bundle. */
@@ -114,6 +115,8 @@ export interface RunClientOptions {
   dir: string;
   saved: SavedClientConfig;
   sandbox?: SandboxCliOptions;
+  /** Enables automatic idle self-update & graceful restart (default true, A113). */
+  autoUpdate?: boolean;
   /** Called once the connector loop is running (and either online or after the initial connect grace window). */
   onReady?: (meta: { url: string; name: string }) => void;
   /** Called on graceful shutdown right before exit. */
@@ -152,6 +155,23 @@ export async function runClientForeground(options: RunClientOptions): Promise<vo
     console.log(`Sandbox compute mode: ${role} (max=${options.sandbox!.maxContainers ?? 8}${options.sandbox!.image ? `, image=${options.sandbox!.image}` : ""})`);
   }
 
+  let input: ReturnType<typeof createInterface> | null = null;
+  const autoUpdateEnabled = options.autoUpdate !== false && process.env.JARVY_CLIENT_NO_AUTO_UPDATE !== "1";
+  const updater = autoUpdateEnabled
+    ? new ClientAutoUpdater({
+      server: saved.server,
+      trust: { ca: saved.ca },
+      token: saved.token,
+      isIdle: () => connector.isIdle(),
+      onBeforeRestart: () => {
+        clearTimeout(readyTimer);
+        connector.stop();
+        input?.close();
+        options.onStop?.();
+      },
+    })
+    : null;
+
   connector = new Connector({
     server: saved.server,
     token: saved.token,
@@ -164,11 +184,12 @@ export async function runClientForeground(options: RunClientOptions): Promise<vo
       console.log(`[${new Date().toLocaleTimeString()}] ${describeStatus(status)}`);
       if (status.state === "online" || status.state === "unpaired" || status.state === "outdated") signalOnce();
     },
+    onServerVersion: ver => updater?.notifyServerVersion(ver),
     log: text => { if (process.env.JARVY_CONNECTOR_DEBUG) console.error(text); },
   });
+  updater?.start();
   connector.start();
 
-  let input: ReturnType<typeof createInterface> | null = null;
   if (process.stdin.isTTY) {
     console.log("Type p and Enter to pause or resume Bots' work here; Ctrl+C to stop.");
     let paused = false;
@@ -188,6 +209,7 @@ export async function runClientForeground(options: RunClientOptions): Promise<vo
       if (stopping) return;
       stopping = true;
       clearTimeout(readyTimer);
+      updater?.stop();
       connector.stop();
       input?.close();
       options.onStop?.();

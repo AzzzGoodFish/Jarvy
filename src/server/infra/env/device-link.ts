@@ -11,6 +11,7 @@ import type { WorkEnvironment } from "../../shared/environment.js";
 import type { PtyExit, PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import { overDurable } from "./durable.js";
 import { DEVICE_PATH, DEVICE_PROTOCOL, type SandboxNodeInfo } from "../../../contract/device.js";
+import { currentJarvyVersion } from "../../shared/version.js";
 
 /* Jarvy opens a channel each time pi-env starts its daemon on a computer (A96, A108); the client runs the daemon
  * (on the host or inside a remote sandbox container via `docker exec`) and joins its I/O to the WebSocket channel. */
@@ -358,7 +359,7 @@ export class DeviceLinks {
         this.links.set(device.id, link);
         this.hooks.hello(device.id, info);
         this.hooks.sandboxState?.(device.id, info.sandbox);
-        ws.send(JSON.stringify({ t: "welcome", id: device.id, name: device.name, protocol: DEVICE_PROTOCOL }));
+        ws.send(JSON.stringify({ t: "welcome", id: device.id, name: device.name, protocol: DEVICE_PROTOCOL, serverVersion: currentJarvyVersion() }));
         this.hooks.presence(device.id, true);
       } else if (!link) return;
       else if (message.t === "state") {

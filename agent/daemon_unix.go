@@ -19,7 +19,7 @@ func isProcessAlive(pid int) bool {
 	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
-func startDaemon(configDir string, cfg *DeviceConfig) (*PidInfo, error) {
+func startDaemon(configDir string, cfg *DeviceConfig, noAutoUpdate bool) (*PidInfo, error) {
 	if existing, err := loadPid(configDir); err == nil && isProcessAlive(existing.PID) {
 		return existing, nil
 	}
@@ -36,7 +36,11 @@ func startDaemon(configDir string, cfg *DeviceConfig) (*PidInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(exe, "run", "--config-dir", configDir)
+	runArgs := []string{"run", "--config-dir", configDir}
+	if noAutoUpdate {
+		runArgs = append(runArgs, "--no-auto-update")
+	}
+	cmd := exec.Command(exe, runArgs...)
 	cmd.Stdin = nil
 	cmd.Stdout = lf
 	cmd.Stderr = lf
