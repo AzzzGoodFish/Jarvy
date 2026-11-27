@@ -350,10 +350,27 @@ export class PiSession implements BotSession {
     this.prompts.take(this.options.systemPrompt);
     this.envAnnouncer.reset();
   }
-  async dispose(): Promise<void> {
+  async dispose(timeoutMs = 3_000): Promise<void> {
     this.requestAbort();
-    await this.abortTask;
-    await this.session.waitForIdle();
-    this.unsubscribeHistory?.(); this.unsubscribe?.(); this.session.dispose();
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        (async () => {
+          await this.abortTask;
+          await this.session.waitForIdle();
+        })(),
+        new Promise<void>(resolve => {
+          timer = setTimeout(resolve, timeoutMs);
+          timer.unref();
+        }),
+      ]);
+    } catch {
+      /* continue teardown even if abort/idle wait fails */
+    } finally {
+      if (timer) clearTimeout(timer);
+      this.settled = true;
+      this.settledResolve?.();
+      this.unsubscribeHistory?.(); this.unsubscribe?.(); this.session.dispose();
+    }
   }
 }

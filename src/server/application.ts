@@ -26,6 +26,7 @@ import { TerminalService } from "./service/terminals.js";
 import { EnvFileService } from "./service/env-files.js";
 import { Deliveries } from "./service/delivery/delivery.js";
 import { RuntimeFault } from "./shared/runtime.js";
+import { runBounded, type ShutdownStepOutcome } from "./shared/shutdown.js";
 import type { CloudStorageConfig, CloudSyncStatus } from "./shared/cloud-storage.js";
 import { CloudSync } from "./infra/cloud/sync.js";
 import type { SessionFactory } from "./infra/pi/session.js";
@@ -59,6 +60,8 @@ export class Application {
   /** Release checker & safe flush-and-restart service (A113). */
   readonly update: UpdateService;
   private closing?: Promise<void>;
+  private servicesClosing?: Promise<ShutdownStepOutcome[]>;
+  private storageClosing?: Promise<ShutdownStepOutcome[]>;
   private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, cloud: CloudSync | null, factory?: SessionFactory) {
     this.cloud = cloud;
     this.storage = new CloudService(cloud);
@@ -108,7 +111,11 @@ export class Application {
     let release: () => Promise<void>;
     try {
       release = await lockfile.lock(root, { retries: 0, stale: 30_000, update: 10_000, lockfilePath: join(root, ".runtime.lock"),
-        onCompromised: () => { console.error("[runtime] data lock compromised"); options.onCompromised?.(); void app?.close().catch(() => console.error("[runtime] shutdown after lock loss failed")); } });
+        onCompromised: () => {
+          console.error("[runtime] data lock compromised");
+          if (options.onCompromised) options.onCompromised();
+          else void app?.close().catch(() => console.error("[runtime] shutdown after lock loss failed"));
+        } });
     } catch { throw new RuntimeFault("data_locked", "The data directory is in use, or its run lock can't be taken.", 409); }
     let cloud: CloudSync | null = null;
     let store: Store | undefined;
@@ -117,8 +124,8 @@ export class Application {
         cloud = new CloudSync(options.cloud, root, {
           onLeaseLost: reason => {
             console.error(`[cloud] fencing shutdown: ${reason}`);
-            options.onCompromised?.();
-            void app?.close().catch(() => console.error("[cloud] shutdown after lease loss failed"));
+            if (options.onCompromised) options.onCompromised();
+            else void app?.close().catch(() => console.error("[cloud] shutdown after lease loss failed"));
           },
         });
         await cloud.prepareBeforeOpen();
@@ -140,11 +147,53 @@ export class Application {
   }
   cloudStatus(): CloudSyncStatus { return this.cloud ? this.cloud.status() : { enabled: false }; }
   start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); this.update.start(); }
+  /** Phase 2 shutdown: stops schedulers, expires waiting cards, drains active Bots/environments/devices within bounded budgets (A114). */
+  closeServices(options?: { serviceTimeoutMs?: number; log?: (msg: string) => void }): Promise<ShutdownStepOutcome[]> {
+    if (!this.servicesClosing) {
+      const log = options?.log ?? (msg => console.warn(msg));
+      const budget = options?.serviceTimeoutMs ?? 8_000;
+      const stepMs = Math.max(1_000, Math.min(5_000, Math.floor(budget * 0.65)));
+      const envMs = Math.max(1_000, Math.min(3_000, Math.floor(budget * 0.4)));
+      this.servicesClosing = (async () => {
+        this.update.stop();
+        this.tasks.stop();
+        this.models.stopCatalog();
+        this.chats.questions.expireAll("Server is restarting");
+        this.terminals.closeAll();
+        this.envFiles.closeAll();
+        const outcomes = await Promise.all([
+          runBounded("auth.close", envMs, () => this.auth.close(), log),
+          runBounded("bots.close", budget, () => this.bots.close({ botTimeoutMs: stepMs, envTimeoutMs: envMs, log }), log),
+        ]);
+        outcomes.push(await runBounded("credentials.close", envMs, () => this.credentials.close(), log));
+        this.events.close();
+        return outcomes;
+      })();
+    }
+    return this.servicesClosing;
+  }
+  /** Phase 4 shutdown: flushes final cloud snapshot, unconditionally releases cloud lease, closes SQLite, and releases runtime lock (A114). */
+  closeStorage(options?: { syncTimeoutMs?: number; releaseTimeoutMs?: number; log?: (msg: string) => void }): Promise<ShutdownStepOutcome[]> {
+    if (!this.storageClosing) {
+      const log = options?.log ?? (msg => console.warn(msg));
+      const syncMs = options?.syncTimeoutMs ?? 5_000;
+      const releaseMs = options?.releaseTimeoutMs ?? 3_000;
+      this.storageClosing = (async () => {
+        const outcomes: ShutdownStepOutcome[] = [];
+        if (this.cloud) {
+          outcomes.push(await runBounded("cloud.close", syncMs + releaseMs + 1_000, () => this.cloud!.close({ syncTimeoutMs: syncMs, releaseTimeoutMs: releaseMs }), log));
+        }
+        outcomes.push(await runBounded("store.close", 2_000, () => { this.store.close(); }, log));
+        outcomes.push(await runBounded("runtime.lock.release", 2_000, () => this.release(), log));
+        return outcomes;
+      })();
+    }
+    return this.storageClosing;
+  }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
-      this.update.stop(); this.tasks.stop(); this.models.stopCatalog(); this.terminals.closeAll(); this.envFiles.closeAll(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close();
-      await this.cloud?.close();
-      this.store.close(); await this.release();
+      await this.closeServices();
+      await this.closeStorage();
     })();
     return this.closing;
   }

@@ -290,6 +290,12 @@ export class ChatQuestions {
       this.expire(entry.chatId, messageId, reason, expiredReason);
     }
   }
+  /** Expires every live pending card on server shutdown so waiting Bots abort cleanly (A114). */
+  expireAll(reason = "Server is restarting"): void {
+    for (const [messageId, entry] of [...this.waiting.entries()]) {
+      this.expire(entry.chatId, messageId, reason);
+    }
+  }
   /** Marks a card ignored after it was already answered if post-confirmation authorization checks fail before dispatch. */
   invalidate(chatId: string, messageId: string, expiredReason?: QuestionExpiredReason): void {
     const waiter = this.waiting.get(messageId);

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { AttachmentCloudMirror, CloudStorageConfig, CloudSyncStatus } from "../../shared/cloud-storage.js";
+import { runBounded } from "../../shared/shutdown.js";
 import { DATABASE_FILENAME, type Store } from "../storage/store.js";
 import { readInstallationIdFromDb, snapshotSqliteFile } from "../storage/snapshot.js";
 import { masterKey } from "../vault/master-key.js";
@@ -323,22 +324,19 @@ export class CloudSync {
     await this.writeLocalMarker({ epoch: this.state.epoch, dbRev: this.state.dbRev, updatedAt: this.state.updatedAt });
   }
 
-  /** Flushes final consistent snapshot on graceful shutdown, then releases the single-writer lease. */
-  async close(): Promise<void> {
+  /** Flushes final consistent snapshot within a bounded budget, then always releases the single-writer lease (A114). */
+  async close(options?: { syncTimeoutMs?: number; releaseTimeoutMs?: number }): Promise<void> {
+    const syncMs = options?.syncTimeoutMs ?? 5_000;
+    const releaseMs = options?.releaseTimeoutMs ?? 3_000;
     this.stopLoop();
-    if (this.syncing) await this.syncing.catch(() => {});
-    if (this.lease.active && this.store) {
-      await this.syncNow("shutdown").catch(error => {
-        this.log(`final shutdown sync failed: ${error instanceof Error ? error.message : String(error)}`);
-      });
+    try {
+      if (this.syncing) await runBounded("cloud.inflight", syncMs, () => this.syncing!, this.log);
+      if (this.lease.active && this.store) await runBounded("cloud.finalSync", syncMs, () => this.syncNow("shutdown"), this.log);
+    } finally {
+      await runBounded("cloud.leaseRelease", releaseMs + 500, () => this.lease.release(AbortSignal.timeout(releaseMs)), this.log);
     }
-    await this.lease.release();
   }
-
-  private stopLoop(): void {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-  }
+  private stopLoop(): void { if (this.timer) clearInterval(this.timer); this.timer = null; }
 
   private attachmentKey(id: string): string {
     return this.k(`attachments/${id.slice(0, 2)}/${id}.enc`);

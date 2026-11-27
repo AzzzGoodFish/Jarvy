@@ -10,6 +10,8 @@ import { upgradeTerminal } from "./routes/terminals.js";
 
 export interface JarvyServer {
   listen(port: number, host: string): Promise<void>;
+  /** Stops accepting new TCP connections while keeping in-flight responses and WS close frames alive (A114). */
+  stopAccepting(): void;
   /** Stops listening and drops every open connection. */
   close(): void;
 }
@@ -21,6 +23,8 @@ export interface ServerOptions {
   noWeb?: boolean;
   /** Trust X-Forwarded-For / X-Real-IP from loopback/LAN reverse proxies (`--trust-proxy`, A112). */
   trustProxy?: boolean;
+  /** Returns true while the server is draining for shutdown/restart (A114). */
+  isDraining?: () => boolean;
   maxConnections?: number;
   maxConnectionsPerIp?: number;
 }
@@ -81,9 +85,11 @@ export function dualProtocol(
 
   if (!tls) {
     plain.on("connection", socket => { track(socket); });
+    const stopAccepting = () => { if (plain.listening) plain.close(); };
     return {
       listen: (port, host) => new Promise((resolve, reject) => { plain.once("error", reject); plain.listen(port, host, () => { plain.off("error", reject); resolve(); }); }),
-      close: () => { plain.close(); drop(); },
+      stopAccepting,
+      close: () => { stopAccepting(); drop(); },
     };
   }
   const secure = createSecureServer({ ...httpOptions, key: tls.key, cert: tls.cert, minVersion: "TLSv1.2" }, serve);
@@ -104,9 +110,11 @@ export function dualProtocol(
       (head[0] === 0x16 ? secure : plain).emit("connection", socket);
     });
   });
+  const stopAccepting = () => { if (front.listening) front.close(); };
   return {
     listen: (port, host) => new Promise((resolve, reject) => { front.once("error", reject); front.listen(port, host, () => { front.off("error", reject); resolve(); }); }),
-    close: () => { front.close(); drop(); },
+    stopAccepting,
+    close: () => { stopAccepting(); drop(); },
   };
 }
 export const encrypted = (request: IncomingMessage) => !!(request.socket as { encrypted?: boolean }).encrypted;
@@ -132,7 +140,7 @@ export function createJarvyServer(
   tls: { key: string; cert: string } | null,
   options: ServerOptions = {},
 ): JarvyServer {
-  const app = createHttpApp(services, webRoot, { noWeb: options.noWeb });
+  const app = createHttpApp(services, webRoot, { noWeb: options.noWeb, ...(options.isDraining ? { isDraining: options.isDraining } : {}) });
   const trustProxy = Boolean(options.trustProxy);
   // HTTP/1 bindings are supplied by node:http. Keep Pi's global Fetch objects untouched.
   const handle = getRequestListener((request, bindings) => app.fetch(request, bindings as HttpBindings), { overrideGlobalObjects: false });
@@ -140,6 +148,10 @@ export function createJarvyServer(
     if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { redirectToHttps(request, response); return; }
     void handle(request, response);
   }, (request, socket, head) => {
+    if (options.isDraining?.()) {
+      socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nRetry-After: 5\r\nContent-Length: 0\r\n\r\n");
+      return;
+    }
     // A computer's client connecting itself (A96), or an interactive terminal WebSocket (A103): over HTTPS from another machine, as the web is.
     if (redirectsToHttps(request, tls, () => services.connection.allowHttp())) { socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"); return; }
     const ip = clientIpFromIncoming(request, trustProxy);

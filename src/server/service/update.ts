@@ -146,7 +146,7 @@ export class UpdateService {
       await installNpmPackageVersion(target);
       console.log(`[update] installed ${PACKAGE_NAME}@${target}; initiating graceful restart`);
       const restart = this.onRestart;
-      if (restart) setTimeout(restart, 500).unref();
+      if (restart) setTimeout(restart, 150).unref();
       return { started: true, targetVersion: target, message: `Installed ${target}; restarting server` };
     } catch (error) {
       this.updating = false;

@@ -9,6 +9,7 @@ import { AGENT_BOT_ID, type Bot as BotRecord } from "../../shared/models.js";
 import type { Bot as BotView } from "../../../contract/bots.js";
 import type { BotStatus } from "./contracts.js";
 import { RuntimeFault, publicFault } from "../../shared/runtime.js";
+import { runBounded } from "../../shared/shutdown.js";
 import { ValidationError } from "../../shared/errors.js";
 import { ChatError } from "../../shared/chat.js";
 import type { ChatService } from "../chat/service.js";
@@ -469,13 +470,16 @@ export class BotService {
     const to = this.deps.chats.member(id);
     if (to) this.deps.deliveries.notify({ to, kind: "job", reason: "shutdown", actorId: null, payloads: stopped });
   }
-  async close(): Promise<void> {
+  async close(options?: { botTimeoutMs?: number; envTimeoutMs?: number; log?: (msg: string) => void }): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    await Promise.all([...this.bots.values()].map(bot => bot.stop()));
+    const log = options?.log ?? (msg => console.warn(msg));
+    const botMs = options?.botTimeoutMs ?? 5_000;
+    const envMs = options?.envTimeoutMs ?? 3_000;
+    await Promise.all([...this.bots.entries()].map(([id, bot]) => runBounded(`bot.stop(${id.slice(0, 8)})`, botMs, () => bot.stop(), log)));
     for (const live of this.lives.values()) live.close();
-    await this.compute.close();
-    await this.environments.close();
+    await runBounded("compute.close", envMs, () => this.compute.close(), log);
+    await runBounded("environments.close", envMs, () => this.environments.close(), log);
     this.devices.close();
   }
 }
