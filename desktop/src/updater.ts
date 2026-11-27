@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { compareSemver } from "../../src/contract/update.js";
+import type { DesktopUpdateStatus } from "../../src/contract/desktop.js";
 import { fetchServerUpdateInfo } from "../../src/connect/updater.js";
 import type { Trust } from "../../src/connect/connector.js";
 import { say } from "./text.js";
@@ -52,6 +53,58 @@ export class DesktopUpdater {
   }
 
   currentAvailable(): DesktopUpdateInfo | null { return this.available; }
+
+  private supportsDirectInstall(info: DesktopUpdateInfo | null): boolean {
+    return !!info?.assetUrl && (process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE));
+  }
+
+  status(): DesktopUpdateStatus {
+    const avail = this.available;
+    return {
+      currentVersion: this.currentVersion,
+      latestVersion: avail?.version ?? null,
+      updateAvailable: !!avail && compareSemver(avail.version, this.currentVersion) > 0,
+      releaseUrl: avail?.releaseUrl ?? null,
+      canDirectInstall: this.supportsDirectInstall(avail),
+    };
+  }
+
+  /** Silent probe triggered from Settings → About (no native popups; returns current state). */
+  async checkQuiet(): Promise<DesktopUpdateStatus> {
+    if (this.busy) return this.status();
+    try {
+      const found = await this.probeLatest();
+      if (found && compareSemver(found.version, this.currentVersion) > 0) {
+        this.available = found;
+        this.onAvailableChanged(found);
+      } else {
+        this.available = null;
+        this.onAvailableChanged(null);
+      }
+    } catch { /* return last known state */ }
+    return this.status();
+  }
+
+  /** Starts downloading & installing the available desktop update directly from Settings → About. */
+  async installFromPage(): Promise<{ started: boolean; error?: string }> {
+    if (this.busy) return { started: false, error: "Update already in progress" };
+    if (!this.available) await this.checkQuiet();
+    const info = this.available;
+    if (!info || compareSemver(info.version, this.currentVersion) <= 0) {
+      return { started: false, error: "Desktop client is already up to date" };
+    }
+    if (!this.supportsDirectInstall(info) || !info.assetUrl) {
+      await shell.openExternal(info.releaseUrl);
+      return { started: true };
+    }
+    try {
+      await this.runDirectInstall(info);
+      return { started: true };
+    } catch (error) {
+      this.busy = false;
+      return { started: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
 
   async check(interactive: boolean): Promise<void> {
     if (this.busy) return;
@@ -149,7 +202,7 @@ export class DesktopUpdater {
 
   private async promptAndInstall(info: DesktopUpdateInfo): Promise<void> {
     if (this.busy) return;
-    const canDirectInstall = !!info.assetUrl && (process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE));
+    const canDirectInstall = this.supportsDirectInstall(info);
     const answer = await dialog.showMessageBox({
       type: "info",
       title: say("updateAvailableTitle", { version: info.version }),
@@ -166,28 +219,8 @@ export class DesktopUpdater {
       return;
     }
 
-    this.busy = true;
     try {
-      if (process.platform === "linux" && process.env.APPIMAGE) {
-        const target = process.env.APPIMAGE;
-        const staged = `${target}.new`;
-        await this.downloadToFile(info.assetUrl, staged);
-        await chmod(staged, 0o755);
-        await rename(staged, target);
-        this.onBeforeQuit();
-        app.relaunch();
-        app.exit(0);
-        return;
-      }
-      if (process.platform === "win32") {
-        const installer = join(app.getPath("temp"), `Jarvy-${info.version}-win-x64.exe`);
-        await this.downloadToFile(info.assetUrl, installer);
-        const openErr = await shell.openPath(installer);
-        if (openErr) throw new Error(openErr);
-        this.onBeforeQuit();
-        app.quit();
-        return;
-      }
+      await this.runDirectInstall(info);
     } catch (error) {
       this.busy = false;
       const fallback = await dialog.showMessageBox({
@@ -200,6 +233,33 @@ export class DesktopUpdater {
       });
       if (fallback.response === 0) await shell.openExternal(info.releaseUrl);
     }
+  }
+
+  private async runDirectInstall(info: DesktopUpdateInfo): Promise<void> {
+    if (!info.assetUrl) throw new Error("No installer asset URL available");
+    this.busy = true;
+    if (process.platform === "linux" && process.env.APPIMAGE) {
+      const target = process.env.APPIMAGE;
+      const staged = `${target}.new`;
+      await this.downloadToFile(info.assetUrl, staged);
+      await chmod(staged, 0o755);
+      await rename(staged, target);
+      this.onBeforeQuit();
+      app.relaunch();
+      app.exit(0);
+      return;
+    }
+    if (process.platform === "win32") {
+      const installer = join(app.getPath("temp"), `Jarvy-${info.version}-win-x64.exe`);
+      await this.downloadToFile(info.assetUrl, installer);
+      const openErr = await shell.openPath(installer);
+      if (openErr) throw new Error(openErr);
+      this.onBeforeQuit();
+      app.quit();
+      return;
+    }
+    this.busy = false;
+    await shell.openExternal(info.releaseUrl);
   }
 
   private async downloadToFile(url: string, dest: string): Promise<void> {
