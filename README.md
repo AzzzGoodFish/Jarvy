@@ -84,7 +84,7 @@ To install your own build instead: `npm run build && npm pack --pack-destination
 | `jarvy client logout` | Stop the client node and remove saved pairing credentials. |
 
 Server options: `--host` (default `127.0.0.1`; any other host also serves HTTPS on the same port), `--port` (default `8080`), `--data-dir` (default `~/.jarvy`, or `JARVY_DATA_DIR`).
-Client options: `--name` (default hostname), `--config-dir` (default `~/.config/jarvy-client`, or `JARVY_CLIENT_DIR`), `--reset`.
+Client options: `--name` (default hostname), `--config-dir` (default `~/.config/jarvy-client`, or `JARVY_CLIENT_DIR`), `--sandbox` (expose local Docker as a remote compute node), `--sandbox-image`, `--max-sandboxes`, `--idle-pause-min`, `--idle-reclaim-min`, `--reset`.
 
 ## Development
 

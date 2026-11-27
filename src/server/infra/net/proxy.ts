@@ -1,8 +1,9 @@
 import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import { connect, createServer, type Socket } from "node:net";
+import type { Duplex } from "node:stream";
 
-/** Where a request goes. */
-export interface Upstream { host: string; port: number }
+/** Where a request goes: direct TCP (`host:port`) or a custom tunnel socket (remote compute node ports, A108). */
+export interface Upstream { host: string; port: number; connect?: () => Duplex }
 /** What a forward keeps from the caller and the service: `cookie` decides each cookie the caller sends, `setCookie`
  * each one the service sets; `client` is the caller's address and whether it came over TLS, as X-Forwarded-*. */
 export interface ForwardPolicy {
@@ -50,7 +51,14 @@ function responseHeaders(headers: IncomingHttpHeaders, policy: ForwardPolicy): O
 /** Forwards one HTTP request and streams the answer back. `failed` gets a connection error before anything was sent,
  * so the caller can answer instead; after that the response is cut off. */
 export function forward(request: IncomingMessage, response: ServerResponse, upstream: Upstream, policy: ForwardPolicy, failed: (error: Error) => void): void {
-  const outgoing = httpRequest({ host: upstream.host, port: upstream.port, method: request.method, path: request.url, headers: requestHeaders(request, policy, false) }, incoming => {
+  const outgoing = httpRequest({
+    host: upstream.host,
+    port: upstream.port,
+    method: request.method,
+    path: request.url,
+    headers: requestHeaders(request, policy, false),
+    ...(upstream.connect ? { createConnection: () => upstream.connect!() } : {}),
+  }, incoming => {
     response.writeHead(incoming.statusCode ?? 502, incoming.statusMessage, responseHeaders(incoming.headers, policy));
     incoming.pipe(response);
     incoming.on("error", () => response.destroy());
@@ -63,7 +71,7 @@ export function forward(request: IncomingMessage, response: ServerResponse, upst
 /** Forwards an upgrade (a WebSocket): the request goes over a new connection, then both sides are joined as they are.
  * `failed` gets a connection error; the caller answers on the socket. */
 export function forwardUpgrade(request: IncomingMessage, socket: Socket, head: Buffer, upstream: Upstream, policy: ForwardPolicy, failed: (error: Error) => void): void {
-  const target = connect(upstream.port, upstream.host);
+  const target = upstream.connect ? upstream.connect() : connect(upstream.port, upstream.host);
   let joined = false;
   target.once("connect", () => {
     joined = true;

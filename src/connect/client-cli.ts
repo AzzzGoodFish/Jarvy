@@ -3,6 +3,7 @@ import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { call, Connector, fetchRoot, findShells, type Status, type Trust } from "./connector.js";
+import { SandboxHost } from "./sandbox-host.js";
 
 /** Shared client node CLI core (A96, A106): used by `jarvy client <login|start|stop|run|status|logout>`
  * and the standalone zero-install `connector.mjs` bundle. */
@@ -92,9 +93,18 @@ export async function ensureClientPaired(
   return existing;
 }
 
+export interface SandboxCliOptions {
+  enabled: boolean;
+  image?: string;
+  maxContainers?: number;
+  idlePauseMs?: number;
+  idleReclaimMs?: number;
+}
+
 export interface RunClientOptions {
   dir: string;
   saved: SavedClientConfig;
+  sandbox?: SandboxCliOptions;
   /** Called once the connector loop is running (and either online or after the initial connect grace window). */
   onReady?: (meta: { url: string; name: string }) => void;
   /** Called on graceful shutdown right before exit. */
@@ -114,16 +124,31 @@ export async function runClientForeground(options: RunClientOptions): Promise<vo
     clearTimeout(readyTimer);
     options.onReady?.({ url: saved.server, name: saved.name });
   };
-  // Signal daemon readiness as soon as we connect, or after 2s so `start` doesn't hang if the server is temporarily unreachable.
   const readyTimer = setTimeout(signalOnce, 2000);
   readyTimer.unref();
 
-  const connector = new Connector({
+  let connector!: Connector;
+  const sandboxHost = options.sandbox?.enabled
+    ? new SandboxHost({
+      baseDir: resolve(dir),
+      image: options.sandbox.image,
+      maxContainers: options.sandbox.maxContainers,
+      idlePauseMs: options.sandbox.idlePauseMs,
+      idleReclaimMs: options.sandbox.idleReclaimMs,
+      onStateChanged: () => connector?.notifySandboxState(),
+    })
+    : undefined;
+  if (sandboxHost) {
+    console.log(`Sandbox compute mode: enabled (max=${options.sandbox!.maxContainers ?? 8}${options.sandbox!.image ? `, image=${options.sandbox!.image}` : ""})`);
+  }
+
+  connector = new Connector({
     server: saved.server,
     token: saved.token,
     trust: { ca: saved.ca },
     cache: join(resolve(dir), "daemon"),
     client: VERSION,
+    sandboxHost,
     onStatus: status => {
       console.log(`[${new Date().toLocaleTimeString()}] ${describeStatus(status)}`);
       if (status.state === "online" || status.state === "unpaired" || status.state === "outdated") signalOnce();

@@ -1,40 +1,40 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Duplex } from "node:stream";
+import { Duplex } from "node:stream";
 import { Connection, RemoteExecutionEnv } from "@earendil-works/pi-env";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import type { WorkEnvironment } from "../../shared/environment.js";
 import type { PtyExit, PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import { overDurable } from "./durable.js";
-import { DEVICE_PATH, DEVICE_PROTOCOL } from "../../../contract/device.js";
+import { DEVICE_PATH, DEVICE_PROTOCOL, type SandboxNodeInfo } from "../../../contract/device.js";
 
-/* Jarvy opens a channel each time pi-env starts its daemon on a computer (A96); the client runs the daemon it got
- * from Jarvy with the arguments it is given and joins its standard input and output to the channel. */
+/* Jarvy opens a channel each time pi-env starts its daemon on a computer (A96, A108); the client runs the daemon
+ * (on the host or inside a remote sandbox container via `docker exec`) and joins its I/O to the WebSocket channel. */
 
-/** What a client says first: the computer it runs on, and the shells it found there. */
 export interface DeviceHello {
   platform: string; arch: string; home: string; hostname?: string;
   shells: { bash?: string; powershell?: string };
   client: string; capabilities: string[];
-  /** The person paused it in the client: it takes no new work until they resume. */
   paused: boolean;
+  sandbox?: SandboxNodeInfo;
 }
+
 type Control =
   | ({ t: "hello"; protocol: number } & Partial<DeviceHello>)
-  | { t: "state"; paused?: boolean }
-  | { t: "exit"; ch: number; code?: number | null; error?: string };
+  | { t: "state"; paused?: boolean; sandbox?: SandboxNodeInfo }
+  | { t: "exit"; ch: number; code?: number | null; error?: string }
+  | { t: "rpc_result"; id: string; ok: boolean; result?: unknown; error?: string }
+  | { t: "tcp_ready"; ch: number };
 
 export interface DeviceHooks {
-  /** The computer a token belongs to, by its SHA-256; null when it belongs to none. */
   authenticate(tokenHash: string): { id: string; name: string } | null;
-  /** It connected and said what it is, or said it paused or resumed. */
   hello(id: string, hello: DeviceHello): void;
-  /** Its connection came or went. */
   presence(id: string, online: boolean): void;
+  sandboxState?(id: string, sandbox: SandboxNodeInfo | undefined): void;
 }
 
 export const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -45,19 +45,35 @@ interface NativePtyEntry {
   finish: (exit: PtyExit) => void;
 }
 
-/** One client's connection, with the daemons and native PTYs running through it. */
+interface PendingRpc {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+interface TcpTunnelEntry {
+  stream: Duplex;
+  ready: () => void;
+  fail: (error: Error) => void;
+}
+
+/** One client's connection, carrying pi-env channels, native PTYs, compute RPCs, and TCP tunnels. */
 class Link {
   readonly channels = new Map<number, Socket>();
   readonly ptys = new Map<number, NativePtyEntry>();
+  readonly rpcs = new Map<string, PendingRpc>();
+  readonly tunnels = new Map<number, TcpTunnelEntry>();
   capabilities = new Set<string>();
+  sandbox: SandboxNodeInfo | undefined;
   private next = 1;
   paused = false;
   alive = true;
-  constructor(readonly id: string, readonly socket: WebSocket) {}
-  open(args: string[], bot: string, relay: Socket): number {
+  constructor(readonly id: string, readonly name: string, readonly socket: WebSocket) {}
+
+  open(args: string[], bot: string, relay: Socket, container?: string): number {
     const ch = this.next++;
     this.channels.set(ch, relay);
-    this.socket.send(JSON.stringify({ t: "open", ch, args, bot }));
+    this.socket.send(JSON.stringify({ t: "open", ch, args, bot, ...(container ? { container } : {}) }));
     relay.on("data", (chunk: Buffer) => { if (this.socket.readyState === this.socket.OPEN) this.socket.send(frame(ch, chunk)); });
     const done = () => {
       if (!this.channels.delete(ch)) return;
@@ -67,6 +83,7 @@ class Link {
     relay.on("error", () => relay.destroy());
     return ch;
   }
+
   openPty(options: PtyOpenOptions): PtyHandle {
     const ch = this.next++;
     let settled = false;
@@ -102,35 +119,107 @@ class Link {
       exited,
     };
   }
+
+  callRpc<T>(op: string, params?: Record<string, unknown>, timeoutMs = 120_000): Promise<T> {
+    if (this.socket.readyState !== this.socket.OPEN) return Promise.reject(new Error("Compute node is not connected"));
+    const id = randomUUID();
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.rpcs.delete(id);
+        reject(new Error(`Compute RPC ${op} timed out after ${Math.round(timeoutMs / 1000)}s`));
+      }, timeoutMs);
+      timer.unref();
+      this.rpcs.set(id, { resolve: value => resolve(value as T), reject, timer });
+      this.socket.send(JSON.stringify({ t: "rpc", id, op, ...(params ? { params } : {}) }));
+    });
+  }
+
+  rpcResult(id: string, ok: boolean, result: unknown, error?: string): void {
+    const pending = this.rpcs.get(id);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    this.rpcs.delete(id);
+    if (ok) pending.resolve(result);
+    else pending.reject(new Error(error || "Compute RPC failed"));
+  }
+
+  /** Opens a raw TCP tunnel through this client to `host:port` (for remote container `ports.publish`, A108). */
+  openTcpTunnel(host: string, port: number): Duplex {
+    const ch = this.next++;
+    let connected = false;
+    let closed = false;
+    const closeRemote = () => {
+      if (closed) return;
+      closed = true;
+      this.tunnels.delete(ch);
+      if (this.socket.readyState === this.socket.OPEN) this.socket.send(JSON.stringify({ t: "close", ch }));
+    };
+    const stream = new Duplex({
+      read() {},
+      write: (chunk: Buffer, _enc, cb) => {
+        if (closed || this.socket.readyState !== this.socket.OPEN) { cb(new Error("Tunnel closed")); return; }
+        this.socket.send(frame(ch, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        cb();
+      },
+      final: cb => { closeRemote(); cb(); },
+      destroy: (err, cb) => { closeRemote(); cb(err); },
+    });
+    const entry: TcpTunnelEntry = {
+      stream,
+      ready: () => { if (!connected && !closed) { connected = true; stream.emit("connect"); } },
+      fail: error => { if (!closed) { closed = true; this.tunnels.delete(ch); stream.destroy(error); } },
+    };
+    this.tunnels.set(ch, entry);
+    if (this.socket.readyState !== this.socket.OPEN) {
+      queueMicrotask(() => entry.fail(new Error("Compute node disconnected")));
+    } else {
+      this.socket.send(JSON.stringify({ t: "tcp_open", ch, host, port }));
+    }
+    return stream;
+  }
+
+  tcpReady(ch: number): void { this.tunnels.get(ch)?.ready(); }
+
   data(ch: number, bytes: Buffer): void {
     const relay = this.channels.get(ch);
     if (relay) { relay.write(bytes); return; }
-    this.ptys.get(ch)?.onData(bytes);
+    const pty = this.ptys.get(ch);
+    if (pty) { pty.onData(bytes); return; }
+    const tunnel = this.tunnels.get(ch);
+    if (tunnel) tunnel.stream.push(bytes);
   }
+
   exit(ch: number, code: number | null = null, error?: string): void {
     const relay = this.channels.get(ch);
     if (relay) { this.channels.delete(ch); relay.end(); return; }
     const pty = this.ptys.get(ch);
-    if (pty) pty.finish({ exitCode: code, ...(error ? { reason: error } : {}) });
+    if (pty) { pty.finish({ exitCode: code, ...(error ? { reason: error } : {}) }); return; }
+    const tunnel = this.tunnels.get(ch);
+    if (tunnel) {
+      this.tunnels.delete(ch);
+      if (error) tunnel.stream.destroy(new Error(error));
+      else tunnel.stream.push(null);
+    }
   }
+
   drop(): void {
     for (const relay of this.channels.values()) relay.destroy();
     this.channels.clear();
     for (const pty of [...this.ptys.values()]) pty.finish({ exitCode: null, reason: "disconnected" });
     this.ptys.clear();
+    for (const pending of this.rpcs.values()) { clearTimeout(pending.timer); pending.reject(new Error("Compute node disconnected")); }
+    this.rpcs.clear();
+    for (const tunnel of [...this.tunnels.values()]) tunnel.fail(new Error("Compute node disconnected"));
+    this.tunnels.clear();
   }
 }
 
 const frame = (ch: number, bytes: Buffer) => { const head = Buffer.alloc(4); head.writeUInt32BE(ch); return Buffer.concat([head, bytes]); };
 
-/** pi-env starts its daemon with a command; for a computer that connected itself, the command is this small relay,
- * run by the same Node: it joins its standard input and output to Jarvy's local socket, which Jarvy joins to the
- * computer's WebSocket. pi-env adds the daemon's own arguments (`serve --token …`) at the end. */
-const RELAY = `const net=require("node:net");const [path,key,device,bot,...args]=process.argv.slice(1);
-const s=net.connect(path,()=>{s.write(JSON.stringify({key,device,bot,args})+"\\n");process.stdin.pipe(s);s.pipe(process.stdout);});
+const RELAY = `const net=require("node:net");const [path,key,device,bot,container,...args]=process.argv.slice(1);
+const s=net.connect(path,()=>{s.write(JSON.stringify({key,device,bot,...(container?{container}:{}),args})+"\\n");process.stdin.pipe(s);s.pipe(process.stdout);});
 s.on("error",()=>process.exit(1));s.on("close",()=>process.exit(0));process.stdin.on("end",()=>s.end());`;
 
-/** The computers connected now (A96): their WebSockets, and the local socket pi-env's relays reach them through. */
 export class DeviceLinks {
   private readonly server = new WebSocketServer({ noServer: true, maxPayload: 64 * 2 ** 20 });
   private readonly links = new Map<string, Link>();
@@ -146,25 +235,49 @@ export class DeviceLinks {
     this.beat = setInterval(() => this.heartbeat(), 30_000);
     this.beat.unref();
   }
+
   online(id: string): boolean { return this.links.has(id); }
   paused(id: string): boolean { return !!this.links.get(id)?.paused; }
   hasCapability(id: string, capability: string): boolean { return !!this.links.get(id)?.capabilities.has(capability); }
-  /** Opens a dedicated pi-env `Connection` over the device relay (interactive terminals A103, file browser A104). */
-  openConnection(id: string, onLog?: (text: string) => void): Connection {
-    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, ""], ...(onLog ? { onLog } : {}) });
+
+  /** Lists all online, non-paused compute nodes capable of hosting remote Docker sandboxes (A108). */
+  sandboxNodes(): Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> {
+    const out: Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> = [];
+    for (const link of this.links.values()) {
+      if (link.paused || !link.capabilities.has("sandbox") || !link.sandbox?.docker) continue;
+      out.push({ id: link.id, name: link.name, sandbox: link.sandbox });
+    }
+    return out;
   }
-  /** Opens a dedicated pi-env `Connection` over the device relay for an interactive terminal (Linux/macOS, A103). */
-  openTerminalConnection(id: string, onLog?: (text: string) => void): Connection {
-    return this.openConnection(id, onLog);
+
+  callRpc<T>(id: string, op: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<T> {
+    const link = this.links.get(id);
+    if (!link || link.paused) return Promise.reject(new Error("Compute node is offline or paused"));
+    return link.callRpc<T>(op, params, timeoutMs);
   }
-  /** Opens a native connector PTY channel (Windows ConPTY, A103) over the device's WebSocket. */
+
+  openTcpTunnel(id: string, host: string, port: number): Duplex {
+    const link = this.links.get(id);
+    if (!link || link.paused) {
+      const dead = new Duplex({ read() {}, write(_c, _e, cb) { cb(new Error("Compute node offline")); } });
+      queueMicrotask(() => dead.destroy(new Error("Compute node offline")));
+      return dead;
+    }
+    return link.openTcpTunnel(host, port);
+  }
+
+  openConnection(id: string, onLog?: (text: string) => void, container = ""): Connection {
+    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, "", container], ...(onLog ? { onLog } : {}) });
+  }
+  openTerminalConnection(id: string, onLog?: (text: string) => void, container = ""): Connection {
+    return this.openConnection(id, onLog, container);
+  }
   openNativePty(id: string, options: PtyOpenOptions): PtyHandle | null {
     const link = this.links.get(id);
     if (!link || link.paused) return null;
     return link.openPty(options);
   }
 
-  /** An upgrade on Jarvy's port: the device path is this one's; anything else is left alone (false). */
   upgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean {
     if (new URL(request.url ?? "/", "http://jarvy").pathname !== DEVICE_PATH) return false;
     const auth = /^Device\s+(\S+)$/.exec(request.headers.authorization ?? "")?.[1];
@@ -173,17 +286,23 @@ export class DeviceLinks {
     this.server.handleUpgrade(request, socket, head, ws => this.accept(device, ws));
     return true;
   }
-  /** The computer as a Bot's environment: pi-env over the relay, started again whenever it is lost. */
+
   environment(id: string, bot: string, directory: string, temp: string, onLog?: (text: string) => void): WorkEnvironment {
-    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot], ...(onLog ? { onLog } : {}) });
+    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot, ""], ...(onLog ? { onLog } : {}) });
     return overDurable(id, "device", new RemoteExecutionEnv({ connection, id: `device:${id}`, cwd: directory }), {
       passEnv: false, temp, close: () => connection.close() });
   }
-  /** Ends a computer's connection: it was unpaired. */
+
+  /** Opens a `WorkEnvironment` inside a remote sandbox container on compute node `id` (A108). */
+  remoteContainerEnvironment(id: string, envId: string, container: string, bot: string, cwd: string, onLog?: (text: string) => void): WorkEnvironment {
+    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot, container], ...(onLog ? { onLog } : {}) });
+    return overDurable(envId, "computer", new RemoteExecutionEnv({ connection, id: `remote-computer:${id}:${container}`, cwd }), {
+      passEnv: false, close: () => connection.close() });
+  }
+
   disconnect(id: string): void { this.links.get(id)?.socket.close(4003, "unpaired"); }
   close(): void {
     clearInterval(this.beat);
-    // Let go of the links first: a socket's close arrives after the database has closed, and must not record presence.
     const links = [...this.links.values()];
     this.links.clear();
     for (const link of links) { link.drop(); link.socket.close(1001, "Jarvy is stopping"); }
@@ -197,7 +316,6 @@ export class DeviceLinks {
     const hello = setTimeout(() => ws.close(4002, "no hello"), 15_000);
     ws.on("pong", () => { if (link) link.alive = true; });
     ws.on("message", (data: RawData, binary: boolean) => {
-      // Anything from the client shows it is there: under a long output its pong can wait behind the data.
       if (link) link.alive = true;
       const bytes = Buffer.isBuffer(data) ? data : Buffer.concat(Array.isArray(data) ? data : [Buffer.from(data)]);
       if (binary) { if (link && bytes.length >= 4) link.data(bytes.readUInt32BE(0), bytes.subarray(4)); return; }
@@ -209,27 +327,39 @@ export class DeviceLinks {
         const previous = this.links.get(device.id);
         if (previous) { previous.drop(); previous.socket.close(4000, "replaced"); }
         const info = describe(message);
-        link = new Link(device.id, ws);
+        link = new Link(device.id, device.name, ws);
         link.paused = info.paused;
         link.capabilities = new Set(info.capabilities);
+        link.sandbox = info.sandbox;
         this.links.set(device.id, link);
         this.hooks.hello(device.id, info);
+        this.hooks.sandboxState?.(device.id, info.sandbox);
         ws.send(JSON.stringify({ t: "welcome", id: device.id, name: device.name, protocol: DEVICE_PROTOCOL }));
         this.hooks.presence(device.id, true);
       } else if (!link) return;
-      else if (message.t === "state") { link.paused = !!message.paused; this.hooks.presence(device.id, true); }
+      else if (message.t === "state") {
+        link.paused = !!message.paused;
+        if (message.sandbox !== undefined) { link.sandbox = message.sandbox; this.hooks.sandboxState?.(device.id, message.sandbox); }
+        this.hooks.presence(device.id, true);
+      }
       else if (message.t === "exit") link.exit(message.ch, message.code ?? null, message.error);
+      else if (message.t === "rpc_result") link.rpcResult(message.id, message.ok, message.result, message.error);
+      else if (message.t === "tcp_ready") link.tcpReady(message.ch);
     });
     ws.on("close", (code: number) => {
       clearTimeout(hello);
       if (link && code !== 1000 && code !== 1001) console.warn(`[devices] ${device.name}: connection closed (${code})`);
       if (!link) return;
       link.drop();
-      if (this.links.get(device.id) === link) { this.links.delete(device.id); this.hooks.presence(device.id, false); }
+      if (this.links.get(device.id) === link) {
+        this.links.delete(device.id);
+        this.hooks.sandboxState?.(device.id, undefined);
+        this.hooks.presence(device.id, false);
+      }
     });
     ws.on("error", error => { console.warn(`[devices] ${device.name}: ${error.message}`); ws.terminate(); });
   }
-  /** A relay pi-env started: its first line says which computer, and the daemon's arguments. */
+
   private relay(socket: Socket): void {
     let head = Buffer.alloc(0);
     const first = (chunk: Buffer) => {
@@ -238,34 +368,55 @@ export class DeviceLinks {
       if (end < 0) { if (head.length > 64 * 1024) socket.destroy(); return; }
       socket.off("data", first);
       socket.pause();
-      let request: { key?: string; device?: string; bot?: unknown; args?: unknown };
+      let request: { key?: string; device?: string; bot?: unknown; container?: unknown; args?: unknown };
       try { request = JSON.parse(head.subarray(0, end).toString("utf8")) as typeof request; } catch { socket.destroy(); return; }
       const link = typeof request.device === "string" ? this.links.get(request.device) : undefined;
       if (!same(request.key, this.key) || !link || link.paused || !Array.isArray(request.args) || !request.args.every(arg => typeof arg === "string")) { socket.destroy(); return; }
-      const ch = link.open(request.args as string[], typeof request.bot === "string" ? request.bot.slice(0, 100) : "", socket), rest = head.subarray(end + 1);
+      const container = typeof request.container === "string" && request.container ? request.container : undefined;
+      const ch = link.open(request.args as string[], typeof request.bot === "string" ? request.bot.slice(0, 100) : "", socket, container);
+      const rest = head.subarray(end + 1);
       if (rest.length) link.socket.send(frame(ch, rest));
       socket.resume();
     };
     socket.on("data", first);
     socket.on("error", () => socket.destroy());
   }
+
   private heartbeat(): void {
     for (const link of this.links.values()) {
-      if (!link.alive) { console.warn(`[devices] ${link.id}: no answer for 30 s, disconnected`); link.socket.terminate(); continue; }
+      if (!link.alive) { link.socket.terminate(); continue; }
       link.alive = false;
       link.socket.ping();
     }
   }
 }
 
-function same(a: unknown, b: string): boolean {
-  return typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+function same(a: string | undefined, b: string): boolean {
+  if (!a || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
-const short = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
+
 function describe(message: Partial<DeviceHello>): DeviceHello {
-  const shells = (message.shells ?? {}) as Record<string, unknown>;
-  return { platform: short(message.platform, 20), arch: short(message.arch, 20), home: short(message.home, 1000), hostname: short(message.hostname, 100),
-    shells: { ...(shells.bash ? { bash: short(shells.bash, 1000) } : {}), ...(shells.powershell ? { powershell: short(shells.powershell, 1000) } : {}) },
-    client: short(message.client, 40), capabilities: Array.isArray(message.capabilities) ? message.capabilities.filter((item): item is string => typeof item === "string").slice(0, 20).map(item => item.slice(0, 40)) : [],
-    paused: !!message.paused };
+  const string = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
+  const shells = message.shells && typeof message.shells === "object" ? message.shells : {};
+  const sb = message.sandbox && typeof message.sandbox === "object" ? message.sandbox : undefined;
+  return {
+    platform: string(message.platform, 30), arch: string(message.arch, 30), home: string(message.home, 500),
+    ...(typeof message.hostname === "string" && message.hostname ? { hostname: string(message.hostname, 120) } : {}),
+    shells: { ...(typeof shells.bash === "string" && shells.bash ? { bash: string(shells.bash, 500) } : {}),
+      ...(typeof shells.powershell === "string" && shells.powershell ? { powershell: string(shells.powershell, 500) } : {}) },
+    client: string(message.client, 60),
+    capabilities: Array.isArray(message.capabilities) ? message.capabilities.filter((item): item is string => typeof item === "string").slice(0, 20) : [],
+    paused: !!message.paused,
+    ...(sb && typeof sb.docker === "boolean" ? {
+      sandbox: {
+        docker: sb.docker,
+        cpus: Number(sb.cpus) || 0,
+        memory: Number(sb.memory) || 0,
+        image: string(sb.image, 120),
+        activeContainers: Number(sb.activeContainers) || 0,
+        maxContainers: Number(sb.maxContainers) || 0,
+      },
+    } : {}),
+  };
 }

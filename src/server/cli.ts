@@ -287,9 +287,14 @@ async function handleClient(args: string[]): Promise<void> {
       "  status                show client node status and paired server",
       "  logout                stop the client node and remove local pairing credentials",
       "Options:",
-      "  --name <name>         display name for this machine (default: hostname)",
-      "  --config-dir <path>   client config directory (default: ~/.config/jarvy-client or $JARVY_CLIENT_DIR)",
-      "  --reset               ignore existing pairing and pair again",
+      "  --name <name>             display name for this machine (default: hostname)",
+      "  --config-dir <path>       client config directory (default: ~/.config/jarvy-client or $JARVY_CLIENT_DIR)",
+      "  --sandbox                 expose this machine's Docker engine as a remote sandbox compute node",
+      "  --sandbox-image <image>   default Docker image for remote sandboxes (default: jarvy-computer or ubuntu:24.04)",
+      "  --max-sandboxes <n>       maximum concurrent running sandboxes on this node (default: 8)",
+      "  --idle-pause-min <min>    warm-pause idle sandboxes after N minutes (default: 30)",
+      "  --idle-reclaim-min <min>  reclaim paused sandboxes after N minutes (default: 1440)",
+      "  --reset                   ignore existing pairing and pair again",
     ].join("\n"));
     return;
   }
@@ -297,7 +302,12 @@ async function handleClient(args: string[]): Promise<void> {
   const dir = option(rest, "--config-dir", defaultClientConfigDir());
   const name = optionalOption(rest, "--name");
   const reset = rest.includes("--reset");
-  const serverArg = positional(rest, ["--config-dir", "--name"]);
+  const sandboxEnabled = rest.includes("--sandbox");
+  const sandboxImage = optionalOption(rest, "--sandbox-image");
+  const maxSandboxes = optionalOption(rest, "--max-sandboxes");
+  const idlePauseMin = optionalOption(rest, "--idle-pause-min");
+  const idleReclaimMin = optionalOption(rest, "--idle-reclaim-min");
+  const serverArg = positional(rest, ["--config-dir", "--name", "--sandbox-image", "--max-sandboxes", "--idle-pause-min", "--idle-reclaim-min"]);
   const configFlag = dir === defaultClientConfigDir() ? "" : ` --config-dir ${dir}`;
 
   if (action === "login") {
@@ -345,10 +355,16 @@ async function handleClient(args: string[]): Promise<void> {
       return;
     }
     await ensureClientPaired(dir, { server: serverArg, name, reset });
-    const started = await startDaemon(process.argv[1]!, ["client", "run", "--config-dir", dir], {
+    const childArgs = ["client", "run", "--config-dir", dir];
+    if (sandboxEnabled) childArgs.push("--sandbox");
+    if (sandboxImage) childArgs.push("--sandbox-image", sandboxImage);
+    if (maxSandboxes) childArgs.push("--max-sandboxes", maxSandboxes);
+    if (idlePauseMin) childArgs.push("--idle-pause-min", idlePauseMin);
+    if (idleReclaimMin) childArgs.push("--idle-reclaim-min", idleReclaimMin);
+    const started = await startDaemon(process.argv[1]!, childArgs, {
       dir, pidFile: CLIENT_PID, logFile: CLIENT_LOG, label: "Jarvy client",
     });
-    console.log(`Jarvy client running in background as "${started.name ?? "device"}" → ${started.url} (pid ${started.pid})`);
+    console.log(`Jarvy client running in background as "${started.name ?? "device"}" → ${started.url} (pid ${started.pid})${sandboxEnabled ? " [sandbox compute]" : ""}`);
     console.log(`Log: ${daemonLogPath(dir, CLIENT_LOG)}\nStop with: ${stopCommand}`);
     return;
   }
@@ -359,6 +375,15 @@ async function handleClient(args: string[]): Promise<void> {
   await runClientForeground({
     dir,
     saved,
+    ...(sandboxEnabled ? {
+      sandbox: {
+        enabled: true,
+        ...(sandboxImage ? { image: sandboxImage } : {}),
+        ...(maxSandboxes ? { maxContainers: Number(maxSandboxes) } : {}),
+        ...(idlePauseMin ? { idlePauseMs: Number(idlePauseMin) * 60_000 } : {}),
+        ...(idleReclaimMin ? { idleReclaimMs: Number(idleReclaimMin) * 60_000 } : {}),
+      },
+    } : {}),
     onReady: meta => signalDaemonReady(meta),
     onStop: () => removePidFile(dir, CLIENT_PID),
   });

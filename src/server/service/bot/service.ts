@@ -16,7 +16,9 @@ import type { ChatFiles } from "../chat/files.js";
 import type { CredentialCoordinator } from "../../infra/credentials/coordinator.js";
 import { PiSession, type SessionFactory } from "../../infra/pi/session.js";
 import type { ModelCatalog } from "../../infra/pi/catalog.js";
+import type { CloudSync } from "../../infra/cloud/sync.js";
 import { BotEnvironments, type Moved } from "./environments.js";
+import { ComputePool } from "./compute-pool.js";
 import { Computers } from "./computers.js";
 import { SshMachines } from "./machines.js";
 import { Devices } from "./devices.js";
@@ -61,6 +63,8 @@ export interface BotDependencies {
   tasks: TaskService;
   /** The model catalog (A49), for the models a session installs (A62). */
   catalog: ModelCatalog;
+  /** Optional S3 cloud sync engine for direct compute-node workspace sync (A107, A108). */
+  cloud?: CloudSync | null;
   changed: (botId: string) => void; factory?: SessionFactory;
   /** Bots were created, renamed or deleted by the agent Bot (A48): the owner's page reloads them. */
   listChanged?: () => void;
@@ -77,6 +81,7 @@ export class BotService {
   private readonly lives = new Map<string, LiveTurns>();
   private readonly jobs = new Map<string, BotJobs>();
   private readonly computers: Computers;
+  private readonly compute: ComputePool;
   private readonly environments: BotEnvironments;
   /** The owner's SSH machines (A57). */
   readonly machines: SshMachines;
@@ -92,11 +97,19 @@ export class BotService {
   private readonly skills: readonly Skill[] = builtinSkills();
   constructor(private readonly deps: BotDependencies) {
     this.agent = new AgentOps(this, deps.store, deps.chats, deps.deliveries, this.skills);
-    this.computers = new Computers({ store: deps.store, changed: () => this.listChanged(), onEnvironmentClosed: id => deps.onEnvironmentClosed?.(id) });
-    this.computers.adopt(deps.store.bots.list().map(record => record.id));
-    this.ports = new PublishedPorts(deps.store, this.computers, () => deps.listening?.() ?? null);
     this.machines = new SshMachines(deps.store, deps.chats, () => this.listChanged());
     this.devices = new Devices(deps.store, () => this.listChanged());
+    this.compute = new ComputePool({
+      links: this.devices.deviceLinks,
+      cloud: deps.cloud ?? null,
+      botName: id => deps.store.bots.get(id)?.name ?? id.slice(0, 8),
+      changed: () => this.listChanged(),
+      onEnvironmentClosed: id => deps.onEnvironmentClosed?.(id),
+    });
+    this.devices.setNodeOfflineHandler(id => this.compute.nodeDisconnected(id));
+    this.computers = new Computers({ store: deps.store, compute: this.compute, changed: () => this.listChanged(), onEnvironmentClosed: id => deps.onEnvironmentClosed?.(id) });
+    this.computers.adopt(deps.store.bots.list().map(record => record.id));
+    this.ports = new PublishedPorts(deps.store, this.computers, () => deps.listening?.() ?? null);
     this.environments = new BotEnvironments(deps.store, this.computers, this.machines, this.devices);
   }
   listChanged() { this.deps.listChanged?.(); }
@@ -447,6 +460,7 @@ export class BotService {
     this.closed = true;
     await Promise.all([...this.bots.values()].map(bot => bot.stop()));
     for (const live of this.lives.values()) live.close();
+    await this.compute.close();
     await this.environments.close();
     this.devices.close();
   }

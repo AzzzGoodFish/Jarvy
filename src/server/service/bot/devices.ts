@@ -23,13 +23,21 @@ const SHELLS: DeviceShell[] = ["bash", "powershell"];
  * (Git Bash or PowerShell on Windows), in the person's own desktop session. */
 export class Devices {
   private readonly links: DeviceLinks;
+  private onNodeOffline?: (id: string) => void;
   constructor(private readonly store: Store, private readonly changed: () => void = () => {}) {
     this.links = new DeviceLinks({
       authenticate: hash => { const record = this.store.environments.deviceByToken(hash); return record ? { id: record.id, name: record.name } : null; },
       hello: (id, hello) => this.reported(id, hello),
-      presence: (id, online) => { if (!online) this.store.environments.updateDevice(id, { spec: { seenAt: String(Date.now()) } }); this.changed(); },
+      presence: (id, online) => {
+        if (!online) { this.store.environments.updateDevice(id, { spec: { seenAt: String(Date.now()) } }); this.onNodeOffline?.(id); }
+        this.changed();
+      },
+      sandboxState: (_id, _sandbox) => this.changed(),
     });
   }
+  /** Exposes underlying WebSocket link hub for `ComputePool` remote sandbox scheduling (A108). */
+  get deviceLinks(): DeviceLinks { return this.links; }
+  setNodeOfflineHandler(handler: (id: string) => void): void { this.onNodeOffline = handler; }
   list(): Device[] { return this.store.environments.devices().map(record => this.view(record)); }
   get(id: string): Device { return this.view(this.need(id)); }
   /** The client registers the computer it runs on, signed in as the owner: the token comes back once, and only its

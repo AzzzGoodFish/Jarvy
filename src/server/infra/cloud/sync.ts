@@ -13,7 +13,7 @@ import {
   type CloudBotState, type CloudManifestState, type LocalSyncMarker,
 } from "./restore.js";
 import { S3Client } from "./s3-client.js";
-import { syncWorkspaceUp } from "./workspace-sync.js";
+import { manifestKey, restoreWorkspaceDown, syncWorkspaceUp, type WorkspaceManifest } from "./workspace-sync.js";
 
 export { restoreFromCloud };
 
@@ -204,6 +204,107 @@ export class CloudSync {
       lastSyncedAt: this.lastSyncedAt,
       lastError: this.lastError,
     };
+  }
+
+  /** Syncs the server's local `/workspace` for `botId` to S3 and returns Pre-signed GET URLs so a remote
+   * compute node can pull the latest `workspace_rev` directly from S3 (A108). */
+  async presignWorkspacePull(botId: string): Promise<{
+    rev: number; manifestKey: string; manifestUrl: string;
+    blobGets: Record<string, { key: string; url: string }>; keyBase64: string;
+  } | null> {
+    if (!this.encryptionKey || !this.lease.active) return null;
+    const botState: CloudBotState = this.state.bots[botId] ?? { sessions: {} };
+    const wsDir = join(this.dataDir, "bots", botId, "workspace");
+    const wsResult = await syncWorkspaceUp({
+      s3: this.s3, key: this.encryptionKey, prefix: this.prefix, botId, localDir: wsDir,
+      prevRev: botState.workspaceRev ?? 0, prevDigest: botState.workspaceDigest ?? null,
+      knownBlobs: this.knownWorkspaceBlobs, assertHeld: () => this.lease.assertHeld(),
+    });
+    if (wsResult.changed && wsResult.manifest) {
+      botState.workspaceKey = wsResult.manifest;
+      botState.workspaceRev = wsResult.rev;
+      botState.workspaceDigest = wsResult.digest;
+      this.state.bots[botId] = botState;
+      await this.flushStateManifest();
+    }
+    if (!botState.workspaceKey || !botState.workspaceRev) return null;
+    const obj = await this.s3.get(botState.workspaceKey);
+    if (!obj) return null;
+    const manifest = JSON.parse(decryptEnvelope(obj.body, this.encryptionKey, botState.workspaceKey).toString("utf8")) as WorkspaceManifest;
+    const blobGets: Record<string, { key: string; url: string }> = {};
+    for (const f of manifest.files) {
+      if (blobGets[f.sha256]) continue;
+      const bKey = `${this.prefix}workspaces/blobs/${f.sha256.slice(0, 2)}/${f.sha256}.enc`;
+      blobGets[f.sha256] = { key: bKey, url: this.s3.presign("GET", bKey, 900) };
+    }
+    return {
+      rev: manifest.rev,
+      manifestKey: botState.workspaceKey,
+      manifestUrl: this.s3.presign("GET", botState.workspaceKey, 900),
+      blobGets,
+      keyBase64: this.encryptionKey.toString("base64"),
+    };
+  }
+
+  /** Signs Pre-signed PUT URLs for only the missing workspace blobs + next manifest so a remote compute node
+   * can push changed workspace files directly to S3 without traversing the VPS (A108). */
+  async presignWorkspacePush(
+    botId: string,
+    digest: string,
+    files: readonly { sha256: string }[],
+  ): Promise<{
+    changed: boolean; rev: number; manifestKey: string; manifestUrl: string;
+    blobPuts: Record<string, { key: string; url: string }>; keyBase64: string;
+  } | null> {
+    if (!this.encryptionKey || !this.lease.active) return null;
+    const botState: CloudBotState = this.state.bots[botId] ?? { sessions: {} };
+    if (botState.workspaceDigest && botState.workspaceDigest === digest) {
+      return { changed: false, rev: botState.workspaceRev ?? 0, manifestKey: botState.workspaceKey ?? "", manifestUrl: "", blobPuts: {}, keyBase64: "" };
+    }
+    const blobPuts: Record<string, { key: string; url: string }> = {};
+    for (const f of files) {
+      if (blobPuts[f.sha256] || this.knownWorkspaceBlobs.has(f.sha256)) continue;
+      const bKey = `${this.prefix}workspaces/blobs/${f.sha256.slice(0, 2)}/${f.sha256}.enc`;
+      const exists = await this.s3.head(bKey);
+      if (exists) { this.knownWorkspaceBlobs.add(f.sha256); continue; }
+      blobPuts[f.sha256] = { key: bKey, url: this.s3.presign("PUT", bKey, 900) };
+    }
+    const nextRev = (botState.workspaceRev ?? 0) + 1;
+    const mKey = manifestKey(this.prefix, botId, nextRev);
+    return {
+      changed: true,
+      rev: nextRev,
+      manifestKey: mKey,
+      manifestUrl: this.s3.presign("PUT", mKey, 900),
+      blobPuts,
+      keyBase64: this.encryptionKey.toString("base64"),
+    };
+  }
+
+  /** Records a completed direct compute-node → S3 workspace push and refreshes the server's local workspace copy. */
+  async commitRemoteWorkspacePush(botId: string, input: { rev: number; digest: string; manifestKey: string; uploadedHashes: string[] }): Promise<void> {
+    if (!this.encryptionKey || !this.lease.active) return;
+    for (const h of input.uploadedHashes) this.knownWorkspaceBlobs.add(h);
+    const botState: CloudBotState = this.state.bots[botId] ?? { sessions: {} };
+    botState.workspaceRev = input.rev;
+    botState.workspaceDigest = input.digest;
+    botState.workspaceKey = input.manifestKey;
+    this.state.bots[botId] = botState;
+    await this.flushStateManifest();
+    await restoreWorkspaceDown({
+      s3: this.s3, key: this.encryptionKey, prefix: this.prefix,
+      manifestObjectKey: input.manifestKey, localDir: join(this.dataDir, "bots", botId, "workspace"),
+    }).catch(error => this.log(`local workspace refresh after remote push failed: ${error instanceof Error ? error.message : String(error)}`));
+  }
+
+  private async flushStateManifest(): Promise<void> {
+    if (!this.encryptionKey) return;
+    this.lease.assertHeld();
+    this.state.epoch = this.lease.epoch;
+    this.state.updatedAt = Date.now();
+    const stateKey = this.k("meta/state.json.enc");
+    await this.s3.put(stateKey, encryptEnvelope(Buffer.from(JSON.stringify(this.state), "utf8"), this.encryptionKey, stateKey, true));
+    await this.writeLocalMarker({ epoch: this.state.epoch, dbRev: this.state.dbRev, updatedAt: this.state.updatedAt });
   }
 
   /** Flushes final consistent snapshot on graceful shutdown, then releases the single-writer lease. */

@@ -1007,4 +1007,17 @@ Hosting Jarvy on disposable or lightweight cloud VPS instances requires keeping 
 
 Why: S3-compatible object storage avoids the POSIX locking corruption, OAuth expiry, and QPS limits of mounted consumer cloud drives while giving atomic conditional writes for split-brain prevention and zero extra npm dependencies.
 
-Consequences: no database schema change and no new npm dependencies; pure local mode without `--storage` remains unchanged.
+Consequences: no database schema change and no new dependencies; pure local mode without `--storage` remains unchanged.
+
+## A108 Remote on-demand sandbox compute pool (`jarvy client --sandbox`)
+
+A lightweight cloud `jarvy server` with no local Docker still needs isolated container execution (`bash`, interactive terminals, and published web preview ports) backed by high-compute machines sitting behind NAT or company intranets without VPN.
+
+- **Backwards-compatible WSS protocol extension (`contract/device.ts`, `infra/env/device-link.ts`, `connect/connector.ts`)**: keeping `DEVICE_PROTOCOL = 1`, compute clients advertise `capabilities: ["sandbox"]` and `SandboxNodeInfo` (`docker`, `cpus`, `memory`, `image`, `activeContainers`, `maxContainers`). The server reuses the existing multiplexed WebSocket channel with three additions: `open { container }` (runs `docker exec -i <container> /opt/jarvy/pi-env` so `WorkEnvironment`, `EnvironmentFs`, and Linux PTYs all work inside remote containers), request/response `rpc` / `rpc_result` frames for container and workspace orchestration, and `tcp_open` / `tcp_ready` binary tunnels for remote `ports.publish` forwarding.
+- **Compute-node sandbox manager (`connect/sandbox-host.ts`, `connect/workspace-direct.ts`)**: `jarvy client start|run --sandbox` runs isolated containers with shared host package cache mounts (`npm`, `pip`, `uv`, `cargo`), warm-pause + LRU idle reclamation (keeping containers alive while active channels, published listening ports, or pins exist), and strict container-IP allowlisting on `tcp_open` so tunnels can never reach arbitrary intranet hosts.
+- **Direct compute-node ↔ S3 Pre-signed URL workspace sync**: before executing commands in a remote container (and debounced after commands or on stop/reset), `ComputePool` (`service/bot/compute-pool.ts`) coordinates short-lived S3 Pre-signed URLs from `CloudSync` so encrypted workspace blobs transfer directly between the compute node and S3 without traversing the lightweight VPS. Unexpected power-loss divergence preserves unsynced local files under `recovered/<timestamp>/`.
+- **Transparent fallback & remote port tunneling**: `Computers` delegates container execution, terminals, files, and `PublishedPorts` (`infra/net/proxy.ts` custom `Upstream.connect`) to `ComputePool` automatically when local Docker is unavailable and at least one `--sandbox` compute node is online; when all compute nodes are offline, Bots fall back seamlessly to Phase 1 jailed `/workspace` file mode.
+
+Why: reusing the authenticated outbound WebSocket tunnel and `pi-env` protocol avoids inbound firewall/VPN requirements, keeps the VPS stateless and low-bandwidth via direct S3 Pre-signed URLs, and gives Bots isolated Linux sandboxes on disposable remote compute nodes.
+
+Consequences: no database schema change and no new npm dependencies; existing desktop/host clients remain 100% compatible.
