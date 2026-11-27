@@ -17,5 +17,8 @@ if (trusted && window.location.origin === trusted) {
     },
     onOpenChat: (listener: (chatId: string) => void) => { ipcRenderer.on("jarvy:open-chat", (_event, chatId: string) => listener(chatId)); },
     client: () => ipcRenderer.sendSync("jarvy:client") as { deviceId?: string; platform: string },
+    updateStatus: () => ipcRenderer.invoke("jarvy:update-status"),
+    checkUpdate: () => ipcRenderer.invoke("jarvy:update-check"),
+    installUpdate: () => ipcRenderer.invoke("jarvy:update-install"),
   });
 }

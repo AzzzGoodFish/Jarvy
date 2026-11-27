@@ -65,7 +65,19 @@ function ipc(): void {
     event.returnValue = { ...(config?.deviceId ? { deviceId: config.deviceId } : {}), platform: process.platform };
   });
   ipcMain.on("setup:chinese", event => { event.returnValue = chinese(); });
-  const fromPage = (event: Electron.IpcMainEvent) => !!origin() && event.senderFrame?.url.startsWith(`${origin()}/`) === true;
+  const fromPage = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => !!origin() && event.senderFrame?.url.startsWith(`${origin()}/`) === true;
+  ipcMain.handle("jarvy:update-status", event => {
+    if (!fromPage(event) || !updater) return { currentVersion: JARVY_VERSION, latestVersion: null, updateAvailable: false, releaseUrl: null, canDirectInstall: false };
+    return updater.status();
+  });
+  ipcMain.handle("jarvy:update-check", async event => {
+    if (!fromPage(event) || !updater) return { currentVersion: JARVY_VERSION, latestVersion: null, updateAvailable: false, releaseUrl: null, canDirectInstall: false };
+    return updater.checkQuiet();
+  });
+  ipcMain.handle("jarvy:update-install", async event => {
+    if (!fromPage(event) || !updater) return { started: false, error: "Updater unavailable" };
+    return updater.installFromPage();
+  });
   ipcMain.on("jarvy:notify", (event, notice: { title: string; body: string; chatId: string }) => {
     if (!fromPage(event) || !Notification.isSupported()) return;
     const note = new Notification({ title: notice.title, body: notice.body, icon: ICON, silent: false });

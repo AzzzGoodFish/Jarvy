@@ -1,3 +1,12 @@
+/** Desktop client update state exposed to Settings → About via the preload bridge (A113). */
+export interface DesktopUpdateStatus {
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  releaseUrl: string | null;
+  canDirectInstall: boolean;
+}
+
 /** What the desktop client (A96) gives the page it shows, as `window.jarvyDesktop`, and nothing more: the page gets no
  * Node and no access to the computer, only these calls, and only when it is the Jarvy the client trusts. */
 export interface JarvyDesktop {
@@ -16,4 +25,8 @@ export interface JarvyDesktop {
   onOpenChat(listener: (chatId: string) => void): void;
   /** The computer running this desktop client (A106): its paired device id (when registered) and OS platform; never exposes the token. */
   client?(): { deviceId?: string; platform: string };
+  /** Cached desktop update status, live check, and one-click install/restart triggered from Settings → About (A113). */
+  updateStatus?(): Promise<DesktopUpdateStatus>;
+  checkUpdate?(): Promise<DesktopUpdateStatus>;
+  installUpdate?(): Promise<{ started: boolean; error?: string }>;
 }

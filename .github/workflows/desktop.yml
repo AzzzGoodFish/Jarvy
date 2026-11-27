@@ -7,9 +7,9 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-    paths: ["desktop/**", "src/connect/**", "src/contract/device.ts", "src/contract/update.ts", ".github/workflows/desktop.yml"]
+    paths: ["desktop/**", "src/connect/**", "src/contract/desktop.ts", "src/contract/device.ts", "src/contract/update.ts", ".github/workflows/desktop.yml"]
   pull_request:
-    paths: ["desktop/**", "src/connect/**", "src/contract/device.ts", "src/contract/update.ts", ".github/workflows/desktop.yml"]
+    paths: ["desktop/**", "src/connect/**", "src/contract/desktop.ts", "src/contract/device.ts", "src/contract/update.ts", ".github/workflows/desktop.yml"]
   workflow_dispatch:
 
 permissions:
