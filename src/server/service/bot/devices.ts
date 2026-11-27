@@ -57,6 +57,14 @@ export class Devices {
   revokePairingToken(id: string): boolean {
     return this.pairing.revoke(id);
   }
+  /** Validates a registered device token without mutating state (used for gated downloads, A112). */
+  hasDeviceToken(token: string | undefined): boolean {
+    return !!token && !!this.store.environments.deviceByToken(tokenHash(token));
+  }
+  /** Non-destructively validates an active one-time pairing token for gated installer/binary downloads (A112). */
+  hasValidPairingToken(token: unknown, remoteIp: string): boolean {
+    return this.pairing.verifyActive(token, remoteIp);
+  }
   /** Redeems a one-time pairing token (burning it immediately) and registers the enrolling computer (A111). */
   enroll(input: { token?: unknown; name?: unknown }, remoteIp: string): { device: Device; token: string } {
     const issued = this.pairing.redeem(input.token, remoteIp);
@@ -91,7 +99,9 @@ export class Devices {
     return moved;
   }
   /** An upgrade on Jarvy's port that is a computer connecting; false for any other. */
-  upgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean { return this.links.upgrade(request, socket, head); }
+  upgrade(request: IncomingMessage, socket: Duplex, head: Buffer, remoteIp?: string, onAuthFailed?: (ip: string, reason: string) => void): boolean {
+    return this.links.upgrade(request, socket, head, remoteIp, onAuthFailed);
+  }
   /** The pi-env daemon for a computer's system, for its client to run: only to a computer with a valid token. */
   daemon(token: string | undefined, platform: string, arch: string): { open: () => NodeJS.ReadableStream; sha256: string; size: number } {
     if (!token || !this.store.environments.deviceByToken(tokenHash(token))) throw new ChatError(403, "Not a registered computer");

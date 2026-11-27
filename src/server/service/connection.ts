@@ -16,7 +16,11 @@ export interface Listening { host: string; port: number; https: boolean; address
 export class ConnectionService {
   private material: TlsMaterial | null = null;
   private listening: { host: string; port: number } | null = null;
+  private tlsOnlyFlag = false;
   constructor(private readonly store: Store, private readonly dataDir: string) {}
+
+  setTlsOnly(enabled: boolean): void { this.tlsOnlyFlag = enabled; }
+  tlsOnly(): boolean { return this.tlsOnlyFlag; }
 
   /** Called once before listening: the certificate to serve, or null when Jarvy stays on this machine. */
   prepare(host: string, port: number): TlsMaterial | null {
@@ -24,7 +28,7 @@ export class ConnectionService {
     this.material = isLoopbackHost(host) ? null : certificates(this.dataDir, host, this.store.cipher);
     return this.material;
   }
-  allowHttp(): boolean { return this.store.settings.get(ALLOW_HTTP) === "1"; }
+  allowHttp(): boolean { return !this.tlsOnlyFlag && this.store.settings.get(ALLOW_HTTP) === "1"; }
   setAllowHttp(allow: boolean): ConnectionInfo { this.store.settings.set(ALLOW_HTTP, allow ? "1" : null); return this.info(); }
   portRange(): PortRange {
     const [from, to] = (this.store.settings.get(PORT_RANGE) ?? "").split("-").map(Number);

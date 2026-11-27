@@ -41,17 +41,39 @@ export class AccountRepository {
       this.db.prepare("INSERT INTO account(id,username,password_salt,password_hash,member_id) VALUES(1,?,?,?,?)").run(name, salt, digest, this.userMemberId());
     });
   }
-  login(username: unknown, password: unknown): string | null {
+  verifyCredentials(username: unknown, password: unknown): boolean {
     const row = this.db.prepare("SELECT username,password_salt,password_hash FROM account WHERE id=1").get() as
       { username: string; password_salt: string; password_hash: string } | undefined;
-    if (!row || typeof username !== "string" || typeof password !== "string") return null;
+    if (!row || typeof username !== "string" || typeof password !== "string") return false;
     const candidate = Buffer.from(passwordHash(password, row.password_salt), "hex");
     const expected = Buffer.from(row.password_hash, "hex");
-    if (!timingSafeEqual(candidate, expected) || username !== row.username) return null;
+    return timingSafeEqual(candidate, expected) && username === row.username;
+  }
+  verifyPassword(password: unknown): boolean {
+    const name = this.username();
+    return name ? this.verifyCredentials(name, password) : false;
+  }
+  createSession(): string {
     const token = randomBytes(32).toString("base64url");
     this.db.prepare("DELETE FROM auth_sessions WHERE expires_at<?").run(Date.now());
     this.db.prepare("INSERT INTO auth_sessions VALUES (?,?)").run(tokenHash(token), Date.now() + SESSION_LIFETIME_MS);
     return token;
+  }
+  login(username: unknown, password: unknown): string | null {
+    if (!this.verifyCredentials(username, password)) return null;
+    return this.createSession();
+  }
+  activeSessionCount(): number {
+    this.db.prepare("DELETE FROM auth_sessions WHERE expires_at<?").run(Date.now());
+    return (this.db.prepare("SELECT COUNT(*) AS n FROM auth_sessions").get() as { n: number }).n;
+  }
+  revokeOtherSessions(keepToken: string): number {
+    const res = this.db.prepare("DELETE FROM auth_sessions WHERE token_hash!=?").run(tokenHash(keepToken));
+    return Number(res.changes);
+  }
+  revokeAllSessions(): number {
+    const res = this.db.prepare("DELETE FROM auth_sessions").run();
+    return Number(res.changes);
   }
   authenticated(token: string | undefined): boolean {
     if (!token || !/^[a-zA-Z0-9_-]{43}$/.test(token)) return false;

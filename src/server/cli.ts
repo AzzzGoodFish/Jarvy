@@ -104,6 +104,21 @@ function reachNotes(host: string, port: number, allowHttp: boolean): { info: str
   return { info, warning: allowHttp ? "WARNING: HTTP access is allowed in Settings → Network, so passwords and conversations reach other devices unencrypted." : null };
 }
 
+function securityOptions(args: string[]) {
+  const tlsOnly = args.includes("--tls-only") || process.env.JARVY_TLS_ONLY === "1";
+  const noWeb = args.includes("--no-web") || process.env.JARVY_NO_WEB === "1";
+  const trustProxy = args.includes("--trust-proxy") || process.env.JARVY_TRUST_PROXY === "1";
+  const rawLocalWebPort = optionalOption(args, "--local-web-port") ?? process.env.JARVY_LOCAL_WEB_PORT;
+  let localWebPort: number | null = null;
+  if (rawLocalWebPort !== undefined && rawLocalWebPort !== "") {
+    localWebPort = Number(rawLocalWebPort);
+    if (!Number.isInteger(localWebPort) || localWebPort < 1 || localWebPort > 65535) {
+      throw new Error("--local-web-port must be between 1 and 65535");
+    }
+  }
+  return { tlsOnly, noWeb, trustProxy, localWebPort };
+}
+
 function listenOptions(args: string[]) {
   const host = option(args, "--host", "127.0.0.1");
   const port = Number(option(args, "--port", "8080"));
@@ -126,6 +141,7 @@ function printRootHelp(): void {
     "  jarvy server status  [--data-dir <path>]                         Show server & cloud sync status",
     "  jarvy server backup  [--data-dir <path>] [--storage <s3://...>]  Run an on-demand encrypted backup to S3",
     "  jarvy server restore --storage <s3://...> --recovery-key <key>   Restore data & master key from S3",
+    "  jarvy server reset-2fa [--data-dir <path>]                       Disable 2FA locally (recovery escape hatch)",
     "",
     "Client commands (remote device / compute node):",
     "  jarvy client login   <server-url> [--name <name>] [--config-dir <path>]",
@@ -147,18 +163,23 @@ async function handleServer(args: string[]): Promise<void> {
   const rest = args.slice(1);
   if (!action || action === "help" || action === "--help" || action === "-h" || rest.includes("--help") || rest.includes("-h")) {
     console.log([
-      "Usage: jarvy server <init|start|stop|run|status|backup|restore> [options]",
-      "  init     set up the owner account interactively",
-      "  start    start the server in the background (logs to <data-dir>/jarvy.log)",
-      "  stop     stop the background server cleanly (flushing final cloud sync)",
-      "  run      run the server in the foreground (Ctrl+C stops)",
-      "  status   show whether the server is running",
-      "  backup   run a standalone encrypted backup snapshot to S3",
-      "  restore  restore a Jarvy data directory and master key from S3",
+      "Usage: jarvy server <init|start|stop|run|status|backup|restore|reset-2fa> [options]",
+      "  init      set up the owner account interactively",
+      "  start     start the server in the background (logs to <data-dir>/jarvy.log)",
+      "  stop      stop the background server cleanly (flushing final cloud sync)",
+      "  run       run the server in the foreground (Ctrl+C stops)",
+      "  status    show whether the server is running",
+      "  backup    run a standalone encrypted backup snapshot to S3",
+      "  restore   restore a Jarvy data directory and master key from S3",
+      "  reset-2fa disable TOTP 2FA locally (emergency recovery)",
       "Options:",
       "  --data-dir <path>           data directory (default: ~/.jarvy or $JARVY_DATA_DIR)",
       "  --host <host>               bind address (default: 127.0.0.1)",
       "  --port <port>               listen port (default: 8080)",
+      "  --no-web                    disable public web UI on main port (API & WS only, or $JARVY_NO_WEB=1)",
+      "  --local-web-port <port>     serve web UI strictly on 127.0.0.1:<port> for SSH tunnel/VPN ($JARVY_LOCAL_WEB_PORT)",
+      "  --tls-only                  drop non-TLS connections immediately on main port ($JARVY_TLS_ONLY=1)",
+      "  --trust-proxy               trust X-Forwarded-For from loopback/LAN reverse proxies ($JARVY_TRUST_PROXY=1)",
       "  --storage <s3://...>        S3 bucket/prefix (or $JARVY_STORAGE_URL)",
       "  --storage-endpoint <url>    S3 endpoint URL (or $JARVY_STORAGE_ENDPOINT)",
       "  --storage-region <region>   S3 region (default: auto, or $JARVY_STORAGE_REGION)",
@@ -172,12 +193,24 @@ async function handleServer(args: string[]): Promise<void> {
     ].join("\n"));
     return;
   }
-  if (!["init", "start", "stop", "run", "status", "backup", "restore"].includes(action)) throw new Error(`Unknown server command: ${action}`);
+  if (!["init", "start", "stop", "run", "status", "backup", "restore", "reset-2fa"].includes(action)) throw new Error(`Unknown server command: ${action}`);
   const dir = option(rest, "--data-dir", defaultDataDir());
   const dataFlag = dir === defaultDataDir() ? "" : ` --data-dir ${dir}`;
 
   if (action === "backup") return runServerBackup(dir, rest, SERVER_PID);
   if (action === "restore") return runServerRestore(dir, rest, SERVER_PID);
+  if (action === "reset-2fa") {
+    const running = runningDaemon(dir, SERVER_PID);
+    if (running) throw new Error(`Stop the running Jarvy server first (pid ${running.pid}): jarvy server stop${dataFlag}`);
+    const app = await Application.open(dir, { startCloudSync: false });
+    try {
+      const had = app.account.resetTotpFromCli();
+      console.log(had ? "Two-factor authentication has been disabled." : "Two-factor authentication was not enabled.");
+    } finally {
+      await app.close();
+    }
+    return;
+  }
 
   if (action === "status") {
     const running = runningDaemon(dir, SERVER_PID);
@@ -239,17 +272,33 @@ async function handleServer(args: string[]): Promise<void> {
   try {
     if (!store.account.isInitialized()) await initialize(store);
     const { host, port, url } = listenOptions(rest);
+    const sec = securityOptions(rest);
+    if (sec.tlsOnly && isLoopbackHost(host)) throw new Error("--tls-only requires a non-loopback --host");
+    if (sec.localWebPort !== null && sec.localWebPort === port && isLoopbackHost(host)) {
+      throw new Error("--local-web-port cannot match --port on loopback");
+    }
     const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../web");
-    if (!existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");
+    const needsWebAssets = !sec.noWeb || sec.localWebPort !== null;
+    if (needsWebAssets && !existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");
+    app.connection.setTlsOnly(sec.tlsOnly);
+    app.account.setRuntimeSecurityFlags(sec);
     const tls = app.connection.prepare(host, port);
-    const server = createJarvyServer(app, webRoot, tls);
+    const server = createJarvyServer(app, sec.noWeb ? null : webRoot, tls, {
+      tlsOnly: sec.tlsOnly, noWeb: sec.noWeb, trustProxy: sec.trustProxy,
+    });
+    const localWeb = sec.localWebPort !== null
+      ? createJarvyServer(app, webRoot, null, { noWeb: false, trustProxy: false })
+      : null;
     const published = new PublishedListeners(app, tls, host, port);
-    closeHttp = () => { server.close(); published.close(); };
+    closeHttp = () => { server.close(); localWeb?.close(); published.close(); };
     await server.listen(port, host);
+    if (localWeb && sec.localWebPort !== null) await localWeb.listen(sec.localWebPort, "127.0.0.1");
     app.start();
     published.start();
     writePidFile(dir, SERVER_PID, { url });
-    console.log(`Jarvy server running at ${url} (listening on ${host}, pid ${process.pid})`);
+    const modeTags = [sec.noWeb && "no-web", sec.tlsOnly && "tls-only", sec.trustProxy && "trust-proxy"].filter(Boolean);
+    console.log(`Jarvy server running at ${url} (listening on ${host}, pid ${process.pid}${modeTags.length ? `, ${modeTags.join(", ")}` : ""})`);
+    if (sec.localWebPort !== null) console.log(`Local-only web UI: http://127.0.0.1:${sec.localWebPort} (accessible via localhost / SSH tunnel)`);
     if (cloud) console.log(`Cloud storage: s3://${cloud.bucket}/${cloud.prefix} (epoch ${app.cloudStatus().epoch ?? 0})`);
     const notes = reachNotes(host, port, app.connection.allowHttp());
     for (const line of notes.info) console.log(line);
@@ -261,6 +310,7 @@ async function handleServer(args: string[]): Promise<void> {
       if (shuttingDown) return;
       shuttingDown = true;
       server.close();
+      localWeb?.close();
       published.close();
       void app.close().then(() => { removePidFile(dir, SERVER_PID); console.log("Jarvy server stopped."); })
         .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; })

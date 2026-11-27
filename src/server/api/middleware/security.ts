@@ -20,11 +20,19 @@ const sandboxHeaders = secureHeaders({
     formAction: ["'none'"], frameAncestors: ["'self'"],
   },
 });
-export const headers: MiddlewareHandler<ApiEnv> = async (c, next) => {
-  let sandboxed = false;
-  await appHeaders(c, async () => { await next(); sandboxed = !!c.get("sandboxedDocument"); });
-  if (sandboxed) { await sandboxHeaders(c, async () => {}); c.res.headers.delete("X-Frame-Options"); }
-};
+export function createSecurityHeaders(allowHttp: () => boolean = () => true): MiddlewareHandler<ApiEnv> {
+  return async (c, next) => {
+    let sandboxed = false;
+    await appHeaders(c, async () => { await next(); sandboxed = !!c.get("sandboxedDocument"); });
+    if (sandboxed) { await sandboxHeaders(c, async () => {}); c.res.headers.delete("X-Frame-Options"); }
+    // Send HSTS on encrypted responses whenever plain HTTP is disabled (A112).
+    const isTls = !!(c.env.incoming.socket as { encrypted?: boolean }).encrypted;
+    if (isTls && !allowHttp()) {
+      c.res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+  };
+}
+export const headers: MiddlewareHandler<ApiEnv> = createSecurityHeaders();
 export const apiSecurity: MiddlewareHandler<ApiEnv> = async (c, next) => {
   c.header("Cache-Control", "no-store");
   const origin = c.req.header("origin");

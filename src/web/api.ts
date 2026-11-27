@@ -2,6 +2,7 @@ import type { AgentActionPage, Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
 import type { CloudStorageStatus, CloudSyncResult } from "../contract/cloud";
+import type { SecurityStatus, TotpEnableResponse, TotpSetupResponse } from "../contract/security";
 import type { PortRange, PublishedPort } from "../contract/ports";
 import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport, Device } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, ConnectionQuota, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
@@ -98,8 +99,18 @@ export const api = {
   me: () => request<{ username: string }>("/me"),
   /** The search box: channels and threads by title / topic / notice, messages by text with their chat; `within` searches one chat (a channel with its threads). */
   search: (query: string, within?: string) => request<SearchResult>(`/search?q=${encodeURIComponent(query)}${within ? `&in=${within}` : ""}&limit=60`),
-  login: (username: string, password: string) => request<{ username: string }>("/login", { method: "POST", body: body({ username, password }) }),
+  login: (username: string, password: string, totp?: string) =>
+    request<{ username: string }>("/login", { method: "POST", body: body({ username, password, ...(totp ? { totp } : {}) }) }),
   logout: () => request<{ ok: boolean }>("/logout", { method: "POST" }),
+  securityStatus: () => request<SecurityStatus>("/security"),
+  beginTotpSetup: () => request<TotpSetupResponse>("/security/totp/setup", { method: "POST" }),
+  enableTotp: (password: string, code: string) =>
+    request<TotpEnableResponse>("/security/totp/enable", { method: "POST", body: body({ password, code }) }),
+  disableTotp: (password: string, code: string) =>
+    request<{ ok: boolean }>("/security/totp/disable", { method: "POST", body: body({ password, code }) }),
+  regenerateRecoveryCodes: (password: string, code: string) =>
+    request<{ recoveryCodes: string[] }>("/security/totp/recovery-codes", { method: "POST", body: body({ password, code }) }),
+  revokeOtherSessions: () => request<{ revoked: number }>("/security/sessions/revoke-others", { method: "POST" }),
   bots: () => request<{ bots: Bot[] }>("/bots"),
   createBot: (name: string) => request<Bot>("/bots", { method: "POST", body: body({ name }) }),
   saveBot: (id: string, update: Pick<Bot, "name" | "description" | "systemPrompt">) => request<Bot>(`/bots/${id}`, { method: "PUT", body: body(update) }),
