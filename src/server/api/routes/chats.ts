@@ -7,6 +7,7 @@ import { chatView, messageView } from "../views/chat.js";
 import { byteRange, downloadType } from "../views/download.js";
 import { ATTACHMENT_MAX_BYTES } from "../../../contract/chat.js";
 import { tooLarge } from "../../service/chat/attachments.js";
+import { messageOrigin } from "../client-env.js";
 
 export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">) {
   const routes = new Hono<ApiEnv>();
@@ -30,7 +31,7 @@ export function chatRoutes({ chats, bots }: Pick<ApiServices, "chats" | "bots">)
     return c.json({ messages: messages.map(messageView), nextSequence: messages.at(-1)?.sequence ?? after, hasMore: messages.length === limit });
   });
   routes.post("/:id/messages", jsonBody, async c => {
-    const message = await chats.send(c.get("actorId"), c.req.param("id"), await readJson(c));
+    const message = await chats.send(c.get("actorId"), c.req.param("id"), await readJson(c), messageOrigin(c, bots));
     return c.json(messageView(message), 201);
   });
   routes.post("/:id/questions/:messageId", jsonBody, async c => {

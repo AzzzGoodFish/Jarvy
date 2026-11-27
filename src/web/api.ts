@@ -13,6 +13,7 @@ import type { Task, TaskInput } from "../contract/tasks";
 import type { TerminalSession } from "../contract/terminal";
 import type { EnvDirListing, EnvFileEntry, EnvFileUploadResult } from "../contract/env-files";
 import type { FollowedSummary, ThreadFilter, ThreadItem, ThreadPage, ThreadSort } from "../contract/threads";
+import { desktop } from "./desktop";
 import { t } from "./i18n";
 /** A failed request. `code` and `params` (A45) name a failure the interface words itself (errors.ts); the message is
  * the server's English, shown only when there is no code. */
@@ -127,8 +128,15 @@ export const api = {
   /** Scrolling back: the newest `limit` messages, or the `limit` before a sequence. */
   latestMessages: (id: string, limit: number) => request<{ messages: ChatMessage[]; hasOlder: boolean }>(`/chats/${id}/messages?tail=${limit}`),
   olderMessages: (id: string, before: number, limit: number) => request<{ messages: ChatMessage[]; hasOlder: boolean }>(`/chats/${id}/messages?before=${before}&limit=${limit}`),
-  send: (id: string, content: string, attachmentIds: string[], clientMessageId: string, alsoToChannel = false, replyTo?: string, quotes: { messageId: string; text: string }[] = []) =>
-    request<ChatMessage>(`/chats/${id}/messages`, { method: "POST", body: body({ content, attachmentIds, clientMessageId, ...(alsoToChannel ? { alsoToChannel } : {}), ...(replyTo ? { replyTo } : {}), ...(quotes.length ? { quotes } : {}) }) }),
+  send: (id: string, content: string, attachmentIds: string[], clientMessageId: string, alsoToChannel = false, replyTo?: string, quotes: { messageId: string; text: string }[] = []) => {
+    const client = desktop();
+    const info = client?.client?.();
+    const headers: Record<string, string> = {};
+    if (client) headers["X-Jarvy-Client"] = "desktop";
+    if (info?.deviceId) headers["X-Jarvy-Device"] = info.deviceId;
+    if (info?.platform) headers["X-Jarvy-Platform"] = info.platform;
+    return request<ChatMessage>(`/chats/${id}/messages`, { method: "POST", headers, body: body({ content, attachmentIds, clientMessageId, ...(alsoToChannel ? { alsoToChannel } : {}), ...(replyTo ? { replyTo } : {}), ...(quotes.length ? { quotes } : {}) }) });
+  },
   /** Emoji marks (A39) and pins. */
   fold: (messageId: string, folded: boolean) => request<ChatMessage>(`/messages/${messageId}/fold`, { method: "PUT", body: body({ folded }) }),
   react: (messageId: string, emoji: string, on: boolean) => request<ChatMessage>(`/messages/${messageId}/reaction`, { method: "PUT", body: body({ emoji, on }) }),
