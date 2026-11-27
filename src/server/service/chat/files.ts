@@ -17,10 +17,11 @@ export class ChatFiles {
       const chat = this.chats.get(botId, message.chatId);
       if (!chat) throw new ChatError(404, "Chat not found");
       const section = chat.sectionId ? this.chats.channels.sections(botId).find(item => item.id === chat.sectionId)?.name : undefined;
+      const origin = this.chats.origin(id);
       output.push({ id, chat: { id: chat.id, type: chat.type, title: chat.title, ...(section ? { section } : {}),
         ...(chat.parentId ? { parent: chat.parentId } : {}), ...(chat.rootMessageId ? { root: chat.rootMessageId } : {}), ...(chat.status ? { status: chat.status } : {}) }, sender: message.sender,
         content: expandQuotes(message.content, message.quotes, memberId => this.chats.member(memberId)?.name ?? memberId), createdAt: message.createdAt,
-        attachments: listing(message), ...this.reply(message) });
+        ...(origin ? { origin } : {}), attachments: listing(message), ...this.reply(message) });
     }
     return output;
   }

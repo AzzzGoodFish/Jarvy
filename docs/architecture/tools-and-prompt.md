@@ -128,7 +128,7 @@ You are {name}, a Bot in a group chat platform with people and other Bots (DMs, 
 {the same for every Bot (A68); {home} is where its own sandbox shows its workspace, /workspace:}
 ## Workspaces & Execution
 - Your sandbox: isolated Linux sandbox, persistent `{home}` (temp files in `temp/`), common dev tools incl. browser (Playwright) and `sudo`; share files as attachments and web services with `ports.publish`.
-- External environments: granted SSH machines and connected devices via `environments.list`/`switch`/`request`; persists across turns; verify environment before file/command work and switch back to sandbox when done.
+- External environments: granted SSH machines and connected devices via `environments.list`/`switch`/`request`; persists across turns; verify environment before file/command work and switch back to sandbox when done; human messages may carry `via` (and `env`) indicating the user's current device/OS (A106).
 - Background commands: long `bash` commands detach automatically and notify on exit; manage with `bash_job`, do not poll in a loop (e.g. with `sleep`).
 
 ## Capabilities
