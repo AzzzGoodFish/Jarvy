@@ -94,6 +94,10 @@ button.ui-row:focus-visible { outline: 2px solid var(--ui-border-focus); outline
 .ui-row[data-active] { background: var(--ui-fill-ghost-selected); }
 .ui-row[data-line] { height: var(--ui-control-md); padding-block: 0; }
 .ui-row[data-line] > svg, .ui-row[data-line] > .ui-icon { flex: none; width: 16px; height: 16px; color: var(--ui-text-secondary); }
+/* Trim font ascent/descent leading on single-line rows so label midlines align with the 16px leading icon
+   across Windows (Segoe UI / Microsoft YaHei), macOS, and Linux without clipping descenders or CJK strokes. */
+.ui-row[data-line] .ui-row-line { line-height: 1; }
+.ui-row[data-line] .ui-row-title { display: block; line-height: 1; text-box: trim-both cap alphabetic; padding-block: 3px; margin-block: -3px; }
 .ui-row-text { display: flex; flex: 1; flex-direction: column; gap: var(--ui-space-2); min-width: 0; }
 .ui-row-line { display: flex; align-items: center; gap: var(--ui-space-6); min-width: 0; line-height: var(--ui-leading-base); }
 .ui-row-title { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }

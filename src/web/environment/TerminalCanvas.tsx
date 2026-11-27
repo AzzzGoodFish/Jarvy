@@ -23,6 +23,14 @@ const wsUrl = (id: string) => {
   return `${protocol}//${window.location.host}${TERMINAL_WS_PREFIX}${encodeURIComponent(id)}${TERMINAL_WS_SUFFIX}`;
 };
 
+/** Opens an HTTP(S) URL directly via `window.open(uri, "_blank", "noopener,noreferrer")` so both browsers
+ * and the Electron desktop client (`setWindowOpenHandler` → `shell.openExternal`) receive the real URL
+ * instead of xterm.js's default no-arg `window.open()` (`about:blank`), which Electron blocks. */
+function openTerminalUrl(uri: string): void {
+  if (!/^https?:\/\//i.test(uri)) return;
+  window.open(uri, "_blank", "noopener,noreferrer");
+}
+
 /** Copies text to the clipboard, falling back to `execCommand("copy")` on plain-HTTP LAN origins where
  * `navigator.clipboard` is unavailable. */
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -127,9 +135,17 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
       allowProposedApi: true,
       macOptionIsMeta: true,
       rightClickSelectsWord: false,
+      linkHandler: {
+        activate: (event, uri) => {
+          if (!/^https?:\/\//i.test(uri)) return;
+          if (event.ctrlKey || event.metaKey || window.confirm(t("terminal.openLinkConfirm", { url: uri }))) {
+            openTerminalUrl(uri);
+          }
+        },
+      },
     });
     const fit = new FitAddon();
-    const links = new WebLinksAddon();
+    const links = new WebLinksAddon((_event, uri) => openTerminalUrl(uri));
     const unicode = new Unicode11Addon();
     term.loadAddon(fit);
     term.loadAddon(links);
@@ -365,14 +381,16 @@ export const TerminalCanvas = forwardRef<TerminalCanvasHandle, {
   }, [visible, focusable]);
 
   return <div className="jv-term-stage" data-inactive={!visible || undefined} aria-hidden={!visible || undefined} inert={!visible || undefined}>
-    <div ref={hostRef} className="jv-term-canvas"
+    <div className="jv-term-canvas"
       onContextMenu={event => {
         const term = termRef.current;
         if (!term) return;
         event.preventDefault();
         if (term.getSelection().trim()) void copySelected();
         else void pasteFromClipboard();
-      }}/>
+      }}>
+      <div ref={hostRef} className="jv-term-mount"/>
+    </div>
     {(link === "connecting" || link === "reconnecting") && <div className="jv-term-overlay" role="status">
       <span>{t(link === "connecting" ? "terminal.connecting" : "terminal.reconnecting")}</span>
       {link === "reconnecting" && <Button type="button" variant="outline" size="sm" onClick={() => reconnectRef.current()}>{t("terminal.reconnect")}</Button>}
