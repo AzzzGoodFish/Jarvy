@@ -1,181 +1,356 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="676" viewBox="0 0 1180 676" role="img" aria-label="Jarvy 分布式架构">
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="624" viewBox="0 0 1160 624" role="img" aria-label="Jarvy 架构与动态流转">
   <defs>
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.35"/>
+    <pattern id="dot-grid" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#30363d" opacity="0.6"/>
+    </pattern>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="116%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.4"/>
     </filter>
-    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#8b949e"/>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2.5"/>
+    </filter>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.8 L 9 5 L 1 8.2 z" fill="#6e7681"/>
     </marker>
-    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#58a6ff"/>
+    <marker id="arr-slate-sm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 1 2 L 9 5 L 1 8 z" fill="#6e7681"/>
     </marker>
-    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#3fb950"/>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.8 L 9 5 L 1 8.2 z" fill="#58a6ff"/>
     </marker>
-    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#bc8cff"/>
+    <marker id="arr-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.8 L 9 5 L 1 8.2 z" fill="#818cf8"/>
     </marker>
-    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#e3b341"/>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.8 L 9 5 L 1 8.2 z" fill="#3fb950"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.8 L 9 5 L 1 8.2 z" fill="#bc8cff"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.8 L 9 5 L 1 8.2 z" fill="#e3b341"/>
     </marker>
   </defs>
 
   <style>
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .flow-fwd { stroke-dasharray: 5 5; animation: dash-fwd 1.4s linear infinite; }
+    @keyframes dash-fwd { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .flow-fwd { animation: none; }
+    }
   </style>
 
-  <!-- Outer Canvas -->
-  <rect x="1" y="1" width="1178" height="674" rx="18" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+  <!-- Canvas & Subtle Dot Grid -->
+  <rect x="1" y="1" width="1158" height="622" rx="18" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+  <rect x="12" y="12" width="1136" height="600" rx="12" fill="url(#dot-grid)"/>
 
   <!-- Header -->
-  <text x="36" y="42" font-size="21" font-weight="700" fill="#f0f6fc">Jarvy 分布式架构</text>
-  <text x="36" y="64" font-size="13" fill="#8b949e">无状态控制面 · 反向 WSS 算力池与主机接入 · 端到端加密 S3 云存储</text>
+  <text x="36" y="40" font-size="19.5" font-weight="700" fill="#f0f6fc">Jarvy 架构与动态流转</text>
+  <text x="36" y="59" font-size="12" fill="#8b949e">一条指令与数据在控制面、隔离算力池与加密 S3 之间的完整旅程</text>
 
-  <!-- ==================== ROW 1: CLIENTS & EXTERNAL ==================== -->
-  <!-- Web App -->
-  <g filter="url(#shadow)">
-    <rect x="36" y="88" width="328" height="88" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.25"/>
+  <!-- Live Indicator Badge -->
+  <g>
+    <rect x="1050" y="25" width="74" height="24" rx="12" fill="#122e22"/>
+    <circle cx="1063" cy="37" r="4" fill="#3fb950">
+      <animate attributeName="opacity" values="1;0.35;1" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="1073" y="41" font-size="10.5" font-weight="700" fill="#56d364">实时流转</text>
   </g>
-  <text x="52" y="114" font-size="14.5" font-weight="700" fill="#f0f6fc">Web 端 / PWA</text>
-  <g><rect x="254" y="98" width="96" height="22" rx="11" fill="#21262d"/><text x="302" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">浏览器 · 手机</text></g>
-  <text x="52" y="139" font-size="12" fill="#c9d1d9">• 私信、频道、线程与完整 History</text>
-  <text x="52" y="159" font-size="12" fill="#c9d1d9">• 交互终端与工作区直连文件管理</text>
 
-  <!-- Desktop Client -->
+  <!-- ==================== CONNECTORS ==================== -->
+  <!-- 1. Web/Desktop <-> Control Plane -->
+  <path d="M 248 158 L 248 222" fill="none" stroke="#58a6ff" stroke-width="1.75" opacity="0.45"/>
+  <path d="M 248 158 L 248 222" class="flow-fwd" fill="none" stroke="#58a6ff" stroke-width="1.75" marker-end="url(#arr-blue)"/>
+  <path d="M 276 222 L 276 158" fill="none" stroke="#58a6ff" stroke-width="1.75" opacity="0.45"/>
+  <path d="M 276 222 L 276 158" class="flow-fwd" fill="none" stroke="#58a6ff" stroke-width="1.75" marker-end="url(#arr-blue)"/>
+  <g><rect x="220.5" y="180" width="83" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="262" y="193.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#58a6ff">HTTPS · WSS</text></g>
+
+  <!-- 2. Control Plane <-> Models & MCP -->
+  <path d="M 682 258 L 750 258 Q 758 258 758 250 L 758 123 Q 758 115 766 115 L 834 115" fill="none" stroke="#818cf8" stroke-width="1.65" opacity="0.35"/>
+  <path d="M 682 258 L 750 258 Q 758 258 758 250 L 758 123 Q 758 115 766 115 L 834 115" class="flow-fwd" fill="none" stroke="#818cf8" stroke-width="1.65" marker-start="url(#arr-indigo)" marker-end="url(#arr-indigo)"/>
+  <g><rect x="721" y="178" width="74" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="758" y="191.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#818cf8">模型 · MCP</text></g>
+
+  <!-- 3. Control Plane <-> Encrypted S3 -->
+  <path d="M 682 316 L 834 316" fill="none" stroke="#3fb950" stroke-width="1.9" opacity="0.35"/>
+  <path d="M 682 316 L 834 316" class="flow-fwd" fill="none" stroke="#3fb950" stroke-width="1.9" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
+  <g><rect x="717.5" y="306" width="81" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="758" y="319.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3fb950">加密快照同步</text></g>
+
+  <!-- 4. Control Plane -> SSH Hosts -->
+  <path d="M 154 366 L 154 432" fill="none" stroke="#6e7681" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arr-slate)"/>
+  <g><rect x="123" y="389" width="62" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="154" y="402.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#8b949e">正向 SSH</text></g>
+
+  <!-- 5. Remote Hosts <-> Control Plane (Outbound WSS) -->
+  <path d="M 412 366 L 412 432" fill="none" stroke="#e3b341" stroke-width="1.6" opacity="0.3"/>
+  <path d="M 434 432 L 434 366" fill="none" stroke="#e3b341" stroke-width="1.75" opacity="0.4"/>
+  <path d="M 434 432 L 434 366" class="flow-fwd" fill="none" stroke="#e3b341" stroke-width="1.75" marker-end="url(#arr-amber)"/>
+  <g><rect x="392" y="389" width="62" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="423" y="402.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#e3b341">反向 WSS</text></g>
+
+  <!-- 6. Compute Pool <-> Control Plane (Outbound WSS) -->
+  <path d="M 618 366 L 618 432" fill="none" stroke="#bc8cff" stroke-width="1.7" opacity="0.35"/>
+  <path d="M 642 432 L 642 366" fill="none" stroke="#bc8cff" stroke-width="1.85" opacity="0.4"/>
+  <path d="M 642 432 L 642 366" class="flow-fwd" fill="none" stroke="#bc8cff" stroke-width="1.85" marker-end="url(#arr-purple)"/>
+  <g><rect x="599" y="389" width="62" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="630" y="402.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#bc8cff">反向 WSS</text></g>
+
+  <!-- 7. Compute Pool -> Encrypted S3 (Direct Pre-signed Sync) -->
+  <path d="M 980 432 L 980 366" fill="none" stroke="#3fb950" stroke-width="1.9" opacity="0.35"/>
+  <path d="M 980 432 L 980 366" class="flow-fwd" fill="none" stroke="#3fb950" stroke-width="1.9" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
+  <g><rect x="935.5" y="389" width="89" height="20" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/><text x="980" y="402.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3fb950">预签名直传 S3</text></g>
+
+  <!-- ==================== TIER 1: USER & MODELS ==================== -->
+  <!-- Web & Desktop -->
   <g filter="url(#shadow)">
-    <rect x="388" y="88" width="328" height="88" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.25"/>
+    <rect x="44" y="76" width="436" height="80" rx="13" fill="#161b22" stroke="#30363d" stroke-width="1.4"/>
   </g>
-  <text x="404" y="114" font-size="14.5" font-weight="700" fill="#f0f6fc">桌面客户端</text>
-  <g><rect x="547" y="98" width="155" height="22" rx="11" fill="#13294b"/><text x="624.5" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#79c0ff">Win · Linux · 自动更新</text></g>
-  <text x="404" y="139" font-size="12" fill="#c9d1d9">• 独立窗口、系统托盘与原生通知</text>
-  <text x="404" y="159" font-size="12" fill="#c9d1d9">• 内置本机反向连接通道（WSS）</text>
+  
+  <rect x="44" y="76" width="436" height="80" rx="13" fill="none" stroke="#58a6ff" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.0000;0.0650;0.1300;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  
+  <rect x="44" y="76" width="436" height="80" rx="13" fill="none" stroke="#3fb950" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.7100;0.7850;0.8600;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  <g><rect x="60" y="92" width="30" height="30" rx="8" fill="#13294b"/><g transform="translate(67, 99)" fill="none" stroke="#79c0ff" color="#79c0ff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1.5"/><path d="M1 13.5h14"/></g></g>
+  <text x="100" y="110" font-size="14.5" font-weight="700" fill="#f0f6fc">Web 与桌面客户端</text>
+  <text x="100" y="131" font-size="11.5" fill="#8b949e">聊天 · 交互终端 · 直连文件</text>
+  <!-- Animated Command Bubble (Phase 1) & Done Bubble (Phase 3) -->
+  <g opacity="1">
+    <g><rect x="368" y="90" width="98" height="22" rx="11" fill="#13294b"/><text x="417" y="104.85" text-anchor="middle" font-size="11" font-weight="600" fill="#79c0ff">@Bot 运行测试</text></g>
+    <animate attributeName="opacity" values="1;1;0.25;0.25;1" keyTimes="0;0.18;0.24;0.88;0.94" dur="10s" repeatCount="indefinite"/>
+  </g>
+  <g opacity="0">
+    <g><rect x="388" y="120" width="78" height="22" rx="11" fill="#122e22"/><text x="427" y="134.85" text-anchor="middle" font-size="11" font-weight="600" fill="#56d364">✓ 测试通过</text></g>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.69;0.74;0.92;0.96;1" dur="10s" repeatCount="indefinite"/>
+  </g>
 
-  <!-- LLM Providers & Connectors -->
+  <!-- Models & MCP -->
   <g filter="url(#shadow)">
-    <rect x="816" y="88" width="328" height="88" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.25" stroke-dasharray="5 3"/>
+    <rect x="836" y="76" width="288" height="80" rx="13" fill="#161b22" stroke="#484f58" stroke-width="1.35" stroke-dasharray="5 3"/>
   </g>
-  <text x="832" y="114" font-size="14.5" font-weight="700" fill="#f0f6fc">模型与连接器</text>
-  <g><rect x="1001" y="98" width="129" height="22" rx="11" fill="#21262d"/><text x="1065.5" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">API · OAuth · MCP</text></g>
-  <text x="832" y="139" font-size="12" fill="#c9d1d9">• OpenAI / Anthropic / Google / 自定义</text>
-  <text x="832" y="159" font-size="12" fill="#c9d1d9">• GitHub / Gmail / Linear（写入需确认）</text>
+  
+  <rect x="836" y="76" width="288" height="80" rx="13" fill="none" stroke="#818cf8" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.2300;0.3000;0.3700;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  <g><rect x="852" y="92" width="30" height="30" rx="8" fill="#21262d"/><g transform="translate(859, 99)" fill="none" stroke="#c9d1d9" color="#c9d1d9" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l1.6 4.2 4.4 1.6-4.4 1.6L8 13.1 6.4 8.9 2 7.3l4.4-1.6z"/></g></g>
+  <text x="892" y="110" font-size="14.5" font-weight="700" fill="#f0f6fc">模型与 MCP</text>
+  <g><rect x="1020" y="90" width="90" height="22" rx="11" fill="#21262d"/><text x="1065" y="104.85" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">API · OAuth</text></g>
+  <text x="892" y="131" font-size="11.5" fill="#8b949e">大模型 · GitHub · 写入需确认</text>
 
-  <!-- ==================== ROW 2: CONTROL PLANE & S3 ==================== -->
-  <!-- Stateless Control Plane -->
+  <!-- ==================== TIER 2: CONTROL PLANE & S3 ==================== -->
+  <!-- Control Plane (Hero) -->
   <g filter="url(#shadow)">
-    <rect x="36" y="232" width="680" height="178" rx="14" fill="#101b2e" stroke="#58a6ff" stroke-width="2"/>
+    <rect x="44" y="224" width="636" height="140" rx="15" fill="#0f1a2c" stroke="#58a6ff" stroke-width="2"/>
   </g>
-  <text x="54" y="257" font-size="16" font-weight="700" fill="#f0f6fc">无状态控制面</text>
-  <g><rect x="334" y="240" width="154" height="22" rx="11" fill="#21262d"/><text x="411" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">--tls-only · --no-web</text></g>
-  <g><rect x="496" y="240" width="206" height="22" rx="11" fill="#13294b"/><text x="599" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#79c0ff">jarvy server · TLS 1.2+ · 2FA</text></g>
+  
+  <rect x="44" y="224" width="636" height="140" rx="15" fill="none" stroke="#58a6ff" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.1200;0.1850;0.2500;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  
+  <rect x="44" y="224" width="636" height="140" rx="15" fill="none" stroke="#bc8cff" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.3600;0.4150;0.4700;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  <g><rect x="60" y="238" width="30" height="30" rx="8" fill="#13294b"/><g transform="translate(67, 245)" fill="none" stroke="#79c0ff" color="#79c0ff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="5" rx="1.2"/><rect x="2" y="9" width="12" height="5" rx="1.2"/><circle cx="5" cy="4.5" r="0.7" fill="currentColor" stroke="none"/><circle cx="5" cy="11.5" r="0.7" fill="currentColor" stroke="none"/></g></g>
+  <text x="100" y="258" font-size="15.5" font-weight="700" fill="#f0f6fc">无状态控制面</text>
+  <g><rect x="451" y="238" width="97" height="22" rx="11" fill="#13294b"/><text x="499.5" y="252.85" text-anchor="middle" font-size="11" font-weight="600" fill="#79c0ff">jarvy server</text></g>
+  <g><rect x="556" y="238" width="110" height="22" rx="11" fill="#21262d"/><text x="611" y="252.85" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">TLS 1.2+ · 2FA</text></g>
 
-  <!-- 4 Inner Module Cards inside Control Plane -->
-  <rect x="54" y="276" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
-  <text x="68" y="298" font-size="13" font-weight="700" fill="#f0f6fc">聊天与 Bot 运行时</text>
-  <text x="68" y="317" font-size="11.5" fill="#8b949e">Pi Agent · 跨聊天共享上下文</text>
+  <!-- 3 Compact Module Chips inside Control Plane -->
+  <rect x="60" y="284" width="194" height="62" rx="10" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="74" y="309" font-size="13" font-weight="700" fill="#f0f6fc">Bot 运行时</text>
+  <text x="74" y="329" font-size="11.5" fill="#8b949e">跨聊天上下文</text>
 
-  <rect x="384" y="276" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
-  <text x="398" y="298" font-size="13" font-weight="700" fill="#f0f6fc">公网安全与认证</text>
-  <text x="398" y="317" font-size="11.5" fill="#8b949e">TOTP 2FA · 双层防爆破 · 审计日志</text>
+  <rect x="266" y="284" width="194" height="62" rx="10" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="280" y="309" font-size="13" font-weight="700" fill="#f0f6fc">WSS 调度中心</text>
+  <text x="280" y="329" font-size="11.5" fill="#8b949e">仅反向接入</text>
 
-  <rect x="54" y="340" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
-  <text x="68" y="362" font-size="13" font-weight="700" fill="#f0f6fc">算力池与设备中心</text>
-  <text x="68" y="381" font-size="11.5" fill="#8b949e">多路复用 WSS · 一次性配对码</text>
+  <rect x="472" y="284" width="192" height="62" rx="10" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="486" y="309" font-size="13" font-weight="700" fill="#f0f6fc">SQLite + 租约</text>
+  <text x="486" y="329" font-size="11.5" fill="#8b949e">WAL · 单写者</text>
 
-  <rect x="384" y="340" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
-  <text x="398" y="362" font-size="13" font-weight="700" fill="#f0f6fc">SQLite (WAL) + 云同步</text>
-  <text x="398" y="381" font-size="11.5" fill="#8b949e">单写者租约 · 流式加密备份</text>
-
-  <!-- Encrypted S3 Object Storage -->
+  <!-- Encrypted S3 -->
   <g filter="url(#shadow)">
-    <rect x="816" y="232" width="328" height="178" rx="14" fill="#0f201a" stroke="#3fb950" stroke-width="1.75"/>
+    <rect x="836" y="224" width="288" height="140" rx="15" fill="#0e1f19" stroke="#3fb950" stroke-width="1.8"/>
   </g>
-  <text x="832" y="257" font-size="15.5" font-weight="700" fill="#f0f6fc">加密 S3 存储</text>
-  <g><rect x="976" y="240" width="154" height="22" rx="11" fill="#122e22"/><text x="1053" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#56d364">S3 · R2 · MinIO · GCS</text></g>
-  <text x="832" y="294" font-size="12" fill="#c9d1d9">• 客户端 AES-256-GCM 加密（云端零明文）</text>
-  <text x="832" y="320" font-size="12" fill="#c9d1d9">• SQLite 快照、Pi 会话与聊天附件</text>
-  <text x="832" y="346" font-size="12" fill="#c9d1d9">• 内容寻址 Bot 工作区（离线可浏览）</text>
-  <text x="832" y="372" font-size="12" fill="#c9d1d9">• 预签名直传，不经过控制面带宽</text>
+  
+  <rect x="836" y="224" width="288" height="140" rx="15" fill="none" stroke="#3fb950" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.7800;0.8700;0.9600;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  <g><rect x="852" y="238" width="30" height="30" rx="8" fill="#122e22"/><g transform="translate(859, 245)" fill="none" stroke="#56d364" color="#56d364" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></g></g>
+  <text x="892" y="258" font-size="14.5" font-weight="700" fill="#f0f6fc">加密 S3 存储</text>
+  <g><rect x="1020" y="238" width="90" height="22" rx="11" fill="#122e22"/><text x="1065" y="252.85" text-anchor="middle" font-size="11" font-weight="600" fill="#56d364">AES-256-GCM</text></g>
 
-  <!-- ==================== ROW 3: EXECUTION ENVIRONMENTS ==================== -->
-  <!-- SSH Machines -->
+  <rect x="852" y="284" width="256" height="28" rx="8" fill="#161b22" stroke="#1d4a34" stroke-width="1.1"/>
+  <text x="866" y="302" font-size="11.5" font-weight="600" fill="#c9d1d9">• 数据库与会话</text>
+  <rect x="852" y="319" width="256" height="28" rx="8" fill="#161b22" stroke="#1d4a34" stroke-width="1.1"/>
+  <text x="866" y="337" font-size="11.5" font-weight="600" fill="#c9d1d9">• Bot 工作区</text>
+
+  <!-- ==================== TIER 3: EXECUTION ENVIRONMENTS ==================== -->
+  <!-- SSH Hosts -->
   <g filter="url(#shadow)">
-    <rect x="36" y="472" width="256" height="174" rx="14" fill="#161b22" stroke="#484f58" stroke-width="1.5"/>
+    <rect x="44" y="434" width="220" height="98" rx="13" fill="#161b22" stroke="#484f58" stroke-width="1.4"/>
   </g>
-  <text x="52" y="498" font-size="14.5" font-weight="700" fill="#f0f6fc">SSH 远程主机</text>
-  <g><rect x="210" y="481" width="68" height="22" rx="11" fill="#21262d"/><text x="244" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">正向 SSH</text></g>
-  <text x="52" y="530" font-size="12" fill="#c9d1d9">• 密钥或加密密码认证</text>
-  <text x="52" y="554" font-size="12" fill="#c9d1d9">• 主机指纹首次信任校验</text>
-  <text x="52" y="578" font-size="12" fill="#c9d1d9">• 按 Bot 细粒度授权访问</text>
-  <text x="52" y="602" font-size="12" fill="#c9d1d9">• 支持交互终端与文件管理</text>
+  <g><rect x="58" y="448" width="30" height="30" rx="8" fill="#21262d"/><g transform="translate(65, 455)" fill="none" stroke="#c9d1d9" color="#c9d1d9" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l3.5 3L3 11"/><path d="M8.5 11H13"/></g></g>
+  <text x="96" y="467" font-size="14" font-weight="700" fill="#f0f6fc">SSH 主机</text>
+  <g><rect x="211" y="448" width="39" height="22" rx="11" fill="#21262d"/><text x="230.5" y="462.85" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">SSH</text></g>
+  <text x="58" y="505" font-size="11.5" fill="#8b949e">密钥 · 指纹 · 授权</text>
 
   <!-- Remote Hosts (jarvy-agent) -->
   <g filter="url(#shadow)">
-    <rect x="312" y="472" width="324" height="174" rx="14" fill="#241b0f" stroke="#d29922" stroke-width="1.6"/>
+    <rect x="288" y="434" width="270" height="98" rx="13" fill="#21190e" stroke="#d29922" stroke-width="1.55"/>
   </g>
-  <text x="328" y="498" font-size="14.5" font-weight="700" fill="#f0f6fc">轻量远程主机</text>
-  <g><rect x="474" y="481" width="148" height="22" rx="11" fill="#332208"/><text x="548" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#e3b341">jarvy-agent · 5.5 MB</text></g>
-  <text x="328" y="530" font-size="12" fill="#c9d1d9">• 零 Node 依赖（Linux / macOS / Win）</text>
-  <text x="328" y="554" font-size="12" fill="#c9d1d9">• 一次性配对码接入（免输密码）</text>
-  <text x="328" y="578" font-size="12" fill="#c9d1d9">• 同机多用户独立登记、互不干扰</text>
-  <text x="328" y="602" font-size="12" fill="#c9d1d9">• 空闲自动更新 + 原子原位重启</text>
+  
+  <rect x="288" y="434" width="270" height="98" rx="13" fill="none" stroke="#e3b341" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.4900;0.5500;0.6100;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  <g><rect x="302" y="448" width="30" height="30" rx="8" fill="#332208"/><g transform="translate(309, 455)" fill="none" stroke="#e3b341" color="#e3b341" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z"/></g></g>
+  <text x="340" y="467" font-size="14" font-weight="700" fill="#f0f6fc">轻量远程主机</text>
+  <g><rect x="454" y="448" width="90" height="22" rx="11" fill="#332208"/><text x="499" y="462.85" text-anchor="middle" font-size="11" font-weight="600" fill="#e3b341">jarvy-agent</text></g>
+  <text x="302" y="505" font-size="11.5" fill="#8b949e">5.5 MB Go · 零 Node</text>
 
-  <!-- Remote Compute Pool -->
+  <!-- Compute Pool -->
   <g filter="url(#shadow)">
-    <rect x="656" y="472" width="488" height="174" rx="14" fill="#1a152b" stroke="#a371f7" stroke-width="1.75"/>
+    <rect x="582" y="434" width="542" height="98" rx="13" fill="#19142a" stroke="#a371f7" stroke-width="1.7"/>
   </g>
-  <text x="674" y="498" font-size="15" font-weight="700" fill="#f0f6fc">远程沙箱算力池</text>
-  <g><rect x="904" y="481" width="226" height="22" rx="11" fill="#271b47"/><text x="1017" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#d2a8ff">jarvy client --sandbox · 自动更新</text></g>
+  
+  <rect x="582" y="434" width="542" height="98" rx="13" fill="none" stroke="#bc8cff" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.4800;0.5500;0.6200;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+  <g><rect x="598" y="448" width="30" height="30" rx="8" fill="#271b47"/><g transform="translate(605, 455)" fill="none" stroke="#d2a8ff" color="#d2a8ff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8l5.5 3.1v6.2L8 14.2 2.5 11.1V4.9z"/><path d="M2.5 4.9L8 8l5.5-3.1M8 8v6.2"/></g></g>
+  <text x="636" y="467" font-size="14.5" font-weight="700" fill="#f0f6fc">远程沙箱算力池</text>
+  <g><rect x="949" y="448" width="161" height="22" rx="11" fill="#271b47"/><text x="1029.5" y="462.85" text-anchor="middle" font-size="11" font-weight="600" fill="#d2a8ff">jarvy client --sandbox</text></g>
 
-  <rect x="674" y="518" width="220" height="72" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1.2"/>
-  <text x="688" y="544" font-size="13" font-weight="700" fill="#f0f6fc">Docker 容器沙箱</text>
-  <text x="688" y="566" font-size="11.5" fill="#8b949e">网络隔离 · 支持端口预览转发</text>
+  <rect x="598" y="488" width="248" height="30" rx="8" fill="#161b22" stroke="#36275e" stroke-width="1.15"/>
+  <text x="722" y="507" text-anchor="middle" font-size="12" font-weight="600" fill="#c9d1d9">Docker 容器沙箱</text>
 
-  <rect x="908" y="518" width="218" height="72" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1.2"/>
-  <text x="922" y="544" font-size="13" font-weight="700" fill="#f0f6fc">KVM / libvirt 虚拟机</text>
-  <text x="922" y="566" font-size="11.5" fill="#8b949e">完整 Ubuntu + 嵌套 Docker</text>
+  <rect x="860" y="488" width="248" height="30" rx="8" fill="#161b22" stroke="#36275e" stroke-width="1.15"/>
+  <text x="984" y="507" text-anchor="middle" font-size="12" font-weight="600" fill="#c9d1d9">KVM 虚拟机</text>
 
-  <text x="674" y="622" font-size="11.5" fill="#8b949e">按需调度 · 空闲暂停与槽位回收 · 支持 --sandbox-only 纯算力隔离</text>
+  <!-- ==================== ANIMATED LIVE PACKETS (10s SYNCHRONIZED LOOP) ==================== -->
+  <!-- Phase 1 (0.2s–1.4s): User command travels Web/Desktop -> Control Plane -->
+  
+  <g opacity="0">
+    <circle r="11" fill="#79c0ff" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#79c0ff" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0200;0.0320;0.1280;0.1400;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 248 158 L 248 222" keyPoints="0;0;1;1" keyTimes="0;0.0200;0.1400;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
 
-  <!-- ==================== CONNECTORS (ZERO CROSSINGS) ==================== -->
-  <!-- Web App <-> Control Plane -->
-  <line x1="200" y1="176" x2="200" y2="229" stroke="#58a6ff" stroke-width="1.8" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
-  <rect x="134" y="193" width="132" height="20" rx="6" fill="#0d1117"/>
-  <text x="200" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#58a6ff">HTTPS · SSE · WS</text>
+  <!-- Phase 2 (1.8s–3.9s): Control Plane <-> Models & MCP -->
+  
+  <g opacity="0">
+    <circle r="11" fill="#a5b4fc" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#a5b4fc" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1800;0.1920;0.2680;0.2800;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 682 258 L 750 258 Q 758 258 758 250 L 758 123 Q 758 115 766 115 L 834 115" keyPoints="0;0;1;1" keyTimes="0;0.1800;0.2800;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
+  
+  <g opacity="0">
+    <circle r="11" fill="#a5b4fc" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#a5b4fc" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3000;0.3120;0.3880;0.4000;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 834 115 L 766 115 Q 758 115 758 123 L 758 250 Q 758 258 750 258 L 682 258" keyPoints="0;0;1;1" keyTimes="0;0.3000;0.4000;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
 
-  <!-- Desktop <-> Control Plane -->
-  <line x1="552" y1="176" x2="552" y2="229" stroke="#58a6ff" stroke-width="1.8" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
-  <rect x="474" y="193" width="156" height="20" rx="6" fill="#0d1117"/>
-  <text x="552" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#58a6ff">HTTPS + 反向 WSS</text>
+  <!-- Phase 2b (4.1s–5.0s): Dispatch command -> Compute Pool (& parallel host) -->
+  
+  <g opacity="0">
+    <circle r="11" fill="#d2a8ff" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#d2a8ff" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4100;0.4220;0.4880;0.5000;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 618 366 L 618 432" keyPoints="0;0;1;1" keyTimes="0;0.4100;0.5000;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
+  
+  <g opacity="0">
+    <circle r="10" fill="#f2cc60" opacity="0.22" filter="url(#glow)"/>
+    <circle r="4" fill="#f2cc60" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4300;0.4420;0.4980;0.5100;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 412 366 L 412 432" keyPoints="0;0;1;1" keyTimes="0;0.4300;0.5100;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
 
-  <!-- Control Plane <-> External LLM / Connectors (elbow strictly above S3 sync line) -->
-  <path d="M 719 266 L 766 266 L 766 132 L 813 132" fill="none" stroke="#8b949e" stroke-width="1.7" stroke-dasharray="4 3" marker-start="url(#arr-slate)" marker-end="url(#arr-slate)"/>
-  <rect x="724" y="193" width="84" height="20" rx="6" fill="#0d1117"/>
-  <text x="766" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#8b949e">API / OAuth</text>
+  <!-- Phase 3 (5.7s–7.3s): Stream execution output back -> Control Plane -> User -->
+  
+  <g opacity="0">
+    <circle r="11" fill="#d2a8ff" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#d2a8ff" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.5700;0.5820;0.6380;0.6500;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 642 432 L 642 366" keyPoints="0;0;1;1" keyTimes="0;0.5700;0.6500;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
+  
+  <g opacity="0">
+    <circle r="10" fill="#f2cc60" opacity="0.22" filter="url(#glow)"/>
+    <circle r="4" fill="#f2cc60" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.5800;0.5920;0.6480;0.6600;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 434 432 L 434 366" keyPoints="0;0;1;1" keyTimes="0;0.5800;0.6600;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
+  
+  <g opacity="0">
+    <circle r="11" fill="#56d4dd" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#56d4dd" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.6400;0.6520;0.7180;0.7300;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 276 222 L 276 158" keyPoints="0;0;1;1" keyTimes="0;0.6400;0.7300;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
 
-  <!-- Control Plane <-> Encrypted S3 -->
-  <line x1="719" y1="338" x2="813" y2="338" stroke="#3fb950" stroke-width="2" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
-  <text x="766" y="328" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3fb950">加密同步</text>
-  <text x="766" y="354" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3fb950">Fencing 租约</text>
+  <!-- Phase 4 (6.9s–9.0s): Encrypted workspace direct to S3 + DB snapshot to S3 -->
+  
+  <g opacity="0">
+    <circle r="11" fill="#56d364" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#56d364" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.6900;0.7020;0.8180;0.8300;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 980 432 L 980 366" keyPoints="0;0;1;1" keyTimes="0;0.6900;0.8300;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
+  
+  <g opacity="0">
+    <circle r="11" fill="#56d364" opacity="0.22" filter="url(#glow)"/>
+    <circle r="5" fill="#56d364" stroke="#ffffff" stroke-width="1.35"/>
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.7400;0.7520;0.8780;0.8900;1" dur="10s" repeatCount="indefinite"/>
+    <animateMotion path="M 682 316 L 834 316" keyPoints="0;0;1;1" keyTimes="0;0.7400;0.8900;1" calcMode="linear" dur="10s" repeatCount="indefinite"/>
+  </g>
 
-  <!-- Control Plane -> SSH Machines -->
-  <line x1="164" y1="412" x2="164" y2="469" stroke="#8b949e" stroke-width="1.8" marker-end="url(#arr-slate)"/>
-  <rect x="108" y="431" width="112" height="20" rx="6" fill="#0d1117"/>
-  <text x="164" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#8b949e">正向 SSH</text>
-
-  <!-- Remote Hosts -> Control Plane (Outbound WSS) -->
-  <line x1="474" y1="469" x2="474" y2="413" stroke="#e3b341" stroke-width="1.9" marker-end="url(#arr-amber)"/>
-  <rect x="412" y="431" width="124" height="20" rx="6" fill="#0d1117"/>
-  <text x="474" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#e3b341">反向 WSS</text>
-
-  <!-- Compute Pool -> Control Plane (Outbound WSS) -->
-  <line x1="686" y1="469" x2="686" y2="413" stroke="#bc8cff" stroke-width="1.9" marker-end="url(#arr-purple)"/>
-  <rect x="626" y="431" width="120" height="20" rx="6" fill="#0d1117"/>
-  <text x="686" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#bc8cff">反向 WSS</text>
-
-  <!-- Compute Pool <-> Encrypted S3 (Direct Pre-signed Sync) -->
-  <line x1="980" y1="469" x2="980" y2="413" stroke="#3fb950" stroke-width="2" stroke-dasharray="5 3" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
-  <rect x="876" y="431" width="208" height="20" rx="6" fill="#0d1117"/>
-  <text x="980" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#3fb950">预签名 URL 直连同步工作区</text>
+  <!-- ==================== BOTTOM 4-PHASE LIVE FLOW LEGEND ==================== -->
+  
+      <g>
+        <rect x="36" y="556" width="258" height="48" rx="11" fill="#0d1117" stroke="#30363d" stroke-width="1.2"/>
+        
+  <rect x="36" y="556" width="258" height="48" rx="11" fill="none" stroke="#58a6ff" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.0000;0.1100;0.2200;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+        <circle cx="58" cy="580" r="11" fill="#13294b"/>
+        <text x="58" y="584" text-anchor="middle" font-size="11.5" font-weight="700" fill="#79c0ff">1</text>
+        <text x="78" y="577" font-size="12" font-weight="700" fill="#f0f6fc">下发指令</text>
+        <text x="78" y="593" font-size="10.5" fill="#8b949e">@Bot 运行测试</text>
+      </g><path d="M 299 580 L 307 580" stroke="#6e7681" stroke-width="1.5" stroke-linecap="round" marker-end="url(#arr-slate-sm)"/>
+      <g>
+        <rect x="312" y="556" width="258" height="48" rx="11" fill="#0d1117" stroke="#30363d" stroke-width="1.2"/>
+        
+  <rect x="312" y="556" width="258" height="48" rx="11" fill="none" stroke="#818cf8" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.2000;0.3450;0.4900;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+        <circle cx="334" cy="580" r="11" fill="#271b47"/>
+        <text x="334" y="584" text-anchor="middle" font-size="11.5" font-weight="700" fill="#d2a8ff">2</text>
+        <text x="354" y="577" font-size="12" font-weight="700" fill="#f0f6fc">规划与调度</text>
+        <text x="354" y="593" font-size="10.5" fill="#8b949e">模型思考 + 反向 WSS</text>
+      </g><path d="M 575 580 L 583 580" stroke="#6e7681" stroke-width="1.5" stroke-linecap="round" marker-end="url(#arr-slate-sm)"/>
+      <g>
+        <rect x="588" y="556" width="258" height="48" rx="11" fill="#0d1117" stroke="#30363d" stroke-width="1.2"/>
+        
+  <rect x="588" y="556" width="258" height="48" rx="11" fill="none" stroke="#bc8cff" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.4600;0.6100;0.7600;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+        <circle cx="610" cy="580" r="11" fill="#332208"/>
+        <text x="610" y="584" text-anchor="middle" font-size="11.5" font-weight="700" fill="#e3b341">3</text>
+        <text x="630" y="577" font-size="12" font-weight="700" fill="#f0f6fc">执行与回传</text>
+        <text x="630" y="593" font-size="10.5" fill="#8b949e">沙箱 / 主机 → 聊天</text>
+      </g><path d="M 851 580 L 859 580" stroke="#6e7681" stroke-width="1.5" stroke-linecap="round" marker-end="url(#arr-slate-sm)"/>
+      <g>
+        <rect x="864" y="556" width="258" height="48" rx="11" fill="#0d1117" stroke="#30363d" stroke-width="1.2"/>
+        
+  <rect x="864" y="556" width="258" height="48" rx="11" fill="none" stroke="#3fb950" stroke-width="2.4" opacity="0">
+    <animate attributeName="opacity" values="0;0;0.92;0;0" keyTimes="0;0.7000;0.8400;0.9800;1" dur="10s" repeatCount="indefinite"/>
+  </rect>
+        <circle cx="886" cy="580" r="11" fill="#122e22"/>
+        <text x="886" y="584" text-anchor="middle" font-size="11.5" font-weight="700" fill="#56d364">4</text>
+        <text x="906" y="577" font-size="12" font-weight="700" fill="#f0f6fc">端到端同步</text>
+        <text x="906" y="593" font-size="10.5" fill="#8b949e">AES-256 → S3</text>
+      </g>
 </svg>
