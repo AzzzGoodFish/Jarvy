@@ -67,7 +67,9 @@ function itemOf(self: Element): ParsedItem | null {
   const { name, attrs } = self;
   if (name === "message") {
     const reply = elements(self, "reply_to")[0];
-    return { kind: "message", id: attrs.id ?? "", chat: attrs.chat, from: attrs.from, at: time(attrs.at), text: elements(self, "text").map(textOf).join("\n"),
+    return { kind: "message", id: attrs.id ?? "", chat: attrs.chat, from: attrs.from, at: time(attrs.at),
+      ...(attrs.via ? { via: attrs.via } : {}), ...(attrs.env ? { env: attrs.env } : {}),
+      text: elements(self, "text").map(textOf).join("\n"),
       ...(reply ? { replyTo: { text: textOf(reply), from: reply.attrs.from } } : {}),
       files: elements(self, "file").map(file => ({ name: file.attrs.name ?? "", type: file.attrs.type, size: file.attrs.size })) };
   }
