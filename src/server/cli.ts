@@ -16,6 +16,7 @@ import {
 } from "../connect/client-cli.js";
 import { loadServerCloud, runServerBackup, runServerRestore } from "./cli-cloud.js";
 import { respawnServerAfterShutdown, runClientUpdate, runServerUpdate } from "./cli-update.js";
+import { createServerShutdown } from "./shutdown.js";
 import { cloudConfigPath } from "./infra/cloud/config.js";
 
 const SERVER_PID = "jarvy.pid";
@@ -263,10 +264,10 @@ async function handleServer(args: string[]): Promise<void> {
   }
 
   const cloud = loadServerCloud(dir, rest, { persist: true, allowGenerateRecoveryKey: true });
-  let closeHttp = () => {};
+  let onFenced = () => { process.exitCode = 1; };
   const app = await Application.open(dir, {
     ...(cloud ? { cloud, startCloudSync: action === "run" } : {}),
-    onCompromised: () => { process.exitCode = 1; closeHttp(); },
+    onCompromised: () => { onFenced(); },
   });
   const store = app.store;
   if (action === "init") {
@@ -286,15 +287,26 @@ async function handleServer(args: string[]): Promise<void> {
     if (needsWebAssets && !existsSync(join(webRoot, "index.html"))) throw new Error("Web build missing. Run npm run build first");
     app.connection.setTlsOnly(sec.tlsOnly);
     app.account.setRuntimeSecurityFlags(sec);
+    let draining = false;
+    const isDraining = () => draining;
     const tls = app.connection.prepare(host, port);
     const server = createJarvyServer(app, sec.noWeb ? null : webRoot, tls, {
-      tlsOnly: sec.tlsOnly, noWeb: sec.noWeb, trustProxy: sec.trustProxy,
+      tlsOnly: sec.tlsOnly, noWeb: sec.noWeb, trustProxy: sec.trustProxy, isDraining,
     });
     const localWeb = sec.localWebPort !== null
-      ? createJarvyServer(app, webRoot, null, { noWeb: false, trustProxy: false })
+      ? createJarvyServer(app, webRoot, null, { noWeb: false, trustProxy: false, isDraining })
       : null;
     const published = new PublishedListeners(app, tls, host, port);
-    closeHttp = () => { server.close(); localWeb?.close(); published.close(); };
+    const shutdown = createServerShutdown({
+      setDraining: value => { draining = value; },
+      stopAccepting: () => { server.stopAccepting(); localWeb?.stopAccepting(); published.stopAccepting(); },
+      closeServices: opts => app.closeServices(opts),
+      closeNetwork: () => { server.close(); localWeb?.close(); published.close(); },
+      closeStorage: opts => app.closeStorage(opts),
+      removePidFile: () => removePidFile(dir, SERVER_PID),
+      respawn: () => respawnServerAfterShutdown(),
+    });
+    onFenced = () => { process.exitCode = 1; void shutdown.trigger("fencing"); };
     await server.listen(port, host);
     if (localWeb && sec.localWebPort !== null) await localWeb.listen(sec.localWebPort, "127.0.0.1");
     app.start();
@@ -309,24 +321,9 @@ async function handleServer(args: string[]): Promise<void> {
     console.log(`Data: ${store.path}`);
     if (notes.warning) console.warn(notes.warning);
     signalDaemonReady({ url });
-    let shuttingDown = false;
-    const shutdown = (restart = false) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      server.close();
-      localWeb?.close();
-      published.close();
-      void app.close().then(() => {
-        removePidFile(dir, SERVER_PID);
-        console.log(restart ? "Jarvy server stopped for update; restarting..." : "Jarvy server stopped.");
-        if (restart) respawnServerAfterShutdown();
-      })
-        .catch(() => { console.error("Jarvy: shutdown failed"); process.exitCode = 1; })
-        .finally(() => { setTimeout(() => process.exit(process.exitCode ?? 0), 500).unref(); });
-    };
-    app.update.setRestartHandler(() => shutdown(true));
-    process.once("SIGINT", () => shutdown(false));
-    process.once("SIGTERM", () => shutdown(false));
+    app.update.setRestartHandler(() => { void shutdown.trigger("update"); });
+    process.on("SIGINT", () => shutdown.handleSignal("SIGINT"));
+    process.on("SIGTERM", () => shutdown.handleSignal("SIGTERM"));
   } catch (error) {
     await app.close();
     throw error;

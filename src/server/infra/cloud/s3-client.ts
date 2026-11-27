@@ -1,8 +1,11 @@
 import { createHash, createHmac } from "node:crypto";
+import { combineSignals } from "../../shared/shutdown.js";
 
 /** Minimal zero-dependency S3 Signature Version 4 client (A107).
  * Compatible with Cloudflare R2, Aliyun OSS, Tencent COS, Backblaze B2, AWS S3, MinIO, and Garage.
  * Supports conditional writes (`If-Match`/`If-None-Match`), Range reads, paginated listing, and Pre-signed URLs. */
+
+const DEFAULT_S3_TIMEOUT_MS = 30_000;
 
 export interface S3ClientConfig {
   bucket: string;
@@ -11,6 +14,8 @@ export interface S3ClientConfig {
   accessKeyId: string;
   secretAccessKey: string;
   pathStyle?: boolean;
+  /** Default per-request HTTP timeout in milliseconds (A114; defaults to 30 s). */
+  timeoutMs?: number;
 }
 
 export interface S3ObjectMeta {
@@ -93,12 +98,14 @@ export class S3Client {
   private readonly pathStyle: boolean;
   private readonly isGcs: boolean;
   private readonly scheme: SignScheme;
+  private readonly timeoutMs: number;
 
   constructor(private readonly config: S3ClientConfig) {
     this.endpointUrl = new URL(config.endpoint);
     this.pathStyle = shouldUsePathStyle(this.endpointUrl, config.pathStyle);
     this.isGcs = isGcsHost(this.endpointUrl.hostname);
     this.scheme = this.isGcs ? GOOG4_SCHEME : AWS4_SCHEME;
+    this.timeoutMs = Math.max(1_000, config.timeoutMs ?? DEFAULT_S3_TIMEOUT_MS);
   }
 
   private extractVersion(res: Response): string {
@@ -182,7 +189,7 @@ export class S3Client {
       method,
       headers,
       ...(body ? { body: new Uint8Array(body.buffer as ArrayBuffer, body.byteOffset, body.byteLength) } : {}),
-      ...(options.signal ? { signal: options.signal } : {}),
+      signal: combineSignals(this.timeoutMs, options.signal),
     });
     return res;
   }

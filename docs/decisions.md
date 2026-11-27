@@ -1084,3 +1084,19 @@ Operating a distributed Jarvy deployment across a cloud server, compute nodes (`
 Why: background remote agents and compute nodes converge automatically when idle without manual SSH maintenance, while control-plane server and desktop restarts remain operator-confirmed to avoid unexpected interruptions.
 
 Consequences: no database schema change and no new npm or Go dependencies; `scripts/build-agent.mjs` stamps `package.json` version into `AgentVersion` via `-ldflags`.
+
+## A114 Phased, time-budgeted server shutdown and restart
+
+A flat sequential `app.close()` without phase isolation or deadlines allows any hung subsystem (an active Bot session, remote environment connection, or stalled S3 request) to block final cloud sync, lease release, runtime lock release, and process exit — leaving a systemd-supervised server with its listening port closed while the process never terminates and the cloud lease keeps renewing.
+
+- **Four-phase shutdown coordinator (`server/shutdown.ts`, `server/shared/shutdown.ts`, `server/cli.ts`)**: replaces the ad-hoc `shutdown()` closure with a deterministic, logged, time-budgeted pipeline:
+  1. **Drain (`300 ms`)**: marks the server draining (`503 Service Unavailable` + `Connection: close` on new keep-alive requests and WS upgrades) and stops accepting new TCP connections (`stopAccepting()`) without immediately destroying active sockets, so in-flight responses (such as `202 Accepted` from `POST /api/system/update/apply`) flush cleanly.
+  2. **Services (`8 s` budget, isolated per step)**: stops background schedulers, expires pending interactive question cards (`ChatQuestions.expireAll`), stops Bots with bounded `PiSession.dispose()` timeouts, closes terminals/file handles/compute/environments, and closes `DeviceLinks` with standard WS `1001 "Jarvy is stopping"` frames while underlying sockets are still open.
+  3. **Network drop**: tears down any remaining TCP sockets (`server.close()`, `localWeb?.close()`, `published.close()`) so listening ports are guaranteed released before persistence finishes.
+  4. **Storage & lock/lease release (`8 s` budget, always executed regardless of Phase 2 timeouts)**: runs bounded final `CloudSync` flush (`5 s`) followed unconditionally by `CloudLease.release()` (`3 s`), closes SQLite (`Store.close()`), releases `.runtime.lock`, and removes `jarvy.pid`. Only after ports, local lock, and cloud lease are released does detached self-respawn run for non-systemd deployments.
+- **Hard watchdog & double-signal escalation**: arms a `20 s` process-level watchdog (strictly below systemd's `TimeoutStopSec=30s`) that logs the stalled phase and forces exit so systemd always supervises restarts cleanly; a second `SIGINT`/`SIGTERM` escalates immediately instead of being silently ignored.
+- **Bounded S3 I/O (`infra/cloud/s3-client.ts`, `infra/cloud/lease.ts`, `infra/cloud/sync.ts`)**: enforces a default `30 s` timeout on every S3 request (combining caller `AbortSignal`s) and tighter per-operation shutdown signals so network/proxy stalls can never wedge final flush or lease release.
+
+Why: separating graceful business drain from mandatory persistence/lock release guarantees sub-3-second clean restarts (zero 60 s cloud lease wait) and eliminates half-dead "port closed, process hung" failure modes under both `systemctl restart` and in-app self-updates.
+
+Consequences: no database schema change and no new dependencies; shutdown logs emit per-phase timings and explicit timeout diagnostics when a subsystem fails to stop within its budget.

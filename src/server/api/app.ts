@@ -26,11 +26,25 @@ import { systemUpdateDeviceRoute, systemUpdateRoutes } from "./routes/update.js"
 export interface HttpAppOptions {
   /** Disable serving the web frontend static assets (`--no-web`, A112) to minimize public attack surface. */
   noWeb?: boolean;
+  /** Returns true while the server is draining for shutdown/restart (A114). */
+  isDraining?: () => boolean;
 }
 
 export function createHttpApp(services: ApiServices, webRoot: string | null, options: HttpAppOptions = {}) {
   const app = new Hono<ApiEnv>();
   app.use("*", createSecurityHeaders(() => services.connection.allowHttp()));
+  if (options.isDraining) {
+    const isDraining = options.isDraining;
+    app.use("*", async (c, next) => {
+      if (isDraining()) {
+        c.header("Connection", "close");
+        c.header("Retry-After", "5");
+        if (c.req.path.startsWith("/api/")) return c.json({ error: "Server is restarting" }, 503);
+        return c.text("Service Unavailable", 503);
+      }
+      return next();
+    });
+  }
   app.onError(handleError);
 
   const api = new Hono<ApiEnv>();

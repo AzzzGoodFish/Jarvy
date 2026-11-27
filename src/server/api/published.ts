@@ -33,6 +33,11 @@ export class PublishedListeners {
     this.unsubscribe = this.services.bots.ports.onChange(() => this.sync());
     this.sync();
   }
+  stopAccepting(): void {
+    this.closed = true;
+    this.unsubscribe?.();
+    for (const server of this.open.values()) server.stopAccepting();
+  }
   close(): void {
     this.closed = true;
     this.unsubscribe?.();

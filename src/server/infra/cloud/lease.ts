@@ -147,9 +147,19 @@ export class CloudLease {
   }
 
   /** Gracefully marks the lease released while keeping `epoch` monotonic for the next holder. */
-  async release(): Promise<void> {
+  async release(signal?: AbortSignal): Promise<void> {
     this.stopHeartbeat();
-    if (this.inflightRenew) await this.inflightRenew.catch(() => {});
+    if (this.inflightRenew) {
+      let timer: NodeJS.Timeout | undefined;
+      await Promise.race([
+        this.inflightRenew.catch(() => {}),
+        new Promise<void>(resolve => {
+          timer = setTimeout(resolve, 1_500);
+          timer.unref();
+          signal?.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      ]).finally(() => { if (timer) clearTimeout(timer); });
+    }
     if (!this.current || !this.etag || this.lost || this.released) return;
     this.released = true;
     const closed: CloudLeaseSnapshot = { ...this.current, renewedAt: 0, released: true };
@@ -157,9 +167,10 @@ export class CloudLease {
       await this.options.s3.put(this.options.key, Buffer.from(JSON.stringify(closed, null, 2)), {
         ifMatch: this.etag,
         contentType: "application/json",
+        ...(signal ? { signal } : {}),
       });
     } catch {
-      /* ignore release conflict if another server already took over */
+      /* ignore release conflict or timeout if another server already took over */
     }
   }
 
