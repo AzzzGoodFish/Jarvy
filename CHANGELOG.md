@@ -2,6 +2,30 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.21.0 — 2026-11-27
+
+**Before upgrading:** let active Bot work finish and back up the data directory and the separate master key. The first start upgrades the database from v36 to v37 to store persistent login throttling and security audit events. Existing chats, secrets, environments, and grants stay in place. A server restart ends open terminal sessions. To roll back, restore the pre-upgrade backup with the previous version.
+
+### Added
+
+- **Distributed stateless server, encrypted S3 storage, and remote compute pools.** Separate the control plane from sandbox execution with the symmetric `jarvy server` and `jarvy client` CLI. Back up SQLite snapshots, Pi sessions, attachments, and Bot workspaces end-to-end encrypted to S3-compatible storage (including AWS S3, Cloudflare R2, MinIO, and GCS) with a single-writer fencing lease, `jarvy server backup` / `restore`, and a **Settings → Storage** observability page. Connect remote Linux hosts with `jarvy client start --sandbox` or `--sandbox-only` to run on-demand Docker and KVM/libvirt VM sandboxes with direct pre-signed S3 workspace sync, preferred compute-node selection, slot reclamation, and direct Bot workspace browsing even when offline.
+- **Zero-Node `jarvy-agent` binary and single-use enrollment.** Connect Linux, macOS, and Windows machines as Remote Hosts without installing Node or typing the owner password. Generate a short-lived one-time pairing token and ready-to-paste install command in **Environments → Add → Desktop / Host**, then manage the background agent with `jarvy-agent on`, `off`, `status`, `logs`, and `update`.
+- **Public deployment security hardening and TOTP two-factor authentication.** Enable authenticator-app 2FA (QR setup, replay protection, and 8 single-use recovery codes) and view active sessions and recent security audit events in **Settings → Security**, with `jarvy server reset-2fa` as a local recovery escape hatch. Hardens public deployments with persistent per-IP and global anti-brute-force throttling, gated device/installer downloads, HTTP and WebSocket rate limits, TLS 1.2+, HSTS, `--trust-proxy`, `--tls-only` (drops non-TLS connections immediately), `--no-web` (disables the public web UI), and `--local-web-port` (loopback-only web UI for SSH tunnels or VPNs).
+- **Multi-component update detection and safe restart.** `jarvy-agent` and `jarvy client` check for updates and restart automatically once idle (preserving PID on Unix and keeping running Docker/VM sandboxes alive). The server (**Settings → About** and `jarvy server update`) and desktop app (tray menu) check for new releases and support one-click update and restart with a final encrypted S3 sync flush.
+- **Client environment context on messages.** Messages sent from the web or desktop client carry the sender's current client device and OS metadata so Bots know where the owner is working.
+
+### Changed
+
+- **Unified `jarvy server` and `jarvy client` CLI.** Bot workspaces now run cleanly without requiring local Docker on the control-plane host, and Environments separates Bot Sandboxes, Compute Nodes, and Remote Hosts.
+- Self-signed HTTPS certificates support `JARVY_PUBLIC_HOST` / `JARVY_TLS_HOSTS` for cloud VPS public IPs and domains, and omit `:443` from displayed HTTPS URLs.
+
+### Fixed
+
+- Cloud encryption and S3 uploads now stream large files (such as `history.db`) without holding multiple full-file buffers in memory, preventing out-of-memory failures on small VPS hosts.
+- Migrating a Jarvy data directory to another host or path automatically relocates saved Bot session file paths instead of failing with `session_path`.
+- Force-deleting an unreachable SSH machine skips attempting to remove the remote key instead of hanging until SSH timeout.
+- Chunked JSON POST requests no longer fail on Node 24 when `Content-Length` is omitted.
+
 ## 0.20.1 — 2026-11-26
 
 The database stays at v36 when upgrading from 0.20.0. A server restart ends open terminal sessions.
