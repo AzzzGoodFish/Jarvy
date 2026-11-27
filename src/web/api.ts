@@ -1,6 +1,7 @@
 import type { AgentActionPage, Bot, BotStatus } from "../contract/bots";
 import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, ThreadEntry } from "../contract/chat";
 import type { ConnectionInfo } from "../contract/connection";
+import type { CloudStorageStatus, CloudSyncResult } from "../contract/cloud";
 import type { PortRange, PublishedPort } from "../contract/ports";
 import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport, Device } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, ConnectionQuota, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
@@ -209,7 +210,12 @@ export const api = {
   vmSupport: () => request<VmSupport>("/environments/vm"),
   checkVmSupport: () => request<VmSupport>("/environments/vm/check", { method: "POST" }),
   setComputerLimits: (id: string, limits: ComputerLimits) => request<Bot>(`/bots/${id}/computer/limits`, { method: "PUT", body: body(limits) }),
+  setComputerNode: (id: string, deviceId: string | null) => request<Bot>(`/bots/${id}/computer/compute-node`, { method: "PUT", body: body({ deviceId }) }),
+  reclaimComputer: (id: string) => request<Bot>(`/bots/${id}/computer/reclaim`, { method: "POST" }),
   computerResources: (id: string) => request<ComputerResources>(`/bots/${id}/computer/resources`),
+  /** Encrypted S3 cloud storage status and manual sync trigger (A107, A109). */
+  cloudStatus: () => request<CloudStorageStatus>("/cloud/status"),
+  cloudSync: () => request<CloudSyncResult>("/cloud/sync", { method: "POST" }),
   /** How Jarvy is reached (A51): its HTTPS addresses, certificate fingerprint, and whether plain HTTP from other machines is allowed. */
   connection: () => request<ConnectionInfo>("/connection"),
   setConnection: (allowHttp: boolean) => request<ConnectionInfo>("/connection", { method: "PUT", body: body({ allowHttp }) }),

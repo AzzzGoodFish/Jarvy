@@ -95,6 +95,7 @@ export async function ensureClientPaired(
 
 export interface SandboxCliOptions {
   enabled: boolean;
+  sandboxOnly?: boolean;
   image?: string;
   maxContainers?: number;
   idlePauseMs?: number;
@@ -139,7 +140,8 @@ export async function runClientForeground(options: RunClientOptions): Promise<vo
     })
     : undefined;
   if (sandboxHost) {
-    console.log(`Sandbox compute mode: enabled (max=${options.sandbox!.maxContainers ?? 8}${options.sandbox!.image ? `, image=${options.sandbox!.image}` : ""})`);
+    const role = options.sandbox!.sandboxOnly ? "sandbox-only (host access disabled)" : "sandbox + host";
+    console.log(`Sandbox compute mode: ${role} (max=${options.sandbox!.maxContainers ?? 8}${options.sandbox!.image ? `, image=${options.sandbox!.image}` : ""})`);
   }
 
   connector = new Connector({
@@ -149,6 +151,7 @@ export async function runClientForeground(options: RunClientOptions): Promise<vo
     cache: join(resolve(dir), "daemon"),
     client: VERSION,
     sandboxHost,
+    disableHost: Boolean(options.sandbox?.sandboxOnly),
     onStatus: status => {
       console.log(`[${new Date().toLocaleTimeString()}] ${describeStatus(status)}`);
       if (status.state === "online" || status.state === "unpaired" || status.state === "outdated") signalOnce();

@@ -1,4 +1,4 @@
-import { ContainerIcon, LaptopIcon, MonitorIcon, PanelLeftCloseIcon, Search, ServerIcon } from "lucide-react";
+import { ContainerIcon, CpuIcon, LaptopIcon, MonitorIcon, PanelLeftCloseIcon, Search, ServerIcon } from "lucide-react";
 import type { Bot, BotStatus } from "../../contract/bots";
 import type { Device, SshMachine } from "../../contract/environment";
 import type { TerminalSession, TerminalShell } from "../../contract/terminal";
@@ -8,11 +8,14 @@ import { ListRow } from "../components/list-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
 import { t } from "../i18n";
 import { IconButton } from "../ui";
+import { GB, short } from "./amounts";
 import { STATE } from "./BotEnvironment";
+import { allowsHostAccess, isComputeNode, isDualRole } from "./device-roles";
 import { deviceState, deviceSystem } from "./DeviceDetail";
 import { machineAddress } from "./MachineDetail";
 
-export type EnvCategory = "all" | "device" | "machine" | "sandbox";
+/** Distributed-native categories: Bot sandboxes, Compute pool nodes (--sandbox), and Remote hosts (desktop/host + SSH). */
+export type EnvCategory = "all" | "sandbox" | "compute" | "host";
 export type PickedEnv = { kind: "sandbox" | "machine" | "device"; id: string };
 
 const FACES = 3;
@@ -26,14 +29,14 @@ export function shellShortLabel(shell: TerminalShell | undefined, platform?: str
 
 /** Icon tile for an environment kind, optionally carrying a bottom-right status corner dot. */
 export function EnvKindTile({ type, dotState, dotLabel, compact }: {
-  type: "container" | "vm" | "ssh" | "device";
+  type: "container" | "vm" | "ssh" | "device" | "compute";
   dotState?: "running" | "preparing" | "stopped" | "failed" | "unavailable";
   dotLabel?: string;
   compact?: boolean;
 }) {
-  const Icon = type === "device" ? LaptopIcon : type === "ssh" ? ServerIcon : type === "vm" ? MonitorIcon : ContainerIcon;
+  const Icon = type === "compute" ? CpuIcon : type === "device" ? LaptopIcon : type === "ssh" ? ServerIcon : type === "vm" ? MonitorIcon : ContainerIcon;
   return <span className="jv-env-tile-wrap">
-    <span className="ui-tile" data-kind={type} data-compact={compact || undefined}><Icon aria-hidden="true"/></span>
+    <span className="ui-tile" data-kind={type === "compute" ? "device" : type} data-compact={compact || undefined}><Icon aria-hidden="true"/></span>
     {dotState && <span className="jv-env-corner-dot" data-state={dotState} role="img" aria-label={dotLabel} title={dotLabel}/>}
   </span>;
 }
@@ -47,8 +50,7 @@ export function EnvFaces({ bots, statuses }: { bots: Bot[]; statuses: Record<str
   </span>;
 }
 
-/** Left environment navigation column with category quick filters, icon-corner status dots,
- * dimmed offline/stopped rows, collapsible toggle, and nested active terminal sub-items. */
+/** Left environment navigation column separating Bot Sandboxes, Compute Pool Nodes, and Remote Hosts (A109). */
 export function EnvironmentsSidebar({
   devices, machines, sandboxes, statuses, filter, category, adding,
   selectedKind, selectedId, activeTerminalId, inTerminalTab,
@@ -84,12 +86,19 @@ export function EnvironmentsSidebar({
   const allDevices = devices ?? [];
   const allMachines = machines ?? [];
 
-  const shownDevices = (category === "all" || category === "device")
-    ? allDevices.filter(item => matches(`${item.name} ${deviceSystem(item)}`)) : [];
-  const shownMachines = (category === "all" || category === "machine")
-    ? allMachines.filter(item => matches(`${item.name} ${machineAddress(item)}`)) : [];
   const shownSandboxes = (category === "all" || category === "sandbox")
-    ? sandboxes.filter(item => matches(`${item.name} ${t("envs.sandboxOf", { name: item.name })}`)) : [];
+    ? sandboxes.filter(item => matches(`${item.name} ${t("envs.sandboxOf", { name: item.name })} ${item.environment.computer?.computeNode?.name ?? ""}`)) : [];
+  const shownCompute = (category === "all" || category === "compute")
+    ? allDevices.filter(item => isComputeNode(item) && matches(`${item.name} ${deviceSystem(item)}`)) : [];
+  // In "all", show pure host devices under Remote Hosts (dual-role nodes appear under Compute Nodes with a dual-role sub).
+  // In "host", show every host-capable device (including dual-role) + SSH machines.
+  const shownHostDevices = category === "host"
+    ? allDevices.filter(item => allowsHostAccess(item) && matches(`${item.name} ${deviceSystem(item)}`))
+    : category === "all"
+      ? allDevices.filter(item => allowsHostAccess(item) && !isComputeNode(item) && matches(`${item.name} ${deviceSystem(item)}`))
+      : [];
+  const shownMachines = (category === "all" || category === "host")
+    ? allMachines.filter(item => matches(`${item.name} ${machineAddress(item)}`)) : [];
 
   const renderSubTerms = (env: PickedEnv, envId: string, platform?: string) => {
     const sessions = terminalsByEnv.get(envId) ?? [];
@@ -111,12 +120,13 @@ export function EnvironmentsSidebar({
 
   const categories: { id: EnvCategory; label: string }[] = [
     { id: "all", label: t("envs.catAll") },
-    { id: "device", label: t("envs.catDevices") },
-    { id: "machine", label: t("envs.catMachines") },
     { id: "sandbox", label: t("envs.catSandboxes") },
+    { id: "compute", label: t("envs.catCompute") },
+    { id: "host", label: t("envs.catHosts") },
   ];
 
-  const hasVisible = shownDevices.length > 0 || shownMachines.length > 0 || shownSandboxes.length > 0;
+  const hostCount = shownHostDevices.length + shownMachines.length;
+  const hasVisible = shownSandboxes.length > 0 || shownCompute.length > 0 || hostCount > 0;
 
   return <aside className="jv-envs-list">
     <ColumnHeader place="sidebar" title={t("rail.environments")}
@@ -143,9 +153,52 @@ export function EnvironmentsSidebar({
     </div>
 
     <div className="jv-envs-scroll">
-      {shownDevices.length > 0 && <>
-        {category === "all" && <div className="jv-envs-group"><span>{t("envs.groupDevices")}</span><span>{shownDevices.length}</span></div>}
-        {shownDevices.map(item => {
+      {shownSandboxes.length > 0 && <>
+        {category === "all" && <div className="jv-envs-group"><span>{t("envs.groupSandboxes")}</span><span>{shownSandboxes.length}</span></div>}
+        {shownSandboxes.map(item => {
+          const computer = item.environment.computer!;
+          const picked: PickedEnv = { kind: "sandbox", id: item.id };
+          const dimmed = computer.state === "stopped" || computer.state === "failed" || computer.state === "unavailable";
+          const sandboxSub = [
+            t(STATE[computer.state]),
+            computer.computeNode?.name ?? (computer.localDocker === false && computer.state !== "running" ? t("environment.workspaceReadyShort") : undefined),
+          ].filter(Boolean).join(" · ");
+          return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
+            <ListRow active={!adding && selectedKind === "sandbox" && selectedId === item.id} onClick={() => onPick(picked)}
+              leading={<EnvKindTile type={computer.type} dotState={computer.state} dotLabel={t(STATE[computer.state])}/>}
+              title={t("envs.sandboxOf", { name: item.name })}
+              sub={sandboxSub}
+              trailing={<EnvFaces bots={botsInSandbox(item)} statuses={statuses}/>}/>
+            {renderSubTerms(picked, computer.id)}
+          </div>;
+        })}
+      </>}
+
+      {shownCompute.length > 0 && <>
+        {category === "all" && <div className="jv-envs-group"><span>{t("envs.groupCompute")}</span><span>{shownCompute.length}</span></div>}
+        {shownCompute.map(item => {
+          const state = deviceState(item);
+          const dotState = state === "online" ? "running" : state === "paused" ? "preparing" : "stopped";
+          const picked: PickedEnv = { kind: "device", id: item.id };
+          const dimmed = state === "offline";
+          const roleNote = isDualRole(item) ? t("devices.roleDualShort") : undefined;
+          const cap = state === "online" && item.sandbox?.docker
+            ? `${item.sandbox.activeContainers}/${item.sandbox.maxContainers} · ${item.sandbox.cpus}C/${short(item.sandbox.memory / GB, 0)}G`
+            : t(`devices.${state}`);
+          const sub = [cap, roleNote].filter(Boolean).join(" · ");
+          return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
+            <ListRow active={!adding && selectedKind === "device" && selectedId === item.id} onClick={() => onPick(picked)}
+              leading={<EnvKindTile type="compute" dotState={dotState} dotLabel={t(`devices.${state}`)}/>}
+              title={item.name} sub={sub}
+              trailing={<EnvFaces bots={botsOnDevice(item)} statuses={statuses}/>}/>
+            {renderSubTerms(picked, item.id, item.platform)}
+          </div>;
+        })}
+      </>}
+
+      {hostCount > 0 && <>
+        {category === "all" && <div className="jv-envs-group"><span>{t("envs.groupHosts")}</span><span>{hostCount}</span></div>}
+        {shownHostDevices.map(item => {
           const state = deviceState(item);
           const dotState = state === "online" ? "running" : state === "paused" ? "preparing" : "stopped";
           const picked: PickedEnv = { kind: "device", id: item.id };
@@ -153,15 +206,11 @@ export function EnvironmentsSidebar({
           return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
             <ListRow active={!adding && selectedKind === "device" && selectedId === item.id} onClick={() => onPick(picked)}
               leading={<EnvKindTile type="device" dotState={dotState} dotLabel={t(`devices.${state}`)}/>}
-              title={item.name} sub={deviceSystem(item) || t("devices.kindDevice")}
+              title={item.name} sub={deviceSystem(item) || t("devices.roleHost")}
               trailing={<EnvFaces bots={botsOnDevice(item)} statuses={statuses}/>}/>
             {renderSubTerms(picked, item.id, item.platform)}
           </div>;
         })}
-      </>}
-
-      {shownMachines.length > 0 && <>
-        {category === "all" && <div className="jv-envs-group"><span>{t("envs.groupMachines")}</span><span>{shownMachines.length}</span></div>}
         {shownMachines.map(item => {
           const picked: PickedEnv = { kind: "machine", id: item.id };
           return <div key={item.id} className="jv-env-entry">
@@ -170,23 +219,6 @@ export function EnvironmentsSidebar({
               title={item.name} sub={<span className="jv-mono">{machineAddress(item)}</span>}
               trailing={<EnvFaces bots={botsOnMachine(item)} statuses={statuses}/>}/>
             {renderSubTerms(picked, item.id)}
-          </div>;
-        })}
-      </>}
-
-      {shownSandboxes.length > 0 && <>
-        {category === "all" && <div className="jv-envs-group"><span>{t("envs.groupSandboxes")}</span><span>{shownSandboxes.length}</span></div>}
-        {shownSandboxes.map(item => {
-          const computer = item.environment.computer!;
-          const picked: PickedEnv = { kind: "sandbox", id: item.id };
-          const dimmed = computer.state === "stopped" || computer.state === "failed" || computer.state === "unavailable";
-          return <div key={item.id} className="jv-env-entry" data-dimmed={dimmed || undefined}>
-            <ListRow active={!adding && selectedKind === "sandbox" && selectedId === item.id} onClick={() => onPick(picked)}
-              leading={<EnvKindTile type={computer.type} dotState={computer.state} dotLabel={t(STATE[computer.state])}/>}
-              title={t("envs.sandboxOf", { name: item.name })}
-              sub={`${t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container")} · ${t(STATE[computer.state])}`}
-              trailing={<EnvFaces bots={botsInSandbox(item)} statuses={statuses}/>}/>
-            {renderSubTerms(picked, computer.id)}
           </div>;
         })}
       </>}

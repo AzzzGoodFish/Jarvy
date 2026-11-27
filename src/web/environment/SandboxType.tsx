@@ -25,9 +25,11 @@ export function SandboxType({ bot, disabled, onSaved }: { bot: Bot; disabled: bo
     const timer = support?.state === "checking" || support?.state === "unknown" ? setTimeout(() => load(api.vmSupport), 2000) : undefined;
     return () => { alive = false; clearTimeout(timer); };
   }, [support]);
-  const canVm = computer.type === "vm" || support?.state === "available";
+  const remoteOnly = computer.localDocker === false && computer.type === "container";
+  const canVm = computer.type === "vm" || (!remoteOnly && support?.state === "available");
   const canContainer = computer.type === "container" || bot.environment.docker;
-  const note = support?.state === "checking" || support?.state === "unknown" ? t("environment.type.checking")
+  const note = remoteOnly ? t("environment.type.remoteContainerOnly")
+    : support?.state === "checking" || support?.state === "unknown" ? t("environment.type.checking")
     : support?.state === "unavailable" && computer.type !== "vm" ? t("environment.type.unavailable", { why: t(`environment.type.why.${support.reason ?? "failed"}`) }) : null;
   const choose = (type: ComputerType) => void run("switch", async () => { onSaved(await api.setComputerType(bot.id, type)); setAsking(null); }, "common.failed");
   return <>
@@ -39,7 +41,7 @@ export function SandboxType({ bot, disabled, onSaved }: { bot: Bot; disabled: bo
     </div>
     {(note || asking || error) && <div className="jv-list-row jv-static-row jv-env-details">
       {note && !asking && <p className="jv-env-type-note">{note}
-        {support?.state === "unavailable" && <Button type="button" variant="link" size="sm" disabled={!!doing}
+        {!remoteOnly && support?.state === "unavailable" && <Button type="button" variant="link" size="sm" disabled={!!doing}
           onClick={() => void run("check", async () => setSupport(await api.checkVmSupport()))}>{t("environment.type.recheck")}</Button>}</p>}
       {asking && <div className="jv-env-confirm" role="group" aria-label={t(`environment.type.${asking}Title`, { name: bot.name })}>
         <strong>{t(`environment.type.${asking}Title`, { name: bot.name })}</strong><p>{t(`environment.type.${asking}Body`)}</p>

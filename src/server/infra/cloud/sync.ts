@@ -297,6 +297,19 @@ export class CloudSync {
     }).catch(error => this.log(`local workspace refresh after remote push failed: ${error instanceof Error ? error.message : String(error)}`));
   }
 
+  /** Hydrates a Bot's local `/workspace` from its latest synced S3 snapshot if the local folder is missing or empty,
+   * enabling offline browsing & downloads when all compute nodes are offline (A109). */
+  async ensureLocalWorkspace(botId: string): Promise<boolean> {
+    if (!this.encryptionKey) return false;
+    const botState = this.state.bots[botId];
+    if (!botState?.workspaceKey) return false;
+    const localDir = join(this.dataDir, "bots", botId, "workspace");
+    const existing = await readdir(localDir).catch(() => []);
+    if (existing.length > 0) return false;
+    await restoreWorkspaceDown({ s3: this.s3, key: this.encryptionKey, prefix: this.prefix, manifestObjectKey: botState.workspaceKey, localDir });
+    return true;
+  }
+
   private async flushStateManifest(): Promise<void> {
     if (!this.encryptionKey) return;
     this.lease.assertHeld();

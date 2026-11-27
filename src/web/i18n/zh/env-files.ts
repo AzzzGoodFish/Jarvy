@@ -76,6 +76,7 @@ export const envFiles: Part<typeof en> = {
   "envFiles.devicePausedTitle": "电脑已暂停",
   "envFiles.devicePausedBody": "请在电脑客户端托盘中恢复连接后再浏览或传输文件。",
   "envFiles.symlink": "链接",
+  "envFiles.offlineSnapshot": "沙箱当前离线 — 正在浏览 /workspace 工作区快照（来自本地缓存或最近同步的云端快照）。",
   "error.fileAlreadyExists": "同名文件或文件夹已存在。",
   "error.fileInvalidPath": "路径或名称不合法。",
   "error.fileIsDirectory": "目标是一个文件夹，不是文件。",

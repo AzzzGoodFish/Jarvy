@@ -101,6 +101,8 @@ export interface ConnectorOptions {
   client: string; capabilities?: string[];
   /** Optional compute-node Docker sandbox provider (`jarvy client --sandbox`, A108). */
   sandboxHost?: SandboxHost;
+  /** When true (`--sandbox-only`), disables direct host file/shell/PTY access so this node acts strictly as an isolated sandbox compute provider (A109). */
+  disableHost?: boolean;
   onStatus?(status: Status): void;
   log?(text: string): void;
 }
@@ -159,7 +161,8 @@ export class Connector {
       this.wait = 1000;
       const capabilities = [...new Set([
         ...(this.options.capabilities ?? []),
-        ...(process.platform === "win32" ? ["pty"] : []),
+        ...(!this.options.disableHost ? ["host"] : ["sandbox-only"]),
+        ...(!this.options.disableHost && process.platform === "win32" ? ["pty"] : []),
         ...(sandboxInfo?.docker ? ["sandbox"] : []),
       ])];
       this.send({ t: "hello", protocol: DEVICE_PROTOCOL, platform: process.platform, arch: process.arch, home: homedir(), hostname: hostname(),
@@ -210,6 +213,7 @@ export class Connector {
   /** Runs the daemon for one channel (on the host, or inside a remote sandbox container via `docker exec`). */
   private run(program: string, ch: number, args: string[], bot: string, container?: string): void {
     if (this.paused) { this.send({ t: "exit", ch, code: null, error: "paused" }); return; }
+    if (!container && this.options.disableHost) { this.send({ t: "exit", ch, code: null, error: "host_disabled" }); return; }
     if (container && !this.options.sandboxHost) { this.send({ t: "exit", ch, code: null, error: "sandbox_disabled" }); return; }
     const child = container
       ? spawn("docker", ["exec", "-i", container, "/opt/jarvy/pi-env", ...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
@@ -266,6 +270,7 @@ export class Connector {
   /** Opens an interactive ConPTY shell on Windows (A103), piped directly over its WebSocket channel. */
   private async runPty(message: Extract<JarvyToDevice, { t: "pty_open" }>): Promise<void> {
     if (this.paused) { this.send({ t: "exit", ch: message.ch, code: null, error: "paused" }); return; }
+    if (this.options.disableHost) { this.send({ t: "exit", ch: message.ch, code: null, error: "host_disabled" }); return; }
     if (process.platform !== "win32") { this.send({ t: "exit", ch: message.ch, code: null, error: "unsupported" }); return; }
     const shells = findShells();
     const argv = message.argv?.length ? message.argv : shells.powershell ? [shells.powershell, "-NoLogo"] : shells.bash ? [shells.bash, "--login", "-i"] : ["cmd.exe"];

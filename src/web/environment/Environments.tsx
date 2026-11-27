@@ -9,6 +9,7 @@ import { BotPorts } from "../ports/BotPorts";
 import { ColumnHeader } from "../components/column-header";
 import { t } from "../i18n";
 import { BotEnvironment, STATE } from "./BotEnvironment";
+import { allowsHostAccess, isComputeNode } from "./device-roles";
 import { DeviceConnect, DeviceDetail, deviceState, deviceSystem } from "./DeviceDetail";
 import { EnvironmentFiles } from "./EnvironmentFiles";
 import { EnvironmentHero } from "./EnvironmentHero";
@@ -28,6 +29,7 @@ import "../styles/terminals.css";
 import "../styles/env-files.css";
 
 type DetailTab = "overview" | "terminal" | "files";
+type AddMode = "compute" | "host" | "ssh";
 const COLLAPSED_KEY = "jarvy-envs-sidebar-collapsed";
 /** The pick and tab, kept while the page is away (the chats, the agent Bot's page) and lost on a reload. */
 let kept: PickedEnv | null = null;
@@ -43,7 +45,7 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
   active: boolean; bots: Bot[]; statuses: Record<string, BotStatus>; adding: boolean; terminalVersion?: number; onAdding: (adding: boolean) => void; onSaved: (bot: Bot) => void;
 }) {
   const [machines, setMachines] = useState<SshMachine[] | null>(null), [error, setError] = useState<string | null>(null);
-  const [devices, setDevices] = useState<Device[] | null>(null), [connecting, setConnecting] = useState(false);
+  const [devices, setDevices] = useState<Device[] | null>(null), [addMode, setAddMode] = useState<AddMode>("compute");
   const [terminals, setTerminals] = useState<TerminalSession[]>([]);
   const [picked, setPicked] = useState<PickedEnv | null>(kept), [open, setOpen] = useState(adding), [filter, setFilter] = useState("");
   const [category, setCategory] = useState<EnvCategory>("all");
@@ -161,8 +163,10 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
     return list;
   }, [device]);
 
-  const showTerminal = !adding && !!selectedEnvId && tab === "terminal";
-  const showFiles = !adding && !!selectedEnvId && tab === "files";
+  const deviceSupportsHost = device ? allowsHostAccess(device) : true;
+  const effectiveTab: DetailTab = !deviceSupportsHost ? "overview" : tab;
+  const showTerminal = !adding && !!selectedEnvId && effectiveTab === "terminal";
+  const showFiles = !adding && !!selectedEnvId && effectiveTab === "files";
 
   const refreshBot = () => {
     if (!bot) return;
@@ -194,8 +198,8 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
     return out;
   }, [devices, machines, sandboxes]);
 
-  const headerKind = device ? "device" : machine ? "ssh" : bot ? bot.environment.computer!.type : null;
-  const headerTitle = adding ? t(connecting ? "devices.connect" : "machines.add") : device ? device.name : machine ? machine.name : bot ? t("envs.sandboxOf", { name: bot.name }) : "";
+  const headerKind = device ? (isComputeNode(device) ? "compute" : "device") : machine ? "ssh" : bot ? bot.environment.computer!.type : null;
+  const headerTitle = adding ? t(addMode === "compute" ? "devices.addCompute" : addMode === "host" ? "devices.addHost" : "devices.addSsh") : device ? device.name : machine ? machine.name : bot ? t("envs.sandboxOf", { name: bot.name }) : "";
   const headerSub = device ? deviceSystem(device) : machine ? <span className="jv-mono">{machineAddress(machine)}</span> : undefined;
 
   return <section className="jv-envs" data-inactive={!active || undefined} data-open={open || undefined}
@@ -245,12 +249,12 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
         </>}
         title={collapsed && !adding && headerKind ? "" : headerTitle}
         sub={collapsed && !adding ? undefined : headerSub}
-        actions={!adding && selectedEnvId ? <div className="jv-seg jv-envs-tabs" role="radiogroup" aria-label={t("rail.environments")}>
-          <button type="button" role="radio" aria-checked={tab === "overview"} onClick={() => switchTab("overview")}>{t("envs.tabOverview")}</button>
-          <button type="button" role="radio" aria-checked={tab === "terminal"} onClick={() => switchTab("terminal")}>
+        actions={!adding && selectedEnvId && deviceSupportsHost ? <div className="jv-seg jv-envs-tabs" role="radiogroup" aria-label={t("rail.environments")}>
+          <button type="button" role="radio" aria-checked={effectiveTab === "overview"} onClick={() => switchTab("overview")}>{t("envs.tabOverview")}</button>
+          <button type="button" role="radio" aria-checked={effectiveTab === "terminal"} onClick={() => switchTab("terminal")}>
             {t("envs.tabTerminal")}{selectedRunning > 0 && <span className="jv-envs-tab-count">{selectedRunning}</span>}
           </button>
-          <button type="button" role="radio" aria-checked={tab === "files"} onClick={() => switchTab("files")}>{t("envs.tabFiles")}</button>
+          <button type="button" role="radio" aria-checked={effectiveTab === "files"} onClick={() => switchTab("files")}>{t(bot ? "envs.tabWorkspace" : "envs.tabFiles")}</button>
         </div> : undefined}/>
 
       <div className="jv-envs-content">
@@ -263,28 +267,30 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
           onToggleMaximize={() => setMaximized(value => !value)}
           onRefresh={loadTerminals} onSandboxStarted={refreshBot}/>}
         {showFiles && <EnvironmentFiles environmentId={selectedEnvId} botId={bot?.id} availability={filesAvailability}
+          offlineSnapshot={bot?.environment.computer?.type === "container" && bot.environment.computer.state !== "running"}
           maximized={maximized} onToggleMaximize={() => setMaximized(value => !value)}
           onOpenTerminal={openTerminalInDir} onSandboxStarted={refreshBot}/>}
         {!showTerminal && !showFiles && <div className="jv-envs-body">
           <div className="jv-ov-inner">
             {adding && <div className="jv-seg jv-envs-add-kind" role="radiogroup" aria-label={t("machines.add")}>
-              {([false, true] as const).map(value => <button key={String(value)} type="button" role="radio" aria-checked={connecting === value} onClick={() => setConnecting(value)}>
-                {t(value ? "devices.kindDevice" : "devices.kindMachine")}</button>)}</div>}
+              {(["compute", "host", "ssh"] as const).map(value => <button key={value} type="button" role="radio" aria-checked={addMode === value} onClick={() => setAddMode(value)}>
+                {t(value === "compute" ? "devices.addCompute" : value === "host" ? "devices.addHost" : "devices.addSsh")}</button>)}</div>}
             {!adding && <EnvironmentHero device={device} machine={machine} bot={bot} here={here} statuses={statuses}
               runningTerminals={selectedRunning}
               onOpenTerminal={() => switchTab("terminal")} onBrowseFiles={() => switchTab("files")}/>}
-            {adding && connecting ? <DeviceConnect/>
+            {adding && addMode !== "ssh" ? <DeviceConnect mode={addMode}/>
               : adding ? <MachineForm onCancel={() => { onAdding(false); setOpen(false); }} onSaved={saved => {
                 setMachines(list => [...(list ?? []), saved]); pick({ kind: "machine", id: saved.id });
               }}/>
               : device ? <DeviceDetail key={device.id} device={device} bots={bots}
                 onChanged={saved => setDevices(list => list && list.map(item => item.id === saved.id ? saved : item))}
+                onBotChanged={onSaved}
                 onDeleted={() => { kept = null; setPicked(null); setOpen(false); setDevices(list => list && list.filter(item => item.id !== device.id)); }}/>
               : machine ? <MachineDetail key={machine.id} machine={machine} bots={bots}
                 onChanged={saved => setMachines(list => list && list.map(item => item.id === saved.id ? saved : item))}
                 onDeleted={() => { kept = null; setPicked(null); setOpen(false); setMachines(list => list && list.filter(item => item.id !== machine.id)); }}/>
               : bot ? <div className="jv-ov-grid">
-                <div className="jv-ov-col"><BotEnvironment key={bot.id} bot={bot} onSaved={onSaved} heading={true} showSpecs={false}/></div>
+                <div className="jv-ov-col"><BotEnvironment key={bot.id} bot={bot} devices={devices ?? undefined} onSaved={onSaved} heading={true} showSpecs={false}/></div>
                 <div className="jv-ov-col"><BotPorts key={`ports-${bot.id}`} bot={bot} runs={`${status?.status ?? "stop"}:${status?.runId ?? ""}`}/></div>
               </div> : null}
           </div>

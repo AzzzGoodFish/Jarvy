@@ -239,6 +239,7 @@ export class DeviceLinks {
   online(id: string): boolean { return this.links.has(id); }
   paused(id: string): boolean { return !!this.links.get(id)?.paused; }
   hasCapability(id: string, capability: string): boolean { return !!this.links.get(id)?.capabilities.has(capability); }
+  sandboxInfo(id: string): SandboxNodeInfo | undefined { return this.links.get(id)?.sandbox; }
 
   /** Lists all online, non-paused compute nodes capable of hosting remote Docker sandboxes (A108). */
   sandboxNodes(): Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> {

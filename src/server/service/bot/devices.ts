@@ -79,8 +79,14 @@ export class Devices {
     return { open: () => createReadStream(daemon.path), sha256: daemon.sha256, size: daemon.size };
   }
   online(id: string): boolean { return this.links.online(id) && !this.links.paused(id); }
+  /** True unless the client explicitly connected with `--sandbox-only` to disable direct host access (A109). */
+  allowsHost(record: EnvironmentRecord): boolean {
+    return !(record.spec.capabilities ?? "").split(",").includes("sandbox-only");
+  }
   /** Verifies that a connected computer is online and not paused (A104). */
   verifyOnline(id: string): void {
+    const record = this.need(id);
+    if (!this.allowsHost(record)) throw new ChatError(403, `${record.name} is a sandbox-only compute node and does not expose direct host access`);
     if (!this.online(id)) throw new ChatError(409, this.offline(id), "device_offline");
   }
   /** Opens a dedicated file-browser `EnvironmentFs` on a connected computer (A104). */
@@ -94,6 +100,7 @@ export class Devices {
   }
   /** Opens an interactive PTY on a connected computer (A103): pi-env PTY on Linux/macOS, ConPTY on Windows. */
   async openPty(record: EnvironmentRecord, options: PtyOpenOptions): Promise<{ pty: PtyHandle; cwd: string; shell?: PtyShell }> {
+    if (!this.allowsHost(record)) throw new ChatError(403, `${record.name} is a sandbox-only compute node and does not expose direct host access`);
     if (!this.online(record.id)) throw new ChatError(409, this.offline(record.id), "device_offline");
     const platform = record.spec.platform ?? "";
     const windows = platform === "win32";
@@ -246,13 +253,14 @@ export class Devices {
     throw new ChatError(400, "directory must be an absolute path or start with ~/");
   }
   private view(record: EnvironmentRecord): Device {
-    const { spec } = record;
+    const { spec } = record, sandbox = this.links.sandboxInfo(record.id);
     return { id: record.id, name: record.name, description: record.description, platform: spec.platform ?? "", arch: spec.arch ?? "",
       home: spec.home ?? "", directory: record.directory || spec.home || "", online: this.links.online(record.id), paused: this.links.paused(record.id),
       seenAt: this.links.online(record.id) ? Date.now() : spec.seenAt ? Number(spec.seenAt) : null,
       shells: { ...(spec.shellBash ? { bash: spec.shellBash } : {}), ...(spec.shellPowershell ? { powershell: spec.shellPowershell } : {}) },
       shell: (spec.shell as Device["shell"]) ?? "auto", activeShell: activeShell(record),
-      capabilities: spec.capabilities ? spec.capabilities.split(",").filter(Boolean) : [], client: spec.client ?? "", botIds: this.store.environments.grantees(record.id) };
+      capabilities: spec.capabilities ? spec.capabilities.split(",").filter(Boolean) : [], client: spec.client ?? "",
+      ...(sandbox ? { sandbox } : {}), botIds: this.store.environments.grantees(record.id) };
   }
   private need(id: string): EnvironmentRecord {
     const record = this.store.environments.get(id);

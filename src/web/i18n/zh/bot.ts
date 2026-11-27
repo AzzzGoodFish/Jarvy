@@ -67,6 +67,7 @@ export const bot: Part<typeof en> = {
   "bot.workspace": "工作区",
   "bot.copyWorkspace": "复制工作区路径",
   "bot.tab.overview": "概览",
+  "bot.tab.workspace": "工作区",
   "bot.tab.profile": "设定",
   "bot.tab.environment": "环境",
   "bot.tab.tasks": "任务",

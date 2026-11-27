@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
-import type { DockerProblemReason, VmProblemReason } from "../../contract/environment";
+import type { Device, DockerProblemReason, VmProblemReason } from "../../contract/environment";
 import { t, type Key } from "../i18n";
 import { Button } from "../components/ui/button";
 import { useAction } from "../action";
+import { SandboxComputeNode } from "./SandboxComputeNode";
 import { SandboxLimits } from "./SandboxLimits";
 import { SandboxType } from "./SandboxType";
 import "../styles/environment.css";
@@ -26,7 +27,7 @@ const unusableVm = (error: string | undefined): VmProblemReason =>
  * default there is: its state, its type, its container or VM name, image and mount, its resource limits or VM size and
  * usage (A75), Start or Stop and Reset — and Restart when a VM's new size waits for it — and where the Bot is when it
  * switched to a machine. The machines it may use are on the 授权 tab (BotAccess). */
-export function BotEnvironment({ bot, onSaved, heading = true, showSpecs = true }: { bot: Bot; onSaved: (bot: Bot) => void;
+export function BotEnvironment({ bot, devices, onSaved, heading = true, showSpecs = true }: { bot: Bot; devices?: Device[]; onSaved: (bot: Bot) => void;
   /** Off when the outer page already names the sandbox. */
   heading?: boolean;
   /** Off on the Environments Overview page where EnvironmentHero already displays container, image and mount. */
@@ -49,6 +50,7 @@ export function BotEnvironment({ bot, onSaved, heading = true, showSpecs = true 
         <span className="jv-status" data-ok={state === "running" || undefined} data-busy={state === "preparing" || undefined}>{t(label)}</span>
       </div>
       <SandboxType bot={bot} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>
+      <SandboxComputeNode bot={bot} devices={devices} disabled={!!busy || state === "preparing"} onSaved={onSaved}/>
       {showSpecs && <>
         <div className="jv-list-row jv-static-row jv-env-fact"><span>{t(vm ? "environment.vm" : "environment.container")}</span><code>{computer.container}</code></div>
         <div className="jv-list-row jv-static-row jv-env-fact"><span>{t("environment.image")}</span><code>{computer.image}</code></div>

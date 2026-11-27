@@ -41,6 +41,12 @@ export function botRoutes(bots: ApiServices["bots"]) {
     const input = await readJson(c);
     return c.json(await bots.setComputerType(c.req.param("id"), input.type));
   });
+  // Preferred remote compute node for automatic failover scheduling, or null for automatic (A109).
+  routes.put("/:id/computer/compute-node", jsonBody, async c => {
+    const input = await readJson(c);
+    return c.json(await bots.setComputerNode(c.req.param("id"), input.deviceId ?? null));
+  });
+  routes.post("/:id/computer/reclaim", async c => c.json(await bots.reclaimComputer(c.req.param("id"))));
   routes.post("/:id/computer/:action", async c => {
     const action = c.req.param("action");
     if (action !== "start" && action !== "stop" && action !== "reset" && action !== "restart") throw new HTTPException(404, { message: "Not found" });
