@@ -49,6 +49,8 @@ export interface EnvironmentFs {
   readonly cwd: string;
   readonly home: string;
   readonly separator: "/" | "\\";
+  /** True when paths are strictly jailed to `cwd` (no parent navigation above `cwd`). */
+  readonly jailed?: boolean;
   listDir(path: string, maxEntries: number, signal?: AbortSignal): Promise<FsDirPage>;
   stat(path: string, signal?: AbortSignal): Promise<FsEntry>;
   realPath(path: string, signal?: AbortSignal): Promise<string>;

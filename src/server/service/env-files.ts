@@ -48,11 +48,12 @@ export class EnvFileService {
         throw new ChatError(400, "Not a directory", "file_not_directory");
       }
       const page = await fs.listDir(dirPath, MAX_ENV_DIR_ENTRIES, signal);
+      const root = normalizePath(fs.cwd, fs.home, fs.separator);
       return {
         environmentId,
         path: dirPath,
-        parent: parentOf(dirPath, fs.separator),
-        root: normalizePath(fs.cwd, fs.home, fs.separator),
+        parent: fs.jailed && dirPath === root ? null : parentOf(dirPath, fs.separator),
+        root,
         home: normalizePath(fs.home, fs.home, fs.separator),
         separator: fs.separator,
         entries: page.entries.map(item => toContractEntry(item, fs.separator)),

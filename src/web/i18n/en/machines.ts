@@ -76,6 +76,7 @@ export const machines = {
   "devices.kindMachine": "SSH machine",
   "devices.kindDevice": "Computer",
   "devices.connectHint": "On the computer to connect, run this in a terminal that has Node 22 or later. The first run checks Jarvy's certificate fingerprint and asks you to sign in.",
+  "devices.connectCli": "With Jarvy CLI installed",
   "devices.connectWindows": "Windows (PowerShell)",
   "devices.connectOther": "macOS and Linux",
   "devices.connectAfter": "Once connected it appears among the environments. Bots can use it after you grant it to them, and only while the command runs.",

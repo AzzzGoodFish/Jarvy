@@ -38,6 +38,7 @@ Plain model text is shown as activity (`texting`), never as a chat message.
 | [Connection](architecture/connection.md) | HTTP on this machine, HTTPS with Jarvy's own certificate beyond it (A51) |
 | [Secrets](architecture/secrets.md) | The master key, what is sealed under it, secrets and their grants and uses (A52) |
 | [Connectors](architecture/connectors.md) | External service connectors (remote MCP and built-in vendor adapters), OAuth/token flows, write confirmations (A102) |
+| [Distributed roadmap](roadmap-distributed.md) | Phased roadmap for decoupling storage (S3), stateless control plane (`jarvy server`), and compute nodes (`jarvy client`) |
 | [Decisions (ADR)](decisions.md) | Why things are the way they are, and what each decision replaced |
 
 ## Not built yet

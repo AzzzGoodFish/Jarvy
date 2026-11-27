@@ -42,7 +42,7 @@ export const environment = {
   "environment.state.stopped": "Stopped",
   "environment.state.failed": "Failed to start",
   "environment.state.unavailable": "Unavailable",
-  "environment.unavailable": "{why}, so a sandbox can't be started for this Bot (without one, it can't read or write files, run commands and so on).",
+  "environment.unavailable": "{why}, so a sandbox can't be started for this Bot (it can still read and write files inside /workspace, but can't run shell commands here).",
   "environment.unavailable.missing": "Docker isn't installed here",
   "environment.unavailable.stopped": "The Docker service isn't running here",
   "environment.unavailable.denied": "No permission to use Docker here",

@@ -60,26 +60,35 @@ Open `http://127.0.0.1:8080` and sign in. A first Bot, Jarvy, is waiting in your
 
 ```sh
 npm install -g @goodfish/jarvy
-jarvy on                          # run in the background
-jarvy off                         # stop
+jarvy server start                # run the control-plane server in the background
+jarvy server stop                 # stop the server
+jarvy client start <server-url>   # connect another machine as a remote device/client
 ```
 
 To install your own build instead: `npm run build && npm pack --pack-destination /tmp && npm install -g /tmp/goodfish-jarvy-*.tgz`.
 
 | Command | What it does |
 | --- | --- |
-| `jarvy init` | Set up the account interactively. |
-| `jarvy run` | Run in the foreground. |
-| `jarvy on` | Run in the background (output goes to `<data-dir>/jarvy.log`). Sets up the account first if needed. |
-| `jarvy off` | Stop the background server, waiting up to 30 seconds. |
+| `jarvy server init` | Set up the owner account interactively. |
+| `jarvy server start` | Run the server in the background (logs to `<data-dir>/jarvy.log`). Sets up the account first if needed. |
+| `jarvy server stop` | Stop the background server, waiting up to 30 seconds. |
+| `jarvy server run` | Run the server in the foreground. |
+| `jarvy server status` | Show whether the server is running. |
+| `jarvy client login <url>` | Pair this machine with a Jarvy server (verify TLS cert, sign in, save token). |
+| `jarvy client start [url]` | Run the client node in the background (logs to `<config-dir>/client.log`). |
+| `jarvy client stop` | Stop the background client node. |
+| `jarvy client run [url]` | Run the client node in the foreground. |
+| `jarvy client status` | Show client node status and paired server. |
+| `jarvy client logout` | Stop the client node and remove saved pairing credentials. |
 
-Options: `--host` (default `127.0.0.1`; any other host also serves HTTPS on the same port), `--port` (default `8080`), `--data-dir` (default `~/.jarvy`, or `JARVY_DATA_DIR`). Use the same `--data-dir` for `on` and `off`.
+Server options: `--host` (default `127.0.0.1`; any other host also serves HTTPS on the same port), `--port` (default `8080`), `--data-dir` (default `~/.jarvy`, or `JARVY_DATA_DIR`).
+Client options: `--name` (default hostname), `--config-dir` (default `~/.config/jarvy-client`, or `JARVY_CLIENT_DIR`), `--reset`.
 
 ## Development
 
 ```sh
-node dist/server/cli.js run       # backend on 8080
-npm run dev:web                   # Vite on 127.0.0.1:5173, proxies /api to 8080
+node dist/server/cli.js server run  # backend on 8080
+npm run dev:web                     # Vite on 127.0.0.1:5173, proxies /api to 8080
 ```
 
 `JARVY_WEB_HOST`, `JARVY_WEB_PORT` and `JARVY_API_PORT` change the Vite host, port and proxy target. The development page includes the Agentation annotation toolbar; production builds do not.

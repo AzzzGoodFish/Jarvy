@@ -101,6 +101,8 @@ export function DeviceConnect() {
   const origin = window.location.origin, url = `${origin}/api/devices/connector.mjs`, insecure = origin.startsWith("https:") ? " -k" : "";
   return <div className="jv-list jv-machine-detail"><div className="jv-list-row jv-static-row jv-secret-details jv-device-connect">
     <p className="jv-hint">{t("devices.connectHint")}</p>
+    <h4 className="jv-secret-heading">{t("devices.connectCli")}</h4>
+    <MachineKeyLine publicKey={`jarvy client start ${origin}`}/>
     <h4 className="jv-secret-heading">{t("devices.connectWindows")}</h4>
     <MachineKeyLine publicKey={`curl.exe${insecure} -o connector.mjs ${url}; node connector.mjs ${origin}`}/>
     <h4 className="jv-secret-heading">{t("devices.connectOther")}</h4>
