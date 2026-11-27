@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="676" viewBox="0 0 1180 676" role="img" aria-label="Jarvy 分布式架构">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#8b949e"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#58a6ff"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#3fb950"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#bc8cff"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#e3b341"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="1" y="1" width="1178" height="674" rx="18" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Header -->
+  <text x="36" y="42" font-size="21" font-weight="700" fill="#f0f6fc">Jarvy 分布式架构</text>
+  <text x="36" y="64" font-size="13" fill="#8b949e">无状态控制面 · 反向 WSS 算力池与主机接入 · 端到端加密 S3 云存储</text>
+
+  <!-- ==================== ROW 1: CLIENTS & EXTERNAL ==================== -->
+  <!-- Web App -->
+  <g filter="url(#shadow)">
+    <rect x="36" y="88" width="328" height="88" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.25"/>
+  </g>
+  <text x="52" y="114" font-size="14.5" font-weight="700" fill="#f0f6fc">Web 端 / PWA</text>
+  <g><rect x="254" y="98" width="96" height="22" rx="11" fill="#21262d"/><text x="302" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">浏览器 · 手机</text></g>
+  <text x="52" y="139" font-size="12" fill="#c9d1d9">• 私信、频道、线程与完整 History</text>
+  <text x="52" y="159" font-size="12" fill="#c9d1d9">• 交互终端与工作区直连文件管理</text>
+
+  <!-- Desktop Client -->
+  <g filter="url(#shadow)">
+    <rect x="388" y="88" width="328" height="88" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.25"/>
+  </g>
+  <text x="404" y="114" font-size="14.5" font-weight="700" fill="#f0f6fc">桌面客户端</text>
+  <g><rect x="547" y="98" width="155" height="22" rx="11" fill="#13294b"/><text x="624.5" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#79c0ff">Win · Linux · 自动更新</text></g>
+  <text x="404" y="139" font-size="12" fill="#c9d1d9">• 独立窗口、系统托盘与原生通知</text>
+  <text x="404" y="159" font-size="12" fill="#c9d1d9">• 内置本机反向连接通道（WSS）</text>
+
+  <!-- LLM Providers & Connectors -->
+  <g filter="url(#shadow)">
+    <rect x="816" y="88" width="328" height="88" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.25" stroke-dasharray="5 3"/>
+  </g>
+  <text x="832" y="114" font-size="14.5" font-weight="700" fill="#f0f6fc">模型与连接器</text>
+  <g><rect x="1001" y="98" width="129" height="22" rx="11" fill="#21262d"/><text x="1065.5" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">API · OAuth · MCP</text></g>
+  <text x="832" y="139" font-size="12" fill="#c9d1d9">• OpenAI / Anthropic / Google / 自定义</text>
+  <text x="832" y="159" font-size="12" fill="#c9d1d9">• GitHub / Gmail / Linear（写入需确认）</text>
+
+  <!-- ==================== ROW 2: CONTROL PLANE & S3 ==================== -->
+  <!-- Stateless Control Plane -->
+  <g filter="url(#shadow)">
+    <rect x="36" y="232" width="680" height="178" rx="14" fill="#101b2e" stroke="#58a6ff" stroke-width="2"/>
+  </g>
+  <text x="54" y="257" font-size="16" font-weight="700" fill="#f0f6fc">无状态控制面</text>
+  <g><rect x="334" y="240" width="154" height="22" rx="11" fill="#21262d"/><text x="411" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">--tls-only · --no-web</text></g>
+  <g><rect x="496" y="240" width="206" height="22" rx="11" fill="#13294b"/><text x="599" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#79c0ff">jarvy server · TLS 1.2+ · 2FA</text></g>
+
+  <!-- 4 Inner Module Cards inside Control Plane -->
+  <rect x="54" y="276" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="68" y="298" font-size="13" font-weight="700" fill="#f0f6fc">聊天与 Bot 运行时</text>
+  <text x="68" y="317" font-size="11.5" fill="#8b949e">Pi Agent · 跨聊天共享上下文</text>
+
+  <rect x="384" y="276" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="398" y="298" font-size="13" font-weight="700" fill="#f0f6fc">公网安全与认证</text>
+  <text x="398" y="317" font-size="11.5" fill="#8b949e">TOTP 2FA · 双层防爆破 · 审计日志</text>
+
+  <rect x="54" y="340" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="68" y="362" font-size="13" font-weight="700" fill="#f0f6fc">算力池与设备中心</text>
+  <text x="68" y="381" font-size="11.5" fill="#8b949e">多路复用 WSS · 一次性配对码</text>
+
+  <rect x="384" y="340" width="314" height="54" rx="9" fill="#161b22" stroke="#1f3a5f" stroke-width="1.2"/>
+  <text x="398" y="362" font-size="13" font-weight="700" fill="#f0f6fc">SQLite (WAL) + 云同步</text>
+  <text x="398" y="381" font-size="11.5" fill="#8b949e">单写者租约 · 流式加密备份</text>
+
+  <!-- Encrypted S3 Object Storage -->
+  <g filter="url(#shadow)">
+    <rect x="816" y="232" width="328" height="178" rx="14" fill="#0f201a" stroke="#3fb950" stroke-width="1.75"/>
+  </g>
+  <text x="832" y="257" font-size="15.5" font-weight="700" fill="#f0f6fc">加密 S3 存储</text>
+  <g><rect x="976" y="240" width="154" height="22" rx="11" fill="#122e22"/><text x="1053" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#56d364">S3 · R2 · MinIO · GCS</text></g>
+  <text x="832" y="294" font-size="12" fill="#c9d1d9">• 客户端 AES-256-GCM 加密（云端零明文）</text>
+  <text x="832" y="320" font-size="12" fill="#c9d1d9">• SQLite 快照、Pi 会话与聊天附件</text>
+  <text x="832" y="346" font-size="12" fill="#c9d1d9">• 内容寻址 Bot 工作区（离线可浏览）</text>
+  <text x="832" y="372" font-size="12" fill="#c9d1d9">• 预签名直传，不经过控制面带宽</text>
+
+  <!-- ==================== ROW 3: EXECUTION ENVIRONMENTS ==================== -->
+  <!-- SSH Machines -->
+  <g filter="url(#shadow)">
+    <rect x="36" y="472" width="256" height="174" rx="14" fill="#161b22" stroke="#484f58" stroke-width="1.5"/>
+  </g>
+  <text x="52" y="498" font-size="14.5" font-weight="700" fill="#f0f6fc">SSH 远程主机</text>
+  <g><rect x="210" y="481" width="68" height="22" rx="11" fill="#21262d"/><text x="244" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#c9d1d9">正向 SSH</text></g>
+  <text x="52" y="530" font-size="12" fill="#c9d1d9">• 密钥或加密密码认证</text>
+  <text x="52" y="554" font-size="12" fill="#c9d1d9">• 主机指纹首次信任校验</text>
+  <text x="52" y="578" font-size="12" fill="#c9d1d9">• 按 Bot 细粒度授权访问</text>
+  <text x="52" y="602" font-size="12" fill="#c9d1d9">• 支持交互终端与文件管理</text>
+
+  <!-- Remote Hosts (jarvy-agent) -->
+  <g filter="url(#shadow)">
+    <rect x="312" y="472" width="324" height="174" rx="14" fill="#241b0f" stroke="#d29922" stroke-width="1.6"/>
+  </g>
+  <text x="328" y="498" font-size="14.5" font-weight="700" fill="#f0f6fc">轻量远程主机</text>
+  <g><rect x="474" y="481" width="148" height="22" rx="11" fill="#332208"/><text x="548" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#e3b341">jarvy-agent · 5.5 MB</text></g>
+  <text x="328" y="530" font-size="12" fill="#c9d1d9">• 零 Node 依赖（Linux / macOS / Win）</text>
+  <text x="328" y="554" font-size="12" fill="#c9d1d9">• 一次性配对码接入（免输密码）</text>
+  <text x="328" y="578" font-size="12" fill="#c9d1d9">• 同机多用户独立登记、互不干扰</text>
+  <text x="328" y="602" font-size="12" fill="#c9d1d9">• 空闲自动更新 + 原子原位重启</text>
+
+  <!-- Remote Compute Pool -->
+  <g filter="url(#shadow)">
+    <rect x="656" y="472" width="488" height="174" rx="14" fill="#1a152b" stroke="#a371f7" stroke-width="1.75"/>
+  </g>
+  <text x="674" y="498" font-size="15" font-weight="700" fill="#f0f6fc">远程沙箱算力池</text>
+  <g><rect x="904" y="481" width="226" height="22" rx="11" fill="#271b47"/><text x="1017" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#d2a8ff">jarvy client --sandbox · 自动更新</text></g>
+
+  <rect x="674" y="518" width="220" height="72" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1.2"/>
+  <text x="688" y="544" font-size="13" font-weight="700" fill="#f0f6fc">Docker 容器沙箱</text>
+  <text x="688" y="566" font-size="11.5" fill="#8b949e">网络隔离 · 支持端口预览转发</text>
+
+  <rect x="908" y="518" width="218" height="72" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1.2"/>
+  <text x="922" y="544" font-size="13" font-weight="700" fill="#f0f6fc">KVM / libvirt 虚拟机</text>
+  <text x="922" y="566" font-size="11.5" fill="#8b949e">完整 Ubuntu + 嵌套 Docker</text>
+
+  <text x="674" y="622" font-size="11.5" fill="#8b949e">按需调度 · 空闲暂停与槽位回收 · 支持 --sandbox-only 纯算力隔离</text>
+
+  <!-- ==================== CONNECTORS (ZERO CROSSINGS) ==================== -->
+  <!-- Web App <-> Control Plane -->
+  <line x1="200" y1="176" x2="200" y2="229" stroke="#58a6ff" stroke-width="1.8" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
+  <rect x="134" y="193" width="132" height="20" rx="6" fill="#0d1117"/>
+  <text x="200" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#58a6ff">HTTPS · SSE · WS</text>
+
+  <!-- Desktop <-> Control Plane -->
+  <line x1="552" y1="176" x2="552" y2="229" stroke="#58a6ff" stroke-width="1.8" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
+  <rect x="474" y="193" width="156" height="20" rx="6" fill="#0d1117"/>
+  <text x="552" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#58a6ff">HTTPS + 反向 WSS</text>
+
+  <!-- Control Plane <-> External LLM / Connectors (elbow strictly above S3 sync line) -->
+  <path d="M 719 266 L 766 266 L 766 132 L 813 132" fill="none" stroke="#8b949e" stroke-width="1.7" stroke-dasharray="4 3" marker-start="url(#arr-slate)" marker-end="url(#arr-slate)"/>
+  <rect x="724" y="193" width="84" height="20" rx="6" fill="#0d1117"/>
+  <text x="766" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#8b949e">API / OAuth</text>
+
+  <!-- Control Plane <-> Encrypted S3 -->
+  <line x1="719" y1="338" x2="813" y2="338" stroke="#3fb950" stroke-width="2" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
+  <text x="766" y="328" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3fb950">加密同步</text>
+  <text x="766" y="354" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3fb950">Fencing 租约</text>
+
+  <!-- Control Plane -> SSH Machines -->
+  <line x1="164" y1="412" x2="164" y2="469" stroke="#8b949e" stroke-width="1.8" marker-end="url(#arr-slate)"/>
+  <rect x="108" y="431" width="112" height="20" rx="6" fill="#0d1117"/>
+  <text x="164" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#8b949e">正向 SSH</text>
+
+  <!-- Remote Hosts -> Control Plane (Outbound WSS) -->
+  <line x1="474" y1="469" x2="474" y2="413" stroke="#e3b341" stroke-width="1.9" marker-end="url(#arr-amber)"/>
+  <rect x="412" y="431" width="124" height="20" rx="6" fill="#0d1117"/>
+  <text x="474" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#e3b341">反向 WSS</text>
+
+  <!-- Compute Pool -> Control Plane (Outbound WSS) -->
+  <line x1="686" y1="469" x2="686" y2="413" stroke="#bc8cff" stroke-width="1.9" marker-end="url(#arr-purple)"/>
+  <rect x="626" y="431" width="120" height="20" rx="6" fill="#0d1117"/>
+  <text x="686" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#bc8cff">反向 WSS</text>
+
+  <!-- Compute Pool <-> Encrypted S3 (Direct Pre-signed Sync) -->
+  <line x1="980" y1="469" x2="980" y2="413" stroke="#3fb950" stroke-width="2" stroke-dasharray="5 3" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
+  <rect x="876" y="431" width="208" height="20" rx="6" fill="#0d1117"/>
+  <text x="980" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#3fb950">预签名 URL 直连同步工作区</text>
+</svg>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="676" viewBox="0 0 1180 676" role="img" aria-label="Jarvy Distributed Architecture">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#059669"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="1" y="1" width="1178" height="674" rx="18" fill="#fbfcfe" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Header -->
+  <text x="36" y="42" font-size="21" font-weight="700" fill="#0f172a">Jarvy Distributed Architecture</text>
+  <text x="36" y="64" font-size="13" fill="#475569">Stateless control plane · Outbound-only WSS compute &amp; hosts · End-to-end encrypted S3</text>
+
+  <!-- ==================== ROW 1: CLIENTS & EXTERNAL ==================== -->
+  <!-- Web App -->
+  <g filter="url(#shadow)">
+    <rect x="36" y="88" width="328" height="88" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.25"/>
+  </g>
+  <text x="52" y="114" font-size="14.5" font-weight="700" fill="#0f172a">Web App / PWA</text>
+  <g><rect x="228" y="98" width="122" height="22" rx="11" fill="#e2e8f0"/><text x="289" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#334155">Browser · Mobile</text></g>
+  <text x="52" y="139" font-size="12" fill="#334155">• DMs, Channels, Threads, History</text>
+  <text x="52" y="159" font-size="12" fill="#334155">• Interactive Terminals &amp; Direct Files</text>
+
+  <!-- Desktop Client -->
+  <g filter="url(#shadow)">
+    <rect x="388" y="88" width="328" height="88" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.25"/>
+  </g>
+  <text x="404" y="114" font-size="14.5" font-weight="700" fill="#0f172a">Desktop Client</text>
+  <g><rect x="612" y="98" width="90" height="22" rx="11" fill="#dbeafe"/><text x="657" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#1d4ed8">Win · Linux</text></g>
+  <text x="404" y="139" font-size="12" fill="#334155">• Chat window, tray &amp; auto-update</text>
+  <text x="404" y="159" font-size="12" fill="#334155">• Built-in host connector (WSS)</text>
+
+  <!-- LLM Providers & Connectors -->
+  <g filter="url(#shadow)">
+    <rect x="816" y="88" width="328" height="88" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="5 3"/>
+  </g>
+  <text x="832" y="114" font-size="14.5" font-weight="700" fill="#0f172a">Models &amp; MCP</text>
+  <g><rect x="1001" y="98" width="129" height="22" rx="11" fill="#e2e8f0"/><text x="1065.5" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#334155">API · OAuth · MCP</text></g>
+  <text x="832" y="139" font-size="12" fill="#334155">• OpenAI, Anthropic, Google, Custom</text>
+  <text x="832" y="159" font-size="12" fill="#334155">• GitHub, Gmail, Linear (write-gated)</text>
+
+  <!-- ==================== ROW 2: CONTROL PLANE & S3 ==================== -->
+  <!-- Stateless Control Plane -->
+  <g filter="url(#shadow)">
+    <rect x="36" y="232" width="680" height="178" rx="14" fill="#f5f8ff" stroke="#3b82f6" stroke-width="2"/>
+  </g>
+  <text x="54" y="257" font-size="16" font-weight="700" fill="#0f172a">Stateless Control Plane</text>
+  <g><rect x="334" y="240" width="154" height="22" rx="11" fill="#e2e8f0"/><text x="411" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#334155">--tls-only · --no-web</text></g>
+  <g><rect x="496" y="240" width="206" height="22" rx="11" fill="#dbeafe"/><text x="599" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#1d4ed8">jarvy server · TLS 1.2+ · 2FA</text></g>
+
+  <!-- 4 Inner Module Cards inside Control Plane -->
+  <rect x="54" y="276" width="314" height="54" rx="9" fill="#ffffff" stroke="#dbeafe" stroke-width="1.2"/>
+  <text x="68" y="298" font-size="13" font-weight="700" fill="#0f172a">Chat &amp; Bot Runtime</text>
+  <text x="68" y="317" font-size="11.5" fill="#64748b">Pi agents · Shared context</text>
+
+  <rect x="384" y="276" width="314" height="54" rx="9" fill="#ffffff" stroke="#dbeafe" stroke-width="1.2"/>
+  <text x="398" y="298" font-size="13" font-weight="700" fill="#0f172a">Security &amp; Auth</text>
+  <text x="398" y="317" font-size="11.5" fill="#64748b">TOTP 2FA · Anti-brute-force · Audit</text>
+
+  <rect x="54" y="340" width="314" height="54" rx="9" fill="#ffffff" stroke="#dbeafe" stroke-width="1.2"/>
+  <text x="68" y="362" font-size="13" font-weight="700" fill="#0f172a">Compute &amp; Device Hub</text>
+  <text x="68" y="381" font-size="11.5" fill="#64748b">Multiplexed WSS · One-time tokens</text>
+
+  <rect x="384" y="340" width="314" height="54" rx="9" fill="#ffffff" stroke="#dbeafe" stroke-width="1.2"/>
+  <text x="398" y="362" font-size="13" font-weight="700" fill="#0f172a">SQLite (WAL) + Cloud Sync</text>
+  <text x="398" y="381" font-size="11.5" fill="#64748b">Fencing lease · Streaming crypto</text>
+
+  <!-- Encrypted S3 Object Storage -->
+  <g filter="url(#shadow)">
+    <rect x="816" y="232" width="328" height="178" rx="14" fill="#f5fbf8" stroke="#10b981" stroke-width="1.75"/>
+  </g>
+  <text x="832" y="257" font-size="15.5" font-weight="700" fill="#0f172a">Encrypted S3</text>
+  <g><rect x="976" y="240" width="154" height="22" rx="11" fill="#d1fae5"/><text x="1053" y="255" text-anchor="middle" font-size="11" font-weight="600" fill="#047857">S3 · R2 · MinIO · GCS</text></g>
+  <text x="832" y="294" font-size="12" fill="#334155">• Client-side AES-256-GCM (zero plaintext)</text>
+  <text x="832" y="320" font-size="12" fill="#334155">• SQLite snapshots, Pi sessions &amp; files</text>
+  <text x="832" y="346" font-size="12" fill="#334155">• Content-addressed Bot workspaces</text>
+  <text x="832" y="372" font-size="12" fill="#334155">• Pre-signed URLs bypass VPS bandwidth</text>
+
+  <!-- ==================== ROW 3: EXECUTION ENVIRONMENTS ==================== -->
+  <!-- SSH Machines -->
+  <g filter="url(#shadow)">
+    <rect x="36" y="472" width="256" height="174" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  </g>
+  <text x="52" y="498" font-size="14.5" font-weight="700" fill="#0f172a">SSH Machines</text>
+  <g><rect x="181" y="481" width="97" height="22" rx="11" fill="#e2e8f0"/><text x="229.5" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#334155">Outbound SSH</text></g>
+  <text x="52" y="530" font-size="12" fill="#334155">• Key or sealed password auth</text>
+  <text x="52" y="554" font-size="12" fill="#334155">• Host-key TOFU verification</text>
+  <text x="52" y="578" font-size="12" fill="#334155">• Per-Bot granular grants</text>
+  <text x="52" y="602" font-size="12" fill="#334155">• PTY terminals &amp; file browser</text>
+
+  <!-- Remote Hosts (jarvy-agent) -->
+  <g filter="url(#shadow)">
+    <rect x="312" y="472" width="324" height="174" rx="14" fill="#fffaf2" stroke="#f59e0b" stroke-width="1.6"/>
+  </g>
+  <text x="328" y="498" font-size="14.5" font-weight="700" fill="#0f172a">Remote Hosts</text>
+  <g><rect x="474" y="481" width="148" height="22" rx="11" fill="#fef3c7"/><text x="548" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#b45309">jarvy-agent · 5.5 MB</text></g>
+  <text x="328" y="530" font-size="12" fill="#334155">• Zero Node required (Linux / macOS / Win)</text>
+  <text x="328" y="554" font-size="12" fill="#334155">• One-time pairing token (no password)</text>
+  <text x="328" y="578" font-size="12" fill="#334155">• Multi-user isolated host execution</text>
+  <text x="328" y="602" font-size="12" fill="#334155">• Idle auto-update + atomic self-restart</text>
+
+  <!-- Remote Compute Pool -->
+  <g filter="url(#shadow)">
+    <rect x="656" y="472" width="488" height="174" rx="14" fill="#faf7ff" stroke="#8b5cf6" stroke-width="1.75"/>
+  </g>
+  <text x="674" y="498" font-size="15" font-weight="700" fill="#0f172a">Remote Compute Pool</text>
+  <g><rect x="880" y="481" width="250" height="22" rx="11" fill="#ede9fe"/><text x="1005" y="496" text-anchor="middle" font-size="11" font-weight="600" fill="#6d28d9">jarvy client --sandbox · Auto-Update</text></g>
+
+  <rect x="674" y="518" width="220" height="72" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.2"/>
+  <text x="688" y="544" font-size="13" font-weight="700" fill="#0f172a">Docker Sandboxes</text>
+  <text x="688" y="566" font-size="11.5" fill="#64748b">Isolated containers · Port publish</text>
+
+  <rect x="908" y="518" width="218" height="72" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.2"/>
+  <text x="922" y="544" font-size="13" font-weight="700" fill="#0f172a">KVM / libvirt VMs</text>
+  <text x="922" y="566" font-size="11.5" fill="#64748b">Full Ubuntu + nested Docker</text>
+
+  <text x="674" y="622" font-size="11.5" fill="#64748b">On-demand scheduling · Idle pause &amp; slot reclaim · --sandbox-only isolation</text>
+
+  <!-- ==================== CONNECTORS (ZERO CROSSINGS) ==================== -->
+  <!-- Web App <-> Control Plane -->
+  <line x1="200" y1="176" x2="200" y2="229" stroke="#2563eb" stroke-width="1.8" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
+  <rect x="134" y="193" width="132" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="200" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#2563eb">HTTPS · SSE · WS</text>
+
+  <!-- Desktop <-> Control Plane -->
+  <line x1="552" y1="176" x2="552" y2="229" stroke="#2563eb" stroke-width="1.8" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
+  <rect x="474" y="193" width="156" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="552" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#2563eb">HTTPS + Outbound WSS</text>
+
+  <!-- Control Plane <-> External LLM / Connectors (elbow strictly above S3 sync line) -->
+  <path d="M 719 266 L 766 266 L 766 132 L 813 132" fill="none" stroke="#64748b" stroke-width="1.7" stroke-dasharray="4 3" marker-start="url(#arr-slate)" marker-end="url(#arr-slate)"/>
+  <rect x="724" y="193" width="84" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="766" y="207" text-anchor="middle" font-size="11" font-weight="600" fill="#64748b">API / OAuth</text>
+
+  <!-- Control Plane <-> Encrypted S3 -->
+  <line x1="719" y1="338" x2="813" y2="338" stroke="#059669" stroke-width="2" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
+  <text x="766" y="328" text-anchor="middle" font-size="10.5" font-weight="600" fill="#059669">Encrypted Sync</text>
+  <text x="766" y="354" text-anchor="middle" font-size="10.5" font-weight="600" fill="#059669">Fencing Lease</text>
+
+  <!-- Control Plane -> SSH Machines -->
+  <line x1="164" y1="412" x2="164" y2="469" stroke="#64748b" stroke-width="1.8" marker-end="url(#arr-slate)"/>
+  <rect x="108" y="431" width="112" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="164" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#64748b">Outbound SSH</text>
+
+  <!-- Remote Hosts -> Control Plane (Outbound WSS) -->
+  <line x1="474" y1="469" x2="474" y2="413" stroke="#d97706" stroke-width="1.9" marker-end="url(#arr-amber)"/>
+  <rect x="412" y="431" width="124" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="474" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#d97706">Outbound WSS</text>
+
+  <!-- Compute Pool -> Control Plane (Outbound WSS) -->
+  <line x1="686" y1="469" x2="686" y2="413" stroke="#7c3aed" stroke-width="1.9" marker-end="url(#arr-purple)"/>
+  <rect x="626" y="431" width="120" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="686" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">Outbound WSS</text>
+
+  <!-- Compute Pool <-> Encrypted S3 (Direct Pre-signed Sync) -->
+  <line x1="980" y1="469" x2="980" y2="413" stroke="#059669" stroke-width="2" stroke-dasharray="5 3" marker-start="url(#arr-green)" marker-end="url(#arr-green)"/>
+  <rect x="876" y="431" width="208" height="20" rx="6" fill="#fbfcfe"/>
+  <text x="980" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#059669">Direct Pre-signed S3 Sync</text>
+</svg>
