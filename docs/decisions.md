@@ -978,7 +978,7 @@ Why: attaching origin directly to human `<message>` elements keeps Bots immediat
 
 Consequences: no database schema change and no new dependencies; if the server restarts between saving a message and delivering it, `via`/`env` is gracefully omitted for that message. Existing desktop binaries still report `Desktop (<OS>)` via `User-Agent` until upgraded to send `X-Jarvy-Device`.
 
-## A107 Workspace decoupling from sandbox runtime and dual-mode `server` / `client` CLI
+## A106b Workspace decoupling from sandbox runtime and dual-mode `server` / `client` CLI
 
 Running Jarvy on a lightweight cloud host without Docker previously rendered Bots' `/workspace` completely unusable (failing `read`, `write`, `edit`, chat attachment transfers, and the Environments Files tab), while connecting remote compute/device hosts relied on a separate `connector.mjs` script outside the main CLI.
 
