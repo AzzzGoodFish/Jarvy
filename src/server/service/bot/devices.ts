@@ -14,6 +14,7 @@ import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions, PtyShell } from "../../shared/terminal.js";
 import type { Device, DeviceShell } from "../../../contract/environment.js";
 import { fromWindows, toWindows, windowsLike } from "./device-paths.js";
+import { DevicePairingStore, resolveAgentBinary } from "./device-pairing.js";
 
 const SHELLS: DeviceShell[] = ["bash", "powershell"];
 
@@ -23,6 +24,7 @@ const SHELLS: DeviceShell[] = ["bash", "powershell"];
  * (Git Bash or PowerShell on Windows), in the person's own desktop session. */
 export class Devices {
   private readonly links: DeviceLinks;
+  private readonly pairing = new DevicePairingStore();
   private onNodeOffline?: (id: string) => void;
   constructor(private readonly store: Store, private readonly changed: () => void = () => {}) {
     this.links = new DeviceLinks({
@@ -47,6 +49,25 @@ export class Devices {
     const record = this.store.environments.addDevice({ name, directory: "", tokenHash: tokenHash(token), spec: { shell: "auto" } });
     this.changed();
     return { device: this.view(record), token };
+  }
+  /** Issues a short-lived single-use enrollment token for zero-password `jarvy-agent join` (A111). */
+  issuePairingToken(input: { name?: unknown; ttlSeconds?: unknown }): { id: string; token: string; name: string; expiresAt: number } {
+    return this.pairing.issue(input);
+  }
+  revokePairingToken(id: string): boolean {
+    return this.pairing.revoke(id);
+  }
+  /** Redeems a one-time pairing token (burning it immediately) and registers the enrolling computer (A111). */
+  enroll(input: { token?: unknown; name?: unknown }, remoteIp: string): { device: Device; token: string } {
+    const issued = this.pairing.redeem(input.token, remoteIp);
+    const chosen = text(input.name, 40) || issued.name || "电脑";
+    return this.register({ name: chosen });
+  }
+  /** Resolves the pre-compiled native `jarvy-agent` binary for a given platform/arch (A111). */
+  agentBinary(platform: string, arch: string) {
+    const bin = resolveAgentBinary(platform, arch);
+    if (!bin) throw new ChatError(404, `No native jarvy-agent binary built for ${platform}/${arch}`);
+    return bin;
   }
   update(id: string, input: { name?: unknown; description?: unknown; directory?: unknown; shell?: unknown }): Device {
     const record = this.need(id);

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { type Bot } from "../../contract/bots";
+import { type DevicePairingToken } from "../../contract/device";
 import { type Device, type DeviceShell } from "../../contract/environment";
 import { t } from "../i18n";
 import { Button } from "../components/ui/button";
@@ -161,9 +162,16 @@ export function DeviceDetail({ device, bots, onChanged, onBotChanged, onDeleted 
   </div>;
 }
 
-/** How to connect a `jarvy client` node: either as a Sandbox Compute Pool node or as a Remote Host / Desktop (A96, A108, A109). */
+const shQuote = (value: string) => /^[A-Za-z0-9._:@/+=-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+const psQuote = (value: string) => /^[A-Za-z0-9._:@/+=-]+$/.test(value) ? value : `'${value.replaceAll("'", "''")}'`;
+
+/** How to connect a `jarvy client` or zero-Node `jarvy-agent` node (A96, A108, A109, A111). */
 export function DeviceConnect({ mode }: { mode: "compute" | "host" }) {
   const origin = window.location.origin, url = `${origin}/api/devices/connector.mjs`, insecure = origin.startsWith("https:") ? " -k" : "";
+  const [deviceName, setDeviceName] = useState("");
+  const [pairing, setPairing] = useState<DevicePairingToken | null>(null);
+  const { busy, error, setError, run: act } = useAction<"issue" | "revoke">();
+
   if (mode === "compute") {
     return <div className="jv-list jv-machine-detail"><div className="jv-list-row jv-static-row jv-secret-details jv-device-connect">
       <p className="jv-hint">{t("devices.connectComputeHint")}</p>
@@ -174,14 +182,75 @@ export function DeviceConnect({ mode }: { mode: "compute" | "host" }) {
       <p className="jv-hint">{t("devices.connectComputeAfter")}</p>
     </div></div>;
   }
-  return <div className="jv-list jv-machine-detail"><div className="jv-list-row jv-static-row jv-secret-details jv-device-connect">
-    <p className="jv-hint">{t("devices.connectHint")}</p>
-    <h4 className="jv-secret-heading">{t("devices.connectCli")}</h4>
-    <MachineKeyLine publicKey={`jarvy client start ${origin}`}/>
-    <h4 className="jv-secret-heading">{t("devices.connectWindows")}</h4>
-    <MachineKeyLine publicKey={`curl.exe${insecure} -o connector.mjs ${url}; node connector.mjs ${origin}`}/>
-    <h4 className="jv-secret-heading">{t("devices.connectOther")}</h4>
-    <MachineKeyLine publicKey={`curl${insecure} -o connector.mjs ${url} && node connector.mjs ${origin}`}/>
-    <p className="jv-hint">{t("devices.connectAfter")}</p>
-  </div></div>;
+
+  const issue = (event?: FormEvent) => {
+    event?.preventDefault();
+    void act("issue", async () => {
+      if (pairing) await api.revokeDevicePairingToken(pairing.id).catch(() => {});
+      setPairing(await api.createDevicePairingToken({ ...(deviceName.trim() ? { name: deviceName.trim() } : {}) }));
+    });
+  };
+  const revoke = () => {
+    if (!pairing) return;
+    void act("revoke", async () => {
+      await api.revokeDevicePairingToken(pairing.id);
+      setPairing(null);
+      setError("");
+    });
+  };
+
+  const curlFlag = origin.startsWith("https:") && pairing?.fingerprint ? "-kfsSL" : "-fsSL";
+  const shParts = [
+    `curl ${curlFlag} ${origin}/api/devices/install.sh | sh -s --`,
+    `--server ${origin}`,
+    pairing ? `--token ${pairing.token}` : "",
+    pairing?.fingerprint ? `--fingerprint ${pairing.fingerprint}` : "",
+    pairing?.name ? `--name ${shQuote(pairing.name)}` : "",
+  ].filter(Boolean).join(" ");
+  const psParts = [
+    `& ([scriptblock]::Create((curl.exe ${curlFlag} ${origin}/api/devices/install.ps1)))`,
+    `-Server ${origin}`,
+    pairing ? `-Token ${pairing.token}` : "",
+    pairing?.fingerprint ? `-Fingerprint ${pairing.fingerprint}` : "",
+    pairing?.name ? `-Name ${psQuote(pairing.name)}` : "",
+  ].filter(Boolean).join(" ");
+
+  return <div className="jv-list jv-machine-detail">
+    <div className="jv-list-row jv-static-row jv-secret-details jv-device-connect">
+      <h4 className="jv-secret-heading">{t("devices.agentQuickTitle")}</h4>
+      <p className="jv-hint">{t("devices.agentQuickHint")}</p>
+      <form className="jv-secret-edit jv-machine-edit" onSubmit={issue}>
+        <label className="jv-field"><span>{t("devices.agentNameLabel")}</span>
+          <Input value={deviceName} onChange={e => setDeviceName(e.target.value)} maxLength={40} placeholder={t("devices.agentNamePlaceholder")}/></label>
+        <div className="jv-secret-actions">
+          <Button type="submit" className="jv-primary" size="sm" disabled={busy}>
+            {t(pairing ? "devices.agentRegenerate" : "devices.agentGenerate")}
+          </Button>
+          {pairing && <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={revoke}>
+            {t("devices.agentRevoke")}
+          </Button>}
+        </div>
+      </form>
+      {error && <p className="jv-note-error" role="alert">{error}</p>}
+      {pairing && <>
+        <p className="jv-hint">{t("devices.agentTokenMeta")}</p>
+        <h4 className="jv-secret-heading">{t("devices.connectOther")}</h4>
+        <MachineKeyLine publicKey={shParts}/>
+        <h4 className="jv-secret-heading">{t("devices.connectWindows")}</h4>
+        <MachineKeyLine publicKey={psParts}/>
+        <p className="jv-hint">{t("devices.agentLifecycleHint")}</p>
+      </>}
+    </div>
+    <div className="jv-list-row jv-static-row jv-secret-details jv-device-connect">
+      <h4 className="jv-secret-heading">{t("devices.connectLegacyTitle")}</h4>
+      <p className="jv-hint">{t("devices.connectHint")}</p>
+      <h4 className="jv-secret-heading">{t("devices.connectCli")}</h4>
+      <MachineKeyLine publicKey={`jarvy client start ${origin}`}/>
+      <h4 className="jv-secret-heading">{t("devices.connectWindows")}</h4>
+      <MachineKeyLine publicKey={`curl.exe${insecure} -o connector.mjs ${url}; node connector.mjs ${origin}`}/>
+      <h4 className="jv-secret-heading">{t("devices.connectOther")}</h4>
+      <MachineKeyLine publicKey={`curl${insecure} -o connector.mjs ${url} && node connector.mjs ${origin}`}/>
+      <p className="jv-hint">{t("devices.connectAfter")}</p>
+    </div>
+  </div>;
 }

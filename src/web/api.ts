@@ -176,6 +176,10 @@ export const api = {
   updateDevice: (id: string, input: { name?: string; directory?: string; description?: string; shell?: Device["shell"] }) => request<Device>(`/environments/devices/${id}`, { method: "PUT", body: body(input) }),
   deleteDevice: (id: string) => request<{ ok: boolean }>(`/environments/devices/${id}`, { method: "DELETE" }),
   grantDevice: (id: string, botId: string, granted: boolean) => request<Device>(`/environments/devices/${id}/grants/${botId}`, { method: "PUT", body: body({ granted }) }),
+  /** Issues a short-lived single-use enrollment token for zero-password `jarvy-agent join` (A111). */
+  createDevicePairingToken: (input: { name?: string; ttlSeconds?: number } = {}) =>
+    request<import("../contract/device").DevicePairingToken>("/environments/devices/pairing-token", { method: "POST", body: body(input) }),
+  revokeDevicePairingToken: (id: string) => request<{ ok: boolean }>(`/environments/devices/pairing-token/${id}`, { method: "DELETE" }),
   /** Persistent interactive terminals across environments (A103). */
   terminals: (environmentId?: string) => request<{ terminals: TerminalSession[] }>(`/terminals${environmentId ? `?environmentId=${encodeURIComponent(environmentId)}` : ""}`),
   createTerminal: (input: { environmentId: string; name?: string; cols?: number; rows?: number; shell?: import("../contract/terminal").TerminalShell; cwd?: string }) => request<TerminalSession>("/terminals", { method: "POST", body: body(input) }),
