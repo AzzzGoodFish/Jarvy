@@ -2,6 +2,16 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.21.3 — 2026-11-27
+
+The database stays at v37 when upgrading from 0.21.0–0.21.2. A server restart ends open terminal sessions.
+
+### Fixed
+
+- **Terminal URL clicks in the desktop client.** Replaces xterm.js's default no-argument `window.open()` (`about:blank`) link handlers with direct `window.open(uri, "_blank", "noopener,noreferrer")` so Electron opens clicked terminal URLs in the system browser reliably. Ctrl/Cmd+click opens OSC-8 hyperlinks immediately while plain clicks show a localized confirmation prompt.
+- **Terminal bottom-row clipping on window resize.** Mounts xterm.js inside a zero-padding inner container so `@xterm/addon-fit` measures the exact inner content height without over-allocating a clipped bottom row during fine window-height adjustments.
+- **Settings navigation icon and label alignment.** Trims font ascent/descent leading on single-line rows (`text-box: trim-both cap alphabetic` with overflow-safe bleed) so menu icons and labels share the same vertical midline across Windows (`Segoe UI` / `Microsoft YaHei`), macOS, and Linux.
+
 ## 0.21.2 — 2026-11-27
 
 The database stays at v37 when upgrading from 0.21.0 or 0.21.1. A server restart ends open terminal sessions.
