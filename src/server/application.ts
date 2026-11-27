@@ -24,6 +24,8 @@ import { TerminalService } from "./service/terminals.js";
 import { EnvFileService } from "./service/env-files.js";
 import { Deliveries } from "./service/delivery/delivery.js";
 import { RuntimeFault } from "./shared/runtime.js";
+import type { CloudStorageConfig, CloudSyncStatus } from "./shared/cloud-storage.js";
+import { CloudSync } from "./infra/cloud/sync.js";
 import type { SessionFactory } from "./infra/pi/session.js";
 
 export class Application {
@@ -48,12 +50,15 @@ export class Application {
   readonly terminals: TerminalService;
   /** Direct file browsing and streaming transfer across environments (A104). */
   readonly envFiles: EnvFileService;
+  /** Optional encrypted S3 cloud sync engine (A107). */
+  readonly cloud: CloudSync | null;
   private closing?: Promise<void>;
-  private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, factory?: SessionFactory) {
+  private constructor(readonly store: Store, readonly dataDir: string, private readonly release: () => Promise<void>, cloud: CloudSync | null, factory?: SessionFactory) {
+    this.cloud = cloud;
     // One delivery module for every source (A41, A61): chat messages and activity, and system notices to one member.
     this.deliveries = new Deliveries(store.chats.inbox, {
       bot: (id, urgency) => this.bots.deliver(id, urgency), user: id => { if (id === this.user.id) this.user.deliver(); } });
-    this.chats = new ChatService(store.chats, this.deliveries, new AttachmentFiles(dataDir), {
+    this.chats = new ChatService(store.chats, this.deliveries, new AttachmentFiles(dataDir, cloud?.attachmentMirror()), {
       changed: change => this.events.publish(change), sections: ownerId => this.events.publish({ kind: "sections", ownerId }) });
     this.user = new User(store.account.userMemberId(), (actor, chat, draft) => this.chats.send(actor, chat, { ...draft }));
     this.files = new ChatFiles(this.chats);
@@ -88,7 +93,7 @@ export class Application {
     this.account = new AccountService(store, createHash("sha256").update(dataDir).digest("hex").slice(0, 10));
     this.models = new ModelService(store, this.credentials, this.auth, id => this.bots.connectionChanged(id), catalog);
   }
-  static async open(dataDir: string, options: { factory?: SessionFactory; onCompromised?: () => void } = {}): Promise<Application> {
+  static async open(dataDir: string, options: { factory?: SessionFactory; onCompromised?: () => void; cloud?: CloudStorageConfig; startCloudSync?: boolean } = {}): Promise<Application> {
     await mkdir(resolve(dataDir), { recursive: true, mode: 0o700 });
     const root = await realpath(resolve(dataDir));
     let app: Application | undefined;
@@ -97,20 +102,41 @@ export class Application {
       release = await lockfile.lock(root, { retries: 0, stale: 30_000, update: 10_000, lockfilePath: join(root, ".runtime.lock"),
         onCompromised: () => { console.error("[runtime] data lock compromised"); options.onCompromised?.(); void app?.close().catch(() => console.error("[runtime] shutdown after lock loss failed")); } });
     } catch { throw new RuntimeFault("data_locked", "The data directory is in use, or its run lock can't be taken.", 409); }
+    let cloud: CloudSync | null = null;
     let store: Store | undefined;
     try {
-      store = new Store(root); app = new Application(store, root, release, options.factory);
+      if (options.cloud) {
+        cloud = new CloudSync(options.cloud, root, {
+          onLeaseLost: reason => {
+            console.error(`[cloud] fencing shutdown: ${reason}`);
+            options.onCompromised?.();
+            void app?.close().catch(() => console.error("[cloud] shutdown after lease loss failed"));
+          },
+        });
+        await cloud.prepareBeforeOpen();
+      }
+      store = new Store(root);
+      app = new Application(store, root, release, cloud, options.factory);
+      if (cloud) await cloud.attachStore(store, options.startCloudSync ?? true);
       // Before the server listens and Bots start (A66): nothing is uploading or sending yet, so the sweep can't take
       // a file that is between being put in place and getting its row.
       await app.chats.attachments.sweep().catch(error => console.error("[chat] attachment sweep failed", { error: error instanceof Error ? error.message : String(error) }));
       return app;
     }
-    catch (error) { store?.close(); await release(); throw error; }
+    catch (error) {
+      await cloud?.close().catch(() => {});
+      store?.close();
+      await release();
+      throw error;
+    }
   }
+  cloudStatus(): CloudSyncStatus { return this.cloud ? this.cloud.status() : { enabled: false }; }
   start(): void { this.bots.start(); this.tasks.start(); this.models.startCatalog(); }
   close(): Promise<void> {
     if (!this.closing) this.closing = (async () => {
-      this.tasks.stop(); this.models.stopCatalog(); this.terminals.closeAll(); this.envFiles.closeAll(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close(); this.store.close(); await this.release();
+      this.tasks.stop(); this.models.stopCatalog(); this.terminals.closeAll(); this.envFiles.closeAll(); await this.auth.close(); await this.bots.close(); await this.credentials.close(); this.events.close();
+      await this.cloud?.close();
+      this.store.close(); await this.release();
     })();
     return this.closing;
   }

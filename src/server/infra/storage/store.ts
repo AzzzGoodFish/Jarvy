@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { backup, DatabaseSync } from "node:sqlite";
 import { migrateDatabase } from "./migrations/schema.js";
 import { AccountRepository } from "./account-repository.js";
 import { BotRepository } from "./bot-repository.js";
@@ -74,5 +74,7 @@ export class Store {
     this.agent.ensure();
   }
 
+  /** Creates a consistent online backup of `jarvy.db` while live traffic continues (A107). */
+  async snapshot(destPath: string): Promise<void> { await backup(this.db, destPath); }
   close(): void { this.db.close(); }
 }
