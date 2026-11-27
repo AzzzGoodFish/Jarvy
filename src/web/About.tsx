@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { DownloadIcon, ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
 import { license, name, repository, version } from "../../package.json";
-import type { DesktopUpdateStatus } from "../contract/desktop";
-import { compareSemver, type UpdateStatus } from "../contract/update";
-import { api } from "./api";
+import { compareSemver } from "../contract/update";
 import { desktop } from "./desktop";
-import { errorText } from "./errors";
 import { t } from "./i18n";
 import { Button } from "./components/ui/button";
+import { updateStore, useUpdateStore } from "./update/update-store";
+import { UpdateTimeline } from "./update/UpdateTimeline";
+import "./styles/update.css";
 
 /** The package's own record (read at build time): the repository, and the files it ships at this version. */
 const repo = repository.url.replace(/^git\+/, "").replace(/\.git$/, ""), at = `${repo}/blob/v${version}`;
@@ -18,28 +18,16 @@ const LINKS = [
   { label: "about.notices", detail: "THIRD_PARTY_NOTICE.md", href: `${at}/THIRD_PARTY_NOTICE.md` },
 ] as const;
 
-/** Settings → About: server & desktop versions, unified update check, and one-click server + desktop restart (A113). */
+/** Settings → About: server & desktop versions, unified update check, and persistent live update progress (A113). */
 export function About() {
   const client = desktop();
-  const [update, setUpdate] = useState<UpdateStatus | null>(null);
-  const [desktopUpdate, setDesktopUpdate] = useState<DesktopUpdateStatus | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { server: update, desktop: desktopUpdate, checking, error, job, now } = useUpdateStore();
 
-  const load = useCallback(async () => {
-    const [srv, desk] = await Promise.all([
-      api.updateStatus().catch(() => null),
-      client?.updateStatus ? client.updateStatus().catch(() => null) : Promise.resolve(null),
-    ]);
-    if (srv) setUpdate(srv);
-    if (desk) setDesktopUpdate(desk);
-  }, [client]);
+  useEffect(() => {
+    updateStore.init();
+    void updateStore.refresh();
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
-
-  // Even an older desktop client (without checkUpdate IPC) can detect mismatch against the server/latest version.
   const desktopCurrent = desktopUpdate?.currentVersion ?? client?.version ?? null;
   const knownLatest = desktopUpdate?.latestVersion
     ?? (update?.latestVersion && compareSemver(update.latestVersion, update.currentVersion) > 0 ? update.latestVersion : update?.currentVersion ?? version);
@@ -54,92 +42,7 @@ export function About() {
     ? desktopUpdate.latestVersion
     : (update?.latestVersion ?? knownLatest);
   const releaseUrl = update?.releaseUrl ?? desktopUpdate?.releaseUrl ?? `${repo}/releases/latest`;
-
-  const checkNow = async () => {
-    setChecking(true); setError(null); setNotice(null);
-    try {
-      const [srv, desk] = await Promise.all([
-        api.checkForUpdate(),
-        client?.checkUpdate ? client.checkUpdate().catch(() => null) : Promise.resolve(null),
-      ]);
-      setUpdate(srv);
-      if (desk) setDesktopUpdate(desk);
-      const latest = desk?.latestVersion ?? srv.latestVersion ?? srv.currentVersion;
-      const deskBehind = desk ? desk.updateAvailable : !!(client?.version && latest && compareSemver(latest, client.version) > 0);
-      if (srv.lastError && !desk?.updateAvailable) setError(srv.lastError);
-      else if (srv.updateAvailable || deskBehind) setNotice(t("about.updateFound", { version: latest }));
-      else setNotice(t("about.upToDate"));
-    } catch (reason) {
-      setError(errorText(reason));
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const pollReload = () => {
-    const poll = window.setInterval(() => {
-      void api.me().then(() => {
-        window.clearInterval(poll);
-        window.location.reload();
-      }).catch(() => { /* still restarting */ });
-    }, 2500);
-    window.setTimeout(() => window.clearInterval(poll), 120_000);
-  };
-
-  const applyServerOnly = async () => {
-    setApplying(true); setError(null); setNotice(null);
-    try {
-      const res = await api.applyUpdate();
-      setNotice(res.started ? t("about.restarting", { version: res.targetVersion }) : t("about.upToDate"));
-      if (res.started) pollReload();
-      else setApplying(false);
-    } catch (reason) {
-      setError(errorText(reason));
-      setApplying(false);
-    }
-  };
-
-  const applyDesktopOnly = async () => {
-    if (!client?.installUpdate) return;
-    setApplying(true); setError(null); setNotice(null);
-    try {
-      const res = await client.installUpdate();
-      if (!res.started) {
-        setError(res.error || t("common.failed"));
-        setApplying(false);
-      } else {
-        setNotice(t("about.desktopUpdating", { version: displayLatest }));
-      }
-    } catch (reason) {
-      setError(errorText(reason));
-      setApplying(false);
-    }
-  };
-
-  const applyAll = async () => {
-    setApplying(true); setError(null); setNotice(null);
-    try {
-      if (canApplyServer) {
-        const srvRes = await api.applyUpdate();
-        if (srvRes.started) setNotice(t("about.restartingAll", { version: srvRes.targetVersion }));
-      }
-      if (canApplyDesktop && client?.installUpdate) {
-        const deskRes = await client.installUpdate();
-        if (!deskRes.started) {
-          setError(deskRes.error || t("common.failed"));
-          if (canApplyServer) pollReload();
-          else setApplying(false);
-        } else if (!canApplyServer) {
-          setNotice(t("about.desktopUpdating", { version: displayLatest }));
-        }
-      } else if (canApplyServer) {
-        pollReload();
-      }
-    } catch (reason) {
-      setError(errorText(reason));
-      setApplying(false);
-    }
-  };
+  const busy = checking || Boolean(job && job.stage !== "completed" && job.stage !== "error");
 
   return <div className="jv-page">
     <header className="jv-page-header"><h2>{t("settings.about")}</h2></header>
@@ -172,21 +75,21 @@ export function About() {
         </div>}
         <div className="jv-list-row jv-static-row jv-env-details">
           <div className="jv-sec-actions">
-            <Button type="button" variant="outline" size="sm" disabled={checking || applying} onClick={() => void checkNow()}>
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void updateStore.checkNow()}>
               <RefreshCwIcon className={checking ? "jv-spin" : undefined} aria-hidden="true"/>
               {t(checking ? "about.checking" : "about.checkUpdate")}
             </Button>
-            {canApplyServer && canApplyDesktop && <Button type="button" size="sm" disabled={applying || checking} onClick={() => void applyAll()}>
+            {canApplyServer && canApplyDesktop && <Button type="button" size="sm" disabled={busy} onClick={() => void updateStore.startUpdate("both", displayLatest)}>
               <DownloadIcon aria-hidden="true"/>
-              {t(applying ? "about.updating" : "about.updateBoth")}
+              {t(busy && !checking ? "about.updating" : "about.updateBoth")}
             </Button>}
-            {canApplyServer && !canApplyDesktop && <Button type="button" size="sm" disabled={applying || checking} onClick={() => void applyServerOnly()}>
+            {canApplyServer && !canApplyDesktop && <Button type="button" size="sm" disabled={busy} onClick={() => void updateStore.startUpdate("server", update?.latestVersion ?? displayLatest)}>
               <DownloadIcon aria-hidden="true"/>
-              {t(applying ? "about.updating" : "about.updateAndRestart")}
+              {t(busy && !checking ? "about.updating" : "about.updateAndRestart")}
             </Button>}
-            {!canApplyServer && canApplyDesktop && <Button type="button" size="sm" disabled={applying || checking} onClick={() => void applyDesktopOnly()}>
+            {!canApplyServer && canApplyDesktop && <Button type="button" size="sm" disabled={busy} onClick={() => void updateStore.startUpdate("desktop", displayLatest)}>
               <DownloadIcon aria-hidden="true"/>
-              {t(applying ? "about.updating" : "about.updateDesktop")}
+              {t(busy && !checking ? "about.updating" : "about.updateDesktop")}
             </Button>}
             {desktopNeedsUpdate && !canApplyDesktop && <a className="jv-hint" href={releaseUrl} target="_blank" rel="noreferrer">
               {t("about.downloadDesktop")}
@@ -196,9 +99,9 @@ export function About() {
             </a>}
           </div>
           {serverNeedsUpdate && update?.installMode === "git" && <p className="jv-hint">{t("about.gitCheckoutHint")}</p>}
-          {notice && <p className="jv-hint" role="status">{notice}</p>}
           {error && <p className="jv-note-error" role="alert">{error}</p>}
         </div>
+        {job && <UpdateTimeline job={job} now={now} onRetry={() => void updateStore.startUpdate(job.mode, job.targetVersion)}/>}
       </div>
     </section>
   </div>;

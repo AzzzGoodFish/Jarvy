@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { compareSemver } from "../../src/contract/update.js";
-import type { DesktopUpdateStatus } from "../../src/contract/desktop.js";
+import type { DesktopUpdatePhase, DesktopUpdateProgress, DesktopUpdateStatus } from "../../src/contract/desktop.js";
 import { fetchServerUpdateInfo } from "../../src/connect/updater.js";
 import type { Trust } from "../../src/connect/connector.js";
 import { say } from "./text.js";
@@ -33,6 +33,9 @@ export class DesktopUpdater {
   private available: DesktopUpdateInfo | null = null;
   private notifiedVersion: string | null = null;
   private busy = false;
+  private progress: DesktopUpdateProgress = {
+    phase: "idle", targetVersion: null, bytesReceived: 0, totalBytes: null, bytesPerSec: null, startedAt: null, error: null,
+  };
 
   constructor(
     private readonly currentVersion: string,
@@ -40,7 +43,13 @@ export class DesktopUpdater {
     private readonly getServerAuth: () => { server: string; trust: Trust; token: string } | null,
     private readonly onAvailableChanged: (info: DesktopUpdateInfo | null) => void,
     private readonly onBeforeQuit: () => void,
+    private readonly onProgressChanged?: (status: DesktopUpdateStatus) => void,
   ) {}
+
+  private emitProgress(phase: DesktopUpdatePhase, patch: Partial<Omit<DesktopUpdateProgress, "phase">> = {}): void {
+    this.progress = { ...this.progress, ...patch, phase };
+    this.onProgressChanged?.(this.status());
+  }
 
   start(): void {
     this.initialTimer = setTimeout(() => { void this.check(false); }, 15_000);
@@ -66,12 +75,14 @@ export class DesktopUpdater {
       updateAvailable: !!avail && compareSemver(avail.version, this.currentVersion) > 0,
       releaseUrl: avail?.releaseUrl ?? null,
       canDirectInstall: this.supportsDirectInstall(avail),
+      progress: { ...this.progress },
     };
   }
 
   /** Silent probe triggered from Settings → About (no native popups; returns current state). */
   async checkQuiet(): Promise<DesktopUpdateStatus> {
     if (this.busy) return this.status();
+    this.emitProgress("checking", { error: null });
     try {
       const found = await this.probeLatest();
       if (found && compareSemver(found.version, this.currentVersion) > 0) {
@@ -82,12 +93,13 @@ export class DesktopUpdater {
         this.onAvailableChanged(null);
       }
     } catch { /* return last known state */ }
+    if (!this.busy) this.emitProgress("idle", { targetVersion: null, bytesReceived: 0, totalBytes: null, bytesPerSec: null, startedAt: null, error: null });
     return this.status();
   }
 
-  /** Starts downloading & installing the available desktop update directly from Settings → About. */
+  /** Starts downloading & installing the available desktop update asynchronously so UI gets live byte progress immediately. */
   async installFromPage(): Promise<{ started: boolean; error?: string }> {
-    if (this.busy) return { started: false, error: "Update already in progress" };
+    if (this.busy) return { started: true };
     if (!this.available) await this.checkQuiet();
     const info = this.available;
     if (!info || compareSemver(info.version, this.currentVersion) <= 0) {
@@ -97,13 +109,15 @@ export class DesktopUpdater {
       await shell.openExternal(info.releaseUrl);
       return { started: true };
     }
-    try {
-      await this.runDirectInstall(info);
-      return { started: true };
-    } catch (error) {
+    this.busy = true;
+    this.emitProgress("downloading", {
+      targetVersion: info.version, bytesReceived: 0, totalBytes: null, bytesPerSec: null, startedAt: Date.now(), error: null,
+    });
+    void this.runDirectInstall(info).catch(error => {
       this.busy = false;
-      return { started: false, error: error instanceof Error ? error.message : String(error) };
-    }
+      this.emitProgress("error", { error: error instanceof Error ? error.message : String(error), bytesPerSec: null });
+    });
+    return { started: true };
   }
 
   async check(interactive: boolean): Promise<void> {
@@ -238,10 +252,13 @@ export class DesktopUpdater {
   private async runDirectInstall(info: DesktopUpdateInfo): Promise<void> {
     if (!info.assetUrl) throw new Error("No installer asset URL available");
     this.busy = true;
+    const startedAt = this.progress.startedAt ?? Date.now();
+    this.emitProgress("downloading", { targetVersion: info.version, startedAt, error: null });
     if (process.platform === "linux" && process.env.APPIMAGE) {
       const target = process.env.APPIMAGE;
       const staged = `${target}.new`;
       await this.downloadToFile(info.assetUrl, staged);
+      this.emitProgress("installing", { bytesPerSec: null });
       await chmod(staged, 0o755);
       await rename(staged, target);
       this.onBeforeQuit();
@@ -252,6 +269,7 @@ export class DesktopUpdater {
     if (process.platform === "win32") {
       const installer = join(app.getPath("temp"), `Jarvy-${info.version}-win-x64.exe`);
       await this.downloadToFile(info.assetUrl, installer);
+      this.emitProgress("installing", { bytesPerSec: null });
       const openErr = await shell.openPath(installer);
       if (openErr) throw new Error(openErr);
       this.onBeforeQuit();
@@ -259,6 +277,7 @@ export class DesktopUpdater {
       return;
     }
     this.busy = false;
+    this.emitProgress("idle");
     await shell.openExternal(info.releaseUrl);
   }
 
@@ -268,8 +287,35 @@ export class DesktopUpdater {
       signal: AbortSignal.timeout(180_000),
     });
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    const contentLen = Number(res.headers.get("content-length") ?? "0");
+    const totalBytes = Number.isFinite(contentLen) && contentLen > 0 ? contentLen : null;
+    let bytesReceived = 0;
+    let lastEmit = 0;
+    let lastBytes = 0;
+    let lastSample = Date.now();
+    let bytesPerSec: number | null = null;
+    this.emitProgress("downloading", { bytesReceived: 0, totalBytes, bytesPerSec: null });
+
+    const source = Readable.fromWeb(res.body as unknown as import("node:stream/web").ReadableStream);
+    source.on("data", (chunk: Buffer) => {
+      bytesReceived += chunk.length;
+      const now = Date.now();
+      if (now - lastEmit >= 200) {
+        const dt = (now - lastSample) / 1000;
+        if (dt >= 0.2) {
+          const instant = (bytesReceived - lastBytes) / dt;
+          bytesPerSec = bytesPerSec === null ? instant : bytesPerSec * 0.6 + instant * 0.4;
+          lastBytes = bytesReceived;
+          lastSample = now;
+        }
+        lastEmit = now;
+        this.emitProgress("downloading", { bytesReceived, totalBytes, bytesPerSec: bytesPerSec ? Math.round(bytesPerSec) : null });
+      }
+    });
+
     try {
-      await pipeline(Readable.fromWeb(res.body as unknown as import("node:stream/web").ReadableStream), createWriteStream(dest));
+      await pipeline(source, createWriteStream(dest));
+      this.emitProgress("verifying", { bytesReceived, totalBytes: totalBytes ?? bytesReceived, bytesPerSec: null });
       const st = await stat(dest);
       if (st.size < 1024 * 1024) throw new Error("Downloaded installer is unexpectedly small");
     } catch (err) {

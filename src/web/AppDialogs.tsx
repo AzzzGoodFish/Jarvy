@@ -6,6 +6,7 @@ import { AddMembersDialog, NewChannelDialog, SectionDialog } from "./channel/Cha
 import { DeleteBotDialog, ConfirmDialog } from "./dm/DeleteDialog";
 import { EntryMenu, type MenuTarget } from "./sidebar/EntryMenu";
 import { FileViewer } from "./files/FileViewer";
+import { UpdatePill } from "./update/UpdatePill";
 import { liveMembers } from "./members";
 import { t } from "./i18n";
 import type { SettingsTab } from "./Settings";
@@ -16,12 +17,12 @@ export type Confirm = { kind: "chat"; chat: Chat } | { kind: "bot"; bot: Bot } |
 
 /** App's dialogs and popovers over everything: new channel, add members, channel groups, the sidebar row's menu, the
  * two delete confirmations, Bot info and the file viewer. App owns which one is open. */
-export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots, statuses, chats, sections, members, connections, meId,
+export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots, statuses, chats, sections, members, connections, meId, aboutOpen,
   onDialog, onEntryMenu, onConfirm, onPreview, onInfoBot, onSettings, onAddMachine, onChannelInfo, onOpenChatId, chatSaved, openChat, onSectionSaved, onSectionDeleted,
   updateBot, openAnywhere, removeChannel, deleteBot, pinChat, muteChat }: {
   dialog: Dialog; entryMenu: Menu; confirm: Confirm; preview: { files: Attachment[]; index: number } | null;
   infoBot: Bot | undefined; bots: Bot[]; statuses: Record<string, BotStatus>; chats: Chat[]; sections: Section[]; members: Member[];
-  connections: ModelConnection[]; meId: string;
+  connections: ModelConnection[]; meId: string; aboutOpen?: boolean;
   onDialog: (dialog: Dialog) => void; onEntryMenu: (menu: Menu) => void; onConfirm: (confirm: Confirm) => void;
   onPreview: (preview: { files: Attachment[]; index: number } | null) => void; onInfoBot: (id: string | null) => void;
   /** The sidebar row's 「频道信息」: the chat, and channel info in the pane. */
@@ -56,5 +57,6 @@ export function AppDialogs({ dialog, entryMenu, confirm, preview, infoBot, bots,
       onOpenChat={id => { onInfoBot(null); onOpenChatId(id); }} onOpenSubscription={openAnywhere}
       onManageModels={() => { onInfoBot(null); onSettings("models"); }} onManageSecrets={() => { onInfoBot(null); onSettings("secrets"); }} onManageConnectors={() => { onInfoBot(null); onSettings("connectors"); }} onAddMachine={() => { onInfoBot(null); onAddMachine(); }} onClose={() => onInfoBot(null)}/>}
     {preview && <FileViewer files={preview.files} initialIndex={preview.index} onClose={() => onPreview(null)}/>}
+    <UpdatePill hidden={Boolean(aboutOpen)} onOpenAbout={() => onSettings("about")}/>
   </>;
 }

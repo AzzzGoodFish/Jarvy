@@ -48,6 +48,7 @@ async function start(): Promise<void> {
     },
     info => tray?.setUpdateVersion(info?.version ?? null),
     () => { quitting = true; connector?.stop(); },
+    status => { if (win && !win.isDestroyed()) win.webContents.send("jarvy:update-progress", status); },
   );
   updater.start();
   ipc();

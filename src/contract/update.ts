@@ -1,6 +1,16 @@
 /** Self-update status, semver comparison, and apply contracts across server, client, agent, and desktop (A113). */
 
 export type InstallMode = "npm" | "git" | "unknown";
+export type ServerUpdatePhase = "idle" | "checking" | "installing" | "restarting" | "error";
+
+export interface ServerUpdateProgress {
+  phase: ServerUpdatePhase;
+  targetVersion: string | null;
+  startedAt: number | null;
+  updatedAt: number | null;
+  /** Short live detail (e.g. last meaningful npm output line or failure reason). */
+  detail: string | null;
+}
 
 export interface UpdateStatus {
   currentVersion: string;
@@ -11,6 +21,7 @@ export interface UpdateStatus {
   installMode: InstallMode;
   updating: boolean;
   lastError: string | null;
+  progress?: ServerUpdateProgress;
 }
 
 export interface UpdateApplyResult {
