@@ -7,6 +7,20 @@ export const DEVICE_PATH = "/api/devices/connect";
 export const DEVICE_DAEMON_PATH = "/api/devices/daemon";
 /** Where the command-line client is served, one file, for Node 22 or later. */
 export const DEVICE_CONNECTOR_PATH = "/api/devices/connector.mjs";
+/** Native zero-Node `jarvy-agent` binary download, enrollment, and installer endpoints (A111). */
+export const DEVICE_AGENT_PATH = "/api/devices/agent";
+export const DEVICE_ENROLL_PATH = "/api/devices/enroll";
+export const DEVICE_INSTALL_SH_PATH = "/api/devices/install.sh";
+export const DEVICE_INSTALL_PS1_PATH = "/api/devices/install.ps1";
+
+/** Short-lived single-use enrollment token issued by Jarvy so remote machines join without owner passwords (A111). */
+export interface DevicePairingToken {
+  id: string;
+  token: string;
+  name: string;
+  expiresAt: number;
+  fingerprint: string | null;
+}
 
 /** Sandbox compute capacity advertised by a `jarvy client --sandbox` compute node (A108, A110). */
 export interface SandboxNodeInfo {

@@ -5,10 +5,11 @@ import type { ApiEnv, ApiServices } from "../context.js";
 import { jsonBody, readJson } from "../middleware/body.js";
 import { messageView } from "../views/chat.js";
 import type { HostKeys } from "../../../contract/environment.js";
+import { renderInstallPs1, renderInstallSh } from "../../service/bot/device-pairing.js";
 
 /** The Environments page: the owner's SSH machines (A57, A59) and the computers the desktop client connected (A96). A password goes in once, to install Jarvy's key,
  * and is kept (sealed) only for a machine that refuses keys; private keys and passwords never come back out. */
-export function environmentRoutes(bots: ApiServices["bots"]) {
+export function environmentRoutes(bots: ApiServices["bots"], connection?: ApiServices["connection"]) {
   const routes = new Hono<ApiEnv>(), machines = bots.machines;
   routes.get("/", c => c.json({ machines: machines.list() }));
   /** Whether VM sandboxes can be used on this machine (A85): a trial VM the first time, and again when asked. */
@@ -58,6 +59,16 @@ export function environmentRoutes(bots: ApiServices["bots"]) {
     const input = await readJson(c);
     return c.json(devices.register({ name: input.name }), 201);
   });
+  /** Issues a short-lived single-use enrollment token for zero-password `jarvy-agent join` (A111). */
+  routes.post("/devices/pairing-token", jsonBody, async c => {
+    const input = await readJson(c);
+    const issued = devices.issuePairingToken({ name: input.name, ttlSeconds: input.ttlSeconds });
+    return c.json({ ...issued, fingerprint: connection?.info().fingerprint ?? null }, 201);
+  });
+  routes.delete("/devices/pairing-token/:id", c => {
+    devices.revokePairingToken(c.req.param("id"));
+    return c.json({ ok: true });
+  });
   routes.put("/devices/:id", jsonBody, async c => {
     const input = await readJson(c);
     return c.json(devices.update(c.req.param("id"), { name: input.name, description: input.description, directory: input.directory, shell: input.shell }));
@@ -104,5 +115,26 @@ export function deviceDaemonRoute(bots: ApiServices["bots"]) {
     if (!script) throw new HTTPException(404, { message: "The connector is built with npm run build" });
     return c.body(new Uint8Array(script), 200, { "Content-Type": "text/javascript; charset=utf-8", "Content-Disposition": 'attachment; filename="connector.mjs"', "Cache-Control": "no-store" });
   });
+  /** Redeems a short-lived single-use pairing token to enroll a remote computer without owner password (A111). */
+  routes.post("/devices/enroll", jsonBody, async c => {
+    const input = await readJson(c);
+    const ip = c.env.incoming.socket.remoteAddress ?? "unknown";
+    return c.json(bots.devices.enroll({ token: input.token, name: input.name }, ip), 201);
+  });
+  /** Native zero-Node `jarvy-agent` binary download (A111). */
+  routes.get("/devices/agent", c => {
+    const { open, filename, size } = bots.devices.agentBinary(c.req.query("platform") ?? "", c.req.query("arch") ?? "");
+    return new Response(Readable.toWeb(Readable.from(open())) as ReadableStream, {
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(size),
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  });
+  /** One-line installer scripts for Linux/macOS (`install.sh`) and Windows (`install.ps1`) (A111). */
+  routes.get("/devices/install.sh", c => c.body(renderInstallSh(), 200, { "Content-Type": "text/x-shellscript; charset=utf-8", "Cache-Control": "no-store" }));
+  routes.get("/devices/install.ps1", c => c.body(renderInstallPs1(), 200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }));
   return routes;
 }

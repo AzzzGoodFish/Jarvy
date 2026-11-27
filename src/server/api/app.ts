@@ -47,7 +47,7 @@ export function createHttpApp(services: ApiServices, webRoot: string) {
   api.route("/cloud", cloudRoutes(services.storage));
   api.route("/secrets", secretRoutes(services.secrets));
   api.route("/connectors", connectorRoutes(services.connectors));
-  api.route("/environments", environmentRoutes(services.bots));
+  api.route("/environments", environmentRoutes(services.bots, services.connection));
   api.route("/environments", envFileRoutes(services.envFiles));
   api.route("/terminals", terminalRoutes(services.terminals));
   api.all("*", () => { throw new HTTPException(404, { message: "API route not found" }); });

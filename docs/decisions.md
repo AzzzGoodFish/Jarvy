@@ -1046,3 +1046,15 @@ Lightweight cloud VPS control planes rarely offer nested KVM virtualization, whe
 Why: reusing the same WSS channel, `pi-env` protocol, and direct S3 Pre-signed URL workspace pipeline delivers full systemd + nested-Docker Linux VMs on remote physical hosts with zero new npm dependencies and zero database schema migrations.
 
 Consequences: remote VM sandboxes require a `base-*.qcow2` template in libvirt on the compute node (reused automatically from any existing local Jarvy pool); existing Docker-only compute nodes remain 100% compatible.
+
+## A111 Zero-Node native `jarvy-agent` binary and single-use enrollment tokens
+
+Connecting arbitrary LAN/cloud machines as Remote Hosts previously required Node 22+ (`connector.mjs` or `@goodfish/jarvy`) and typing the owner's account password on the target machine.
+
+- **Zero-dependency Go `jarvy-agent` (`agent/`, `scripts/build-agent.mjs`)**: compiles into ~5.5–6.0 MiB static single binaries (`CGO_ENABLED=0`) for `linux-x64`, `linux-arm64`, `darwin-arm64`, `darwin-x64`, and `win32-x64.exe` in `dist/agent/`. Implements `DEVICE_PROTOCOL = 1` over stdlib RFC 6455 WSS with pinned Root CA verification, caches the matching `pi-env` daemon from `/api/devices/daemon`, and offers simple background lifecycle commands (`join`, `on`, `off`, `status`, `logs`, `run`, `login`, `logout`).
+- **Platform-issued single-use enrollment tokens (`service/bot/device-pairing.ts`, `api/routes/environments.ts`)**: `POST /api/environments/devices/pairing-token` (owner-authenticated) mints a short-lived (default 10 min) `jvy_pair_*` token stored only as a SHA-256 hash alongside the server's Root CA SHA-256 fingerprint. `POST /api/devices/enroll` (public, IP rate-limited) atomically burns the pairing token on first redemption and issues a permanent per-device token. `GET /api/devices/agent`, `/api/devices/install.sh`, and `/api/devices/install.ps1` serve the native binaries and one-line installers.
+- **One-click Web UI generator (`web/environment/DeviceDetail.tsx`)**: **Environments → Add → Desktop / Host** generates ready-to-paste Linux/macOS (`curl | sh`) and Windows PowerShell commands embedding `--server`, `--token`, `--fingerprint`, and optional `--name`, with regenerate/revoke controls while preserving legacy Node `connector.mjs` as a fallback.
+
+Why: eliminating Node and owner passwords from target machines lets any minimal Linux/macOS/Windows host join over outbound WSS in seconds while preventing credential exposure or shell-history replay.
+
+Consequences: no database schema change and no new npm dependencies; `npm run build:agent` cross-compiles all 5 targets when Go is installed and skips gracefully otherwise.

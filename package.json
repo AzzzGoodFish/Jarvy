@@ -30,6 +30,7 @@
   "files": [
     "dist/server",
     "dist/web",
+    "dist/agent",
     "licenses",
     "skills",
     "THIRD_PARTY_NOTICE.md",
@@ -41,6 +42,7 @@
   },
   "scripts": {
     "build": "npm run check:architecture && npm run lint && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json && vite build && node scripts/bundle-server.mjs",
+    "build:agent": "node scripts/build-agent.mjs",
     "dev:web": "vite",
     "start": "node dist/server/cli.js server run",
     "lint": "eslint src",

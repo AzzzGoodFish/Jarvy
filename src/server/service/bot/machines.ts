@@ -125,8 +125,9 @@ export class SshMachines {
    * there; `force` forgets it anyway. Returns the Bots that were working there. */
   async remove(id: string, force: boolean): Promise<string[]> {
     const record = this.need(id);
-    try { await this.wrap(() => removeKey(this.access(record), keyComment(id))); }
-    catch (error) { if (!force) throw error; }
+    if (!force) {
+      await this.wrap(() => removeKey(this.access(record), keyComment(id)));
+    }
     const moved = this.store.environments.dropSsh(id);
     this.changed();
     return moved;
