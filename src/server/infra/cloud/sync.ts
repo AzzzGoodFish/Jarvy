@@ -6,7 +6,10 @@ import type { AttachmentCloudMirror, CloudStorageConfig, CloudSyncStatus } from 
 import { DATABASE_FILENAME, type Store } from "../storage/store.js";
 import { readInstallationIdFromDb, snapshotSqliteFile } from "../storage/snapshot.js";
 import { masterKey } from "../vault/master-key.js";
-import { createVaultMeta, decryptEnvelope, encryptEnvelope, openVaultMeta, type CloudVaultMeta } from "./crypto.js";
+import {
+  createVaultMeta, decryptEnvelope, encryptEnvelope, encryptEnvelopeAsync, encryptFileEnvelope,
+  hashFileSha256, openVaultMeta, type CloudVaultMeta,
+} from "./crypto.js";
 import { CloudLease } from "./lease.js";
 import {
   applyCloudStateToDisk, LOCAL_SYNC_MARKER, restoreFromCloud, restoreMasterKeyFile,
@@ -366,16 +369,16 @@ export class CloudSync {
     try {
       if (this.store) await this.store.snapshot(tempSnap);
       else await snapshotSqliteFile(dbPath, tempSnap);
-      const bytes = await readFile(tempSnap);
-      const hash = sha256(bytes);
+      const hash = await hashFileSha256(tempSnap);
       if (hash === this.state.dbHash) return false;
       this.lease.assertHeld();
       const nextRev = this.state.dbRev + 1;
       const objKey = this.k(`db/jarvy-e${this.lease.epoch}-r${nextRev}.db.enc`);
-      await this.s3.put(objKey, encryptEnvelope(bytes, key, objKey, true));
+      await this.s3.put(objKey, await encryptFileEnvelope(tempSnap, key, objKey, true));
       this.state.dbKey = objKey;
       this.state.dbHash = hash;
       this.state.dbRev = nextRev;
+      await this.flushStateManifest();
       void this.pruneOldDbSnapshots().catch(() => {});
       return true;
     } finally {
@@ -409,16 +412,17 @@ export class CloudSync {
         const tempHist = join(this.dataDir, `.cloud-hist-${botId.slice(0, 8)}-${Date.now()}.sqlite`);
         try {
           await snapshotSqliteFile(histPath, tempHist);
-          const bytes = await readFile(tempHist);
-          const hash = sha256(bytes);
+          const hash = await hashFileSha256(tempHist);
           if (hash !== botState.historyHash) {
             this.lease.assertHeld();
             const rev = (botState.historyRev ?? 0) + 1;
             const objKey = this.k(`bots/${botId}/history-r${rev}.db.enc`);
-            await this.s3.put(objKey, encryptEnvelope(bytes, key, objKey, true));
+            await this.s3.put(objKey, await encryptFileEnvelope(tempHist, key, objKey, true));
             botState.historyKey = objKey;
             botState.historyHash = hash;
             botState.historyRev = rev;
+            this.state.bots[botId] = botState;
+            await this.flushStateManifest();
             anyChanged = true;
           }
         } finally {
@@ -436,7 +440,7 @@ export class CloudSync {
         if (botState.sessions[file]?.sha256 === hash) continue;
         this.lease.assertHeld();
         const objKey = this.k(`bots/${botId}/sessions/${file}.enc`);
-        await this.s3.put(objKey, encryptEnvelope(bytes, key, objKey, true));
+        await this.s3.put(objKey, await encryptEnvelopeAsync(bytes, key, objKey, true));
         botState.sessions[file] = { key: objKey, sha256: hash };
         anyChanged = true;
       }

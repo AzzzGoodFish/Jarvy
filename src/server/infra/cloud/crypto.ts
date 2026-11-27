@@ -1,5 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { gunzipSync, gzipSync } from "node:zlib";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { createGzip, gunzipSync, gzip, gzipSync } from "node:zlib";
+import { promisify } from "node:util";
+
+const gzipAsync = promisify(gzip);
 
 /** Client-side AES-256-GCM envelope encryption for cloud storage objects (A107).
  * Wire format: `[4B magic "JVY1"] [1B flags: bit0=gzip] [12B IV] [ciphertext] [16B GCM auth tag]`.
@@ -69,18 +73,87 @@ export function encryptEnvelope(plain: Buffer | Uint8Array, key: Buffer, objectK
   let payload = input;
   let flags = 0;
   if (compress && input.length >= 64) {
-    const zipped = gzipSync(input, { level: 6 });
+    const zipped = gzipSync(input, { level: 3 });
     if (zipped.length < input.length) {
       payload = zipped;
       flags |= FLAG_GZIP;
     }
   }
+  return sealPayload(payload, flags, key, objectKey);
+}
+
+/** Non-blocking envelope encryption for medium/large buffers (runs gzip on libuv threadpool). */
+export async function encryptEnvelopeAsync(plain: Buffer | Uint8Array, key: Buffer, objectKey: string, compress = true): Promise<Buffer> {
+  const input = Buffer.isBuffer(plain) ? plain : Buffer.from(plain.buffer, plain.byteOffset, plain.byteLength);
+  let payload = input;
+  let flags = 0;
+  if (compress && input.length >= 64) {
+    const zipped = await gzipAsync(input, { level: 3 });
+    if (zipped.length < input.length) {
+      payload = zipped;
+      flags |= FLAG_GZIP;
+    }
+  }
+  return sealPayload(payload, flags, key, objectKey);
+}
+
+/** Streaming SHA-256 hash of a file on disk without loading it into memory. */
+export function hashFileSha256(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", chunk => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+}
+
+/** Streaming file → gzip(level 3) → AES-256-GCM envelope encryption. Avoids loading multi-hundred-MB
+ * SQLite snapshots into RAM and keeps the Node event loop responsive on small 2 GB VPS hosts. */
+export function encryptFileEnvelope(filePath: string, key: Buffer, objectKey: string, compress = true): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const iv = randomBytes(IV_BYTES);
+    const flags = compress ? FLAG_GZIP : 0;
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    cipher.setAAD(Buffer.from(`jarvy-cloud:v1:${objectKey}`, "utf8"));
+    const header = Buffer.allocUnsafe(HEADER_BYTES);
+    MAGIC.copy(header, 0);
+    header[MAGIC.length] = flags;
+    iv.copy(header, MAGIC.length + 1);
+    const chunks: Buffer[] = [header];
+    const src = createReadStream(filePath, { highWaterMark: 256 * 1024 });
+    const z = compress ? createGzip({ level: 3 }) : null;
+    const fail = (err: Error) => { src.destroy(); z?.destroy(); cipher.destroy(); reject(err); };
+    src.on("error", fail);
+    cipher.on("error", fail);
+    cipher.on("data", (chunk: Buffer) => chunks.push(chunk));
+    cipher.on("end", () => {
+      chunks.push(cipher.getAuthTag());
+      resolve(Buffer.concat(chunks));
+    });
+    if (z) {
+      z.on("error", fail);
+      src.pipe(z).pipe(cipher);
+    } else {
+      src.pipe(cipher);
+    }
+  });
+}
+
+function sealPayload(payload: Buffer, flags: number, key: Buffer, objectKey: string): Buffer {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   cipher.setAAD(Buffer.from(`jarvy-cloud:v1:${objectKey}`, "utf8"));
-  const encrypted = Buffer.concat([cipher.update(payload), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return Buffer.concat([MAGIC, Buffer.from([flags]), iv, encrypted, tag]);
+  const out = Buffer.allocUnsafe(HEADER_BYTES + payload.length + TAG_BYTES);
+  MAGIC.copy(out, 0);
+  out[MAGIC.length] = flags;
+  iv.copy(out, MAGIC.length + 1);
+  const c1 = cipher.update(payload);
+  c1.copy(out, HEADER_BYTES);
+  const c2 = cipher.final();
+  c2.copy(out, HEADER_BYTES + c1.length);
+  cipher.getAuthTag().copy(out, HEADER_BYTES + c1.length + c2.length);
+  return out;
 }
 
 export function decryptEnvelope(envelope: Buffer, key: Buffer, objectKey: string): Buffer {
