@@ -3,12 +3,16 @@ import { WELCOME_LANGUAGES, type ChangeField, type WelcomeLanguage } from "../..
 import type { JobNoticePayload, RunningJobSummary } from "../../shared/jobs.js";
 import type { PromptChange } from "../../shared/prompt.js";
 
+/** Client environment metadata for a human-sent message (A106): device/browser + OS, and optional paired environment id. */
+export interface MessageOrigin { via: string; env?: string }
 export interface EnvelopeMessage {
   id: string;
   chat: { id: string; type: "dm" | "channel" | "thread"; title?: string; section?: string; parent?: string; root?: string; status?: string };
   sender: Member;
   createdAt: number;
   content: string;
+  /** Where the human sender sent this message from (A106); omitted for Bot messages or unknown clients. */
+  origin?: MessageOrigin;
   /** The message this one replies to, quoted short. */
   replyTo?: { id: string; sender: Member; text: string };
   /** What a Bot learns of a file in a message (A50): files.get and files.view open it by its id. */
@@ -178,7 +182,8 @@ export function encodeChatBatch(botId: string, messages: readonly EnvelopeMessag
       + `${chat.section ? attribute("section", chat.section) : ""}${chat.parent ? attribute("parent", chat.parent) : ""}${chat.root ? attribute("root", chat.root) : ""}${chat.status ? attribute("status", chat.status) : ""}/>`);
     remember(members, message.sender.id, `<member${attribute("id", message.sender.id)}${attribute("name", message.sender.name)}${attribute("kind", message.sender.kind)}/>`);
     const at = new Date(message.createdAt).toISOString().replace(".000Z", "Z");
-    const attributes = attribute("id", message.id) + attribute("chat", message.chat.id) + attribute("from", message.sender.id) + attribute("at", at);
+    const via = message.origin ? attribute("via", message.origin.via) + (message.origin.env ? attribute("env", message.origin.env) : "") : "";
+    const attributes = attribute("id", message.id) + attribute("chat", message.chat.id) + attribute("from", message.sender.id) + attribute("at", at) + via;
     const reply = message.replyTo;
     if (reply) remember(members, reply.sender.id, `<member${attribute("id", reply.sender.id)}${attribute("name", reply.sender.name)}${attribute("kind", reply.sender.kind)}/>`);
     const quote = reply ? `<reply_to${attribute("message", reply.id)}${attribute("from", reply.sender.id)}>${escape(reply.text)}</reply_to>` : "";

@@ -14,11 +14,11 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
   <member id="u1" name="Alice" kind="user"/>
   <member id="b3" name="Mochi" kind="bot"/>
   <message id="m201" chat="c-dev" from="b3" at="2026-10-08T08:00:00Z"><text>@Arch 未读数按成员算吗？</text></message>
-  <message id="m207" chat="t-12" from="u1" at="2026-10-08T08:00:01Z">
+  <message id="m207" chat="t-12" from="u1" at="2026-10-08T08:00:01Z" via="Win-PC (Windows)" env="env_win1">
     <reply_to message="m205" from="b3">迁移草稿在这里</reply_to>
     <text>@Arch 看一下</text>
   </message>
-  <message id="m208" chat="d-1" from="u1" at="2026-10-08T08:00:02Z">
+  <message id="m208" chat="d-1" from="u1" at="2026-10-08T08:00:02Z" via="Mobile (iOS)">
     <text>日志在附件里</text>
     <file id="9f2c…" name="run.log" type="text/plain" size="18 KB"/>
   </message>
@@ -39,7 +39,7 @@ Chat text is stored in SQLite; the XML a Bot reads is derived from it (`service/
 | `chat_batch.bot` | the receiving Bot; not repeated per message |
 | `chat` | each chat once: `id`, `type` (`dm` / `channel` / `thread`), `title`; channels add `section`; threads add `parent`, `root`, `status` |
 | `member` | each author (and each replied-to author) once: `id`, `name`, `kind` |
-| `message` | `id`, `chat`, `from`, `at` always; document order is arrival order |
+| `message` | `id`, `chat`, `from`, `at` always; optional `via` (e.g. `Win-PC (Windows)`, `Web (Linux, local)`, `Mobile (iOS)`) and `env` (registered device environment ID) on human messages showing which client/device the user sent from (A106); document order is arrival order |
 | `reply_to` | the replied-to message and its author, with the start of its text |
 | `text` | the message text, escaped; omitted for attachment-only messages. Partial quotes are expanded in place (below) |
 | `file` | one per attachment: `id`, `name`, MIME `type` and a readable `size`; never a path or contents. The Bot opens it with `files.get` (into its environment) or `files.view` (A50) |

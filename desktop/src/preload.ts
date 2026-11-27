@@ -16,5 +16,6 @@ if (trusted && window.location.origin === trusted) {
       ipcRenderer.send("jarvy:theme", mode === "dark" ? "dark" : "light", { background: colour(frame?.background), symbol: colour(frame?.symbol), height });
     },
     onOpenChat: (listener: (chatId: string) => void) => { ipcRenderer.on("jarvy:open-chat", (_event, chatId: string) => listener(chatId)); },
+    client: () => ipcRenderer.sendSync("jarvy:client") as { deviceId?: string; platform: string },
   });
 }

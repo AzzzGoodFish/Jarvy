@@ -12,6 +12,8 @@ export interface Config {
   ca: string | null;
   /** The computer's token, sealed with `safeStorage`. */
   token?: string;
+  /** The computer's registered device environment id on Jarvy (A106). */
+  deviceId?: string;
   /** The close-to-tray notice was shown once. */
   theme?: "light" | "dark"; frame?: { background: string; symbol: string; height?: number }; pageFrame?: boolean; closeHint?: boolean;
 }
