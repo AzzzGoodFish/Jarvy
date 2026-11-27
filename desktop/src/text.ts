@@ -26,6 +26,17 @@ const zh = {
   changeBody: "这台电脑会从当前的 Jarvy 断开。它在那里的配对仍然保留，可以在「环境」页解除。",
   changeConfirm: "更换",
   cancel: "取消",
+  checkUpdate: "检查更新…",
+  updateMenu: "有新版本 v{version}（点击更新并重启）",
+  updateAvailableTitle: "发现新版本 v{version}",
+  updateAvailableBody: "点击即可下载安装并重启 Jarvy 桌面端。",
+  updateInstallDetail: "当前版本 v{current}，最新版本 v{version}。点击后将自动下载并重启完成更新。",
+  updateOpenDetail: "当前版本 v{current}，最新版本 v{version}。将打开发布页以便下载安装。",
+  updateInstallNow: "下载并重启更新",
+  updateOpenRelease: "打开发布页",
+  updateUpToDate: "当前已是最新版本（v{version}）。",
+  updateCheckFailed: "检查更新失败：{reason}",
+  updateInstallFailed: "自动下载更新失败：{reason}",
 };
 type Words = typeof zh;
 const en: Words = {
@@ -53,6 +64,17 @@ const en: Words = {
   changeBody: "This computer disconnects from the current Jarvy. Its pairing there stays until you unpair it on the Environments page.",
   changeConfirm: "Change",
   cancel: "Cancel",
+  checkUpdate: "Check for updates…",
+  updateMenu: "Update available: v{version} (Install & restart)",
+  updateAvailableTitle: "Jarvy v{version} is available",
+  updateAvailableBody: "Click to download, install, and restart Jarvy desktop.",
+  updateInstallDetail: "Current version v{current}, latest v{version}. Download and restart now?",
+  updateOpenDetail: "Current version v{current}, latest v{version}. Open the release page to download?",
+  updateInstallNow: "Install & restart",
+  updateOpenRelease: "Open release page",
+  updateUpToDate: "Jarvy is up to date (v{version}).",
+  updateCheckFailed: "Update check failed: {reason}",
+  updateInstallFailed: "Automatic update download failed: {reason}",
 };
 
 export const chinese = () => app.getLocale().toLowerCase().startsWith("zh");

@@ -161,17 +161,26 @@ export function deviceDaemonRoute(bots: ApiServices["bots"], account: ApiService
       throw error;
     }
   });
-  /** Native zero-Node `jarvy-agent` binary download (A111, gated in A112). */
+  /** Native zero-Node `jarvy-agent` binary download with SHA-256 + ETag for idle self-updates (A111, A112, A113). */
   routes.get("/devices/agent", c => {
     const ip = checkLimit(c, downloadLimiter);
     assertDeviceDownloadAccess(c, bots, account, ip);
-    const { open, filename, size } = bots.devices.agentBinary(c.req.query("platform") ?? "", c.req.query("arch") ?? "");
+    const { open, filename, size, sha256, version } = bots.devices.agentBinary(c.req.query("platform") ?? "", c.req.query("arch") ?? "");
+    const metaHeaders = {
+      "X-Agent-Sha256": sha256,
+      "X-Agent-Version": version,
+      ETag: `"${sha256}"`,
+      "Cache-Control": "no-store",
+    };
+    if (c.req.header("if-none-match") === `"${sha256}"`) {
+      return new Response(null, { status: 304, headers: metaHeaders });
+    }
     return new Response(Readable.toWeb(Readable.from(open())) as ReadableStream, {
       headers: {
         "Content-Type": "application/octet-stream",
         "Content-Length": String(size),
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
+        ...metaHeaders,
       },
     });
   });

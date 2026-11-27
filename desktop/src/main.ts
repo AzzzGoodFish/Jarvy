@@ -7,13 +7,14 @@ import { load, save, seal, unseal, type Config } from "./config.js";
 import { chinese, say } from "./text.js";
 import { icon, JarvyTray } from "./tray.js";
 import { pin } from "./trust.js";
+import { DesktopUpdater } from "./updater.js";
 
 /** The Jarvy desktop client (A96): Jarvy's own page in a window, and this computer connected to that Jarvy so the
  * owner can let Bots work here. The page stays the web app; the client adds a tray, system notifications, the
  * taskbar count, and the connection, which is the command-line connector's code running in this process. */
 const STATIC = join(__dirname, "static"), ICON = icon(join(STATIC, "icon.png"));
 let config: Config | null = null, win: BrowserWindow | null = null, setup: BrowserWindow | null = null, tray: JarvyTray | null = null;
-let connector: Connector | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
+let connector: Connector | null = null, updater: DesktopUpdater | null = null, status: Status | { state: "signin" } = { state: "signin" }, paused = false, quitting = false, watching: NodeJS.Timeout | null = null;
 /** The page can draw the title bar on Windows and Linux (macOS keeps its own), once it has said it can: a Jarvy from
  * before that keeps the system's. `frameless` is the window's state, `heard` whether this load of the page said so. */
 /** Jarvy's version, which the client shares (build.mjs). */
@@ -28,12 +29,27 @@ else {
   app.whenReady().then(start).catch(error => { dialog.showErrorBox("Jarvy", String(error)); app.quit(); });
 }
 app.on("window-all-closed", () => { /* The tray keeps it running; quitting is the tray's. */ });
-app.on("before-quit", () => { quitting = true; connector?.stop(); });
+app.on("before-quit", () => { quitting = true; updater?.stop(); connector?.stop(); });
 
 async function start(): Promise<void> {
   if (process.platform === "win32") app.setAppUserModelId("com.goodfish.jarvy");
   if (process.platform !== "darwin") Menu.setApplicationMenu(null);
-  tray = new JarvyTray(ICON, { open: show, pause: setPaused, rejoin: () => void register(true), change: () => void change(), quit: () => app.quit() });
+  tray = new JarvyTray(ICON, {
+    open: show, pause: setPaused, rejoin: () => void register(true),
+    checkUpdate: () => void updater?.check(true), installUpdate: () => void updater?.installAvailable(),
+    change: () => void change(), quit: () => app.quit(),
+  });
+  updater = new DesktopUpdater(
+    JARVY_VERSION,
+    ICON,
+    () => {
+      const token = config?.token ? unseal(config.token) : null;
+      return config && token ? { server: config.server, trust: { ca: config.ca }, token } : null;
+    },
+    info => tray?.setUpdateVersion(info?.version ?? null),
+    () => { quitting = true; connector?.stop(); },
+  );
+  updater.start();
   ipc();
   config = await load();
   // The frame starts in the theme the page last had, so it doesn't flash light before the page says so.

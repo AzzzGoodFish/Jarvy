@@ -60,7 +60,7 @@ export type DeviceToJarvy =
  * - `close`: closes any channel.
  * Close codes: 4000 replaced by a newer connection, 4001 protocol mismatch, 4002 no hello, 4003 unpaired. */
 export type JarvyToDevice =
-  | { t: "welcome"; id: string; name: string; protocol: number }
+  | { t: "welcome"; id: string; name: string; protocol: number; serverVersion?: string }
   | { t: "error"; code: "protocol"; protocol: number }
   | { t: "open"; ch: number; args: string[]; bot?: string; container?: string; sandboxKind?: "container" | "vm" }
   | { t: "pty_open"; ch: number; cols: number; rows: number; cwd: string; argv?: string[]; env?: Record<string, string> }

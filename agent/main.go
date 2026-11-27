@@ -19,13 +19,17 @@ func printUsage() {
 Usage:
   jarvy-agent join <server-url> --token <token> [--fingerprint <sha256>] [--name <name>] [--no-start]
                                         Enroll this machine using a platform-generated one-time token and turn on
-  jarvy-agent on [--config-dir <dir>]   Start agent in background (alias: start)
+  jarvy-agent on [--config-dir <dir>] [--no-auto-update]
+                                        Start agent in background (alias: start)
   jarvy-agent off [--config-dir <dir>]  Stop background agent (alias: stop)
   jarvy-agent status [--config-dir <dir>]
                                         Show agent status and connection details
   jarvy-agent logs [-f] [-n 50] [--config-dir <dir>]
                                         View agent logs
-  jarvy-agent run [--config-dir <dir>]  Run agent in foreground
+  jarvy-agent run [--config-dir <dir>] [--no-auto-update]
+                                        Run agent in foreground
+  jarvy-agent update [--config-dir <dir>] [--check]
+                                        Check for updates from server and self-replace
   jarvy-agent login <server-url> [--fingerprint <sha256>] [--name <name>] [--no-start]
                                         Pair interactively with username & password
   jarvy-agent logout [--config-dir <dir>]
@@ -35,6 +39,7 @@ Usage:
 }
 
 func main() {
+	cleanupOldBinary()
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
@@ -58,6 +63,8 @@ func main() {
 		err = cmdLogs(rest)
 	case "run":
 		err = cmdRun(rest)
+	case "update":
+		err = cmdUpdate(rest)
 	case "logout":
 		err = cmdLogout(rest)
 	case "version", "--version", "-v":
@@ -145,7 +152,7 @@ func cmdJoin(args []string) error {
 		fmt.Println("Run `jarvy-agent on` to start in the background.")
 		return nil
 	}
-	info, err := startDaemon(*dirFlag, cfg)
+	info, err := startDaemon(*dirFlag, cfg, false)
 	if err != nil {
 		return err
 	}
@@ -183,7 +190,7 @@ func cmdLogin(args []string) error {
 	if *noStart {
 		return nil
 	}
-	info, err := startDaemon(*dirFlag, cfg)
+	info, err := startDaemon(*dirFlag, cfg, false)
 	if err != nil {
 		return err
 	}
@@ -194,6 +201,7 @@ func cmdLogin(args []string) error {
 func cmdOn(args []string) error {
 	fs := flag.NewFlagSet("on", flag.ContinueOnError)
 	dirFlag := fs.String("config-dir", defaultConfigDir(), "Config directory")
+	noAutoUpdate := fs.Bool("no-auto-update", false, "Disable automatic idle self-updates")
 	if _, err := parseFlagsFlexible(fs, args); err != nil {
 		return err
 	}
@@ -205,7 +213,7 @@ func cmdOn(args []string) error {
 		fmt.Printf("jarvy-agent is already ON (pid %d, name=%q -> %s)\n", existing.PID, existing.Name, existing.Server)
 		return nil
 	}
-	info, err := startDaemon(*dirFlag, cfg)
+	info, err := startDaemon(*dirFlag, cfg, *noAutoUpdate)
 	if err != nil {
 		return err
 	}
@@ -299,6 +307,7 @@ func cmdLogs(args []string) error {
 func cmdRun(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	dirFlag := fs.String("config-dir", defaultConfigDir(), "Config directory")
+	noAutoUpdate := fs.Bool("no-auto-update", false, "Disable automatic idle self-updates")
 	if _, err := parseFlagsFlexible(fs, args); err != nil {
 		return err
 	}
@@ -306,9 +315,10 @@ func cmdRun(args []string) error {
 	if err != nil {
 		return fmt.Errorf("not paired yet (run `jarvy-agent join <server> --token <token>` first)")
 	}
+	autoUpdate := !*noAutoUpdate && os.Getenv("JARVY_AGENT_NO_AUTO_UPDATE") != "1"
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return runAgentLoop(ctx, cfg, *dirFlag)
+	return runAgentLoop(ctx, cfg, *dirFlag, autoUpdate)
 }
 
 func cmdLogout(args []string) error {

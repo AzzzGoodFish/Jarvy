@@ -1,8 +1,9 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createHash as shaHash, randomBytes, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ChatError } from "../../shared/chat.js";
+import { currentJarvyVersion } from "../../shared/version.js";
 
 /** One-time device enrollment tokens and native `jarvy-agent` binary distribution (A111).
  * Tokens are short-lived (default 10 min), stored only as SHA-256 hashes, rate-limited per IP,
@@ -138,8 +139,21 @@ const AGENT_FILES: Record<string, string> = {
   "win32:x64": "jarvy-agent-win32-x64.exe",
 };
 
+const agentHashCache = new Map<string, { mtimeMs: number; size: number; sha256: string }>();
+
+function agentFileSha256(path: string, mtimeMs: number, size: number): string {
+  const cached = agentHashCache.get(path);
+  if (cached && cached.mtimeMs === mtimeMs && cached.size === size) return cached.sha256;
+  const digest = shaHash("sha256").update(readFileSync(path)).digest("hex");
+  agentHashCache.set(path, { mtimeMs, size, sha256: digest });
+  return digest;
+}
+
 /** Resolves the pre-compiled native `jarvy-agent` binary for `platform`/`arch`, or null when unavailable. */
-export function resolveAgentBinary(platform: string, arch: string): { path: string; filename: string; size: number; open: () => NodeJS.ReadableStream } | null {
+export function resolveAgentBinary(
+  platform: string,
+  arch: string,
+): { path: string; filename: string; size: number; sha256: string; version: string; open: () => NodeJS.ReadableStream } | null {
   const filename = AGENT_FILES[`${platform}:${arch}`];
   if (!filename) return null;
   const here = dirname(fileURLToPath(import.meta.url));
@@ -149,8 +163,9 @@ export function resolveAgentBinary(platform: string, arch: string): { path: stri
   ];
   for (const path of candidates) {
     if (!existsSync(path)) continue;
-    const size = statSync(path).size;
-    return { path, filename, size, open: () => createReadStream(path) };
+    const st = statSync(path);
+    const sha256 = agentFileSha256(path, st.mtimeMs, st.size);
+    return { path, filename, size: st.size, sha256, version: currentJarvyVersion(), open: () => createReadStream(path) };
   }
   return null;
 }

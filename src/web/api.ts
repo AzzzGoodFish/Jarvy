@@ -3,6 +3,7 @@ import type { Attachment, Chat, ChatMessage, Member, SearchResult, Section, Thre
 import type { ConnectionInfo } from "../contract/connection";
 import type { CloudStorageStatus, CloudSyncResult } from "../contract/cloud";
 import type { SecurityStatus, TotpEnableResponse, TotpSetupResponse } from "../contract/security";
+import type { UpdateApplyResult, UpdateStatus } from "../contract/update";
 import type { PortRange, PublishedPort } from "../contract/ports";
 import type { ComputerLimits, ComputerResources, ComputerType, HostKeys, SshMachine, VmSupport, Device } from "../contract/environment";
 import type { AutoconfigResult, BotColor, BotModelGroup, ConfiguredModel, ConnectionQuota, LoginState, ModelConnection, ModelInput, ModelResetPlan, ProviderOption } from "../contract/models";
@@ -111,6 +112,9 @@ export const api = {
   regenerateRecoveryCodes: (password: string, code: string) =>
     request<{ recoveryCodes: string[] }>("/security/totp/recovery-codes", { method: "POST", body: body({ password, code }) }),
   revokeOtherSessions: () => request<{ revoked: number }>("/security/sessions/revoke-others", { method: "POST" }),
+  updateStatus: () => request<UpdateStatus>("/system/update"),
+  checkForUpdate: () => request<UpdateStatus>("/system/update/check", { method: "POST" }),
+  applyUpdate: () => request<UpdateApplyResult>("/system/update/apply", { method: "POST", body: body({}) }),
   bots: () => request<{ bots: Bot[] }>("/bots"),
   createBot: (name: string) => request<Bot>("/bots", { method: "POST", body: body({ name }) }),
   saveBot: (id: string, update: Pick<Bot, "name" | "description" | "systemPrompt">) => request<Bot>(`/bots/${id}`, { method: "PUT", body: body(update) }),

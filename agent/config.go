@@ -15,10 +15,10 @@ import (
 	"time"
 )
 
-const (
-	AgentVersion   = "jarvy-agent-1"
-	DeviceProtocol = 1
-)
+const DeviceProtocol = 1
+
+// AgentVersion is stamped at build time via `-ldflags "-X main.AgentVersion=jarvy-agent-<ver>"`.
+var AgentVersion = "jarvy-agent-dev"
 
 type DeviceConfig struct {
 	Server string  `json:"server"`
