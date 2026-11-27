@@ -11,7 +11,7 @@ import { isComputeNode } from "./device-roles";
 
 const AUTO_VALUE = "__auto__";
 
-/** Preferred compute node selector and slot reclamation for a container sandbox (A108, A109).
+/** Preferred compute node selector and slot reclamation for container & remote VM sandboxes (A108, A109, A110).
  * Uses Jarvy's unified Radix Select so placement matches the rest of the design system. */
 export function SandboxComputeNode({
   bot, devices: providedDevices, disabled, onSaved,
@@ -22,6 +22,7 @@ export function SandboxComputeNode({
   onSaved: (bot: Bot) => void;
 }) {
   const computer = bot.environment.computer!;
+  const isVm = computer.type === "vm";
   const [fetched, setFetched] = useState<Device[] | null>(null);
   const { doing, error, run } = useAction<"select" | "reclaim">();
 
@@ -32,18 +33,22 @@ export function SandboxComputeNode({
     return () => { alive = false; };
   }, [providedDevices]);
 
-  if (computer.type !== "container") return null;
   const allDevices = providedDevices ?? fetched ?? [];
-  const poolNodes = allDevices.filter(d => isComputeNode(d) || d.id === computer.preferredComputeNode);
+  const poolNodes = allDevices.filter(d => {
+    if (d.id === computer.preferredComputeNode) return true;
+    if (isVm) return Boolean(d.sandbox?.vm) || d.capabilities.includes("vm");
+    return isComputeNode(d);
+  });
 
-  // Hide completely on classic single-machine Docker setups with no compute nodes configured.
-  if (computer.localDocker && !computer.computeNode && !computer.preferredComputeNode && poolNodes.length === 0) return null;
+  const hasLocalRuntime = isVm ? Boolean(computer.localVm) : Boolean(computer.localDocker);
+  // Hide completely on classic single-machine setups with no matching compute nodes configured.
+  if (hasLocalRuntime && !computer.computeNode && !computer.preferredComputeNode && poolNodes.length === 0) return null;
 
   const preferred = computer.preferredComputeNode ?? AUTO_VALUE;
   const hostLabel = computer.computeNode
     ? computer.computeNode.name
-    : computer.localDocker
-      ? t("environment.computeLocal")
+    : hasLocalRuntime
+      ? t(isVm ? "environment.computeLocalVm" : "environment.computeLocal")
       : t("environment.computeWorkspaceOnly");
 
   return <>
@@ -71,9 +76,10 @@ export function SandboxComputeNode({
             </span>
           </SelectItem>
           {poolNodes.map(node => {
-            const online = node.online && !node.paused && Boolean(node.sandbox?.docker);
+            const online = node.online && !node.paused && (isVm ? Boolean(node.sandbox?.vm) : Boolean(node.sandbox?.docker));
+            const active = isVm ? (node.sandbox?.activeVms ?? 0) : (node.sandbox?.activeContainers ?? 0);
             const meta = online && node.sandbox
-              ? `${node.sandbox.activeContainers}/${node.sandbox.maxContainers} · ${node.sandbox.cpus}C/${short(node.sandbox.memory / GB, 0)}G`
+              ? `${active}/${node.sandbox.maxContainers} · ${node.sandbox.cpus}C/${short(node.sandbox.memory / GB, 0)}G`
               : t("devices.offline");
             return <SelectItem key={node.id} value={node.id}>
               <span className="jv-env-select-item">

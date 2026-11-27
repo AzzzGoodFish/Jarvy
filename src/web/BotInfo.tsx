@@ -60,11 +60,11 @@ export function BotInfo({ bot, status, connections, chats, onSaved, onManageMode
       {bot.environment.computer && panel("workspace", <EnvironmentFiles
         environmentId={bot.environment.computer.id}
         botId={bot.id}
-        availability={bot.environment.computer.type === "container" || bot.environment.computer.state === "running"
+        availability={bot.environment.computer.type === "container" || bot.environment.computer.localVm === false || bot.environment.computer.state === "running"
           ? { kind: "ready" }
           : bot.environment.computer.state === "unavailable" ? { kind: "sandbox_unavailable" }
           : { kind: "sandbox_stopped", starting: bot.environment.computer.state === "preparing" }}
-        offlineSnapshot={bot.environment.computer.type === "container" && bot.environment.computer.state !== "running"}
+        offlineSnapshot={(bot.environment.computer.type === "container" || bot.environment.computer.localVm === false) && bot.environment.computer.state !== "running"}
         maximized={false}
         onToggleMaximize={() => {}}/>, true)}
       {panel("profile", <BotProfile bot={bot} onSaved={onSaved}/>)}

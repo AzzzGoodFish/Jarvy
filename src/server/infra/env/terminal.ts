@@ -81,15 +81,16 @@ export async function openDevicePty(links: DeviceLinks, deviceId: string, platfo
   }
 }
 
-/** Opens an interactive PTY inside a remote Docker container hosted on a `jarvy client --sandbox` compute node (A108). */
+/** Opens an interactive PTY inside a remote Docker container or KVM VM hosted on a compute node (A108, A110). */
 export async function openRemoteContainerPty(
   links: DeviceLinks,
   deviceId: string,
   container: string,
   options: PtyOpenOptions,
   onLog?: (text: string) => void,
+  sandboxKind: "container" | "vm" = "container",
 ): Promise<PtyHandle> {
-  const connection = links.openTerminalConnection(deviceId, onLog, container);
+  const connection = links.openTerminalConnection(deviceId, onLog, container, sandboxKind);
   try {
     const term = await openTerminal(connection, {
       cwd: options.cwd,

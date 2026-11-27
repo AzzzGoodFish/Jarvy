@@ -3,7 +3,7 @@ import type { HistoryDraft } from "../../shared/history.js";
 import { resolveThinking } from "./thinking.js";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { createAgentSession, createCodemodeExtension, DefaultResourceLoader, type ModelRuntime, SessionManager, SettingsManager, type AgentSession, type AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { Store } from "../storage/store.js";
 import type { Bot } from "../../shared/models.js";
@@ -121,15 +121,25 @@ export class PiSession implements BotSession {
     const { bot, store, reference, selection } = options;
     const agentDir = join(dirname(bot.workspacePath), "agent", "pi"), sessionsDir = join(agentDir, "sessions");
     await mkdir(sessionsDir, { recursive: true, mode: 0o700 });
+    let sessionFile = resolve(reference.file);
     const expected = resolve(sessionsDir) + sep;
-    if (!resolve(reference.file).startsWith(expected) || dirname(resolve(reference.file)) !== resolve(sessionsDir))
-      throw new RuntimeFault("session_path", "The session file path isn't valid.");
-    const exists = existsSync(reference.file);
+    if (!sessionFile.startsWith(expected) || dirname(sessionFile) !== resolve(sessionsDir)) {
+      const normalized = reference.file.replace(/\\/g, "/");
+      const base = basename(normalized);
+      const suffix = `/bots/${bot.id}/agent/pi/sessions/${base}`;
+      if (/^[A-Za-z0-9._-]+\.jsonl$/.test(base) && normalized.endsWith(suffix)) {
+        sessionFile = join(resolve(sessionsDir), base);
+        store.runtime.relocateSession(bot.id, sessionFile);
+      } else {
+        throw new RuntimeFault("session_path", "The session file path isn't valid.");
+      }
+    }
+    const exists = existsSync(sessionFile);
     if (!exists && (reference.persisted || store.runtime.runs(bot.id).some(run => run.state === "unknown")))
       throw new RuntimeFault("session_missing", "The session file is missing; check the run records before recovering.");
     if (exists) {
       let header: { type?: string; id?: string };
-      try { header = JSON.parse(readFileSync(reference.file, "utf8").split("\n")[0]!); }
+      try { header = JSON.parse(readFileSync(sessionFile, "utf8").split("\n")[0]!); }
       catch { throw new RuntimeFault("session_corrupt", "The session file can't be read."); }
       if (header.type !== "session" || !header.id || (reference.sessionId && header.id !== reference.sessionId))
         throw new RuntimeFault("session_mismatch", "The session file doesn't match this Bot.");
@@ -144,7 +154,7 @@ export class PiSession implements BotSession {
     if (!configured) throw new RuntimeFault("model_missing", "Model not found", 404);
     await options.catalog?.ready();
     const model = installModel(models, connection, configured, store.connections.headers(connection.id, configured.id), options.catalog);
-    const sessionManager = SessionManager.open(reference.file, sessionsDir, bot.workspacePath);
+    const sessionManager = SessionManager.open(sessionFile, sessionsDir, bot.workspacePath);
     const adapter = new PiSession(options, models, credentials);
     adapter.prompts = new PromptLog(options.systemPrompt);
     // The idle timeout is raised (A40) because a cold prefill of several hundred thousand tokens regularly

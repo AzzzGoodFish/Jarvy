@@ -20,6 +20,10 @@ export class RuntimeRepository {
   recordSession(botId: string, sessionId: string, persisted: boolean): void {
     this.db.prepare("UPDATE bot_sessions SET runtime_session_id=?,persisted=MAX(persisted,?) WHERE bot_id=?").run(sessionId, persisted ? 1 : 0, botId);
   }
+  /** Updates a Bot's stored session file path after migrating or restoring a data directory at a new location. */
+  relocateSession(botId: string, file: string): void {
+    this.db.prepare("UPDATE bot_sessions SET file=? WHERE bot_id=?").run(file, botId);
+  }
   /** Bots with deliveries still waiting at startup, each with the most urgent of them (A41). */
   waitingBots(ownerId: string): { botId: string; urgency: "interrupt" | "queue" }[] { return this.inbox.waitingBots(ownerId); }
   /** Messages waiting for the Bot's next run. */

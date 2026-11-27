@@ -1,6 +1,6 @@
 import type { Duplex } from "node:stream";
 import type { SandboxNodeInfo } from "../../../contract/device.js";
-import type { ComputerCapacity, ComputerUsage } from "../../../contract/environment.js";
+import type { ComputerCapacity, ComputerLimits, ComputerType, ComputerUsage } from "../../../contract/environment.js";
 import type { CloudSync } from "../../infra/cloud/sync.js";
 import { COMPUTER_CWD } from "../../infra/env/docker.js";
 import type { DeviceLinks } from "../../infra/env/device-link.js";
@@ -10,14 +10,15 @@ import type { EnvironmentRecord, ExecOptions, WorkEnvironment } from "../../shar
 import type { EnvironmentFs } from "../../shared/env-files.js";
 import type { PtyHandle, PtyOpenOptions } from "../../shared/terminal.js";
 import { RuntimeFault } from "../../shared/runtime.js";
-import { computerLimits } from "./computer-vm.js";
+import { computerLimits, computerType } from "./computer-vm.js";
 
-/** Remote on-demand sandbox compute pool scheduler (A108).
- * Dispatches container sandboxes to connected `jarvy client --sandbox` nodes over WSS, coordinates
- * direct compute-node ↔ S3 Pre-signed URL workspace sync, opens remote PTYs/Files, and tunnels published ports. */
+/** Remote on-demand sandbox compute pool scheduler (A108, A110).
+ * Dispatches container AND KVM/libvirt VM sandboxes to connected `jarvy client --sandbox` nodes over WSS,
+ * coordinates direct compute-node ↔ S3 Pre-signed URL workspace sync, opens remote PTYs/Files, and tunnels published ports. */
 
 export interface RemotePlacement {
   botId: string;
+  type: ComputerType;
   deviceId: string;
   deviceName: string;
   container: string;
@@ -31,7 +32,7 @@ interface EnsureReply {
   container: string;
   ip: string;
   image: string;
-  workspaceRev: number;
+  workspaceRev?: number;
 }
 
 interface StatsReply {
@@ -39,6 +40,8 @@ interface StatsReply {
   ip: string;
   cpu: number;
   memory: number;
+  disk?: { used: number; size: number };
+  host?: { memory: number | null; disk: number | null };
   listening: Array<{ port: number; loopbackOnly: boolean }>;
 }
 
@@ -60,7 +63,7 @@ export interface ComputePoolDeps {
 const PUSH_DEBOUNCE_MS = 3_000;
 
 export class ComputePool {
-  private readonly placements = new Map<string, RemotePlacement>(); // botId -> active remote placement
+  private readonly placements = new Map<string, RemotePlacement>();
   private readonly connections = new Map<string, WorkEnvironment>();
   private readonly ensuring = new Map<string, Promise<RemotePlacement>>();
   private readonly pushTimers = new Map<string, NodeJS.Timeout>();
@@ -70,13 +73,13 @@ export class ComputePool {
     this.log = deps.log ?? (text => console.log(`[compute-pool] ${text}`));
   }
 
-  /** Online compute nodes currently capable of hosting remote Docker sandboxes. */
-  nodes(): Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> {
-    return this.deps.links.sandboxNodes();
+  /** Online compute nodes capable of hosting remote Docker containers or KVM VMs. */
+  nodes(type: ComputerType = "container"): Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> {
+    return this.deps.links.sandboxNodes(type);
   }
 
-  hasOnlineNode(): boolean {
-    return this.nodes().length > 0;
+  hasOnlineNode(type: ComputerType = "container"): boolean {
+    return this.nodes(type).length > 0;
   }
 
   placement(botId: string): RemotePlacement | null {
@@ -102,12 +105,12 @@ export class ComputePool {
     if (anyChanged) this.deps.changed();
   }
 
-  /** Picks the best online compute node (sticky to existing placement, else lowest utilization). */
-  pickNode(botId: string, preferredDeviceId?: string): { id: string; name: string; sandbox: SandboxNodeInfo } | null {
-    const online = this.nodes();
+  /** Picks the best online compute node supporting `type` (sticky to existing placement, else preferred, else lowest load). */
+  pickNode(botId: string, preferredDeviceId?: string, type: ComputerType = "container"): { id: string; name: string; sandbox: SandboxNodeInfo } | null {
+    const online = this.nodes(type);
     if (!online.length) return null;
     const existing = this.placements.get(botId);
-    if (existing) {
+    if (existing && existing.type === type) {
       const same = online.find(n => n.id === existing.deviceId);
       if (same) return same;
     }
@@ -116,15 +119,17 @@ export class ComputePool {
       if (pref) return pref;
     }
     online.sort((a, b) => {
-      const loadA = a.sandbox.activeContainers / Math.max(1, a.sandbox.maxContainers);
-      const loadB = b.sandbox.activeContainers / Math.max(1, b.sandbox.maxContainers);
+      const activeA = type === "vm" ? (a.sandbox.activeVms ?? 0) : a.sandbox.activeContainers;
+      const activeB = type === "vm" ? (b.sandbox.activeVms ?? 0) : b.sandbox.activeContainers;
+      const loadA = activeA / Math.max(1, a.sandbox.maxContainers);
+      const loadB = activeB / Math.max(1, b.sandbox.maxContainers);
       if (loadA !== loadB) return loadA - loadB;
       return b.sandbox.memory - a.sandbox.memory;
     });
     return online[0]!;
   }
 
-  /** Ensures a Bot's container is running on a remote compute node, syncing latest workspace from S3 first. */
+  /** Ensures a Bot's container or KVM VM is running on a remote compute node, syncing latest workspace from S3 first. */
   async ensure(botId: string, record: EnvironmentRecord): Promise<RemotePlacement> {
     const inflight = this.ensuring.get(botId);
     if (inflight) return inflight;
@@ -134,46 +139,51 @@ export class ComputePool {
   }
 
   private async doEnsure(botId: string, record: EnvironmentRecord): Promise<RemotePlacement> {
-    const node = this.pickNode(botId, record.spec.computeNode);
-    if (!node) throw new RuntimeFault("docker_unavailable", "No local Docker or online compute node is available.", 503);
+    const type = computerType(record);
+    const node = this.pickNode(botId, record.spec.computeNode, type);
+    if (!node) {
+      throw new RuntimeFault(
+        type === "vm" ? "vm_unavailable" : "docker_unavailable",
+        type === "vm" ? "No local KVM or online KVM compute node is available." : "No local Docker or online compute node is available.",
+        503,
+      );
+    }
 
-    // Hydrate workspace directly from S3 into compute node BEFORE container runs commands.
-    await this.pullWorkspaceToNode(botId, node.id);
-
-    const container = `jarvy-node-${botId.slice(0, 12)}`;
+    const pulled = await this.pullWorkspaceToNode(botId, node.id);
     const limits = computerLimits(record);
-    const reply = await this.deps.links.callRpc<EnsureReply>(node.id, "sandbox_ensure", {
-      botId, container, limits,
-    }, 120_000);
+    let reply: EnsureReply;
+    if (type === "vm") {
+      const domain = `jarvy-vm-${botId.slice(0, 12)}`;
+      reply = await this.deps.links.callRpc<EnsureReply>(node.id, "vm_ensure", {
+        botId, domain, limits, importWorkspace: pulled,
+      }, 240_000);
+    } else {
+      const container = `jarvy-node-${botId.slice(0, 12)}`;
+      reply = await this.deps.links.callRpc<EnsureReply>(node.id, "sandbox_ensure", {
+        botId, container, limits,
+      }, 120_000);
+    }
 
     const placement: RemotePlacement = {
-      botId,
-      deviceId: node.id,
-      deviceName: node.name,
-      container: reply.container,
-      ip: reply.ip,
-      image: reply.image,
-      state: "running",
+      botId, type, deviceId: node.id, deviceName: node.name,
+      container: reply.container, ip: reply.ip, image: reply.image, state: "running",
     };
     this.placements.set(botId, placement);
     this.deps.changed();
-    this.log(`sandbox ${container} for bot ${botId.slice(0, 8)} running on compute node "${node.name}" (${reply.ip})`);
+    this.log(`${type} ${reply.container} for bot ${botId.slice(0, 8)} running on compute node "${node.name}" (${reply.ip})`);
     return placement;
   }
 
-  /** Returns a `WorkEnvironment` executing inside the remote compute node's container, with automatic workspace sync. */
+  /** Returns a `WorkEnvironment` executing inside the remote compute node's container or KVM VM, with automatic S3 sync. */
   environment(botId: string, record: EnvironmentRecord): WorkEnvironment {
     const getEnv = async (): Promise<{ placement: RemotePlacement; env: WorkEnvironment }> => {
       const placement = await this.ensure(botId, record);
       let env = this.connections.get(botId);
       if (!env) {
         env = this.deps.links.remoteContainerEnvironment(
-          placement.deviceId,
-          record.id,
-          placement.container,
-          this.deps.botName(botId),
-          COMPUTER_CWD,
+          placement.deviceId, record.id, placement.container, this.deps.botName(botId), COMPUTER_CWD,
           text => this.log(`[${botId.slice(0, 8)}@${placement.deviceName}] ${text.trim()}`),
+          placement.type,
         );
         this.connections.set(botId, env);
       }
@@ -182,7 +192,10 @@ export class ComputePool {
 
     const runExec = async (command: string | readonly string[], options: ExecOptions) => {
       const { placement, env } = await getEnv();
-      await this.pullWorkspaceToNode(botId, placement.deviceId);
+      const pulled = await this.pullWorkspaceToNode(botId, placement.deviceId);
+      if (pulled && placement.type === "vm") {
+        await this.deps.links.callRpc(placement.deviceId, "vm_sync_in", { botId, domain: placement.container }, 120_000).catch(() => {});
+      }
       try {
         return await env.exec(command, options);
       } finally {
@@ -200,10 +213,7 @@ export class ComputePool {
     };
 
     return {
-      id: record.id,
-      kind: "computer",
-      local: false,
-      cwd: COMPUTER_CWD,
+      id: record.id, kind: "computer", local: false, cwd: COMPUTER_CWD,
       exec: runExec,
       readFile: path => run(env => env.readFile(path)),
       head: (path, bytes) => run(env => env.head(path, bytes)),
@@ -224,6 +234,7 @@ export class ComputePool {
       this.deps.links, placement.deviceId, placement.container,
       { ...options, cwd, argv: ["/bin/bash", "-l"] },
       text => this.log(`[pty ${botId.slice(0, 8)}@${placement.deviceName}] ${text.trim()}`),
+      placement.type,
     );
     return { pty, cwd, shell: "bash" };
   }
@@ -234,58 +245,37 @@ export class ComputePool {
     return openRemoteContainerFs(
       this.deps.links, p.deviceId, record.id, p.container, COMPUTER_CWD, COMPUTER_CWD,
       text => this.log(`[fs ${botId.slice(0, 8)}@${p.deviceName}] ${text.trim()}`),
+      p.type,
     );
   }
 
-  /** Returns a tunneled upstream for `PublishedPorts` when this Bot's sandbox runs on a remote compute node. */
   portTarget(botId: string, port: number): { host: string; port: number; connect: () => Duplex } | null {
     const p = this.placement(botId);
     if (!p || p.state !== "running" || !p.ip) return null;
-    return {
-      host: p.ip,
-      port,
-      connect: () => this.deps.links.openTcpTunnel(p.deviceId, p.ip, port),
-    };
+    return { host: p.ip, port, connect: () => this.deps.links.openTcpTunnel(p.deviceId, p.ip, port) };
   }
 
   async listening(botId: string): Promise<Map<number, { loopbackOnly: boolean }> | null> {
-    const p = this.placement(botId);
-    if (!p || p.state !== "running") return null;
-    const stats = await this.deps.links.callRpc<StatsReply>(p.deviceId, "sandbox_stats", { container: p.container }, 15_000).catch(() => null);
-    if (!stats || stats.state !== "running") return null;
-    if (stats.ip && stats.ip !== p.ip) p.ip = stats.ip;
+    const stats = await this.fetchStats(botId);
+    if (!stats) return null;
     return new Map(stats.listening.map(item => [item.port, { loopbackOnly: item.loopbackOnly }]));
   }
 
-  /** Live CPU/RAM usage for a Bot sandbox running on a remote compute node (A109). */
   async usage(botId: string): Promise<ComputerUsage | null> {
-    const p = this.placement(botId);
-    if (!p || p.state !== "running") return null;
-    const stats = await this.deps.links.callRpc<StatsReply>(p.deviceId, "sandbox_stats", { container: p.container }, 15_000).catch(() => null);
-    if (!stats || stats.state !== "running") return null;
-    return { cpu: stats.cpu, memory: stats.memory };
+    const stats = await this.fetchStats(botId);
+    if (!stats) return null;
+    return { cpu: stats.cpu, memory: stats.memory, ...(stats.disk ? { disk: stats.disk } : {}), ...(stats.host ? { host: stats.host } : {}) };
   }
 
-  /** Capacity of the compute node hosting `botId` (or the best online candidate node, A109). */
-  capacity(botId: string, preferredDeviceId?: string): ComputerCapacity | null {
-    const node = this.pickNode(botId, preferredDeviceId);
+  capacity(botId: string, preferredDeviceId?: string, type: ComputerType = "container"): ComputerCapacity | null {
+    const node = this.pickNode(botId, preferredDeviceId, type);
     return node ? { cpus: node.sandbox.cpus, memory: node.sandbox.memory } : null;
   }
 
-  /** Pushes workspace to S3, removes the ephemeral container on the compute node, and clears placement (A109). */
-  async reclaim(botId: string): Promise<boolean> {
-    return this.reset(botId);
-  }
-
-  /** Clears a stopped placement so changing preferred compute node takes effect on the next start (A109). */
-  clearStoppedPlacement(botId: string): void {
+  async updateLimits(botId: string, limits: ComputerLimits): Promise<void> {
     const p = this.placements.get(botId);
-    if (p && p.state !== "running") this.placements.delete(botId);
-  }
-
-  /** Hydrates local `/workspace` from last-synced S3 snapshot when offline browsing is requested (A109). */
-  async hydrateWorkspace(botId: string): Promise<void> {
-    await this.deps.cloud?.ensureLocalWorkspace(botId).catch(() => {});
+    if (!p || p.type !== "vm") return;
+    await this.deps.links.callRpc(p.deviceId, "vm_resize", { domain: p.container, limits }, 30_000).catch(() => {});
   }
 
   async stop(botId: string): Promise<boolean> {
@@ -293,7 +283,9 @@ export class ComputePool {
     if (!p) return false;
     await this.pushWorkspaceNow(botId, p.deviceId).catch(() => {});
     await this.disconnect(botId);
-    await this.deps.links.callRpc(p.deviceId, "sandbox_stop", { container: p.container }, 30_000).catch(() => {});
+    const op = p.type === "vm" ? "vm_stop" : "sandbox_stop";
+    const param = p.type === "vm" ? { domain: p.container } : { container: p.container };
+    await this.deps.links.callRpc(p.deviceId, op, param, 60_000).catch(() => {});
     p.state = "stopped";
     this.deps.changed();
     return true;
@@ -304,7 +296,9 @@ export class ComputePool {
     if (!p) return false;
     await this.pushWorkspaceNow(botId, p.deviceId).catch(() => {});
     await this.disconnect(botId);
-    await this.deps.links.callRpc(p.deviceId, "sandbox_remove", { botId, container: p.container, removeWorkspace: false }, 30_000).catch(() => {});
+    const op = p.type === "vm" ? "vm_remove" : "sandbox_remove";
+    const param = p.type === "vm" ? { botId, domain: p.container, removeWorkspace: false } : { botId, container: p.container, removeWorkspace: false };
+    await this.deps.links.callRpc(p.deviceId, op, param, 60_000).catch(() => {});
     this.placements.delete(botId);
     this.deps.changed();
     return true;
@@ -315,38 +309,46 @@ export class ComputePool {
     if (!p) return false;
     if (keepFiles) await this.pushWorkspaceNow(botId, p.deviceId).catch(() => {});
     await this.disconnect(botId);
-    await this.deps.links.callRpc(p.deviceId, "sandbox_remove", { botId, container: p.container, removeWorkspace: !keepFiles }, 30_000).catch(() => {});
+    const op = p.type === "vm" ? "vm_remove" : "sandbox_remove";
+    const param = p.type === "vm" ? { botId, domain: p.container, removeWorkspace: !keepFiles } : { botId, container: p.container, removeWorkspace: !keepFiles };
+    await this.deps.links.callRpc(p.deviceId, op, param, 60_000).catch(() => {});
     this.placements.delete(botId);
     this.deps.changed();
     return true;
   }
 
-  /** Forces an immediate direct compute-node → S3 workspace push if cloud storage is active. */
+  reclaim(botId: string): Promise<boolean> { return this.reset(botId); }
+  clearStoppedPlacement(botId: string): void {
+    const p = this.placements.get(botId);
+    if (p && p.state !== "running") this.placements.delete(botId);
+  }
+  async hydrateWorkspace(botId: string): Promise<void> {
+    await this.deps.cloud?.ensureLocalWorkspace(botId).catch(() => {});
+  }
+
+  /** Forces an immediate direct compute-node → S3 workspace push (exporting VM `/workspace` first when type === "vm"). */
   async pushWorkspaceNow(botId: string, deviceId?: string): Promise<boolean> {
     const timer = this.pushTimers.get(botId);
     if (timer) { clearTimeout(timer); this.pushTimers.delete(botId); }
     const cloud = this.deps.cloud;
-    const targetDevice = deviceId ?? this.placements.get(botId)?.deviceId;
+    const p = this.placements.get(botId);
+    const targetDevice = deviceId ?? p?.deviceId;
     if (!cloud || !targetDevice || !this.deps.links.online(targetDevice)) return false;
 
+    if (p?.type === "vm" && p.state === "running") {
+      await this.deps.links.callRpc(targetDevice, "vm_sync_out", { botId, domain: p.container }, 120_000).catch(() => {});
+    }
     const plan = await this.deps.links.callRpc<PushPlanReply>(targetDevice, "workspace_push_plan", { botId }, 30_000);
     const signed = await cloud.presignWorkspacePush(botId, plan.digest, plan.files);
     if (!signed || !signed.changed) return false;
 
     const pushed = await this.deps.links.callRpc<{ rev: number; digest: string; uploadedBlobs: number }>(targetDevice, "workspace_push_exec", {
-      botId,
-      rev: signed.rev,
-      manifestKey: signed.manifestKey,
-      manifestUrl: signed.manifestUrl,
-      blobPuts: signed.blobPuts,
-      keyBase64: signed.keyBase64,
+      botId, rev: signed.rev, manifestKey: signed.manifestKey, manifestUrl: signed.manifestUrl,
+      blobPuts: signed.blobPuts, keyBase64: signed.keyBase64,
     }, 120_000);
 
     await cloud.commitRemoteWorkspacePush(botId, {
-      rev: pushed.rev,
-      digest: pushed.digest,
-      manifestKey: signed.manifestKey,
-      uploadedHashes: Object.keys(signed.blobPuts),
+      rev: pushed.rev, digest: pushed.digest, manifestKey: signed.manifestKey, uploadedHashes: Object.keys(signed.blobPuts),
     });
     this.log(`direct S3 workspace push for ${botId.slice(0, 8)}: rev=${pushed.rev}, blobs=${pushed.uploadedBlobs}`);
     return true;
@@ -358,20 +360,28 @@ export class ComputePool {
     await Promise.all([...this.connections.keys()].map(botId => this.disconnect(botId)));
   }
 
-  private async pullWorkspaceToNode(botId: string, deviceId: string): Promise<void> {
+  private async fetchStats(botId: string): Promise<StatsReply | null> {
+    const p = this.placement(botId);
+    if (!p || p.state !== "running") return null;
+    const op = p.type === "vm" ? "vm_stats" : "sandbox_stats";
+    const param = p.type === "vm" ? { domain: p.container } : { container: p.container };
+    const stats = await this.deps.links.callRpc<StatsReply>(p.deviceId, op, param, 25_000).catch(() => null);
+    if (!stats || stats.state !== "running") return null;
+    if (stats.ip && stats.ip !== p.ip) p.ip = stats.ip;
+    return stats;
+  }
+
+  private async pullWorkspaceToNode(botId: string, deviceId: string): Promise<boolean> {
     const cloud = this.deps.cloud;
-    if (!cloud) return;
+    if (!cloud) return false;
     const signed = await cloud.presignWorkspacePull(botId);
-    if (!signed) return;
+    if (!signed) return false;
     const res = await this.deps.links.callRpc<{ skipped: boolean; rev: number; recovered: number }>(deviceId, "workspace_pull", {
-      botId,
-      rev: signed.rev,
-      manifestKey: signed.manifestKey,
-      manifestUrl: signed.manifestUrl,
-      blobGets: signed.blobGets,
-      keyBase64: signed.keyBase64,
+      botId, rev: signed.rev, manifestKey: signed.manifestKey, manifestUrl: signed.manifestUrl,
+      blobGets: signed.blobGets, keyBase64: signed.keyBase64,
     }, 120_000);
     if (!res.skipped) this.log(`direct S3 workspace pull for ${botId.slice(0, 8)} → node: rev=${res.rev}${res.recovered ? `, recovered=${res.recovered}` : ""}`);
+    return !res.skipped;
   }
 
   private scheduleWorkspacePush(botId: string, deviceId: string): void {

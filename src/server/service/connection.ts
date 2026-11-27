@@ -43,7 +43,8 @@ export class ConnectionService {
   }
   info(): ConnectionInfo {
     const listening = this.listening, material = this.material;
-    const addresses = listening && material ? lanAddresses(listening.host).map(address => `https://${address.includes(":") ? `[${address}]` : address}:${listening.port}`) : [];
+    const suffix = listening && listening.port === 443 ? "" : `:${listening?.port}`;
+    const addresses = listening && material ? lanAddresses(listening.host).map(address => `https://${address.includes(":") ? `[${address}]` : address}${suffix}`) : [];
     return { https: !!material, allowHttp: this.allowHttp(), addresses, fingerprint: material?.fingerprint ?? null, fingerprintSha1: material?.fingerprintSha1 ?? null,
       ports: this.portRange() };
   }

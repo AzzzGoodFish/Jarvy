@@ -31,16 +31,20 @@ const reachable = () => Object.entries(networkInterfaces()).filter(([name]) => !
   .flatMap(([name, list]) => (list ?? []).filter(item => !item.internal && !TUNNEL.test(item.address) && (item.family === "IPv4" || !item.address.startsWith("fe80")))
     .map(item => ({ address: item.address, order: rank(name, item.family) })))
   .sort((a, b) => a.order - b.order).map(item => item.address);
+/** Additional public hostnames or IPs (comma-separated, e.g. a cloud VPS EIP or domain behind NAT) to include in
+ * Jarvy's self-signed server certificate and advertise in Settings → Network. */
+const extraHosts = () => (process.env.JARVY_PUBLIC_HOST ?? process.env.JARVY_TLS_HOSTS ?? "")
+  .split(",").map(s => s.trim()).filter(Boolean);
 /** Addresses other devices may use to reach this machine. */
 export function lanAddresses(host: string): string[] {
-  if (host !== "0.0.0.0" && host !== "::") return isLoopbackHost(host) ? [] : [host];
-  return reachable();
+  if (host !== "0.0.0.0" && host !== "::") return isLoopbackHost(host) ? extraHosts() : [...new Set([...extraHosts(), host])];
+  return [...new Set([...extraHosts(), ...reachable()])];
 }
 /** Every name and address the server may be reached at: this machine by name, this machine itself, its LAN addresses,
  * and the host it was told to listen on. */
 function coveredNames(host: string): string[] {
   const machine = hostname().toLowerCase(), label = /^[a-z0-9-]+$/.test(machine) ? [machine, `${machine}.local`] : [];
-  return [...new Set([...label, "localhost", "127.0.0.1", "::1", ...reachable(), ...(host === "0.0.0.0" || host === "::" ? [] : [host])])];
+  return [...new Set([...extraHosts(), ...label, "localhost", "127.0.0.1", "::1", ...reachable(), ...(host === "0.0.0.0" || host === "::" ? [] : [host])])];
 }
 /** Addresses compared by their bytes: a certificate lists ::1 as 0:0:0:0:0:0:0:1. */
 const canonical = (entry: string) => ipBytes(entry)?.toString("hex") ?? entry.toLowerCase();

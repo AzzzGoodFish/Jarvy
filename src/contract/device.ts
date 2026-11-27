@@ -8,9 +8,17 @@ export const DEVICE_DAEMON_PATH = "/api/devices/daemon";
 /** Where the command-line client is served, one file, for Node 22 or later. */
 export const DEVICE_CONNECTOR_PATH = "/api/devices/connector.mjs";
 
-/** Sandbox compute capacity advertised by a `jarvy client --sandbox` compute node (A108). */
+/** Sandbox compute capacity advertised by a `jarvy client --sandbox` compute node (A108, A110). */
 export interface SandboxNodeInfo {
   docker: boolean;
+  /** Whether this compute node can host KVM/libvirt Linux VM sandboxes (A110). */
+  vm?: boolean;
+  /** Diagnostic reason when KVM/libvirt is unavailable on this compute node. */
+  vmReason?: string;
+  /** Shared VM base template tag when `vm` is true. */
+  vmImage?: string;
+  /** Number of currently running remote VM sandboxes on this node. */
+  activeVms?: number;
   cpus: number;
   memory: number;
   image: string;
@@ -40,7 +48,7 @@ export type DeviceToJarvy =
 export type JarvyToDevice =
   | { t: "welcome"; id: string; name: string; protocol: number }
   | { t: "error"; code: "protocol"; protocol: number }
-  | { t: "open"; ch: number; args: string[]; bot?: string; container?: string }
+  | { t: "open"; ch: number; args: string[]; bot?: string; container?: string; sandboxKind?: "container" | "vm" }
   | { t: "pty_open"; ch: number; cols: number; rows: number; cwd: string; argv?: string[]; env?: Record<string, string> }
   | { t: "pty_resize"; ch: number; cols: number; rows: number }
   | { t: "rpc"; id: string; op: string; params?: Record<string, unknown> }

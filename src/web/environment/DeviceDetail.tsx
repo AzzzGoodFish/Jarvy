@@ -49,9 +49,17 @@ export function DeviceDetail({ device, bots, onChanged, onBotChanged, onDeleted 
     <div className="jv-list jv-machine-detail">
       {device.sandbox ? <>
         <div className="jv-list-row jv-static-row jv-env-fact">
-          <span>{t("devices.poolSandboxes")}</span>
-          <code>{device.sandbox.activeContainers} / {device.sandbox.maxContainers}</code>
+          <span>{t("devices.poolRuntimes")}</span>
+          <code>{[device.sandbox.docker ? "Docker" : null, device.sandbox.vm ? "KVM" : null].filter(Boolean).join(" · ") || "—"}</code>
         </div>
+        <div className="jv-list-row jv-static-row jv-env-fact">
+          <span>{t("devices.poolSandboxes")}</span>
+          <code>{device.sandbox.activeContainers + (device.sandbox.activeVms ?? 0)} / {device.sandbox.maxContainers}</code>
+        </div>
+        {device.sandbox.vm && <div className="jv-list-row jv-static-row jv-env-fact">
+          <span>{t("devices.poolVms")}</span>
+          <code>{device.sandbox.activeVms ?? 0}{device.sandbox.vmImage ? ` · ${device.sandbox.vmImage}` : ""}</code>
+        </div>}
         <div className="jv-list-row jv-static-row jv-env-fact">
           <span>{t("devices.poolCapacity")}</span>
           <span className="jv-env-value">{t("environment.limits.machine", { cpus: device.sandbox.cpus, memory: short(device.sandbox.memory / GB, 1) })}</span>

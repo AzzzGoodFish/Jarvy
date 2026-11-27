@@ -145,7 +145,7 @@ export function Environments({ active, bots, statuses, adding, terminalVersion =
       : { kind: "ready" }
     : { kind: "ready" };
 
-  const filesAvailability: TerminalAvailability = bot?.environment.computer?.type === "container"
+  const filesAvailability: TerminalAvailability = bot?.environment.computer && (bot.environment.computer.type === "container" || bot.environment.computer.localVm === false)
     ? { kind: "ready" }
     : availability;
 

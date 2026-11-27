@@ -181,7 +181,7 @@ export class S3Client {
     const res = await fetch(url, {
       method,
       headers,
-      ...(body ? { body: new Uint8Array(body) } : {}),
+      ...(body ? { body: new Uint8Array(body.buffer as ArrayBuffer, body.byteOffset, body.byteLength) } : {}),
       ...(options.signal ? { signal: options.signal } : {}),
     });
     return res;

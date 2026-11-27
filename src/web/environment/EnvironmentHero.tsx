@@ -45,8 +45,10 @@ export function EnvironmentHero({
     showHostActions = allowsHostAccess(device);
     disabledTerminal = state !== "online";
     disabledFiles = state !== "online";
-    if (device.sandbox?.docker) {
-      specs.push({ label: t("devices.poolSandboxes"), value: `${device.sandbox.activeContainers} / ${device.sandbox.maxContainers}`, mono: true });
+    if (device.sandbox) {
+      const runtimes = [device.sandbox.docker ? "Docker" : null, device.sandbox.vm ? "KVM" : null].filter(Boolean).join(" · ");
+      if (runtimes) specs.push({ label: t("devices.poolRuntimes"), value: runtimes, mono: true });
+      specs.push({ label: t("devices.poolSandboxes"), value: `${device.sandbox.activeContainers + (device.sandbox.activeVms ?? 0)} / ${device.sandbox.maxContainers}`, mono: true });
       specs.push({ label: t("devices.poolCapacity"), value: t("environment.limits.machine", { cpus: device.sandbox.cpus, memory: short(device.sandbox.memory / GB, 1) }) });
       if (device.sandbox.image) specs.push({ label: t("environment.image"), value: device.sandbox.image, mono: true });
     }
@@ -76,13 +78,13 @@ export function EnvironmentHero({
       : "muted";
     pillLabel = t(STATE[computer.state]);
     summary = computer.computeNode
-      ? `${t("environment.type.container")} · ${computer.computeNode.name}`
+      ? `${t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container")} · ${computer.computeNode.name}`
       : t(computer.type === "vm" ? "environment.type.vm" : "environment.type.container");
-    if (computer.type === "container") roleBadge = t("environment.workspaceReadyBadge");
+    if (computer.type === "container" || computer.localVm === false) roleBadge = t("environment.workspaceReadyBadge");
     filesButtonLabel = t("envs.openWorkspace");
     disabledTerminal = computer.state === "unavailable";
-    // Container sandboxes can always browse `/workspace` (local cache or last-synced S3 snapshot) even offline (A106, A109).
-    disabledFiles = computer.type === "vm" && computer.state === "unavailable";
+    // Container and remote-VM sandboxes can always browse `/workspace` (local cache or last-synced S3 snapshot) even offline (A106, A109, A110).
+    disabledFiles = computer.type === "vm" && computer.localVm !== false && computer.state === "unavailable";
     if (computer.computeNode) specs.push({ label: t("environment.computeHost"), value: computer.computeNode.name });
     if (computer.container) specs.push({ label: t(computer.type === "vm" ? "environment.vm" : "environment.container"), value: computer.container, mono: true });
     if (computer.mount) specs.push({ label: t("environment.mount"), value: computer.mount, mono: true });

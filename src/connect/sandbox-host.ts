@@ -3,6 +3,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { cpus as osCpus, totalmem } from "node:os";
 import { dirname, join } from "node:path";
 import type { SandboxNodeInfo } from "../contract/device.js";
+import { VmHost } from "./vm-host.js";
 import {
   pullDirectWorkspace, pushDirectWorkspace, readLocalWsMeta, scanDirectWorkspace,
 } from "./workspace-direct.js";
@@ -50,6 +51,7 @@ export class SandboxHost {
   private readonly log: (text: string) => void;
   private readonly tracked = new Map<string, TrackedSandbox>(); // container -> tracked
   private readonly ownedIps = new Map<string, string>(); // container -> ip
+  private readonly vmHost: VmHost;
   private daemonDir = "";
   private resolvedImage = "";
   private capacity = { cpus: osCpus().length, memory: totalmem() };
@@ -63,23 +65,26 @@ export class SandboxHost {
     this.idlePauseMs = Math.max(60_000, options.idlePauseMs ?? 30 * 60_000);
     this.idleReclaimMs = Math.max(this.idlePauseMs, options.idleReclaimMs ?? 24 * 60 * 60_000);
     this.log = options.log ?? (text => console.log(`[sandbox-node] ${text}`));
+    this.vmHost = new VmHost(options.baseDir, this.log, () => this.options.onStateChanged?.(this.info()));
   }
 
-  /** Probes Docker, resolves default image, prepares cache directories, and starts idle reaper. */
+  /** Probes Docker and KVM/libvirt, resolves default images, prepares cache directories, and starts idle reaper. */
   async probe(daemonBinaryPath: string): Promise<SandboxNodeInfo> {
     this.daemonDir = dirname(daemonBinaryPath);
+    await this.prepareCaches().catch(() => {});
     try {
       await dockerExec(["version", "--format", "{{.Server.Version}}"], 10_000);
       const info = (await dockerExec(["info", "--format", "{{.NCPU}} {{.MemTotal}}"], 10_000)).split(" ").map(Number);
       if (info[0] && info[1]) this.capacity = { cpus: info[0], memory: info[1] };
       this.resolvedImage = await this.pickDefaultImage();
       this.dockerReady = true;
-      await this.prepareCaches();
       this.startReaper();
     } catch (error) {
       this.dockerReady = false;
       this.log(`Docker unavailable for --sandbox mode: ${error instanceof Error ? error.message : String(error)}`);
     }
+    const vmRes = await this.vmHost.probe(daemonBinaryPath);
+    if (vmRes.available) this.log(`KVM/libvirt VM sandboxes ready (template=${vmRes.image ?? "default"})`);
     return this.info();
   }
 
@@ -88,6 +93,10 @@ export class SandboxHost {
     for (const item of this.tracked.values()) if (item.state === "running") active++;
     return {
       docker: this.dockerReady,
+      vm: this.vmHost.available,
+      ...(this.vmHost.unavailableReason ? { vmReason: this.vmHost.unavailableReason } : {}),
+      ...(this.vmHost.image ? { vmImage: this.vmHost.image } : {}),
+      activeVms: this.vmHost.activeCount,
       cpus: this.capacity.cpus,
       memory: this.capacity.memory,
       image: this.resolvedImage,
@@ -96,13 +105,19 @@ export class SandboxHost {
     };
   }
 
-  /** Security guard: returns true ONLY if `host` is an IP of a sandbox container managed by this node. */
+  /** Security guard: returns true ONLY if `host` is an IP of a sandbox container or VM managed by this node. */
   isAllowedTunnelHost(host: string): boolean {
     for (const ip of this.ownedIps.values()) if (ip && ip === host) return true;
-    return false;
+    return this.vmHost.isOwnedIp(host);
   }
 
-  markChannel(container: string, delta: 1 | -1): void {
+  /** Spawns `/usr/local/bin/jarvy-pi-env <args>` inside a managed KVM VM over SSH (A110). */
+  spawnVmDaemon(domain: string, args: string[]) {
+    return this.vmHost.spawnDaemon(domain, args);
+  }
+
+  markChannel(container: string, delta: 1 | -1, kind: "container" | "vm" = "container"): void {
+    if (kind === "vm") { this.vmHost.markChannel(container, delta); return; }
     const item = this.tracked.get(container);
     if (!item) return;
     item.activeChannels = Math.max(0, item.activeChannels + delta);
@@ -118,12 +133,45 @@ export class SandboxHost {
     if (!this.dockerReady && op.startsWith("sandbox_")) {
       throw new Error("Docker is not available on this compute node");
     }
+    if (!this.vmHost.available && op.startsWith("vm_")) {
+      throw new Error(`KVM/libvirt VM sandboxes are not available on this compute node (${this.vmHost.unavailableReason ?? "unavailable"})`);
+    }
     switch (op) {
       case "sandbox_ensure": return this.ensure(params);
       case "sandbox_stop": return this.stopContainer(String(params.container ?? ""));
       case "sandbox_pause": return this.pauseContainer(String(params.container ?? ""));
       case "sandbox_remove": return this.removeContainer(String(params.container ?? ""), Boolean(params.removeWorkspace), String(params.botId ?? ""));
       case "sandbox_stats": return this.stats(String(params.container ?? ""));
+      case "vm_ensure": {
+        const botId = String(params.botId ?? "");
+        const wsDir = this.workspaceDir(botId);
+        await mkdir(wsDir, { recursive: true, mode: 0o700 });
+        const limits = params.limits && typeof params.limits === "object" ? params.limits as { memory?: number | null; cpus?: number | null } : undefined;
+        return this.vmHost.ensure({
+          botId, domain: String(params.domain ?? `jarvy-vm-${botId.slice(0, 12)}`),
+          limits, localWsDir: wsDir, importWorkspace: Boolean(params.importWorkspace),
+        });
+      }
+      case "vm_stop": return this.vmHost.stop(String(params.domain ?? ""));
+      case "vm_remove": {
+        const botId = String(params.botId ?? "");
+        return this.vmHost.remove(String(params.domain ?? ""), Boolean(params.removeWorkspace), botId ? this.workspaceDir(botId) : undefined);
+      }
+      case "vm_resize": {
+        const limits = params.limits && typeof params.limits === "object" ? params.limits as { memory?: number | null; cpus?: number | null } : {};
+        return this.vmHost.resize(String(params.domain ?? ""), limits);
+      }
+      case "vm_stats": return this.vmHost.stats(String(params.domain ?? ""));
+      case "vm_sync_in": {
+        const botId = String(params.botId ?? "");
+        await this.vmHost.syncIn(String(params.domain ?? ""), this.workspaceDir(botId));
+        return { ok: true };
+      }
+      case "vm_sync_out": {
+        const botId = String(params.botId ?? "");
+        const exported = await this.vmHost.syncOut(String(params.domain ?? ""), this.workspaceDir(botId));
+        return { ok: true, exported };
+      }
       case "workspace_push_plan": return this.workspacePlan(String(params.botId ?? ""));
       case "workspace_push_exec": return this.workspacePush(params);
       case "workspace_pull": return this.workspacePull(params);

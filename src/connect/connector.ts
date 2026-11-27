@@ -111,7 +111,7 @@ export interface ConnectorOptions {
  * computer, or a Jarvy that speaks another protocol, stops it. */
 export class Connector {
   private socket: WebSocket | null = null;
-  private readonly daemons = new Map<number, { child: ChildProcess; bot: string; container?: string }>();
+  private readonly daemons = new Map<number, { child: ChildProcess; bot: string; container?: string; sandboxKind?: "container" | "vm" }>();
   private readonly ptys = new Map<number, WinPtyProcess>();
   private readonly tunnels = new Map<number, NetSocket>();
   private stopped = false;
@@ -163,7 +163,8 @@ export class Connector {
         ...(this.options.capabilities ?? []),
         ...(!this.options.disableHost ? ["host"] : ["sandbox-only"]),
         ...(!this.options.disableHost && process.platform === "win32" ? ["pty"] : []),
-        ...(sandboxInfo?.docker ? ["sandbox"] : []),
+        ...(sandboxInfo?.docker || sandboxInfo?.vm ? ["sandbox"] : []),
+        ...(sandboxInfo?.vm ? ["vm"] : []),
       ])];
       this.send({ t: "hello", protocol: DEVICE_PROTOCOL, platform: process.platform, arch: process.arch, home: homedir(), hostname: hostname(),
         shells: findShells(), client: this.options.client, capabilities, paused: this.paused, ...(sandboxInfo ? { sandbox: sandboxInfo } : {}) });
@@ -183,7 +184,7 @@ export class Connector {
       try { message = JSON.parse(data.toString("utf8")) as JarvyToDevice; } catch { return; }
       if (message.t === "welcome") { this.id = message.id; this.name = message.name; this.report(); }
       else if (message.t === "error" && message.code === "protocol") { this.stopped = true; this.options.onStatus?.({ state: "outdated", protocol: message.protocol }); }
-      else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "", message.container);
+      else if (message.t === "open") this.run(program, message.ch, message.args, message.bot ?? "", message.container, message.sandboxKind);
       else if (message.t === "pty_open") void this.runPty(message);
       else if (message.t === "pty_resize") this.ptys.get(message.ch)?.resize(message.cols, message.rows);
       else if (message.t === "rpc") void this.runRpc(message);
@@ -210,25 +211,33 @@ export class Connector {
     this.timer = setTimeout(() => void this.connect(), this.wait);
     this.wait = Math.min(this.wait * 2, 30_000);
   }
-  /** Runs the daemon for one channel (on the host, or inside a remote sandbox container via `docker exec`). */
-  private run(program: string, ch: number, args: string[], bot: string, container?: string): void {
+  /** Runs the daemon for one channel (on the host, inside a remote Docker container, or inside a remote KVM VM via SSH). */
+  private run(program: string, ch: number, args: string[], bot: string, container?: string, sandboxKind: "container" | "vm" = "container"): void {
     if (this.paused) { this.send({ t: "exit", ch, code: null, error: "paused" }); return; }
     if (!container && this.options.disableHost) { this.send({ t: "exit", ch, code: null, error: "host_disabled" }); return; }
     if (container && !this.options.sandboxHost) { this.send({ t: "exit", ch, code: null, error: "sandbox_disabled" }); return; }
-    const child = container
-      ? spawn("docker", ["exec", "-i", container, "/opt/jarvy/pi-env", ...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
-      : spawn(program, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, cwd: homedir() });
-    if (container) this.options.sandboxHost?.markChannel(container, 1);
-    this.daemons.set(ch, { child, bot, ...(container ? { container } : {}) });
+    let child: ChildProcess;
+    try {
+      child = container
+        ? sandboxKind === "vm"
+          ? this.options.sandboxHost!.spawnVmDaemon(container, args)
+          : spawn("docker", ["exec", "-i", container, "/opt/jarvy/pi-env", ...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
+        : spawn(program, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, cwd: homedir() });
+    } catch (error) {
+      this.send({ t: "exit", ch, code: null, error: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+    if (container) this.options.sandboxHost?.markChannel(container, 1, sandboxKind);
+    this.daemons.set(ch, { child, bot, ...(container ? { container, sandboxKind } : {}) });
     this.report();
-    child.stdout.on("data", (chunk: Buffer) => { const head = Buffer.alloc(4); head.writeUInt32BE(ch); this.socket?.send(Buffer.concat([head, chunk])); });
-    child.stderr.on("data", (chunk: Buffer) => this.options.log?.(`daemon: ${chunk.toString().trim()}`));
-    child.stdin.on("error", () => {});
+    child.stdout?.on("data", (chunk: Buffer) => { const head = Buffer.alloc(4); head.writeUInt32BE(ch); this.socket?.send(Buffer.concat([head, chunk])); });
+    child.stderr?.on("data", (chunk: Buffer) => this.options.log?.(`daemon: ${chunk.toString().trim()}`));
+    child.stdin?.on("error", () => {});
     const done = (code: number | null, error?: string) => {
       const removed = this.daemons.get(ch);
       if (!removed) return;
       this.daemons.delete(ch);
-      if (removed.container) this.options.sandboxHost?.markChannel(removed.container, -1);
+      if (removed.container) this.options.sandboxHost?.markChannel(removed.container, -1, removed.sandboxKind ?? "container");
       this.send({ t: "exit", ch, code, ...(error ? { error } : {}) });
       this.report();
     };

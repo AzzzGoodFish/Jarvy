@@ -67,7 +67,11 @@ export interface ComputerInfo extends ComputerStatus { id: string; type: Compute
   /** Owner's preferred compute node device ID for automatic failover scheduling, or null for automatic (A109). */
   preferredComputeNode?: string | null;
   /** Whether local Docker is usable on the control-plane server itself (A109). */
-  localDocker?: boolean }
+  localDocker?: boolean;
+  /** Whether local KVM/libvirt VMs are usable on the control-plane server itself (A110). */
+  localVm?: boolean;
+  /** Whether at least one online compute node advertises KVM/libvirt VM capability (A110). */
+  remoteVmAvailable?: boolean }
 /** Why this machine can't run VM sandboxes (A101): libvirt/QEMU isn't installed, libvirtd isn't running, this user lacks
  * permission to use libvirt, helper tools (qemu-img / cloud-localds) are missing, there is no KVM, KVM is held by
  * another hypervisor (such as VirtualBox), or something else. */

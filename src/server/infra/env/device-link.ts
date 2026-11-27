@@ -70,10 +70,10 @@ class Link {
   alive = true;
   constructor(readonly id: string, readonly name: string, readonly socket: WebSocket) {}
 
-  open(args: string[], bot: string, relay: Socket, container?: string): number {
+  open(args: string[], bot: string, relay: Socket, container?: string, sandboxKind?: "container" | "vm"): number {
     const ch = this.next++;
     this.channels.set(ch, relay);
-    this.socket.send(JSON.stringify({ t: "open", ch, args, bot, ...(container ? { container } : {}) }));
+    this.socket.send(JSON.stringify({ t: "open", ch, args, bot, ...(container ? { container } : {}), ...(sandboxKind ? { sandboxKind } : {}) }));
     relay.on("data", (chunk: Buffer) => { if (this.socket.readyState === this.socket.OPEN) this.socket.send(frame(ch, chunk)); });
     const done = () => {
       if (!this.channels.delete(ch)) return;
@@ -216,8 +216,8 @@ class Link {
 
 const frame = (ch: number, bytes: Buffer) => { const head = Buffer.alloc(4); head.writeUInt32BE(ch); return Buffer.concat([head, bytes]); };
 
-const RELAY = `const net=require("node:net");const [path,key,device,bot,container,...args]=process.argv.slice(1);
-const s=net.connect(path,()=>{s.write(JSON.stringify({key,device,bot,...(container?{container}:{}),args})+"\\n");process.stdin.pipe(s);s.pipe(process.stdout);});
+const RELAY = `const net=require("node:net");const [path,key,device,bot,container,sandboxKind,...args]=process.argv.slice(1);
+const s=net.connect(path,()=>{s.write(JSON.stringify({key,device,bot,...(container?{container}:{}),...(sandboxKind?{sandboxKind}:{}),args})+"\\n");process.stdin.pipe(s);s.pipe(process.stdout);});
 s.on("error",()=>process.exit(1));s.on("close",()=>process.exit(0));process.stdin.on("end",()=>s.end());`;
 
 export class DeviceLinks {
@@ -241,11 +241,12 @@ export class DeviceLinks {
   hasCapability(id: string, capability: string): boolean { return !!this.links.get(id)?.capabilities.has(capability); }
   sandboxInfo(id: string): SandboxNodeInfo | undefined { return this.links.get(id)?.sandbox; }
 
-  /** Lists all online, non-paused compute nodes capable of hosting remote Docker sandboxes (A108). */
-  sandboxNodes(): Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> {
+  /** Lists all online, non-paused compute nodes capable of hosting remote Docker containers or KVM VMs (A108, A110). */
+  sandboxNodes(kind: "container" | "vm" = "container"): Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> {
     const out: Array<{ id: string; name: string; sandbox: SandboxNodeInfo }> = [];
     for (const link of this.links.values()) {
-      if (link.paused || !link.capabilities.has("sandbox") || !link.sandbox?.docker) continue;
+      if (link.paused || !link.sandbox) continue;
+      if (kind === "vm" ? !link.sandbox.vm : !link.sandbox.docker) continue;
       out.push({ id: link.id, name: link.name, sandbox: link.sandbox });
     }
     return out;
@@ -267,11 +268,11 @@ export class DeviceLinks {
     return link.openTcpTunnel(host, port);
   }
 
-  openConnection(id: string, onLog?: (text: string) => void, container = ""): Connection {
-    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, "", container], ...(onLog ? { onLog } : {}) });
+  openConnection(id: string, onLog?: (text: string) => void, container = "", sandboxKind: "container" | "vm" | "" = ""): Connection {
+    return new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, "", container, sandboxKind], ...(onLog ? { onLog } : {}) });
   }
-  openTerminalConnection(id: string, onLog?: (text: string) => void, container = ""): Connection {
-    return this.openConnection(id, onLog, container);
+  openTerminalConnection(id: string, onLog?: (text: string) => void, container = "", sandboxKind: "container" | "vm" | "" = ""): Connection {
+    return this.openConnection(id, onLog, container, sandboxKind);
   }
   openNativePty(id: string, options: PtyOpenOptions): PtyHandle | null {
     const link = this.links.get(id);
@@ -289,14 +290,14 @@ export class DeviceLinks {
   }
 
   environment(id: string, bot: string, directory: string, temp: string, onLog?: (text: string) => void): WorkEnvironment {
-    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot, ""], ...(onLog ? { onLog } : {}) });
+    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot, "", ""], ...(onLog ? { onLog } : {}) });
     return overDurable(id, "device", new RemoteExecutionEnv({ connection, id: `device:${id}`, cwd: directory }), {
       passEnv: false, temp, close: () => connection.close() });
   }
 
-  /** Opens a `WorkEnvironment` inside a remote sandbox container on compute node `id` (A108). */
-  remoteContainerEnvironment(id: string, envId: string, container: string, bot: string, cwd: string, onLog?: (text: string) => void): WorkEnvironment {
-    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot, container], ...(onLog ? { onLog } : {}) });
+  /** Opens a `WorkEnvironment` inside a remote sandbox container or KVM VM on compute node `id` (A108, A110). */
+  remoteContainerEnvironment(id: string, envId: string, container: string, bot: string, cwd: string, onLog?: (text: string) => void, sandboxKind: "container" | "vm" = "container"): WorkEnvironment {
+    const connection = new Connection({ command: [process.execPath, "-e", RELAY, this.path, this.key, id, bot, container, sandboxKind], ...(onLog ? { onLog } : {}) });
     return overDurable(envId, "computer", new RemoteExecutionEnv({ connection, id: `remote-computer:${id}:${container}`, cwd }), {
       passEnv: false, close: () => connection.close() });
   }
@@ -369,12 +370,13 @@ export class DeviceLinks {
       if (end < 0) { if (head.length > 64 * 1024) socket.destroy(); return; }
       socket.off("data", first);
       socket.pause();
-      let request: { key?: string; device?: string; bot?: unknown; container?: unknown; args?: unknown };
+      let request: { key?: string; device?: string; bot?: unknown; container?: unknown; sandboxKind?: unknown; args?: unknown };
       try { request = JSON.parse(head.subarray(0, end).toString("utf8")) as typeof request; } catch { socket.destroy(); return; }
       const link = typeof request.device === "string" ? this.links.get(request.device) : undefined;
       if (!same(request.key, this.key) || !link || link.paused || !Array.isArray(request.args) || !request.args.every(arg => typeof arg === "string")) { socket.destroy(); return; }
       const container = typeof request.container === "string" && request.container ? request.container : undefined;
-      const ch = link.open(request.args as string[], typeof request.bot === "string" ? request.bot.slice(0, 100) : "", socket, container);
+      const sandboxKind = request.sandboxKind === "vm" ? "vm" : request.sandboxKind === "container" ? "container" : undefined;
+      const ch = link.open(request.args as string[], typeof request.bot === "string" ? request.bot.slice(0, 100) : "", socket, container, sandboxKind);
       const rest = head.subarray(end + 1);
       if (rest.length) link.socket.send(frame(ch, rest));
       socket.resume();
@@ -412,6 +414,10 @@ function describe(message: Partial<DeviceHello>): DeviceHello {
     ...(sb && typeof sb.docker === "boolean" ? {
       sandbox: {
         docker: sb.docker,
+        ...(typeof sb.vm === "boolean" ? { vm: sb.vm } : {}),
+        ...(typeof sb.vmReason === "string" && sb.vmReason ? { vmReason: string(sb.vmReason, 40) } : {}),
+        ...(typeof sb.vmImage === "string" && sb.vmImage ? { vmImage: string(sb.vmImage, 120) } : {}),
+        ...(typeof sb.activeVms === "number" ? { activeVms: Number(sb.activeVms) || 0 } : {}),
         cpus: Number(sb.cpus) || 0,
         memory: Number(sb.memory) || 0,
         image: string(sb.image, 120),
