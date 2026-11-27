@@ -2,6 +2,15 @@
 
 All notable changes to Jarvy. Versions follow [semantic versioning](https://semver.org/) as used before 1.0: a patch release only fixes bugs; a minor release adds features or upgrades the database.
 
+## 0.21.1 — 2026-11-27
+
+The database stays at v37 when upgrading from 0.21.0. A server restart ends open terminal sessions.
+
+### Changed
+
+- **Unified Server and Desktop updates in Settings → About.** When running inside the desktop client, **Settings → About** now displays both the server and desktop client versions, checks both in parallel, and offers a one-click **Update server & desktop** action (or **Update & restart desktop** when only the desktop client is behind), instead of updating only the server while leaving the desktop shell on the previous version.
+- Updated the English and Chinese READMEs with theme-aware SVG architecture diagrams and the v0.21 CLI, security, and distributed compute reference.
+
 ## 0.21.0 — 2026-11-27
 
 **Before upgrading:** let active Bot work finish and back up the data directory and the separate master key. The first start upgrades the database from v36 to v37 to store persistent login throttling and security audit events. Existing chats, secrets, environments, and grants stay in place. A server restart ends open terminal sessions. To roll back, restore the pre-upgrade backup with the previous version.
