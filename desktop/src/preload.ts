@@ -20,5 +20,10 @@ if (trusted && window.location.origin === trusted) {
     updateStatus: () => ipcRenderer.invoke("jarvy:update-status"),
     checkUpdate: () => ipcRenderer.invoke("jarvy:update-check"),
     installUpdate: () => ipcRenderer.invoke("jarvy:update-install"),
+    onUpdateProgress: (listener: (status: unknown) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: unknown) => listener(status);
+      ipcRenderer.on("jarvy:update-progress", handler);
+      return () => { ipcRenderer.removeListener("jarvy:update-progress", handler); };
+    },
   });
 }

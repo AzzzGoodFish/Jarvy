@@ -1,0 +1,80 @@
+/* Live update progress timeline (Settings → About) and global persistent corner status pill. */
+
+.jv-upd-card {
+  display: flex; flex-direction: column; gap: var(--ui-space-12);
+  padding: var(--ui-space-12) var(--ui-space-16);
+  border-top: 1px solid var(--ui-border-weak);
+  background: var(--ui-bg-subtle);
+}
+
+.jv-upd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-8); }
+.jv-upd-title { font-size: var(--ui-text-base); font-weight: 600; color: var(--ui-text-primary); }
+.jv-upd-card[data-state="done"] .jv-upd-title { color: var(--ui-text-success); }
+.jv-upd-card[data-state="error"] .jv-upd-title { color: var(--ui-text-danger); }
+.jv-upd-elapsed { font-size: var(--ui-text-xs); font-variant-numeric: tabular-nums; color: var(--ui-text-tertiary); }
+
+.jv-upd-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ui-space-8); }
+.jv-upd-step { display: flex; align-items: flex-start; gap: var(--ui-space-8); }
+.jv-upd-icon { display: grid; place-items: center; flex: none; width: 16px; height: 18px; color: var(--ui-text-tertiary); }
+.jv-upd-icon svg { width: 14px; height: 14px; }
+.jv-upd-step[data-step="active"] .jv-upd-icon { color: var(--ui-text-accent); }
+.jv-upd-step[data-step="done"] .jv-upd-icon { color: var(--ui-text-success); }
+.jv-upd-step[data-step="error"] .jv-upd-icon { color: var(--ui-text-danger); }
+
+.jv-upd-step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--ui-space-4); }
+.jv-upd-step-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-8); min-height: 18px; }
+.jv-upd-step-label { font-size: var(--ui-text-md); font-weight: 500; color: var(--ui-text-primary); }
+.jv-upd-step[data-step="pending"] .jv-upd-step-label { color: var(--ui-text-tertiary); font-weight: 400; }
+.jv-upd-step-meta { font-size: var(--ui-text-xs); font-variant-numeric: tabular-nums; color: var(--ui-text-secondary); white-space: nowrap; }
+.jv-upd-step-detail {
+  margin: 0; font-family: var(--ui-font-mono); font-size: var(--ui-text-xs); line-height: 1.4;
+  color: var(--ui-text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.jv-upd-bar { position: relative; height: 4px; border-radius: var(--ui-radius-full); background: var(--ui-fill-secondary); overflow: hidden; }
+.jv-upd-bar-fill { height: 100%; border-radius: var(--ui-radius-full); background: var(--ui-fill-accent); transition: width 180ms var(--ui-ease-out); }
+.jv-upd-bar-indet { width: 38%; position: relative; animation: jv-upd-slide 1.4s var(--ui-ease-out) infinite; }
+
+.jv-upd-hint { margin: 0; font-size: var(--ui-text-xs); color: var(--ui-text-tertiary); }
+.jv-upd-actions { display: flex; align-items: center; gap: var(--ui-space-8); flex-wrap: wrap; }
+
+/* Global corner progress pill (shown outside Settings → About so users can keep working freely). */
+.jv-upd-pill {
+  position: fixed; right: var(--ui-space-16); bottom: var(--ui-space-16); z-index: 45;
+  display: inline-flex; align-items: center; max-width: min(360px, calc(100vw - 32px));
+  border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-lg);
+  background: var(--ui-bg-elevated); color: var(--ui-text-primary);
+  box-shadow: var(--ui-shadow-md); overflow: hidden;
+}
+.jv-upd-pill-main {
+  display: inline-flex; align-items: center; gap: var(--ui-space-8); min-width: 0;
+  padding: var(--ui-space-8) var(--ui-space-12);
+  border: 0; background: transparent; color: inherit; font: inherit; font-size: var(--ui-text-md); font-weight: 500;
+  cursor: pointer; text-align: left;
+}
+.jv-upd-pill-main:hover { background: var(--ui-fill-ghost-hover); }
+.jv-upd-pill-icon { display: grid; place-items: center; flex: none; color: var(--ui-text-accent); }
+.jv-upd-pill[data-state="done"] .jv-upd-pill-icon { color: var(--ui-text-success); }
+.jv-upd-pill[data-state="error"] .jv-upd-pill-icon { color: var(--ui-text-danger); }
+.jv-upd-pill-icon svg { width: 15px; height: 15px; }
+.jv-upd-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.jv-upd-pill-close {
+  display: grid; place-items: center; flex: none; width: 28px; height: 28px; margin-right: var(--ui-space-4);
+  border: 0; border-radius: var(--ui-radius-sm); background: transparent; color: var(--ui-text-tertiary); cursor: pointer;
+}
+.jv-upd-pill-close:hover { background: var(--ui-fill-ghost-hover); color: var(--ui-text-primary); }
+.jv-upd-pill-close svg { width: 14px; height: 14px; }
+.jv-upd-pill-track { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--ui-fill-secondary); overflow: hidden; }
+
+@keyframes jv-upd-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(280%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jv-upd-bar-indet { animation: none; width: 100%; opacity: 0.45; }
+}
+
+@media (max-width: 620px) {
+  .jv-upd-pill { bottom: 68px; right: var(--ui-space-12); }
+}

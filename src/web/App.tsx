@@ -484,7 +484,7 @@ export function App() {
     </div>
     {cardBot && botCard && <BotCard bot={cardBot} status={statuses[cardBot.id]} connections={connections} anchor={botCard.anchor} onClose={closeBotCard} onMessage={() => void openBot(cardBot.id)} onInfo={() => setInfoBotId(cardBot.id)}/>}
     {settingsTab && <SettingsDialog connections={connections} bots={bots} initialTab={settingsTab} onChanged={refreshConnections} onClose={() => setSettingsTab(null)}/>}
-    <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats}
+    <AppDialogs dialog={dialog} entryMenu={entryMenu} confirm={confirm} preview={preview} infoBot={infoBot} bots={bots} statuses={statuses} chats={chats} aboutOpen={settingsTab === "about"}
       sections={sections} members={members} connections={connections} meId={meId}
       onDialog={setDialog} onEntryMenu={setEntryMenu} onConfirm={setConfirm} onPreview={setPreview} onInfoBot={setInfoBotId} onSettings={setSettingsTab} onAddMachine={() => { setView("envs"); setAddingMachine(true); setMobileNav(false); }}
       onChannelInfo={chat => { openChat(chat); setPane({ kind: "info", page: "main" }); }}

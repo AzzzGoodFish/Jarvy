@@ -1,3 +1,15 @@
+export type DesktopUpdatePhase = "idle" | "checking" | "downloading" | "verifying" | "installing" | "error";
+
+export interface DesktopUpdateProgress {
+  phase: DesktopUpdatePhase;
+  targetVersion: string | null;
+  bytesReceived: number;
+  totalBytes: number | null;
+  bytesPerSec: number | null;
+  startedAt: number | null;
+  error: string | null;
+}
+
 /** Desktop client update state exposed to Settings → About via the preload bridge (A113). */
 export interface DesktopUpdateStatus {
   currentVersion: string;
@@ -5,6 +17,7 @@ export interface DesktopUpdateStatus {
   updateAvailable: boolean;
   releaseUrl: string | null;
   canDirectInstall: boolean;
+  progress?: DesktopUpdateProgress;
 }
 
 /** What the desktop client (A96) gives the page it shows, as `window.jarvyDesktop`, and nothing more: the page gets no
@@ -29,4 +42,6 @@ export interface JarvyDesktop {
   updateStatus?(): Promise<DesktopUpdateStatus>;
   checkUpdate?(): Promise<DesktopUpdateStatus>;
   installUpdate?(): Promise<{ started: boolean; error?: string }>;
+  /** Subscribes to live desktop update download/install progress events; returns an unsubscribe callback. */
+  onUpdateProgress?(listener: (status: DesktopUpdateStatus) => void): () => void;
 }
